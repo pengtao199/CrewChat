@@ -88,6 +88,7 @@ const SettingsSider: React.FC<{ collapsed?: boolean; tooltipEnabled?: boolean }>
     // Build builtin items
     const builtinMap: Record<string, SiderItem> = {
       model: { id: 'model', label: t('settings.model'), icon: <LinkCloud />, path: 'model' },
+      // [crewchat] Agent 编排与 CLI 身体拆成两项，上游只有 agent
       agents: {
         id: 'agents',
         label: t('settings.agentComposer', { defaultValue: 'Agent' }),

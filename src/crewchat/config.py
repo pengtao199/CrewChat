@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     local_password: str = "crewchat"
 
     data_dir: Path = _default_data_dir()
-    agents_dir: Path = Path("agents")
+    agents_dir: Path = Path("config/agents")
 
     @property
     def db_path(self) -> Path:

@@ -13,6 +13,19 @@
   与保留页面无关的部分）
 - 开发期由 Vite proxy 将 `/api` 与 `/ws` 转发到我们的 Python 后端（生产由后端直接服务静态文件）
 
+## 改动过的上游文件
+
+按 `AGENTS/upstream.md`，对上游文件的改动均带 `[crewchat]` 注释，可用 `rg "\[crewchat\]" ui/` 定位：
+
+| 文件 | 改动 |
+| --- | --- |
+| `renderer/components/layout/Router.tsx` | 新增 `/settings/agents` 路由；默认重定向改到它 |
+| `renderer/pages/settings/components/SettingsSider.tsx` | 导航新增 `agents`（Agent 编排），原 `agent` 改名 `cli`（CLI 身体） |
+| `renderer/pages/settings/components/SettingsPageWrapper.tsx` | 同步上一条（上游在此重复定义导航，漏改会导致整页崩溃） |
+
+新增文件（不属于上游）：`vite.config.ts`、`stubs/`、`renderer/pages/settings/AgentComposer/`、
+`renderer/components/settings/SettingsModal/contents/AgentComposerContent.tsx`。
+
 ## 上游同步
 
-如需跟进上游修复，可在本仓库添加 remote 并 cherry-pick 相关提交。
+参考仓库以 sparse clone 放在 `Reference/`（已 gitignore）。升级时按上表逐条重放，不整体覆盖。

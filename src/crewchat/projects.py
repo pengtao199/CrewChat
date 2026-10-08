@@ -10,7 +10,7 @@ from .config import Settings
 
 
 class Project:
-    def __init__(self, id: str, name: str, path: str, agents_dir: str = "agents") -> None:
+    def __init__(self, id: str, name: str, path: str, agents_dir: str = "config/agents") -> None:
         self.id = id
         self.name = name
         self.path = path
@@ -38,7 +38,7 @@ class Project:
             id=str(raw.get("id") or raw.get("name") or "default"),
             name=str(raw.get("name") or raw.get("id") or "default"),
             path=str(raw.get("path") or "."),
-            agents_dir=str(raw.get("agents_dir") or "agents"),
+            agents_dir=str(raw.get("agents_dir") or "config/agents"),
         )
 
 

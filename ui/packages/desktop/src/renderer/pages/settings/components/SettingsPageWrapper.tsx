@@ -48,6 +48,7 @@ export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): 
       icon: <Robot theme='outline' size='16' />,
       path: 'assistants',
     },
+    // [crewchat] 与 SettingsSider 同步：上游此处重复定义导航，漏改会整页崩溃
     agents: {
       id: 'agents',
       label: t('settings.agentComposer', { defaultValue: 'Agent' }),

@@ -22,3 +22,9 @@ chainlit.md
 ui/node_modules/
 ui/dist/
 backend.log
+
+# Reference
+Reference/
+
+# 第三方参考资料（只读，不属于本仓库代码）
+Reference/
