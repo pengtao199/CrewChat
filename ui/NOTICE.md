@@ -23,8 +23,13 @@
 | `renderer/pages/settings/components/SettingsSider.tsx` | 导航新增 `agents`（Agent 编排），原 `agent` 改名 `cli`（CLI 身体） |
 | `renderer/pages/settings/components/SettingsPageWrapper.tsx` | 同步上一条（上游在此重复定义导航，漏改会导致整页崩溃） |
 
-新增文件（不属于上游）：`vite.config.ts`、`stubs/`、`renderer/pages/settings/AgentComposer/`、
-`renderer/components/settings/SettingsModal/contents/AgentComposerContent.tsx`。
+新增文件（不属于上游）：
+
+- `vite.config.ts`、`stubs/`（web 构建与 Electron 隔离）
+- `scripts/generate-i18n-types.js`（取自上游，用于生成 i18n key 类型）
+- `renderer/pages/settings/AgentComposer/{index.tsx,AgentComposerContent.tsx,api.ts,types.ts}`
+- `renderer/components/base/{SettingsCardList,SettingsCardRow,StatusBadge,EmptyState}.tsx`
+- `renderer/components/settings/DataLocationNote.tsx`
 
 ## 上游同步
 

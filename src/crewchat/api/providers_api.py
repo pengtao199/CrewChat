@@ -78,10 +78,22 @@ async def delete_provider(provider_id: str) -> dict[str, Any]:
 
 @router.post("/api/providers/fetch-models")
 async def fetch_models(request: Request) -> dict[str, Any]:
-    """List models from the endpoint itself, so the UI can populate the picker."""
+    """List models from the endpoint itself, so the picker never asks the user to type them.
+
+    Accepts either an existing provider id (the stored key is used server-side, so
+    the browser never needs it) or an explicit base_url/api_key pair while editing.
+    """
     body = await request.json()
-    base_url = str(body.get("base_url") or "").rstrip("/")
-    api_key = str(body.get("api_key") or "")
+    provider_id = str(body.get("provider_id") or "")
+    if provider_id:
+        provider = next((p for p in load_providers(get_settings()) if p.id == provider_id), None)
+        if provider is None:
+            return {"models": [], "success": False, "message": f"端点不存在：{provider_id}"}
+        base_url = provider.base_url.rstrip("/")
+        api_key = provider.api_key
+    else:
+        base_url = str(body.get("base_url") or "").rstrip("/")
+        api_key = str(body.get("api_key") or "")
     if not base_url:
         return {"models": [], "success": False, "message": "缺少 base_url"}
     try:

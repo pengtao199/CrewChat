@@ -36,16 +36,18 @@
 
 ## 共享组件（统一骨架的载体）
 
-以下组件是"改一处全局生效"的关键。**新页面必须复用，不得再复制类名**：
+这些组件已经存在，**新页面必须复用，不得再复制类名**：
 
 | 组件 | 位置 | 作用 |
 | --- | --- | --- |
 | `SettingsPageHeader` | 上游已有 | 标题 + 说明 + 右侧操作 |
-| `SettingsCardList` | `components/base/` | 卡片列表容器（替代被复制 6 次的类名） |
-| `SettingsCardRow` | `components/base/` | 列表行：图标 + 标题 + 副文本 + 右侧操作 |
-| `StatusBadge` | `components/base/` | 统一状态：存在 / 可用 / 被引用 三层语义 |
-| `EmptyState` | `components/base/` | 空态：居中灰字 |
-| `DataLocationNote` | `components/settings/` | 「保存到 → 路径」（我们的领域规范） |
+| `SettingsCardList` | `components/base/SettingsCardList.tsx` | 卡片列表容器（此前同一个类名被复制 6 次） |
+| `SettingsCardRow` | `components/base/SettingsCardRow.tsx` | 列表行：图标 + 标题 + 副文本 + 右侧操作；`onClick` 用 div，操作按钮用 Arco `Button` |
+| `StatusBadge` | `components/base/StatusBadge.tsx` | 四档状态语义词：`ready` / `warning` / `blocked` / `neutral` |
+| `EmptyState` | `components/base/EmptyState.tsx` | 空态：居中灰字 |
+| `DataLocationNote` | `components/settings/DataLocationNote.tsx` | 「保存到 → 路径」，`shared` 标记跨工具共享 |
+
+**迁移状态**：Agent 编排页已全面使用上述组件；`CLI 身体` / `模型` / `技能` / `工具` 四个上游页面仍各自复制类名，**在改动它们时顺带迁移**（不为此单独开任务）。
 
 ## 骨架模板
 

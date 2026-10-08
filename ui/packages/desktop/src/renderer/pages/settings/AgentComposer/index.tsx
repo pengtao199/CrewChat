@@ -5,8 +5,8 @@
  */
 
 import React from 'react';
-import AgentComposerContent from '@/renderer/components/settings/SettingsModal/contents/AgentComposerContent';
-import SettingsPageWrapper from '../components/SettingsPageWrapper';
+import SettingsPageWrapper from '@/renderer/pages/settings/components/SettingsPageWrapper';
+import AgentComposerContent from './AgentComposerContent';
 
 const AgentComposer: React.FC = () => {
   return (
