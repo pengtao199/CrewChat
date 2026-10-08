@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from . import (
     agents_api,
+    chat,
     assistants_api,
     auth,
     conversations,
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     )
     for module in (
         auth,
+        chat,
         conversations,
         providers_api,
         assistants_api,
@@ -100,7 +102,10 @@ def create_app() -> FastAPI:
 
     @app.websocket("/ws")
     async def ws_endpoint(websocket: WebSocket) -> None:
+        from .hub import hub
+
         await websocket.accept()
+        await hub.add(websocket)
         try:
             while True:
                 frame = await websocket.receive_json()
@@ -108,9 +113,11 @@ def create_app() -> FastAPI:
                 if name == "fs":
                     continue
         except WebSocketDisconnect:
-            return
-        except Exception:
-            return
+            pass
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            await hub.remove(websocket)
 
     # ----- unsupported routes ----------------------------------------------
 
