@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .config import Settings
+from .providers import load_providers
 
 _TIMEOUT = 20
 
@@ -94,17 +95,25 @@ def probe_claude() -> Probe:
 
 
 def probe_llm(settings: Settings) -> Probe:
-    host = urlparse(settings.llm_base_url).hostname or "unknown"
+    """The llm body is driven by the brain pool, so availability follows the pool
+    (any provider with a key), not the legacy single-endpoint settings."""
+    pool = load_providers(settings)
+    usable = next((p for p in pool if p.has_key()), None)
+    base_url = usable.base_url if usable else settings.llm_base_url
+    model = usable.model if usable else settings.llm_model
+    has_key = usable is not None or bool(settings.llm_api_key.get_secret_value())
+
+    host = urlparse(base_url).hostname or "unknown"
     probe = Probe(
         id="llm",
         label="OpenAI 兼容端点",
         installed=True,
-        path=settings.llm_base_url,
-        logged_in=bool(settings.llm_api_key.get_secret_value()),
-        auth_method="API key" if settings.llm_api_key.get_secret_value() else None,
+        path=base_url,
+        logged_in=has_key,
+        auth_method="API key" if has_key else None,
+        detail=f"{host} · {provider_name(base_url)}" if has_key else "大脑池里没有带 key 的端点",
     )
-    probe.version = settings.llm_model
-    probe.detail = f"{host} · {provider_name(settings.llm_base_url)}"
+    probe.version = f"{model} ({usable.name})" if usable else model
     return probe
 
 
