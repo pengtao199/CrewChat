@@ -59,7 +59,7 @@ def text_frame(
     content: str,
     turn_id: str | None = None,
     *,
-    replace: bool = False,
+    replace: bool = True,
     status: str | None = "work",
 ) -> dict[str, Any]:
     frame: dict[str, Any] = {
