@@ -11,6 +11,7 @@ from .agents import AgentFactory
 from .orchestrator import Session, drop_session, session_for
 from .overrides import current_settings, save_overrides
 from .projects import Project, get_project, load_projects, save_projects
+from .schema import ensure_schema
 from .providers import load_providers
 from .settings_panel import (
     K_CODEX_MODEL,
@@ -55,7 +56,9 @@ def data_layer() -> SQLAlchemyDataLayer:
 
 @cl.on_app_startup
 async def on_startup() -> None:
-    get_settings().ensure_dirs()
+    settings = get_settings()
+    settings.ensure_dirs()
+    ensure_schema()
 
 
 def _session() -> Session:
@@ -116,7 +119,6 @@ def _desc(row: dict) -> str:
 @cl.on_chat_start
 async def on_start() -> None:
     session = _session()
-    await _push_sidebar(session)
     if not session.specs:
         await cl.Message(
             content=(
@@ -139,7 +141,6 @@ async def refresh_status() -> None:
     await cl.Message(
         content="\n\n".join([env_markdown(), brain_markdown()]), author="system"
     ).send()
-    await _push_sidebar(_session())
 
 
 def _problems(session: Session) -> list[str]:
@@ -197,7 +198,6 @@ async def on_settings_update(values: dict) -> None:
     if payload:
         save_overrides(current_settings(), payload)
 
-    await _push_sidebar(_session())
 
 
 @cl.on_message
@@ -288,24 +288,6 @@ def _sync_tool(tasks: cl.TaskList, states: dict[str, cl.TaskStatus], event: Exec
 def _apply(tasks: cl.TaskList, states: dict[str, cl.TaskStatus]) -> None:
     tasks.tasks = [cl.Task(title=t.title, status=states.get(t.title, t.status)) for t in tasks.tasks]
 
-
-async def _push_sidebar(session: Session) -> None:
-    settings = get_settings()
-    projects = load_projects(settings)
-    active = session.project
-    await cl.ElementSidebar.set_title(f"{active.name}")
-    await cl.ElementSidebar.set_elements(
-        [
-            cl.Text(
-                content="\n\n".join(
-                    [team_markdown(session.health()), env_markdown(), brain_markdown(), capabilities_markdown()]
-                ),
-                name="项目概览",
-                display="side",
-            )
-        ],
-        key=f"crewchat:{active.id}",
-    )
 
 
 @cl.on_feedback

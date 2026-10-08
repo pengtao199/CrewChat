@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     executor_timeout: float = 1800.0
     max_turns: int = 12
 
+    local_password: str = "crewchat"
+
     data_dir: Path = _default_data_dir()
     agents_dir: Path = Path("agents")
 
@@ -50,12 +52,12 @@ class Settings(BaseSettings):
         return self.data_dir / "crewchat.db"
 
     @property
-    def workscope(self) -> Path:
+    def workspace(self) -> Path:
         return self.data_dir / "workspace"
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.workscope.mkdir(parents=True, exist_ok=True)
+        self.workspace.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache
