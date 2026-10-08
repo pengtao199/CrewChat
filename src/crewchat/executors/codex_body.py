@@ -118,7 +118,7 @@ class CodexBody(Executor):
                             text_parts.append(event.item.text)
                             req.emit("delta", text=event.item.text)
                     case TurnCompletedEvent():
-                        req.emit("tool", status="idle")
+                        pass
                     case TurnFailedEvent() as failed:
                         error = getattr(failed.error, "message", None) or str(failed.error)
                     case ThreadErrorEvent() as thread_error:
@@ -151,14 +151,20 @@ class CodexBody(Executor):
                     "tool",
                     tool=item.command,
                     status=item.status,
+                    call_id=item.id,
                 )
             case FileChangeItem():
                 changed = ", ".join(
                     str(getattr(change, "path", change)) for change in (item.changes or [])[:3]
                 )
-                req.emit("tool", tool=f"write {changed}" if changed else "edit files", status=item.status)
+                req.emit(
+                    "tool",
+                    tool=f"write {changed}" if changed else "edit files",
+                    status=item.status,
+                    call_id=item.id,
+                )
             case McpToolCallItem():
-                req.emit("tool", tool=f"{item.server}.{item.tool}", status=item.status)
+                req.emit("tool", tool=f"{item.server}.{item.tool}", status=item.status, call_id=item.id)
             case _:
                 pass
 

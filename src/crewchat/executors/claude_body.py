@@ -79,19 +79,18 @@ class ClaudeBody(Executor):
                                     text_parts.append(block.text)
                                     req.emit("delta", text=block.text)
                                 case ToolUseBlock():
-                                    req.emit("tool", tool=block.name, status="running")
+                                    req.emit("tool", tool=block.name, status="running", call_id=block.id)
                     case UserMessage():
                         blocks = msg.content if isinstance(msg.content, list) else []
                         for block in blocks:
                             if isinstance(block, ToolUseBlock):
-                                req.emit("tool", tool=block.name, status="running")
+                                req.emit("tool", tool=block.name, status="running", call_id=block.id)
                     case TaskProgressMessage():
                         req.emit("notice", text=str(getattr(msg, "task_id", "")))
                     case SystemMessage() if str(msg.subtype).startswith("error"):
                         errors.append(str(msg.data))
                     case ResultMessage():
                         result = msg
-                        req.emit("tool", status="idle")
                     case _:
                         pass
 

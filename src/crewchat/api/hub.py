@@ -102,12 +102,41 @@ def error_frame(conversation_id: str, msg_id: str, message: str) -> dict[str, An
     }
 
 
+_TOOL_STATUS = {
+    "running": "running",
+    "in_progress": "running",
+    "pending": "running",
+    "started": "running",
+    "completed": "completed",
+    "success": "completed",
+    "done": "completed",
+    "failed": "error",
+    "error": "error",
+}
+
+
 def tool_frame(
-    conversation_id: str, msg_id: str, tool: str, status: str, turn_id: str | None = None
+    conversation_id: str,
+    msg_id: str,
+    name: str,
+    status: str,
+    turn_id: str | None = None,
+    call_id: str = "",
 ) -> dict[str, Any]:
+    """One tool invocation.
+
+    The renderer keys tool cards by `call_id` and drops frames without one, so a
+    missing vendor id is filled in here; later frames with the same id update the
+    same card.
+    """
     frame: dict[str, Any] = {
         "type": "tool_call",
-        "data": {"tool": tool, "status": status},
+        "data": {
+            "call_id": call_id or f"{name}-{msg_id}",
+            "name": name,
+            "args": {},
+            "status": _TOOL_STATUS.get(status, "running"),
+        },
         "msg_id": msg_id,
         "conversation_id": conversation_id,
         "created_at": int(time.time() * 1000),

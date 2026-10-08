@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ..core.config import get_settings
@@ -54,7 +54,8 @@ def to_list_item(spec, index: int) -> dict[str, Any]:  # type: ignore[no-untyped
         "description": spec.role or spec.goal or "",
         "description_i18n": {},
         "avatar": spec.emoji or "🤖",
-        "enabled": True,
+        # 真实启用状态：它决定 Guid 页的 agent 芯片是否出现
+        "enabled": spec.enabled,
         "sort_order": index,
         # agent_id 指引擎（身体），与 /api/agents/management 的 id 对齐，
         # 否则上游的「绑定助手」栈永远匹配不到（它按 assistant.agent_id === managedAgent.id 过滤）
@@ -102,7 +103,7 @@ def to_detail(spec, index: int) -> dict[str, Any]:
             "description_i18n": {},
             "avatar": spec.emoji or "🤖",
         },
-        "state": {"enabled": True, "sort_order": index},
+        "state": {"enabled": spec.enabled, "sort_order": index},
         "engine": {
             "agent_id": spec.body,
             "agent": {"type": spec.body, "source": "custom", "acp_backend": spec.body},
@@ -150,6 +151,47 @@ async def get_assistant(assistant_id: str) -> Any:
     if spec is None:
         return JSONResponse({"error": "not_found"}, status_code=404)
     return to_detail(spec, index)
+
+
+@router.patch("/api/assistants/{assistant_id}/state")
+async def set_state(assistant_id: str, request: Request) -> Any:
+    """启停一个 Agent。
+
+    只改文件里的 enabled 字段，其余键原样保留（用户可能手写过额外字段）。
+    """
+    import json
+
+    body = await request.json()
+    if "enabled" not in body:
+        return JSONResponse({"error": "missing_enabled"}, status_code=400)
+
+    spec, index = _find(assistant_id)
+    if spec is None:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    from ..core.config import get_settings
+    from ..core.projects import agents_dir_for
+
+    settings = get_settings()
+    settings.ensure_dirs()
+    directory = agents_dir_for(settings)
+    for candidate in (directory / f"{assistant_id}.jsonc", directory / f"{assistant_id}.json"):
+        if not candidate.exists():
+            continue
+        try:
+            raw = json.loads(candidate.read_text(encoding="utf-8"))
+        except ValueError:
+            raw = {}
+        raw["enabled"] = bool(body["enabled"])
+        candidate.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        break
+
+    session_for("__assistants__").reload()
+    session_for("__agents__").reload()
+    spec, index = _find(assistant_id)
+    if spec is None:
+        return JSONResponse({"error": "reload_failed"}, status_code=500)
+    return to_list_item(spec, index)
 
 
 @router.get("/api/assistants/{assistant_id}/rules")

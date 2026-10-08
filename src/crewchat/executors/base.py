@@ -17,6 +17,8 @@ class ExecEvent:
     text: str = ""
     tool: str = ""
     status: str = ""
+    # 厂商自己的调用 id：界面按它合并同一工具的状态更新，缺了就丢弃这一帧
+    call_id: str = ""
     meta: dict[str, Any] = field(default_factory=dict)
 
 

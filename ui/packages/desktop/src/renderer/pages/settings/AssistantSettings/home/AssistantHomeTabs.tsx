@@ -100,7 +100,7 @@ const AssistantHomeTabs: React.FC<AssistantHomeTabsProps> = ({
         <div className='mx-auto w-full max-w-800px'>
           <SettingsPageHeader
             data-testid='assistants-header'
-            title={t('settings.assistants', { defaultValue: 'Assistants' })}
+            title={t('settings.agentsNavLabel', { defaultValue: 'Agents' })}
             description={t('settings.assistantHomeLeadShort', {
               defaultValue:
                 'Ready-to-work AI experts, preloaded with skills. Enable one and it shows up wherever you pick an assistant.',
@@ -134,17 +134,17 @@ const AssistantHomeTabs: React.FC<AssistantHomeTabsProps> = ({
             tabs={[
               {
                 key: 'enabled',
-                label: t('settings.assistantSectionEnabled', { defaultValue: 'Enabled' }),
+                label: t('settings.agentTabEnabled', { defaultValue: '已启用' }),
                 count: counts.enabled,
               },
               {
                 key: 'mine',
-                label: t('settings.assistantTabMine', { defaultValue: 'My Assistants' }),
+                label: t('settings.agentTabMine', { defaultValue: '我的 Agent' }),
                 count: counts.mine,
               },
               {
                 key: 'official',
-                label: t('settings.assistantTabOfficial', { defaultValue: 'Official' }),
+                label: t('settings.agentTabBuiltin', { defaultValue: '内置' }),
                 count: counts.official,
               },
             ]}

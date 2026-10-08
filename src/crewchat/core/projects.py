@@ -55,6 +55,15 @@ def load_projects(settings: Settings) -> list[Project]:
         except (OSError, ValueError):
             pass
     return [Project(id="default", name=Path.cwd().name, path=str(Path.cwd()))]
+def agents_dir_for(settings: Settings, project_id: str | None = None) -> Path:
+    """Agent 定义的唯一访问入口。
+
+    绝不直接用 settings.agents_dir：那是相对路径，只在 cwd 恰为仓库根时有效。
+    项目解析出的路径始终是绝对的。
+    """
+    return get_project(settings, project_id).agents_path()
+
+
 def get_project(settings: Settings, project_id: str | None) -> Project:
     projects = load_projects(settings)
     if project_id:

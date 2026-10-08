@@ -19,13 +19,10 @@
  */
 import { Message } from '@arco-design/web-react';
 import { useAssistantEditor, useAssistantList } from '@/renderer/hooks/assistant';
-import { useManagedAgentRuntimeCatalog } from '@/renderer/hooks/agent/useManagedAgents';
-import { buildAssistantEditorBackends, resolveAvatarImageSrc } from './assistantUtils';
-import AssistantEditorPage from './AssistantEditorPage';
 import AssistantHomeTabs from './home/AssistantHomeTabs';
 import DeleteAssistantModal from './DeleteAssistantModal';
 import SkillConfirmModals from './SkillConfirmModals';
-import type { AssistantEditorViewModel, AssistantListItem } from './types';
+import type { AssistantListItem } from './types';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -55,6 +52,14 @@ const AssistantSettings: React.FC = () => {
     [navigate]
   );
 
+  // [crewchat] 编辑不在此页进行：名册页只负责启停与排序，编辑统一在设置 → Agent。
+  const openComposer = useCallback(
+    (assistantId?: string) => {
+      navigate('/settings/agents', { state: assistantId ? { selectAgentId: assistantId } : { createAgent: true } });
+    },
+    [navigate]
+  );
+
   // Compose hooks
   const {
     assistants,
@@ -67,26 +72,6 @@ const AssistantSettings: React.FC = () => {
     setAssistantOrder,
     localeKey,
   } = useAssistantList();
-  const managedAgentRuntimeCatalog = useManagedAgentRuntimeCatalog();
-  const builtinAvatarOptions = useMemo(
-    () =>
-      assistants
-        .filter((assistant) => assistant.source === 'builtin' && assistant.avatar?.startsWith('/api/assistants/'))
-        .map((assistant) => {
-          const src = resolveAvatarImageSrc(assistant.avatar);
-          if (!src) {
-            return null;
-          }
-
-          return {
-            id: assistant.id,
-            label: assistant.name_i18n?.[localeKey] || assistant.name,
-            src,
-          };
-        })
-        .filter((option): option is NonNullable<typeof option> => option !== null),
-    [assistants, localeKey]
-  );
   const editor = useAssistantEditor({
     localeKey,
     activeAssistant,
@@ -97,90 +82,7 @@ const AssistantSettings: React.FC = () => {
     setAssistantOrder,
     message,
   });
-  const availableBackends = useMemo(
-    () => buildAssistantEditorBackends(managedAgentRuntimeCatalog, localeKey, editor.editAgent),
-    [editor.editAgent, localeKey, managedAgentRuntimeCatalog]
-  );
-
-  const editAvatarImage = editor.editAvatarPreview || resolveAvatarImageSrc(editor.editAvatar);
   const hasConsumedNavigationIntentRef = useRef(false);
-  const showEditor = editor.editVisible && (editor.isCreating || activeAssistantId !== null);
-  const editorViewModel: AssistantEditorViewModel = {
-    isCreating: editor.isCreating,
-    profile: {
-      name: editor.editName,
-      setName: editor.setEditName,
-      description: editor.editDescription,
-      setDescription: editor.setEditDescription,
-      avatar: editor.editAvatar,
-      setAvatar: editor.setEditAvatar,
-      setAvatarPreview: editor.setEditAvatarPreview,
-      avatarImage: editAvatarImage,
-      builtinAvatarOptions,
-    },
-    agent: {
-      value: editor.editAgent,
-      setValue: editor.setEditAgent,
-      availableBackends,
-    },
-    prompts: {
-      text: editor.editRecommendedPromptsText,
-      setText: editor.setEditRecommendedPromptsText,
-    },
-    defaults: {
-      model: {
-        mode: editor.defaultModelMode,
-        setMode: editor.setDefaultModelMode,
-        value: editor.defaultModelValue,
-        setValue: editor.setDefaultModelValue,
-      },
-      permission: {
-        mode: editor.defaultPermissionMode,
-        setMode: editor.setDefaultPermissionMode,
-        value: editor.defaultPermissionValue,
-        setValue: editor.setDefaultPermissionValue,
-      },
-      thoughtLevel: {
-        mode: editor.defaultThoughtLevelMode,
-        setMode: editor.setDefaultThoughtLevelMode,
-        value: editor.defaultThoughtLevelValue,
-        setValue: editor.setDefaultThoughtLevelValue,
-      },
-      skills: {
-        mode: editor.defaultSkillsMode,
-        setMode: editor.setDefaultSkillsMode,
-      },
-      mcps: {
-        mode: editor.defaultMcpMode,
-        setMode: editor.setDefaultMcpMode,
-        availableServers: editor.availableMcpServers,
-        selectedIds: editor.selectedMcpIds,
-        setSelectedIds: editor.setSelectedMcpIds,
-      },
-    },
-    rules: {
-      content: editor.editContext,
-      setContent: editor.setEditContext,
-      viewMode: editor.promptViewMode,
-      setViewMode: editor.setPromptViewMode,
-    },
-    skills: {
-      availableSkills: editor.availableSkills,
-      selectedSkills: editor.selectedSkills,
-      setSelectedSkills: editor.setSelectedSkills,
-      pendingSkills: editor.pendingSkills,
-      setDeletePendingSkillName: editor.setDeletePendingSkillName,
-      setDeleteCustomSkillName: editor.setDeleteCustomSkillName,
-      builtinAutoSkills: editor.builtinAutoSkills,
-      disabledBuiltinSkills: editor.disabledBuiltinSkills,
-      setDisabledBuiltinSkills: editor.setDisabledBuiltinSkills,
-    },
-    actions: {
-      save: editor.handleSave,
-      requestDelete: editor.handleDeleteClick,
-      duplicate: (assistant) => void editor.handleDuplicate(assistant),
-    },
-  };
 
   useEffect(() => {
     if (hasConsumedNavigationIntentRef.current) return;
@@ -213,35 +115,25 @@ const AssistantSettings: React.FC = () => {
     } catch (error) {
       console.error('[AssistantManagement] Failed to clear assistant open intent:', error);
     }
-    void editor.handleEdit(targetAssistant);
-  }, [assistants, editor, navigationState]);
+    // [crewchat] 编辑意图改为跳转到设置 → Agent
+    openComposer(targetAssistant.id);
+  }, [assistants, navigationState, openComposer]);
 
   return (
     <div className='h-full w-full overflow-hidden bg-bg-0'>
       <div className='flex flex-col h-full w-full'>
         {messageContext}
         <div className='flex-1 min-h-0'>
-          {showEditor ? (
-            <AssistantEditorPage
-              editor={editorViewModel}
-              activeAssistant={activeAssistant}
-              onBack={() => editor.setEditVisible(false)}
-            />
-          ) : (
+          {/* [crewchat] 原地编辑已移除，名册页只做启停/排序/进对话 */}
+          {(
             <AssistantHomeTabs
               assistants={assistants}
               assistantOrder={assistantOrder}
               localeKey={localeKey}
               initialTab={homeTab}
               onTabChange={setHomeTab}
-              onOpenDetail={(assistant) => {
-                setActiveAssistantId(assistant.id);
-                void editor.handleEdit(assistant);
-              }}
-              onOpenSettings={(assistant) => {
-                setActiveAssistantId(assistant.id);
-                void editor.handleEdit(assistant);
-              }}
+              onOpenDetail={(assistant) => openComposer(assistant.id)}
+              onOpenSettings={(assistant) => openComposer(assistant.id)}
               onDuplicate={(assistant) => {
                 // A duplicate becomes a new user assistant, so return to My
                 // Assistants after saving — not the Official tab it came from.
@@ -251,7 +143,7 @@ const AssistantSettings: React.FC = () => {
               onDelete={(assistant) => editor.handleDeleteRequest(assistant)}
               onCreate={() => {
                 setHomeTab('mine');
-                void editor.handleCreate();
+                openComposer();
               }}
               onToggleEnabled={(assistant, checked) => void editor.handleToggleEnabled(assistant, checked)}
               onReorderEnabled={async (activeId, overId) => {

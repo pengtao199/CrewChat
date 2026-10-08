@@ -14,6 +14,7 @@ import { Button, Input, Message, Modal, Select, Switch } from '@arco-design/web-
 import { Delete, FolderClose, Plus, Refresh } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import SettingsCardList from '@/renderer/components/base/SettingsCardList';
 import SettingsCardRow from '@/renderer/components/base/SettingsCardRow';
@@ -62,8 +63,17 @@ const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title
   </div>
 );
 
+type ComposerNavState = {
+  /** 从 Agents 名册页跳来时选中的 Agent */
+  selectAgentId?: string;
+  /** 从名册页点「新建」跳来 */
+  createAgent?: boolean;
+};
+
 const AgentComposerContent: React.FC = () => {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [agents, setAgents] = useState<AgentSpec[]>([]);
   const [options, setOptions] = useState<ComposerOptions | null>(null);
   const [draft, setDraft] = useState<AgentSpec>(EMPTY);
@@ -88,7 +98,21 @@ const AgentComposerContent: React.FC = () => {
       const [list, opts] = await Promise.all([fetchAgents(), fetchOptions()]);
       setAgents(list.agents);
       setOptions(opts);
-      if (list.agents.length && !selected) {
+      const intent = (location.state as ComposerNavState | null) ?? null;
+      if (intent?.createAgent) {
+        setSelected('');
+        setDraft({ ...EMPTY, id: '', name: '' });
+        setDirty(false);
+        navigate(location.pathname, { replace: true, state: null });
+      } else if (intent?.selectAgentId) {
+        const target = list.agents.find((a) => a.id === intent.selectAgentId);
+        if (target) {
+          setSelected(target.id);
+          setDraft(normalize(target, opts));
+          setDirty(false);
+        }
+        navigate(location.pathname, { replace: true, state: null });
+      } else if (list.agents.length && !selected) {
         setSelected(list.agents[0].id);
         setDraft(normalize(list.agents[0], opts));
       }
@@ -97,7 +121,7 @@ const AgentComposerContent: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [normalize, selected, t]);
+  }, [normalize, selected, t, location.state, location.pathname, navigate]);
 
   useEffect(() => {
     void load();

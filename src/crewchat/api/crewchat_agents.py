@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from ..core.config import get_settings
 from ..core.models import AgentSpec, load_specs
 from ..orchestration import session_for
-from ..core.projects import get_project, load_projects
+from ..core.projects import agents_dir_for, load_projects
 
 router = APIRouter()
 
@@ -30,8 +30,7 @@ _SAFE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 def _agents_dir(project_id: str | None) -> Path:
     settings = get_settings()
     settings.ensure_dirs()
-    project = get_project(settings, project_id)
-    return project.agents_path()
+    return agents_dir_for(settings, project_id)
 
 
 def _spec_payload(spec: AgentSpec) -> dict[str, Any]:

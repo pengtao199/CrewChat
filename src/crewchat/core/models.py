@@ -73,4 +73,6 @@ def load_specs(agents_dir: Path) -> list[AgentSpec]:
         raw.pop("id", None)
         raw.pop("llm", None)
         out.append(AgentSpec(id=path.stem, **raw))
-    return [s for s in out if s.enabled]
+    # 加载器不做策略：禁用的 Agent 也要能被列出与重新启用。
+    # 过滤发生在使用侧（Guid 选人按 enabled，客户端已过滤）。
+    return out

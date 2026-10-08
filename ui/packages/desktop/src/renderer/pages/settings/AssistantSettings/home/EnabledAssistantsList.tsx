@@ -84,7 +84,8 @@ const EnabledAssistantRow: React.FC<EnabledAssistantRowProps> = ({
       style={style}
       data-testid={`enabled-assistant-row-${assistant.id}`}
       className='group flex cursor-pointer items-center justify-between gap-12px rounded-12px border border-solid border-transparent bg-base px-14px py-12px transition-all duration-180 hover:border-border-2'
-      onClick={() => onOpenDetail(assistant)}
+      // [crewchat] 行点击 = 开始用它；编辑入口在设置 → Agent
+      onClick={() => onStartChat(assistant)}
     >
       <div className='flex min-w-0 flex-1 items-center gap-12px'>
         <Button
@@ -123,9 +124,9 @@ const EnabledAssistantRow: React.FC<EnabledAssistantRowProps> = ({
             size='small'
             data-testid={`btn-chat-${assistant.id}`}
             className='!inline-flex !h-28px !items-center !justify-center !rounded-9px !bg-fill-2 !px-12px !leading-none !text-t-secondary !opacity-0 transition-all hover:!bg-primary-6 hover:!text-white group-hover:!opacity-100'
-            onClick={() => onStartChat(assistant)}
+            onClick={() => onOpenDetail(assistant)}
           >
-            {t('settings.assistantGoChat', { defaultValue: 'Chat' })}
+            {t('settings.agentEditEntry', { defaultValue: '编辑' })}
           </Button>
         ) : null}
         <span className='hidden min-w-0 shrink-0 sm:inline-flex'>

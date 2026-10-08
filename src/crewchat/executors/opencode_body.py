@@ -85,13 +85,13 @@ class OpencodeBody(Executor):
                 event = _parse(line)
                 if event is None:
                     continue
-                kind, payload = event
+                kind, payload, call_id = event
                 if kind == "text" and payload:
                     text_parts.append(payload)
                     req.emit("delta", text=payload)
                 elif kind == "tool" and payload:
                     tools.append(payload)
-                    req.emit("tool", tool=payload, status="completed")
+                    req.emit("tool", tool=payload, status="completed", call_id=call_id)
                 elif kind == "session" and payload:
                     session_id = payload
                     if req.session:
@@ -115,7 +115,7 @@ class OpencodeBody(Executor):
         )
 
 
-def _parse(line: str) -> tuple[str, str] | None:
+def _parse(line: str) -> tuple[str, str, str] | None:
     line = line.strip()
     if not line.startswith("{"):
         return None
@@ -129,21 +129,23 @@ def _parse(line: str) -> tuple[str, str] | None:
     part = data.get("part") or {}
     ptype = part.get("type") or data.get("type")
 
+    part_id = str(part.get("id") or "")
+
     if ptype == "text":
-        return "text", str(part.get("text") or "")
+        return "text", str(part.get("text") or ""), ""
     if ptype in {"tool", "tool-invocation", "tool-use"}:
         name = part.get("tool") or part.get("name") or part.get("toolName") or ptype
         state = part.get("state") or {}
         status = "completed" if state.get("status") in {"completed", "success"} else "in_progress"
-        return "tool", f"{name}"
+        return "tool", f"{name}", part_id
     if ptype in {"error", "step-error"}:
         detail = part.get("error") or part.get("message") or data.get("error") or data.get("message")
-        return "error", _msg(detail)
+        return "error", _msg(detail), ""
     if data.get("type") == "error":
-        return "error", _msg(data.get("error") or data.get("message"))
+        return "error", _msg(data.get("error") or data.get("message")), ""
     sid = data.get("sessionID")
     if sid:
-        return "session", str(sid)
+        return "session", str(sid), ""
     return None
 
 

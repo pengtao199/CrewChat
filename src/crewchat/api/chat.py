@@ -109,7 +109,14 @@ async def _run_turn(
                 elif event.kind == "tool" and event.tool:
                     await hub.broadcast(
                         "message.stream",
-                        tool_frame(conversation_id, reply_msg_id, event.tool, event.status, turn_id),
+                        tool_frame(
+                            conversation_id,
+                            reply_msg_id,
+                            event.tool,
+                            event.status,
+                            turn_id,
+                            event.call_id,
+                        ),
                     )
                 elif event.kind == "error" and event.text:
                     await hub.broadcast(
