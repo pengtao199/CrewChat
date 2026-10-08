@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     executor_timeout: float = 1800.0
     max_turns: int = 12
 
+    language: str = "zh-CN"
     local_password: str = "crewchat"
 
     data_dir: Path = _default_data_dir()
