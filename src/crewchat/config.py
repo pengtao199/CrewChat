@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     host: str = "127.0.0.1"
-    port: int = 8765
+    port: int = 8000
 
     llm_api_key: SecretStr = SecretStr("")
     llm_base_url: str = "https://api.openai.com/v1"
