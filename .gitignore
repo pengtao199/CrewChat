@@ -17,3 +17,7 @@ wheels/
 *.db
 chainlit.md
 .DS_Store
+
+# UI fork
+ui/node_modules/
+ui/dist/
