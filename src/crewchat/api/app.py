@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from . import (
     agents_api,
+    agents_compose,
     chat,
     assistants_api,
     auth,
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
         providers_api,
         assistants_api,
         agents_api,
+        agents_compose,
         skills_api,
         mcp_api,
     ):

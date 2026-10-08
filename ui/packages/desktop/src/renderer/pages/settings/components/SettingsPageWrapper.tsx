@@ -20,6 +20,7 @@ import {
   Puzzle,
   Robot,
   System,
+  Terminal,
   Toolkit,
 } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
@@ -47,10 +48,16 @@ export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): 
       icon: <Robot theme='outline' size='16' />,
       path: 'assistants',
     },
-    agent: {
-      id: 'agent',
-      label: t('settings.agents', { defaultValue: 'Agents' }),
+    agents: {
+      id: 'agents',
+      label: t('settings.agentComposer', { defaultValue: 'Agent' }),
       icon: <Robot theme='outline' size='16' />,
+      path: 'agents',
+    },
+    cli: {
+      id: 'cli',
+      label: t('settings.cliBodies', { defaultValue: 'CLI 身体' }),
+      icon: <Terminal theme='outline' size='16' />,
       path: 'agent',
     },
     skills: {

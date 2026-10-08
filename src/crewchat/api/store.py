@@ -66,6 +66,11 @@ class Store:
                 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages (conversation_id, created_at);
                 """
             )
+            if not conn.execute("SELECT 1 FROM client_prefs LIMIT 1").fetchone():
+                conn.execute(
+                    "INSERT INTO client_prefs (key, value) VALUES (?, ?)",
+                    ("language", '"zh-CN"'),
+                )
 
     # ----- client preferences ------------------------------------------------
 
