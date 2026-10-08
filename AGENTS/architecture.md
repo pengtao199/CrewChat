@@ -18,54 +18,59 @@
 
 ## 分层契约
 
-依赖只能向下。层号越小越基础，**任何向上依赖都是契约违反**。
+**目录即契约**：顶层目录决定层，依赖只能向下，任何向上依赖都是违反。
 
-| 层 | 模块 | 可依赖 | 说明 |
+| 层 | 目录 | 文件 | 说明 |
 | --- | --- | --- | --- |
-| **L0** 基础 | `config` `models` | 仅标准库与第三方 | 纯数据与配置，不知道任何业务实现 |
-| **L1** 基础设施 | `providers` `projects` `diagnostics` `cli_overrides` | L0 | 大脑池、项目、机器探测；不知道执行器 |
-| **L2** 执行 | `executors/*` | L0 L1 | 每个身体一个文件；不知道编排与会话 |
-| **L3** 编排 | `orchestrator` | L0 L1 L2 | 会话运行、群聊、Agent 健康聚合 |
-| **L4** 契约 | `api/*` | L0 L1 L2 L3 | 只做请求解析与形状转换 |
+| **L0** 基础 | `core/` | `config` `models` | 纯数据与配置，不知道任何实现 |
+| **L1** 基础设施 | `core/` | `providers` `projects` `diagnostics` `cli_overrides` | 大脑池、项目、机器探测 |
+| **L2** 执行 | `executors/` | `base` + 每个身体一个文件 | 不知道编排与会话 |
+| **L3** 编排 | `orchestration/` | `session`（群聊将新增 `group`） | 会话运行 |
+| **L4** 契约 | `api/` | 见下 | 只做请求解析与形状转换 |
+
+L0 与 L1 共用 `core/`（都是"不执行、不通讯"的底层）；层判定按文件：`config`/`models` 属 L0，其余属 L1。
 
 ### 强制检查
 
 ```bash
-uv run python scripts/check_layers.py
+uv run python scripts/check_layers.py     # 依赖方向（层由顶层目录推导）
+uv run python scripts/check_imports.py    # 相对导入可解析
 ```
 
-脚本会解析真实导入图，校验：无向上依赖、所有模块已在 `MODULE_LAYER` 登记。新增模块必须登记，未登记视为契约缺口并以非零码退出。
+顶层目录必须是 `core` / `executors` / `orchestration` / `api` 之一，否则检查以非零码退出。移动文件后运行 `check_imports`，避免 `ModuleNotFoundError` 只在启动时暴露。
 
 ### 实际结构
 
 ```
 src/crewchat/
-├── api/                    L4 契约层
-│   ├── app.py                  应用装配、静态托管、501 兜底
-│   ├── auth.py                 本地单用户鉴权
-│   ├── hub.py                  WS 广播中心（message.stream 等帧）
-│   ├── chat.py                 发送/取消/流式转发
-│   ├── conversations.py        会话与消息
-│   ├── store.py                SQLite（偏好/会话/消息）
-│   ├── agents_api.py           上游契约：CLI 身体清单
-│   ├── assistants_api.py       上游契约：Assistant 投影
-│   ├── providers_api.py        上游契约：模型端点
-│   ├── skills_api.py           上游契约：技能
-│   ├── mcp_api.py              上游契约：MCP 服务
-│   └── crewchat_agents.py      自研命名空间 /api/crewchat/agents
+├── core/                   L0 + L1
+│   ├── config.py               设置（环境变量 / .env）
+│   ├── models.py               AgentSpec、resolve_cwd
+│   ├── providers.py            大脑池 + ~/.agents 约定 + resolve_brain
+│   ├── projects.py             项目（工作区 + agent 目录）
+│   ├── diagnostics.py          CLI 与端点的探测
+│   └── cli_overrides.py        手改的 CLI 参数覆盖
 ├── executors/              L2 身体
 │   ├── base.py                 Executor 契约与注册表
 │   ├── llm_body.py             openai SDK
 │   ├── codex_body.py           openai-codex-sdk
 │   ├── claude_body.py          claude-agent-sdk
 │   └── opencode_body.py        官方 opencode CLI
-├── orchestrator.py         L3 编排（Session、健康聚合）
-├── models.py               L0 领域模型（AgentSpec、resolve_cwd）
-├── config.py               L0 设置
-├── providers.py            L1 大脑池 + ~/.agents 约定 + resolve_brain
-├── projects.py             L1 项目
-├── diagnostics.py          L1 CLI/端点探测
-└── cli_overrides.py        L1 CLI 参数覆盖
+├── orchestration/          L3
+│   └── session.py              Session、stream_ask、session_for
+└── api/                    L4
+    ├── app.py                  应用装配、静态托管、501 兜底
+    ├── auth.py                 本地单用户鉴权
+    ├── hub.py                  WS 广播中心（message.stream 等帧）
+    ├── chat.py                 发送/取消/流式转发
+    ├── conversations.py        会话与消息
+    ├── store.py                SQLite（偏好/会话/消息）
+    ├── agents_api.py           上游契约：CLI 身体清单
+    ├── assistants_api.py       上游契约：Assistant 投影
+    ├── providers_api.py        上游契约：模型端点
+    ├── skills_api.py           上游契约：技能
+    ├── mcp_api.py              上游契约：MCP 服务
+    └── crewchat_agents.py      自研命名空间 /api/crewchat/agents
 ```
 
 ## crewai 的定位
@@ -82,9 +87,9 @@ src/crewchat/
 
 ### 归属判定
 
-- **L3 才允许跨层聚合**：例如 Agent 健康需要同时看 spec、大脑池与执行器，因此它在 `orchestrator`，不在 `diagnostics`。
+- **聚合视图归契约层**：每个端点需要什么形状就自己算（`agents_api` 按身体聚合、`assistants_api` 按 Agent 聚合）。它们的上游契约本来就不同，不硬抽公共"健康"层。
 - **契约层文件名**：对接上游 `/api/*` 的用 `<domain>_api.py`；自研 `/api/crewchat/*` 的用 `crewchat_<domain>.py`；其余（app/auth/chat/conversations/hub/store）是自研实现。
-- **新的跨层需求先问**：能否下移到更低层？下移不了才放 L3。
+- **新的跨层需求先问**：能否下移到更低层？下移不了再考虑放 L3。
 
 
 ## 原则

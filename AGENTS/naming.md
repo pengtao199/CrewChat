@@ -20,6 +20,8 @@
 | 常量 | UPPER_SNAKE_CASE | `ACCESS_COOKIE`、`SANDBOX_CHOICES` |
 
 - 文件名小写 + 下划线；不用 `utils` / `helpers` / `common` 作为长期文件名。
+- 顶层目录只有四个，且与分层契约一一对应：`core`（L0+L1）· `executors`（L2）· `orchestration`（L3）· `api`（L4）。
+- 新增文件先定层，再定目录；放进四个之外的顶层目录会被 `scripts/check_layers.py` 拒绝。
 - 类型名表达领域角色，不用 `Data` / `Model` / `Service` 等模糊词。
 
 ## 前端
