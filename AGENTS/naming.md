@@ -46,9 +46,10 @@
 
 | 概念 | 使用 | 不用 |
 | --- | --- | --- |
-| Agent | Agent、AgentSpec | Assistant、Worker、Bot |
+| Agent | Agent、AgentSpec | Assistant（仅契约层）、Worker、Bot |
+| 助手 | 预置 Agent 模板（无独立类型） | Assistant 类型 |
 | 大脑 | brain、Provider | model（指大脑的一部分时可用）、LLM（指执行方式时不用） |
-| 身体 | body、Executor | backend、agent-cli、runner |
+| 引擎（大脑的执行体） | 代码 `body` / `Executor`；用户可见「引擎」 | backend、agent-cli、runner、Runtime |
 | 技能 | skill | capability、plugin |
 | MCP | mcp、MCP 服务 | tool（tool 是 MCP 暴露的项） |
 | 会话 | conversation、session（记忆键） | chat、thread |
