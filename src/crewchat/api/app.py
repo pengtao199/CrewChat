@@ -17,7 +17,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import auth
+from . import (
+    agents_api,
+    assistants_api,
+    auth,
+    conversations,
+    mcp_api,
+    providers_api,
+    skills_api,
+)
 from .store import store
 
 UI_DIST = Path(__file__).resolve().parents[3] / "ui" / "dist"
@@ -38,7 +46,16 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.include_router(auth.router)
+    for module in (
+        auth,
+        conversations,
+        providers_api,
+        assistants_api,
+        agents_api,
+        skills_api,
+        mcp_api,
+    ):
+        app.include_router(module.router)
 
     # ----- settings ---------------------------------------------------------
 

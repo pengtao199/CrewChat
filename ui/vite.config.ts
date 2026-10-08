@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     root: rendererRoot,
-    base: './',
+    base: '/',
     publicDir: resolve(__dirname, 'public'),
     appType: 'mpa',
     server: {
