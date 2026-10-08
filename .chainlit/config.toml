@@ -117,6 +117,8 @@ name = "CrewChat"
 default_theme = "dark"
 language = "zh-CN"
 layout = "wide"
+
+default_sidebar_state = "open"
 chat_settings_location = "sidebar"
 default_chat_settings_open = true
 alert_style = "modern"
