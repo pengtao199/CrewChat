@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { Avatar, Button, Switch, Tooltip, Typography } from '@arco-design/web-react';
+import { Avatar, Button, Switch, Tag, Tooltip, Typography } from '@arco-design/web-react';
 // [crewchat]
 import StatusBadge, { type StatusTone } from '@/renderer/components/base/StatusBadge';
 import { Delete, EditTwo, Robot } from '@icon-park/react';
@@ -153,6 +153,12 @@ const AgentCard: React.FC<AgentCardProps> = (props) => {
             <span data-testid={`agent-row-status-${agent.id}`} className='flex-shrink-0'>
               <StatusBadge tone={statusTone(displayStatus)} label={t(statusLabelKey(displayStatus))} />
             </span>
+            {/* [crewchat] 引擎类别：区分本地 CLI / 远程 API / 应用内置 */}
+            {agent.kind ? (
+              <Tag size='small' bordered={false} className='!shrink-0 !rounded-8px !bg-fill-2 !text-11px !text-t-secondary'>
+                {t(`settings.engineKind.${agent.kind}`, { defaultValue: agent.kind })}
+              </Tag>
+            ) : null}
             {diagnostics && (
               <Tooltip content={diagnostics}>
                 <Typography.Text className='flex-shrink-0 text-11px text-t-secondary'>ⓘ</Typography.Text>

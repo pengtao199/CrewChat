@@ -151,6 +151,8 @@ export type AgentMetadata = {
 export type ManagedAgent = Omit<AgentMetadata, 'available' | 'handshake'> & {
   installed: boolean;
   status: AgentManagementStatus;
+  /** [crewchat] 引擎类别：本地 CLI / 远程 API / 应用内置 */
+  kind?: 'cli' | 'api' | 'builtin';
   config_options?: unknown;
   available_modes?: unknown;
   available_models?: unknown;

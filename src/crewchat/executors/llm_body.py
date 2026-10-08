@@ -15,6 +15,7 @@ class LLMBody(Executor):
     id = "llm"
     label = "OpenAI 兼容 LLM"
     has_builtin_brain = False
+    kind = "api"
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()

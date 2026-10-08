@@ -57,7 +57,7 @@ export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): 
     },
     cli: {
       id: 'cli',
-      label: t('settings.cliBodies', { defaultValue: 'CLI 身体' }),
+      label: t('settings.enginesNavLabel', { defaultValue: '引擎' }),
       icon: <Terminal theme='outline' size='16' />,
       path: 'agent',
     },

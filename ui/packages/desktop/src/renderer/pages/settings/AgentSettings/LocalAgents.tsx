@@ -146,7 +146,6 @@ const LocalAgents: React.FC = () => {
     sortedOfficialAgents.filter(matchesAgentSearch),
     agentFilter
   );
-  const visibleCustomAgents = customAgents.filter(matchesAgentSearch);
 
   const openCustomAgentEditor = useCallback(() => {
     setEditingAgent(null);
@@ -292,83 +291,6 @@ const LocalAgents: React.FC = () => {
         </div>
       </div>
 
-      {/* Custom Agents section */}
-      <div data-testid='agent-management-custom-header' className='flex flex-col gap-2px'>
-        <Typography.Text className='text-13px font-medium text-t-secondary block'>
-          {t('settings.agentManagement.customAgents', { defaultValue: 'Custom Agents' })}
-        </Typography.Text>
-        <Typography.Text className='block text-12px text-t-tertiary'>
-          {t('settings.agentManagement.customEmptyDescription')}
-        </Typography.Text>
-      </div>
-
-      <AionModal
-        visible={editorVisible}
-        onCancel={() => {
-          setEditorVisible(false);
-          setEditingAgent(null);
-        }}
-        header={{
-          title: editingAgent
-            ? t('settings.agentManagement.editCustomAgent')
-            : t('settings.agentManagement.detectCustomAgent'),
-          showClose: true,
-        }}
-        footer={null}
-        style={{ maxWidth: '92vw', borderRadius: 16 }}
-        contentStyle={{
-          background: 'var(--dialog-fill-0)',
-          borderRadius: 16,
-          padding: '20px 24px 16px',
-          overflow: 'auto',
-        }}
-      >
-        {/* Conditional mount + key unmounts the editor on close so the
-            next `创建自定义 Agent` click always starts from a blank form.
-            The inner useEffect([agent]) only resets when the `agent`
-            reference changes; two consecutive `null` values would not
-            retrigger it. */}
-        {editorVisible && (
-          <InlineAgentEditor
-            key={editingAgent?.id ?? 'new'}
-            agent={editingAgent}
-            onSave={(agent) => void handleSaveCustomAgent(agent)}
-            onCancel={() => {
-              setEditorVisible(false);
-              setEditingAgent(null);
-            }}
-          />
-        )}
-      </AionModal>
-
-      <div data-testid='agent-management-custom-section'>
-        <div className='flex flex-col gap-8px rounded-12px border border-border-2 bg-2 p-8px md:rounded-16px md:p-10px'>
-          {visibleCustomAgents?.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              type='custom'
-              agent={agent}
-              boundAssistants={getBoundAssistants(agent, assistants)}
-              onTestConnection={() => void handleTestConnection(agent.id)}
-              onConfigure={() => openAgentConfig(agent.id)}
-              isTesting={testingAgentId === agent.id}
-              onEdit={() => {
-                setEditingAgent(agent);
-                setEditorVisible(true);
-              }}
-              onDelete={() => void handleDeleteCustomAgent(agent.id)}
-              onToggle={(enabled) => void handleToggleCustomAgent(agent.id, enabled)}
-            />
-          ))}
-          {visibleCustomAgents.length === 0 ? (
-            <Typography.Text type='secondary' className='block py-12px text-center text-12px'>
-              {normalizedSearchQuery
-                ? t('settings.agentManagement.noSearchResults', { defaultValue: 'No matching agents.' })
-                : t('settings.agentManagement.customEmpty')}
-            </Typography.Text>
-          ) : null}
-        </div>
-      </div>
     </div>
   );
 };

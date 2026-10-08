@@ -140,7 +140,7 @@
   "customCssDesc": "在此处输入自定义 CSS 样式以更改界面外观。系统会自动为所有样式添加 !important 以确保优先级最高，无需手动添加。修改会立即生效。",
   "assistants": "助手",
   "assistantBackToList": "全部助手",
-  "agents": "Agents",
+  "agents": "引擎",
   "assistantsList": "可用助手列表",
   "assistantsEmpty": "暂无可用助手",
   "pdfToPptAssistantName": "PDF 转 PPT",
@@ -1170,7 +1170,7 @@
   "agentManagement": {
     "localAgents": "本地 Agents",
     "remoteAgents": "远端 Agents",
-    "localAgentsDescription": "管理本机可用的 AI 编程 Agent。Aion CLI 为内置，App 自带、无需安装；其它 Agent 需先在本地安装对应 CLI 才能被识别。",
+    "localAgentsDescription": "本机可用的执行引擎。本地 CLI 需自行安装并登录；远程 API 只需配置模型端点。启用哪些 Agent、用什么引擎，在设置 → Agent 里组合。",
     "localAgentsSetupLink": "查看安装指南",
     "goToChat": "开始对话",
     "remoteAgentsDescription": "目前只支持远程连接 OpenClaw，其他 Agent 正在开发中。",
@@ -1201,7 +1201,7 @@
     "filterAll": "全部",
     "filterAvailable": "可用",
     "filterUnavailable": "不可用",
-    "searchPlaceholder": "搜索 Agent...",
+    "searchPlaceholder": "搜索引擎…",
     "noSearchResults": "没有匹配的 Agent。",
     "statusOnline": "可用",
     "statusNeedsAuth": "需登录",
@@ -1478,5 +1478,10 @@
   "agentTabMine": "我的 Agent",
   "agentTabBuiltin": "内置",
   "agentEditEntry": "编辑",
-  "agentsPageLead": "启用哪些 Agent、以什么顺序出现在选择列表里；编辑请到设置 → Agent。"
+  "agentsPageLead": "启用哪些 Agent、以什么顺序出现在选择列表里；编辑请到设置 → Agent。",
+  "engineKind": {
+    "cli": "本地 CLI",
+    "api": "远程 API",
+    "builtin": "应用内置"
+  }
 }

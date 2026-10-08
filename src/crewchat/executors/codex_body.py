@@ -65,6 +65,7 @@ class CodexBody(Executor):
     id = "codex"
     label = "Codex CLI"
     has_builtin_brain = True
+    kind = "cli"
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()

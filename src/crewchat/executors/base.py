@@ -48,10 +48,15 @@ class ExecResult:
     meta: dict[str, Any] = field(default_factory=dict)
 
 
+EngineKind = Literal["cli", "api", "builtin"]
+
+
 class Executor(ABC):
     id: ClassVar[str]
     label: ClassVar[str]
     has_builtin_brain: ClassVar[bool]
+    # 引擎类别：本地 CLI（用户装）/ 远程 API（配模型即可）/ 应用内置（随包）
+    kind: ClassVar[EngineKind] = "cli"
 
     @classmethod
     def available(cls) -> bool:
@@ -84,6 +89,7 @@ def list_executors() -> list[dict[str, Any]]:
             "id": cls.id,
             "label": cls.label,
             "has_builtin_brain": cls.has_builtin_brain,
+            "kind": cls.kind,
             "available": cls.available(),
         }
         for cls in sorted(_REGISTRY.values(), key=lambda c: c.id)

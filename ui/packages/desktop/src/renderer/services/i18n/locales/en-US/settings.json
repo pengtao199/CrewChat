@@ -140,7 +140,7 @@
   "customCssDesc": "Enter custom CSS styles here to modify the interface appearance. The system will automatically add !important to ensure highest priority. Changes will take effect immediately.",
   "assistants": "Assistants",
   "assistantBackToList": "All assistants",
-  "agents": "Agents",
+  "agents": "Engines",
   "assistantsList": "Available assistants",
   "assistantsEmpty": "No assistants configured.",
   "pdfToPptAssistantName": "PDF to PPT",
@@ -1169,7 +1169,7 @@
   "agentManagement": {
     "localAgents": "Local Agents",
     "remoteAgents": "Remote Agents",
-    "localAgentsDescription": "Manage the AI coding agents available on this device. Aion CLI is built in and ships with the app — no install needed; other agents are detected only after their CLI is installed locally.",
+    "localAgentsDescription": "Execution engines available on this machine. Local CLIs must be installed and signed in; remote APIs only need a model endpoint. Which agent uses which engine is composed in Settings → Agent.",
     "localAgentsSetupLink": "Setup guide",
     "goToChat": "Start Chat",
     "remoteAgentsDescription": "Only remote OpenClaw connections are supported for now. Other agents are in development.",
@@ -1200,7 +1200,7 @@
     "filterAll": "All",
     "filterAvailable": "Available",
     "filterUnavailable": "Unavailable",
-    "searchPlaceholder": "Search agents...",
+    "searchPlaceholder": "Search engines…",
     "noSearchResults": "No matching agents.",
     "statusOnline": "Available",
     "statusNeedsAuth": "Needs Sign-in",
@@ -1477,5 +1477,10 @@
   "agentTabMine": "My agents",
   "agentTabBuiltin": "Built-in",
   "agentEditEntry": "Edit",
-  "agentsPageLead": "Choose which agents are enabled and in what order they appear when picking one. Edit them in Settings → Agent."
+  "agentsPageLead": "Choose which agents are enabled and in what order they appear when picking one. Edit them in Settings → Agent.",
+  "engineKind": {
+    "cli": "Local CLI",
+    "api": "Remote API",
+    "builtin": "Built-in"
+  }
 }

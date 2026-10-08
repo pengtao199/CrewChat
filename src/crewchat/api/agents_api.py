@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request
 
 from ..core.config import get_settings
 from ..core.diagnostics import snapshot
+from ..executors import list_executors
 from ..orchestration import session_for
 
 router = APIRouter()
@@ -43,13 +44,20 @@ async def managed_agents() -> list[dict[str, Any]]:
     for spec in session.specs.values():
         by_body.setdefault(spec.body, []).append(spec.id)
 
+    kinds = {e["id"]: e.get("kind", "cli") for e in list_executors()}
+
+    # 以注册表为准：引擎页列的是"这台机器有哪些执行能力"，
+    # 与是否已有 Agent 使用它无关（codex 装好了就该出现）。
     out: list[dict[str, Any]] = []
-    for body, agent_ids in by_body.items():
+    for engine in list_executors():
+        body = engine["id"]
+        agent_ids = by_body.get(body, [])
         probe = probes.get(body)
         out.append(
             {
                 "id": body,
                 "type": body,
+                "kind": kinds.get(body, "cli"),
                 "name": probe.label if probe else body,
                 "installed": bool(probe.installed) if probe else body == "llm",
                 "version": probe.version if probe else None,
