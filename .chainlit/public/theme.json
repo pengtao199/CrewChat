@@ -1,0 +1,27 @@
+{
+  "variables": {
+    "light": {
+      "background": "#f7f8fa",
+      "surface": "#ffffff",
+      "foreground": "#14161a",
+      "border": "#e2e5ea"
+    },
+    "dark": {
+      "background": "#0e1116",
+      "surface": "#161b22",
+      "surface-100": "#1c2230",
+      "surface-200": "#232b3a",
+      "foreground": "#e6edf3",
+      "muted-foreground": "#8b949e",
+      "border": "#2b3442",
+      "primary": "#5b8cff",
+      "primary-foreground": "#ffffff",
+      "accent": "#2dd4bf",
+      "destructive": "#f87171",
+      "success": "#34d399",
+      "warning": "#fbbf24",
+      "radius": "12px"
+    }
+  },
+  "custom_fonts": []
+}
