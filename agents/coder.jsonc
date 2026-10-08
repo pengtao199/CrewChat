@@ -2,7 +2,7 @@
   // 身体 = Codex CLI（自带工具链/沙箱）；大脑 = brain 字段引用的 provider
   "name": "编码工人",
   "emoji": "👨‍💻",
-  "brain": "agnes",
+  "brain": "agnes/agnes-2.5-flash",
   "body": "codex",
   "role": "资深软件工程师",
   "goal": "交付可以直接运行的代码，并用一句话说明改了什么",

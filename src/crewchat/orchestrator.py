@@ -129,6 +129,7 @@ class Session:
             except Exception as exc:
                 outcome = RunOutcome()
                 outcome.error = f"{type(exc).__name__}: {exc}"
+                queue.put_nowait(ExecEvent(kind="error", text=outcome.error))
                 return outcome
             outcome = RunOutcome()
             outcome.text = result.text

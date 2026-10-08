@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     claude_max_turns: int = 24
 
     opencode_model: str = ""
+    codex_provider: str = "gateway"
     codex_model: str = ""
     codex_sandbox: str = "workspace-write"
     codex_approval: str = "on-failure"

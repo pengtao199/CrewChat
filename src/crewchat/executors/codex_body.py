@@ -84,7 +84,6 @@ class CodexBody(Executor):
 
     def _thread_options(self, req: ExecRequest, provider: Provider | None) -> dict[str, Any]:
         model = (provider.model if provider else None) or self.settings.codex_model
-        provider_id = getattr(provider, "id", None) if provider else None
         opts: dict[str, Any] = {
             "working_directory": str(req.cwd),
             "sandbox_mode": self.settings.codex_sandbox,
@@ -92,8 +91,6 @@ class CodexBody(Executor):
             "skip_git_repo_check": True,
             "network_access_enabled": self.settings.codex_network,
         }
-        if provider_id:
-            opts["provider_id"] = provider_id
         if model:
             opts["model"] = model
         return opts
