@@ -37,11 +37,6 @@ class Provider:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_headers = extra_headers or {}
-
-    @property
-    def litellm_model(self) -> str:
-        return self.model
-
     def env_key(self) -> str:
         """opencode 的 `{env:XXX}` 约定里用到的变量名。"""
         return f"{self.id.upper()}_API_KEY"

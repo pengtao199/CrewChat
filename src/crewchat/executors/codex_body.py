@@ -22,8 +22,8 @@ from openai_codex_sdk import (
     TurnFailedEvent,
 )
 
-from ..config import Settings
-from ..providers import Provider
+from ..core.config import Settings
+from ..core.providers import Provider
 from .base import ExecRequest, ExecResult, Executor, register
 
 

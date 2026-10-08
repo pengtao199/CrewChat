@@ -12,8 +12,8 @@ from typing import Any
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from ..config import get_settings
-from ..orchestrator import session_for
+from ..core.config import get_settings
+from ..orchestration import session_for
 
 router = APIRouter()
 
@@ -78,7 +78,7 @@ def to_detail(spec, index: int) -> dict[str, Any]:
     provider_id, _, model_id = (spec.brain or "").partition("/")
     if provider_id and not model_id:
         try:
-            from ..providers import get_provider
+            from ..core.providers import get_provider
 
             pool = get_provider(get_settings(), provider_id)
             model_id = pool.model if pool else ""

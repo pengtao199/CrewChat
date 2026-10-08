@@ -11,7 +11,7 @@ import webbrowser
 
 import uvicorn
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 
 def main() -> None:

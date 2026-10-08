@@ -8,8 +8,8 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..config import get_settings
-from ..providers import Provider, load_providers, save_providers
+from ..core.config import get_settings
+from ..core.providers import Provider, load_providers, save_providers
 
 router = APIRouter()
 

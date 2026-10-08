@@ -7,9 +7,9 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from ..config import get_settings
-from ..diagnostics import snapshot
-from ..orchestrator import session_for
+from ..core.config import get_settings
+from ..core.diagnostics import snapshot
+from ..orchestration import session_for
 
 router = APIRouter()
 

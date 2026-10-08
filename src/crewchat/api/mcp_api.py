@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from ..providers import shared_mcp_servers
+from ..core.providers import shared_mcp_servers
 
 router = APIRouter()
 

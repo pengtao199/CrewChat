@@ -15,10 +15,8 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..config import get_settings
-from ..executors.base import ExecEvent
-from ..models import AgentSpec
-from ..orchestrator import session_for
+from ..core.models import AgentSpec
+from ..orchestration import session_for
 from .conversations import ensure_conversation, persist_turn
 from .hub import error_frame, finish_frame, hub, text_frame, tool_frame
 
@@ -215,8 +213,3 @@ async def confirmations(conversation_id: str) -> list[Any]:
 @router.get("/api/conversations/{conversation_id}/terminals")
 async def terminals(conversation_id: str) -> list[Any]:
     return []
-
-
-def is_running(conversation_id: str) -> bool:
-    task = _running.get(conversation_id)
-    return bool(task and not task.done())

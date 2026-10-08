@@ -10,13 +10,12 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-import tempfile
 import threading
 from pathlib import Path
 from typing import Any
 
-from ..config import get_settings
-from ..cli_overrides import current_settings
+from ..core.config import get_settings
+from ..core.cli_overrides import current_settings
 
 
 def _db_path() -> Path:
@@ -215,20 +214,3 @@ def user_payload() -> dict[str, Any]:
         "role": "admin",
         "created_at": None,
     }
-
-
-def overrides_file_exists() -> bool:
-    from ..cli_overrides import cli_overrides_path
-
-    return overrides_path(current_settings()).exists()
-
-
-def _atomic_write(path: Path, text: str) -> None:
-    handle, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        os.replace(tmp, path)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise

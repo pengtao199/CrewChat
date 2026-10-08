@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,13 +20,6 @@ class Settings(BaseSettings):
 
     host: str = "127.0.0.1"
     port: int = 8000
-
-    llm_api_key: SecretStr = SecretStr("")
-    llm_base_url: str = "https://api.openai.com/v1"
-    llm_model: str = "gpt-4o-mini"
-    llm_temperature: float = 0.7
-    llm_max_tokens: int = 4096
-    llm_timeout: float = 180.0
 
     claude_model: str = ""
     claude_permission_mode: str = "bypassPermissions"

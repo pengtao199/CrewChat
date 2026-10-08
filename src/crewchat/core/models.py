@@ -1,15 +1,8 @@
 from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-
-
-def slugify(value: str) -> str:
-    cleaned = re.sub(r"[^0-9a-zA-Z_-]+", "-", value.strip()).strip("-").lower()
-    return cleaned or "agent"
 
 
 class AgentSpec(BaseModel):

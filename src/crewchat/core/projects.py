@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -57,22 +55,6 @@ def load_projects(settings: Settings) -> list[Project]:
         except (OSError, ValueError):
             pass
     return [Project(id="default", name=Path.cwd().name, path=str(Path.cwd()))]
-
-
-def save_projects(settings: Settings, projects: list[Project]) -> None:
-    path = projects_path(settings)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"projects": [p.as_dict() for p in projects]}
-    handle, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as fh:
-            json.dump(payload, fh, ensure_ascii=False, indent=2)
-        os.replace(tmp, path)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
-
-
 def get_project(settings: Settings, project_id: str | None) -> Project:
     projects = load_projects(settings)
     if project_id:

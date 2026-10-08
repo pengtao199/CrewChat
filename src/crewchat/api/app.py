@@ -75,12 +75,11 @@ def create_app() -> FastAPI:
 
     @app.get("/api/settings")
     async def get_settings() -> dict[str, Any]:
-        from ..cli_overrides import current_settings
+        from ..core.cli_overrides import current_settings
 
         cfg = current_settings()
         return {
             "language": cfg.language,
-            "localPassword": cfg.local_password,
             "codexProvider": cfg.codex_provider,
         }
 

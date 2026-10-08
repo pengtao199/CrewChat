@@ -68,6 +68,18 @@ src/crewchat/
 └── cli_overrides.py        L1 CLI 参数覆盖
 ```
 
+## crewai 的定位
+
+**单聊不走 crewai 的执行模型；群聊用 crewai 原生会话图。**
+
+| 场景 | 实现 | 理由 |
+| --- | --- | --- |
+| 单 Agent 对话 | `orchestrator.stream_ask` 直连执行器 | 外层 LLM 对「把活交给 codex」是纯开销：身体自带大脑，再包一层 crewai Agent 只会多一次调用、多一层延迟 |
+| 多 Agent 协作 | `crewai.flow.conversational`（router 选发言者 + 流式事件 + human feedback） | 这正是 crewai 擅长的地方：发言路由、多 agent 状态、中途问人 |
+| 配置解析 | `crewai.project.json_loader.load_jsonc_file` | JSONC 带注释与尾逗号，标准库不支持 |
+
+因此 `crewai` 出现在依赖里是**有意为之**，但只在上述两处使用。新增对 crewai 其他能力的使用前，先确认它不能被更直接的实现替代。
+
 ### 归属判定
 
 - **L3 才允许跨层聚合**：例如 Agent 健康需要同时看 spec、大脑池与执行器，因此它在 `orchestrator`，不在 `diagnostics`。

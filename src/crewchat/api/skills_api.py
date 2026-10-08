@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
-from ..providers import available_skills
+from ..core.providers import available_skills
 
 router = APIRouter()
 

@@ -69,8 +69,8 @@ def to_api(row: dict[str, Any], agents: dict[str, Any] | None = None) -> dict[st
         if not model_id:
             # `brain` 只写了 provider id 时，用池子里的默认模型补全
             try:
-                from ..config import get_settings
-                from ..providers import get_provider
+                from ..core.config import get_settings
+                from ..core.providers import get_provider
 
                 pool = get_provider(get_settings(), provider_id)
                 model_id = pool.model if pool else provider_id
@@ -97,8 +97,8 @@ def _project_path(project_id: str | None) -> str:
     if not project_id:
         return ""
     try:
-        from ..config import get_settings
-        from ..projects import get_project
+        from ..core.config import get_settings
+        from ..core.projects import get_project
 
         return str(get_project(get_settings(), project_id).path)
     except Exception:
@@ -106,7 +106,7 @@ def _project_path(project_id: str | None) -> str:
 
 
 def _agents_by_id() -> dict[str, Any]:
-    from ..orchestrator import session_for
+    from ..orchestration import session_for
 
     try:
         session = session_for("__list__")
@@ -233,10 +233,3 @@ def ensure_conversation(conv_id: str, name: str, agent_ids: list[str], project_i
         store().create_conversation(
             conv_id, name, project_id, agent_ids, _iso(int(time.time() * 1000))
         )
-
-
-def read_json_field(value: Any) -> Any:
-    try:
-        return json.loads(value) if isinstance(value, str) else value
-    except ValueError:
-        return value

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
-from ..providers import Provider
+from ..core.providers import Provider
 
 EventKind = Literal["delta", "thinking", "tool", "notice", "done", "error"]
 

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from .store import local_password, local_username, user_payload
+from .store import local_password, user_payload
 
 ACCESS_COOKIE = "access_token"
 REFRESH_COOKIE = "refresh_token"
@@ -106,7 +106,3 @@ async def refresh(request: Request) -> JSONResponse:
     response = JSONResponse({"success": True})
     response.set_cookie(ACCESS_COOKIE, token, max_age=ACCESS_TTL, httponly=True, samesite="lax")
     return response
-
-
-def reset_sessions() -> None:
-    _sessions.clear()

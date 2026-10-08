@@ -5,8 +5,8 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
-from ..config import Settings
-from ..providers import Provider
+from ..core.config import Settings
+from ..core.providers import Provider
 from .base import ExecRequest, ExecResult, Executor, register
 
 
@@ -20,16 +20,13 @@ class LLMBody(Executor):
         self.settings = settings or Settings()
         self._client: AsyncOpenAI | None = None
 
-    def _resolve(self, provider: Provider | None) -> dict[str, Any]:
-        s = self.settings
+    def _resolve(self, provider: Provider) -> dict[str, Any]:
         return {
-            "base_url": (provider.base_url if provider else None) or s.llm_base_url,
-            "model": (provider.model if provider else None) or s.llm_model,
-            "temperature": (
-                provider.temperature if provider and provider.temperature is not None else s.llm_temperature
-            ),
-            "max_tokens": (provider.max_tokens if provider else None) or s.llm_max_tokens,
-            "api_key": (provider.api_key if provider else None) or s.llm_api_key.get_secret_value(),
+            "base_url": provider.base_url,
+            "model": provider.model,
+            "temperature": provider.temperature if provider.temperature is not None else 0.7,
+            "max_tokens": provider.max_tokens or 4096,
+            "api_key": provider.api_key,
         }
 
     def _get_client(self, base_url: str, api_key: str, timeout: float) -> AsyncOpenAI:
@@ -39,6 +36,11 @@ class LLMBody(Executor):
 
     async def run(self, req: ExecRequest, provider: Provider | None) -> ExecResult:
         started = time.monotonic()
+        if provider is None:
+            return ExecResult(
+                error="该 Agent 没有大脑：请在 Agent 编排页为它选择模型端点",
+                meta={"body": self.id},
+            )
         cfg = self._resolve(provider)
         client = self._get_client(cfg["base_url"], cfg["api_key"], req.timeout)
 

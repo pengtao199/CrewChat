@@ -17,10 +17,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-from ..config import get_settings
-from ..models import AgentSpec, load_specs
-from ..orchestrator import session_for
-from ..projects import get_project, load_projects
+from ..core.config import get_settings
+from ..core.models import AgentSpec, load_specs
+from ..orchestration import session_for
+from ..core.projects import get_project, load_projects
 
 router = APIRouter()
 
@@ -91,7 +91,7 @@ async def list_agents(project_id: str | None = None) -> dict[str, Any]:
 async def agent_options() -> dict[str, Any]:
     """Everything the composer's pickers need, in one round trip."""
     from ..executors import list_executors
-    from ..providers import available_plugins, available_skills, load_providers, shared_mcp_servers
+    from ..core.providers import available_plugins, available_skills, load_providers, shared_mcp_servers
 
     settings = get_settings()
     providers = load_providers(settings)

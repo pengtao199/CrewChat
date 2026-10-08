@@ -99,21 +99,19 @@ def probe_llm(settings: Settings) -> Probe:
     (any provider with a key), not the legacy single-endpoint settings."""
     pool = load_providers(settings)
     usable = next((p for p in pool if p.has_key()), None)
-    base_url = usable.base_url if usable else settings.llm_base_url
-    model = usable.model if usable else settings.llm_model
-    has_key = usable is not None or bool(settings.llm_api_key.get_secret_value())
+    base_url = usable.base_url if usable else "（未配置）"
+    host = urlparse(base_url).hostname or "unknown" if usable else ""
 
-    host = urlparse(base_url).hostname or "unknown"
     probe = Probe(
         id="llm",
         label="OpenAI 兼容端点",
         installed=True,
         path=base_url,
-        logged_in=has_key,
-        auth_method="API key" if has_key else None,
-        detail=f"{host} · {provider_name(base_url)}" if has_key else "大脑池里没有带 key 的端点",
+        logged_in=usable is not None,
+        auth_method="API key" if usable else None,
+        detail=f"{host} · {provider_name(base_url)}" if usable else "大脑池里没有带 key 的端点",
     )
-    probe.version = f"{model} ({usable.name})" if usable else model
+    probe.version = f"{usable.model} ({usable.name})" if usable else "未配置"
     return probe
 
 
@@ -151,17 +149,6 @@ def provider_name(base_url: str) -> str:
         if needle in host:
             return name
     return "自定义端点"
-
-
-def provider_options() -> list[tuple[str, str]]:
-    return [
-        ("https://api.openai.com/v1", "OpenAI"),
-        ("https://api.deepseek.com/v1", "DeepSeek"),
-        ("https://api.moonshot.cn/v1", "Moonshot / Kimi"),
-        ("https://dashscope.aliyuncs.com/compatible-mode/v1", "阿里云百炼"),
-        ("https://api.siliconflow.cn/v1", "SiliconFlow"),
-        ("https://openrouter.ai/api/v1", "OpenRouter"),
-    ]
 
 
 def snapshot(settings: Settings) -> dict[str, Probe]:

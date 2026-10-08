@@ -18,29 +18,17 @@ ROOT = pathlib.Path(__file__).resolve().parents[1] / "src" / "crewchat"
 
 LAYERS: dict[str, int] = {
     "L0-base": 0,
-    "L1-infra": 1,
     "L2-executors": 2,
     "L3-orchestration": 3,
     "L4-api": 4,
 }
 
-"""模块 → 层。新增模块必须在此登记；未登记即视为契约缺口。"""
-MODULE_LAYER: dict[str, str] = {
-    "config": "L0-base",
-    "models": "L0-base",
-    "providers": "L1-infra",
-    "projects": "L1-infra",
-    "diagnostics": "L1-infra",
-    "cli_overrides": "L1-infra",
+"""层由顶层目录决定 —— 目录结构就是契约本身。"""
+PACKAGE_LAYER: dict[str, str] = {
+    "core": "L0-base",
     "executors": "L2-executors",
-    "executors.base": "L2-executors",
-    "executors.claude_body": "L2-executors",
-    "executors.codex_body": "L2-executors",
-    "executors.llm_body": "L2-executors",
-    "executors.opencode_body": "L2-executors",
-    "orchestrator": "L3-orchestration",
+    "orchestration": "L3-orchestration",
     "api": "L4-api",
-    "api.crewchat_agents": "L4-api",
 }
 
 """同层内允许的依赖方向（左可依赖右）。未登记的同层边不判违规，仅提示。"""
@@ -82,14 +70,8 @@ def resolve(name: str, path: pathlib.Path, node: ast.ImportFrom, known: set[str]
 
 
 def layer_of(module: str) -> str | None:
-    if module in MODULE_LAYER:
-        return MODULE_LAYER[module]
-    parts = module.split(".")
-    for size in range(len(parts), 0, -1):
-        prefix = ".".join(parts[:size])
-        if prefix in MODULE_LAYER:
-            return MODULE_LAYER[prefix]
-    return None
+    top = module.split(".")[0]
+    return PACKAGE_LAYER.get(top)
 
 
 def main() -> int:
@@ -128,7 +110,7 @@ def main() -> int:
     print(f"模块 {len(modules)} · 依赖边 {sum(len(v) for v in edges.values())}")
 
     if unregistered:
-        print("\n未登记层的模块（请在 MODULE_LAYER 登记）:")
+        print("\n未归入任何层的模块（顶层目录必须是 core / executors / orchestration / api）:")
         for name in sorted(unregistered):
             print(f"  - {name}")
 
