@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import get_settings
-from ..overrides import current_settings
+from ..cli_overrides import current_settings
 
 
 def _db_path() -> Path:
@@ -218,7 +218,7 @@ def user_payload() -> dict[str, Any]:
 
 
 def overrides_file_exists() -> bool:
-    from ..overrides import overrides_path
+    from ..cli_overrides import cli_overrides_path
 
     return overrides_path(current_settings()).exists()
 

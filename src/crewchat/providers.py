@@ -151,3 +151,17 @@ def available_plugins() -> list[str]:
     if not plugins.is_dir():
         return []
     return sorted(p.name for p in plugins.iterdir() if p.is_dir())
+
+def resolve_brain(settings: Settings, spec: Any) -> Provider | None:
+    """Agent 的大脑：CLI 身体自带大脑，只有显式写成 `provider/model` 才覆盖。"""
+    if spec.is_cli_backed and "/" not in spec.brain:
+        return None
+    return get_provider(settings, spec.brain or None)
+
+
+def apply_brain_env(settings: Settings, spec: Any) -> None:
+    """把大脑端点暴露给子进程（部分 CLI 通过环境变量读取上游）。"""
+    provider = resolve_brain(settings, spec)
+    if provider and provider.api_key:
+        os.environ.setdefault("OPENAI_API_KEY", provider.api_key)
+        os.environ.setdefault("OPENAI_BASE_URL", provider.base_url)

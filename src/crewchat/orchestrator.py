@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
-from pathlib import Path
 from typing import Any
 
-from .agents import AgentFactory
 from .config import Settings, get_settings
 from .executors import ExecRequest, get_executor
 from .executors.base import ExecEvent
 from .models import AgentSpec, load_specs
 from .projects import Project, get_project
-from .providers import Provider
+from .providers import Provider, apply_brain_env, resolve_brain
 
 Emitter = Any
 
@@ -45,9 +43,6 @@ class Session:
     def reload(self) -> None:
         self.specs = {s.id: s for s in load_specs(self.project.agents_path())}
 
-    def factory(self) -> AgentFactory:
-        return AgentFactory(self.settings, self.workspace)
-
     def pick(self, agent_id: str | None) -> AgentSpec | None:
         if agent_id and agent_id in self.specs:
             return self.specs[agent_id]
@@ -57,10 +52,7 @@ class Session:
         return [self.specs[a] for a in agent_ids if a in self.specs]
 
     def provider_for(self, spec: AgentSpec) -> Provider | None:
-        """CLI 身体自带大脑；只有 `brain: provider/model` 才用大脑池覆盖。"""
-        if spec.is_cli_backed and "/" not in spec.brain:
-            return None
-        return AgentFactory(self.settings, self.workspace).provider_for(spec)
+        return resolve_brain(self.settings, spec)
 
     async def ask(
         self,
@@ -70,15 +62,14 @@ class Session:
         on_event: Emitter = None,
     ) -> RunOutcome:
         executor = get_executor(spec.body)
-        factory = self.factory()
-        factory.apply_env(spec)
+        apply_brain_env(self.settings, spec)
         memory_key = self.sessions.setdefault(spec.id, f"{session_key}:{spec.id}")
         outcome = RunOutcome()
         try:
             result = await executor.run(
                 ExecRequest(
                     prompt=prompt,
-                    cwd=Path(spec.cwd).expanduser() if spec.cwd else self.workspace,
+                    cwd=spec.resolve_cwd(self.workspace),
                     timeout=self.settings.executor_timeout,
                     session=memory_key,
                     on_event=on_event,
@@ -106,8 +97,7 @@ class Session:
     ) -> AsyncIterator[ExecEvent]:
         """跑一次 agent 回合，边跑边产出事件。"""
         executor = get_executor(spec.body)
-        factory = self.factory()
-        factory.apply_env(spec)
+        apply_brain_env(self.settings, spec)
         memory_key = self.sessions.setdefault(spec.id, f"{session_key}:{spec.id}")
         queue: asyncio.Queue[ExecEvent | None] = asyncio.Queue()
 
@@ -119,7 +109,7 @@ class Session:
                 result = await executor.run(
                     ExecRequest(
                         prompt=prompt,
-                        cwd=Path(spec.cwd).expanduser() if spec.cwd else self.workspace,
+                        cwd=spec.resolve_cwd(self.workspace),
                         timeout=self.settings.executor_timeout,
                         session=memory_key,
                         on_event=on_event,
@@ -190,7 +180,34 @@ class Session:
             transcript.append(f"[{spec.display}] {meta.get('_text', '')}")
 
     def health(self) -> list[dict[str, Any]]:
-        return AgentFactory(self.settings, self.workspace).health()
+        """聚合 spec、大脑池与身体可用性；跨层聚合因此留在编排层。"""
+        rows: list[dict[str, Any]] = []
+        for spec in self.specs.values():
+            try:
+                executor = get_executor(spec.body)
+                builtin, ready, note = executor.has_builtin_brain, True, ""
+            except KeyError as exc:
+                builtin, ready, note = False, False, str(exc)
+            provider = resolve_brain(self.settings, spec)
+            rows.append(
+                {
+                    "id": spec.id,
+                    "name": spec.name or spec.id,
+                    "emoji": spec.emoji,
+                    "body": spec.body,
+                    "brain_model": (provider.model if provider else None),
+                    "brain_provider": (provider.name if provider else None),
+                    "brain_builtin": builtin,
+                    "skills": spec.skills,
+                    "mcps": spec.mcps,
+                    "plugins": spec.plugins,
+                    "memory": spec.memory,
+                    "role": spec.role,
+                    "ready": ready and bool(provider or builtin),
+                    "note": note,
+                }
+            )
+        return rows
 
 
 _sessions: dict[str, Session] = {}

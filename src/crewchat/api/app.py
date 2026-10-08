@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from . import (
     agents_api,
-    agents_compose,
+    crewchat_agents,
     chat,
     assistants_api,
     auth,
@@ -55,7 +55,7 @@ def create_app() -> FastAPI:
         providers_api,
         assistants_api,
         agents_api,
-        agents_compose,
+        crewchat_agents,
         skills_api,
         mcp_api,
     ):
@@ -75,7 +75,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/settings")
     async def get_settings() -> dict[str, Any]:
-        from ..overrides import current_settings
+        from ..cli_overrides import current_settings
 
         cfg = current_settings()
         return {

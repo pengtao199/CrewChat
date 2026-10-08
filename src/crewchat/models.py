@@ -56,6 +56,10 @@ class AgentSpec(BaseModel):
     def is_cli_backed(self) -> bool:
         return self.body != "llm"
 
+    def resolve_cwd(self, workspace: Path) -> Path:
+        """该 Agent 的执行目录：显式 cwd 优先，否则用项目工作区。"""
+        return Path(self.cwd).expanduser() if self.cwd else workspace
+
     def persona(self) -> str:
         parts = [p.strip() for p in (self.role, self.goal, self.backstory) if p and p.strip()]
         return "\n".join(parts)

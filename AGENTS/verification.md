@@ -15,6 +15,7 @@
 | Python 后端 | `uv run python -c "import crewchat.<模块>"` 并实调该能力（curl 或脚本） |
 | `/api/*` 或 `/ws` | 起服务后 curl 该路径，确认状态码与形状 |
 | 前端组件 | `cd ui && npx vite build` 成功 + 浏览器内截图确认渲染 |
+| 后端结构调整（移动/重命名/删模块） | `uv run python scripts/check_layers.py` 通过 + 重启后真实跑一轮对话 |
 | 界面交互 | Playwright 脚本走一遍真实流程（登录 → 操作 → 断言），输出文本证据 |
 | 执行器 | 真实跑一次该身体，确认 `text` 非空且 `error` 为空 |
 | 网关配置 | 直连该模型别名确认 200，并确认目标身体能经它完成一轮 |
