@@ -296,10 +296,11 @@ const AgentComposerContent: React.FC = () => {
                   }}
                 >
                   {(options?.providers ?? []).map((p) => (
-                    <Select.Option key={p.id} value={p.id}>
+                    // 受约束选择：缺 key 的端点可见但不可选
+                    <Select.Option key={p.id} value={p.id} disabled={!p.has_key}>
                       <span className='inline-flex items-center gap-6px'>
                         {p.name}
-                        {!p.has_key ? <StatusBadge tone='blocked' label={t(`${c}.statusNoBrain`)} /> : null}
+                        {!p.has_key ? <StatusBadge tone='blocked' label={t(`${c}.noKey`)} /> : null}
                       </span>
                     </Select.Option>
                   ))}
@@ -337,7 +338,8 @@ const AgentComposerContent: React.FC = () => {
               <div className='flex items-center gap-8px'>
                 <Select className='w-220px' value={draft.body} onChange={(body) => update({ body })}>
                   {(options?.bodies ?? []).map((b) => (
-                    <Select.Option key={b.id} value={b.id}>
+                    // 受约束选择：不可用的身体可见但不可选，选中也跑不起来
+                    <Select.Option key={b.id} value={b.id} disabled={!b.available}>
                       <span className='inline-flex items-center gap-6px'>
                         {b.label}
                         {!b.available ? <StatusBadge tone='blocked' label={t(`${c}.statusMissing`)} /> : null}

@@ -1469,6 +1469,7 @@ export type I18nKey =
   | 'settings.agentComposer.namePlaceholder'
   | 'settings.agentComposer.needsBrain'
   | 'settings.agentComposer.new'
+  | 'settings.agentComposer.noKey'
   | 'settings.agentComposer.noModels'
   | 'settings.agentComposer.pickEndpoint'
   | 'settings.agentComposer.pickModel'

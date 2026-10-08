@@ -1469,6 +1469,7 @@
     "bodyRequired": "Pick a body",
     "brainRequired": "A model-only body needs a brain",
     "noModels": "The endpoint returned no models",
-    "loadModelsFailed": "Failed to load models: {{message}}"
+    "loadModelsFailed": "Failed to load models: {{message}}",
+    "noKey": "No key"
   }
 }

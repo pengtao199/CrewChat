@@ -5,7 +5,9 @@
  */
 
 import React from 'react';
-import { Avatar, Button, Switch, Tag, Tooltip, Typography } from '@arco-design/web-react';
+import { Avatar, Button, Switch, Tooltip, Typography } from '@arco-design/web-react';
+// [crewchat]
+import StatusBadge, { type StatusTone } from '@/renderer/components/base/StatusBadge';
 import { Delete, EditTwo, Robot } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import type { Assistant } from '@/common/types/agent/assistantTypes';
@@ -61,20 +63,18 @@ const resolveDisplayStatus = (status?: AgentManagementStatus, errorCode?: string
   }
 };
 
-const statusColor = (display: DisplayStatus): 'green' | 'gold' | 'orange' | 'red' | 'gray' => {
+// [crewchat] 配色交给共享的 StatusBadge，标签保留上游更细的 6 态。
+const statusTone = (display: DisplayStatus): StatusTone => {
   switch (display) {
     case 'online':
-      return 'green';
+      return 'ready';
     case 'needs_auth':
-      return 'gold';
+      return 'warning';
     case 'offline':
-      return 'orange';
     case 'missing':
-      return 'red';
-    case 'unchecked':
-      return 'gray';
+      return 'blocked';
     default:
-      return 'gray';
+      return 'neutral';
   }
 };
 
@@ -149,14 +149,10 @@ const AgentCard: React.FC<AgentCardProps> = (props) => {
         <div className='min-w-0 flex-1'>
           <div className='flex min-w-0 items-center gap-8px'>
             <Typography.Text className='truncate text-14px font-medium text-t-primary'>{agent.name}</Typography.Text>
-            <Tag
-              data-testid={`agent-row-status-${agent.id}`}
-              size='small'
-              color={statusColor(displayStatus)}
-              className='flex-shrink-0'
-            >
-              {t(statusLabelKey(displayStatus))}
-            </Tag>
+            {/* [crewchat] 用共享 StatusBadge 渲染，配色与其它设置页一致 */}
+            <span data-testid={`agent-row-status-${agent.id}`} className='flex-shrink-0'>
+              <StatusBadge tone={statusTone(displayStatus)} label={t(statusLabelKey(displayStatus))} />
+            </span>
             {diagnostics && (
               <Tooltip content={diagnostics}>
                 <Typography.Text className='flex-shrink-0 text-11px text-t-secondary'>ⓘ</Typography.Text>

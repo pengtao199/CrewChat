@@ -1470,6 +1470,7 @@
     "bodyRequired": "请选择身体",
     "brainRequired": "纯模型身体必须选择大脑",
     "noModels": "端点未返回模型列表",
-    "loadModelsFailed": "拉取模型失败：{{message}}"
+    "loadModelsFailed": "拉取模型失败：{{message}}",
+    "noKey": "缺 key"
   }
 }

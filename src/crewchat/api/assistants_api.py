@@ -56,7 +56,9 @@ def to_list_item(spec, index: int) -> dict[str, Any]:  # type: ignore[no-untyped
         "avatar": spec.emoji or "🤖",
         "enabled": True,
         "sort_order": index,
-        "agent_id": spec.id,
+        # agent_id 指引擎（身体），与 /api/agents/management 的 id 对齐，
+        # 否则上游的「绑定助手」栈永远匹配不到（它按 assistant.agent_id === managedAgent.id 过滤）
+        "agent_id": spec.body,
         "agent": {"type": spec.body, "source": "custom", "acp_backend": spec.body},
         "enabled_skills": list(spec.skills),
         "custom_skill_names": [],
@@ -102,7 +104,7 @@ def to_detail(spec, index: int) -> dict[str, Any]:
         },
         "state": {"enabled": True, "sort_order": index},
         "engine": {
-            "agent_id": spec.id,
+            "agent_id": spec.body,
             "agent": {"type": spec.body, "source": "custom", "acp_backend": spec.body},
         },
         "rules": {"content": spec.persona(), "storage_mode": "inline"},
