@@ -161,6 +161,30 @@ def test_shipped_page_endpoint_is_implemented(client, path: str) -> None:  # typ
     assert status < 500, f"{path} returned {status}"
 
 
+# ---- filesystem picker (workspace/project selection) -------------------------
+
+
+def test_fs_dir_and_read(client, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    workspace = tmp_path / "ws"
+    (workspace / "sub").mkdir(parents=True)
+    (workspace / "a.txt").write_text("hello", encoding="utf-8")
+    (workspace / ".hidden").write_text("x", encoding="utf-8")
+
+    entries = c.post(f"{PREFIX}/fs/dir", json={"dir": str(workspace), "root": str(workspace)}).json()
+    by_name = {e["name"]: e for e in entries}
+    assert by_name["sub"]["is_dir"] is True
+    assert by_name["a.txt"]["isFile"] is True
+    assert ".hidden" not in by_name  # dotfiles are hidden from the picker
+
+    assert c.post(f"{PREFIX}/fs/read", json={"path": str(workspace / "a.txt")}).json() == "hello"
+
+
+def test_system_info_exposes_work_dir(client) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    assert c.get(f"{PREFIX}/system/info").json().get("work_dir")
+
+
 # ---- sidebar archive flow (button on the conversation list) ------------------
 
 
