@@ -171,3 +171,28 @@ def test_build_settings_config_opencode_lists_models() -> None:
 def test_build_settings_config_rejects_unknown_app() -> None:
     with pytest.raises(ValueError):
         _build_settings_config("cursor", _provider())
+
+
+# ---- brain resolution -------------------------------------------------------
+
+
+def test_resolve_brain_splits_provider_and_overrides_model(monkeypatch) -> None:
+    from crewchat.core import providers as P
+    from crewchat.core.models import AgentSpec
+
+    pool = {"1fd10b59": _provider(id="1fd10b59", model="default-model")}
+    monkeypatch.setattr(P, "get_provider", lambda _settings, pid: pool.get(pid) if pid else None)
+
+    # `providerId/modelId` → provider resolved AND model overridden (modelId may contain '/').
+    spec = AgentSpec(id="a", body="claude", brain="1fd10b59/nvidia/nemotron:free")
+    provider = P.resolve_brain(object(), spec)
+    assert provider is not None
+    assert provider.id == "1fd10b59"
+    assert provider.model == "nvidia/nemotron:free"
+
+    # CLI body without a model part → leave the CLI's own brain alone.
+    assert P.resolve_brain(object(), AgentSpec(id="b", body="claude", brain="1fd10b59")) is None
+
+    # llm body resolves even without a model part.
+    llm = P.resolve_brain(object(), AgentSpec(id="c", body="llm", brain="1fd10b59"))
+    assert llm is not None and llm.id == "1fd10b59"

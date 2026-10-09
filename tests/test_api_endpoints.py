@@ -161,6 +161,34 @@ def test_shipped_page_endpoint_is_implemented(client, path: str) -> None:  # typ
     assert status < 500, f"{path} returned {status}"
 
 
+# ---- conversation messages: cursor page shape --------------------------------
+
+
+def test_messages_returns_cursor_page(client) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    assert c.post(f"{PREFIX}/conversations", json={"id": "conv-2", "name": "x"}).status_code == 200
+    from crewchat.api.store import store
+
+    store().add_message("m1", "conv-2", "user", "hi", "you", "2026-01-01T00:00:01Z")
+    store().add_message("m2", "conv-2", "assistant", "hello", "🤖 A", "2026-01-01T00:00:02Z")
+
+    page = c.get(f"{PREFIX}/conversations/conv-2/messages?limit=50&content_mode=compact").json()
+    assert [m["id"] for m in page["items"]] == ["m1", "m2"]
+    assert page["oldest_cursor"] == "m1"
+    assert page["newest_cursor"] == "m2"
+    assert "has_more_before" in page and "has_more_after" in page
+    assert page["items"][0]["type"] == "text"
+    assert page["items"][0]["content"] == {"content": "hi"}
+    assert page["items"][0]["position"] == "right"
+
+    limited = c.get(f"{PREFIX}/conversations/conv-2/messages?limit=1").json()
+    assert [m["id"] for m in limited["items"]] == ["m2"]
+    assert limited["has_more_before"] is True
+
+    assert c.get(f"{PREFIX}/conversations/conv-2/messages/m1").json()["id"] == "m1"
+    assert c.get(f"{PREFIX}/conversations/conv-2/messages/nope").status_code == 404
+
+
 # ---- filesystem picker (workspace/project selection) -------------------------
 
 
@@ -186,6 +214,39 @@ def test_system_info_exposes_work_dir(client) -> None:  # type: ignore[no-untype
 
 
 # ---- sidebar archive flow (button on the conversation list) ------------------
+
+
+def test_route_to_gateway_activates_once(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from types import SimpleNamespace
+
+    from crewchat.core.models import AgentSpec
+    from crewchat.orchestration import session as session_mod
+
+    calls: list[tuple[str, str]] = []
+
+    class _FakeGateway:
+        def activate(self, app: str, provider) -> None:  # type: ignore[no-untyped-def]
+            calls.append((app, provider.id))
+
+    monkeypatch.setattr("crewchat.core.gateway.get_gateway", lambda *a, **k: _FakeGateway())
+    session_mod._ROUTED.clear()
+
+    session = session_mod.Session.__new__(session_mod.Session)
+    session.settings = None  # type: ignore[assignment]
+    spec = AgentSpec(id="a", body="claude", brain="p/m")
+    provider = SimpleNamespace(id="p")
+
+    session._route_to_gateway(spec, provider)
+    session._route_to_gateway(spec, provider)  # cached
+    assert calls == [("claude", "p")]
+
+    # llm is not a CLI body — never routed.
+    session._route_to_gateway(AgentSpec(id="b", body="llm", brain="p/m"), provider)
+    assert calls == [("claude", "p")]
+
+    # no brain → leave the CLI's own login alone.
+    session._route_to_gateway(spec, None)
+    assert calls == [("claude", "p")]
 
 
 def test_sidebar_archive_flow(client) -> None:  # type: ignore[no-untyped-def]
