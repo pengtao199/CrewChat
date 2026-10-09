@@ -304,45 +304,6 @@ async def cancel_turn(conversation_id: str) -> dict[str, Any]:
     return {"runtime": _idle_runtime()}
 
 
-@router.post("/api/conversations/{conversation_id}/retry")
-async def retry_message(conversation_id: str, request: Request) -> Any:
-    """Re-ask about the conversation's latest question.
-
-    With `agent_id`, only that agent answers — retrying one reply instead of
-    replaying the whole turn. Without it, every agent in the conversation answers.
-    The original question is reused verbatim and not re-persisted.
-    """
-    from .store import store
-
-    body = await request.json() if await request.body() else {}
-    agent_id = str(body.get("agent_id") or "") or None
-
-    _, specs = _for_conversation(conversation_id)
-    if agent_id:
-        specs = [s for s in specs if s.id == agent_id]
-    if not specs:
-        return JSONResponse({"error": "no_agent_in_conversation"}, status_code=400)
-
-    rows = [
-        row
-        for row in store().list_messages(conversation_id)
-        if row.get("role") == "user" and (row.get("content") or "").strip()
-    ]
-    if not rows:
-        return JSONResponse({"error": "nothing_to_retry"}, status_code=400)
-
-    turn_id = uuid.uuid4().hex
-    task = asyncio.create_task(
-        _run_turn(conversation_id, specs, str(rows[-1]["content"]).strip(), turn_id)
-    )
-    _running[conversation_id] = task
-
-    return {
-        "turn_id": turn_id,
-        "runtime": _running_runtime(turn_id, specs[0].display, [s.display for s in specs[1:]]),
-    }
-
-
 @router.post("/api/conversations/{conversation_id}/active-lease")
 async def active_lease(conversation_id: str) -> None:
     return None

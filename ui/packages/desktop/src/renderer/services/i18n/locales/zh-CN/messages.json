@@ -97,15 +97,5 @@
   "requestDetails": "请求内容：",
   "delivery": {
     "pending": "未读"
-  },
-  "retry": {
-    "action": "重新生成",
-    "agent": "让 {{name}} 重答",
-    "failed": "重试失败：{{error}}"
-  },
-  "edit": {
-    "action": "编辑并重发",
-    "resend": "重新发送",
-    "failed": "编辑失败：{{error}}"
   }
 }

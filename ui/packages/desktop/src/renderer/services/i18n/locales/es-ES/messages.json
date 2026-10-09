@@ -97,15 +97,5 @@
   "requestDetails": "Detalles de la solicitud:",
   "delivery": {
     "pending": "No leído"
-  },
-  "retry": {
-    "action": "Reintentar",
-    "agent": "Volver a preguntar a {{name}}",
-    "failed": "Error al reintentar: {{error}}"
-  },
-  "edit": {
-    "action": "Editar y reenviar",
-    "resend": "Reenviar",
-    "failed": "Error al editar: {{error}}"
   }
 }

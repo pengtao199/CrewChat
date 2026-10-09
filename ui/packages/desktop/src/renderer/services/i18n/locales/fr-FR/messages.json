@@ -97,15 +97,5 @@
   "requestDetails": "Détails de la demande :",
   "delivery": {
     "pending": "Non lu"
-  },
-  "retry": {
-    "action": "Réessayer",
-    "agent": "Redemander à {{name}}",
-    "failed": "Échec de la nouvelle tentative : {{error}}"
-  },
-  "edit": {
-    "action": "Modifier et renvoyer",
-    "resend": "Renvoyer",
-    "failed": "Échec de la modification : {{error}}"
   }
 }
