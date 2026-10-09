@@ -19,6 +19,13 @@ type SettingsCardRowProps = {
   actions?: React.ReactNode;
   selected?: boolean;
   disabled?: boolean;
+  /**
+   * Render as a plain list item instead of a card: no background, no radius,
+   * no side borders — just a hairline separator. Use this for rows nested
+   * inside a `SettingsCardList`, where stacked cards would show the container
+   * through their rounded corners and read as a pile of separate pills.
+   */
+  flat?: boolean;
   onClick?: () => void;
   testId?: string;
 };
@@ -31,6 +38,7 @@ const SettingsCardRow: React.FC<SettingsCardRowProps> = ({
   actions,
   selected,
   disabled,
+  flat,
   onClick,
   testId,
 }) => {
@@ -40,18 +48,24 @@ const SettingsCardRow: React.FC<SettingsCardRowProps> = ({
     <div
       data-testid={testId}
       className={classNames(
-        'group flex items-center justify-between gap-12px rounded-12px border border-solid px-14px py-10px transition-all duration-180',
-        selected
-          ? 'border-primary-6 bg-primary-1'
-          : 'border-transparent bg-base hover:border-border-1 hover:bg-fill-1',
-        onClick ? 'cursor-pointer' : undefined
+        'group flex items-center justify-between gap-12px transition-colors',
+        flat
+          ? classNames(
+              'border-b border-solid border-border-2 px-6px py-8px last:border-b-0',
+              onClick ? 'cursor-pointer hover:bg-fill-1' : undefined
+            )
+          : classNames(
+              'rounded-12px border border-solid px-14px py-10px transition-all duration-180',
+              selected ? 'border-primary-6 bg-primary-1' : 'border-transparent bg-base hover:border-border-1 hover:bg-fill-1',
+              onClick ? 'cursor-pointer' : undefined
+            )
       )}
       onClick={onClick}
     >
       <div className={classNames('flex min-w-0 flex-1 items-center gap-12px', disabled && 'opacity-50')}>
         {icon ? <span className='shrink-0 text-18px leading-none'>{icon}</span> : null}
         <div className='min-w-0 flex-1'>
-          <div className='flex min-w-0 items-center gap-8px'>
+          <div className='flex min-w-0 flex-wrap items-center gap-8px'>
             <span className='truncate text-14px font-medium text-t-primary'>{title}</span>
             {badges}
           </div>

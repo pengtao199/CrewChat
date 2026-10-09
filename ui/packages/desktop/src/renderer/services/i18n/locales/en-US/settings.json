@@ -1560,6 +1560,24 @@
     "saveTo": "Saved to",
     "embedding": "Embedding",
     "disabled": "Disabled",
-    "autoTags": "Auto-detected"
+    "autoTags": "Auto-detected",
+    "autoDiscover": "Models (auto)",
+    "probe": "Test and fetch models",
+    "probing": "Fetching…",
+    "probeHint": "All models from this endpoint will be fetched automatically on save.",
+    "probeFound": "Connected — found {{count}} models. They will be added on save.",
+    "probeFailed": "Could not fetch models. Check the endpoint and key.",
+    "modelDetail": "Model details",
+    "sourceName": "Source name",
+    "noTags": "No tags detected",
+    "tagsReadOnlyHint": "Tags are detected automatically from capabilities, pricing and naming.",
+    "contextLimitHint": "Leave empty to use the auto-detected context length.",
+    "refreshModels": "Re-fetch models",
+    "enableAll": "Enable all",
+    "disableAll": "Disable all",
+    "noMatch": "No matching models",
+    "fetched": "Fetched {{count}} models",
+    "filtered": "Showing {{shown}} of {{total}} models",
+    "totalModels": "{{total}} models · {{enabled}} enabled"
   }
 }

@@ -1119,6 +1119,20 @@ export const mode = {
   deleteModel: httpDelete<{ success: boolean; provider: IProvider }, { provider_id: string; model_id: string }>(
     (p) => `/api/providers/${p.provider_id}/models/${p.model_id}`
   ),
+  /**
+   * 批量启停模型。`ids` 为 null 表示作用于该供应商的全部模型。
+   * 自动抓取会带来上百个模型，逐个点开关不现实。
+   */
+  bulkToggleModels: httpPatch<
+    { success: boolean; changed: number; provider: IProvider },
+    { provider_id: string; ids?: string[] | null; enabled: boolean }
+  >(
+    (p) => `/api/providers/${p.provider_id}/models`,
+    (p) => {
+      const { provider_id: _id, ...body } = p;
+      return body;
+    }
+  ),
   listModelTags: httpGet<{ tags: ModelTag[] }, void>('/api/model-tags'),
   /**
    * Pre-create form preview — anonymous fetch-models (T1b).

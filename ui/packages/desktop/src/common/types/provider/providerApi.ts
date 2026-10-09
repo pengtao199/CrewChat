@@ -78,14 +78,27 @@ export const modelIds = (provider?: IProvider | null): string[] => (provider?.mo
 /** First model id of a provider, or undefined when it has none. */
 export const firstModelId = (provider?: IProvider | null): string | undefined => modelIds(provider)[0];
 
-/** Body for adding/updating one model. */
+/**
+ * Body for adding/updating one model.
+ *
+ * Tags are deliberately absent: they are always derived server-side from
+ * cc-switch's capability registry, the models.dev price catalog and naming
+ * conventions. Manual tags would only fight the derivation.
+ */
 export interface UpsertModelRequest {
   id: string;
+  /** The only user-facing override, alongside `context_limit`. */
   display_name?: string;
-  tags?: ModelTag[];
   context_limit?: number | null;
   enabled?: boolean;
   protocol?: string | null;
+}
+
+/** Body for bulk enable/disable. `ids: null` applies to every model. */
+export interface BulkToggleModelsRequest {
+  provider_id: string;
+  ids?: string[] | null;
+  enabled: boolean;
 }
 
 /** A model discovered from the provider's own endpoint. */

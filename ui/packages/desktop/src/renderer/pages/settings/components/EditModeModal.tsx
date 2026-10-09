@@ -131,24 +131,8 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
         onOk={async () => {
           try {
             const values = await form.validate();
-            const updatedProvider: IProvider = {
-              ...data,
-              ...values,
-              // Ensure models is always an array of model objects
-              models: (Array.isArray(values.model) ? values.model : [values.model]).filter(Boolean).map((id: string) => ({
-                ...(data.models.find((m) => m.id === id) ?? {
-                  display_name: '',
-                  tags: [],
-                  context_limit: null,
-                  enabled: true,
-                  protocol: null,
-                  capabilities: {},
-                  price: {},
-                }),
-                id,
-                label: id,
-              })),
-            };
+            // 模型不在这里改：供应商弹窗只管端点/密钥，模型由模型详情面板单独维护。
+            const updatedProvider: IProvider = { ...data, ...values };
 
             props.onChange(updatedProvider);
             modalCtrl.close();
@@ -282,78 +266,6 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
               <Input placeholder='default' />
             </Form.Item>
 
-            {/* Model Selection */}
-            <Form.Item
-              label={t('settings.modelName')}
-              field={'model'}
-              required
-              rules={[{ required: true }]}
-              validateStatus={!isFullUrl && modelListState.error ? 'error' : undefined}
-              help={
-                !isFullUrl && modelListState.error instanceof Error
-                  ? modelListState.error.message
-                  : !isFullUrl && modelListState.error
-                    ? String(modelListState.error)
-                    : undefined
-              }
-            >
-              <Select
-                loading={!isFullUrl && modelListState.isLoading}
-                showSearch
-                allowCreate
-                mode={data?.models && data.models.length > 1 ? 'multiple' : undefined}
-                onFocus={async () => {
-                  if (isFullUrl) return;
-                  // For Bedrock, build bedrock_config from current form values and fetch models
-                  if (isBedrock) {
-                    const values = form.getFields();
-                    if (!values.bedrockAuthMethod || !values.bedrockRegion) {
-                      message.error(t('settings.bedrock.fillRequiredFields'));
-                      return;
-                    }
-                    if (
-                      values.bedrockAuthMethod === 'accessKey' &&
-                      (!values.bedrockAccessKeyId || !values.bedrockSecretAccessKey)
-                    ) {
-                      message.error(t('settings.bedrock.fillRequiredFields'));
-                      return;
-                    }
-                    if (values.bedrockAuthMethod === 'profile' && !values.bedrockProfile) {
-                      message.error(t('settings.bedrock.fillRequiredFields'));
-                      return;
-                    }
-                    // Build bedrock_config and fetch models manually
-                    const bedrock_config = {
-                      auth_method: values.bedrockAuthMethod,
-                      region: values.bedrockRegion,
-                      ...(values.bedrockAuthMethod === 'accessKey'
-                        ? {
-                            access_key_id: values.bedrockAccessKeyId,
-                            secret_access_key: values.bedrockSecretAccessKey,
-                          }
-                        : {
-                            profile: values.bedrockProfile,
-                          }),
-                    };
-                    try {
-                      const res = await ipcBridge.mode.fetchModelList.invoke({
-                        base_url: data?.base_url,
-                        api_key: '',
-                        is_full_url: false,
-                      });
-                      const models = (res.models ?? []).map((v) => ({ label: v.id, value: v.id })) || [];
-                      // Update the model list state manually
-                      void modelListState.mutate({ models }, false);
-                    } catch (error: any) {
-                      message.error(error.message || 'Failed to fetch models');
-                    }
-                    return;
-                  }
-                  void modelListState.mutate();
-                }}
-                options={isFullUrl ? [] : modelListState.data?.models || []}
-              />
-            </Form.Item>
           </Form>
         </div>
       </AionModal>

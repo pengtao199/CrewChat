@@ -1561,6 +1561,24 @@
     "saveTo": "保存到",
     "embedding": "向量",
     "disabled": "已停用",
-    "autoTags": "自动识别"
+    "autoTags": "自动识别",
+    "autoDiscover": "模型（自动获取）",
+    "probe": "测试连接并获取模型",
+    "probing": "正在获取…",
+    "probeHint": "保存时会自动获取该端点的全部模型，无需手动挑选。",
+    "probeFound": "连接成功，找到 {{count}} 个可用模型，保存后会自动添加。",
+    "probeFailed": "无法获取模型列表，请检查端点与密钥。",
+    "modelDetail": "模型详情",
+    "sourceName": "来源名称",
+    "noTags": "未识别到标签",
+    "tagsReadOnlyHint": "标签由模型能力、价格与命名自动识别，无需手工维护。",
+    "contextLimitHint": "留空则使用自动识别的上下文长度。",
+    "refreshModels": "重新获取模型",
+    "enableAll": "全部启用",
+    "disableAll": "全部停用",
+    "noMatch": "没有匹配的模型",
+    "fetched": "已获取 {{count}} 个模型",
+    "filtered": "显示 {{shown}} / {{total}} 个模型",
+    "totalModels": "共 {{total}} 个模型，已启用 {{enabled}}"
   }
 }
