@@ -152,8 +152,30 @@ async def delete_conversation(conversation_id: str) -> dict[str, Any]:
 
 
 @router.get("/api/conversations/{conversation_id}/messages")
-async def list_messages(conversation_id: str) -> list[dict[str, Any]]:
-    return [_message_payload(m) for m in store().list_messages(conversation_id)]
+async def list_messages(
+    conversation_id: str,
+    limit: int = Query(default=50),
+    before: str | None = None,
+    after: str | None = None,
+    anchor_message_id: str | None = None,
+    content_mode: str | None = None,
+) -> dict[str, Any]:
+    """Cursor page — the panel reads `items`, not a bare array (shape follows the UI)."""
+    rows = store().list_messages(conversation_id)
+    ids = [r["id"] for r in rows]
+    if before and before in ids:
+        rows = rows[: ids.index(before)]
+    current = [r["id"] for r in rows]
+    if after and after in current:
+        rows = rows[current.index(after) + 1 :]
+    window = rows[-limit:] if limit and limit > 0 else rows
+    return {
+        "items": [_message_payload(m) for m in window],
+        "oldest_cursor": window[0]["id"] if window else None,
+        "newest_cursor": window[-1]["id"] if window else None,
+        "has_more_before": len(rows) > len(window),
+        "has_more_after": False,
+    }
 
 
 @router.get("/api/conversations/{conversation_id}/messages/latest")
@@ -165,16 +187,28 @@ async def latest_message(conversation_id: str, type: str | None = None) -> Any:
     return None
 
 
+@router.get("/api/conversations/{conversation_id}/messages/{message_id}")
+async def get_message(conversation_id: str, message_id: str) -> Any:
+    for message in store().list_messages(conversation_id):
+        if message["id"] == message_id:
+            return _message_payload(message)
+    return JSONResponse({"error": "not_found"}, status_code=404)
+
+
 def _message_payload(row: dict[str, Any]) -> dict[str, Any]:
+    role = row.get("role")
     return {
         "id": row["id"],
+        "msg_id": row["id"],
         "conversation_id": row["conversation_id"],
         "type": "text",
-        "role": row.get("role"),
+        "role": role,
         "content": {"content": row.get("content") or ""},
         "created_at": _ms(row.get("created_at")),
         "metadata": row.get("metadata") or {},
         "author": row.get("author"),
+        "position": "right" if role == "user" else "left",
+        "status": "finish",
     }
 
 
