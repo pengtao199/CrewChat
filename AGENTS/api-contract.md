@@ -60,6 +60,8 @@
 | 会话发送/取消、流式帧 | 已实现 |
 | 大脑池、Assistants（投影自 Agent）、技能、MCP、CLI 探测 | 已实现 |
 | 用量（自研 `/api/v1/crewchat/usage`，按身体/模型/天聚合） | 已实现 |
+| 项目=工作区（自研 `/api/v1/crewchat/projects` CRUD） | 已实现 |
+| 文件/目录浏览（上游 `/api/v1/fs/*`：dir/list/read/write/metadata/image-base64） | 已实现（其余 fs 端点未实现） |
 | 团队（多 Agent）、文件浏览、扩展、定时任务、远程连接 | 未实现（501） |
 
 ## 禁止项
