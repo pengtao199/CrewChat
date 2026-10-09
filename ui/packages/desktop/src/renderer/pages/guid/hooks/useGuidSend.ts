@@ -8,6 +8,7 @@ import { ipcBridge } from '@/common';
 import { type ChatFileRef, chatFileRefPath } from '@/common/types/chatFile';
 import type { IMcpServer, TProviderWithModel } from '@/common/config/storage';
 import { toSessionMcpServer } from '@/renderer/hooks/mcp/catalog';
+import { useWorkspaces } from '@/renderer/hooks/workspace/useWorkspaces';
 import { emitter } from '@/renderer/utils/emitter';
 import { updateWorkspaceTime } from '@/renderer/utils/workspace/workspaceHistory';
 import { Message } from '@arco-design/web-react';
@@ -98,6 +99,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     localeKey,
   } = deps;
   const sendingRef = useRef(false);
+  // Workspaces are projects; the picked dir maps to one so the session binds it.
+  const { workspaces } = useWorkspaces();
 
   const handleSend = useCallback(async () => {
     if (!selectedAssistantId) {
@@ -106,6 +109,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
 
     const isCustomWorkspace = !!dir;
     const finalWorkspace = dir || '';
+    const projectId = dir ? workspaces.find((workspace) => workspace.path === dir)?.id : undefined;
 
     const assistantConversationId = selectedAssistantId;
     const assistantBackend = selectedAssistantBackend;
@@ -188,6 +192,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
             default_files: files.map(chatFileRefPath),
             workspace: finalWorkspace,
             custom_workspace: isCustomWorkspace,
+            project_id: projectId,
             selected_mcp_server_ids: selectedUserMcpServerIdsToSend,
             selected_session_mcp_servers: selectedSessionMcpServersToSend,
           },
@@ -241,6 +246,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         extra: {
           workspace: finalWorkspace,
           custom_workspace: isCustomWorkspace,
+          project_id: projectId,
           default_files: files.map(chatFileRefPath),
           selected_mcp_server_ids: selectedUserMcpServerIdsToSend,
           selected_session_mcp_servers:

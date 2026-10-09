@@ -202,5 +202,10 @@
   },
   "selectedCount": "已选 {{count}}",
   "selectedSkills": "已选技能",
-  "aiAssistant": "AI 助手"
+  "aiAssistant": "AI 助手",
+  "workspaces": {
+    "none": "会话工作区",
+    "new": "新建工作区…",
+    "created": "已加入工作区「{{name}}」"
+  }
 }

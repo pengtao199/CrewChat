@@ -581,6 +581,27 @@ export const project = {
 };
 
 // ---------------------------------------------------------------------------
+// Workspaces (projects) — our own namespace: a folder is a first-class workspace
+// ---------------------------------------------------------------------------
+
+export type Workspace = {
+  id: string;
+  name: string;
+  path: string;
+  exists: boolean;
+};
+
+export const workspaces = {
+  list: httpGet<Workspace[], void>('/api/crewchat/projects'),
+  create: httpPost<Workspace, { name: string; path: string }>('/api/crewchat/projects'),
+  rename: httpPut<Workspace, { id: string; name?: string; path?: string }>(
+    (p) => `/api/crewchat/projects/${encodeURIComponent(p.id)}`,
+    (p) => ({ name: p.name, path: p.path })
+  ),
+  remove: httpDelete<void, { id: string }>((p) => `/api/crewchat/projects/${encodeURIComponent(p.id)}`),
+};
+
+// ---------------------------------------------------------------------------
 // CDP status / config types (used by application, stays IPC)
 // ---------------------------------------------------------------------------
 

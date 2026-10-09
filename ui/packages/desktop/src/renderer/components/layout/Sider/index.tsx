@@ -10,6 +10,8 @@ import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
 import { SiderToolbar, SiderSearchEntry, SiderScheduledEntry, SiderAssistantEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
 import TeamSiderSection from './TeamSiderSection';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { getCurrentWorkspace } from '@renderer/hooks/workspace/useWorkspaces';
 import siderStyles from './Sider.module.css';
 
 const WorkspaceGroupedHistory = React.lazy(() => import('@renderer/pages/conversation/GroupedHistory'));
@@ -47,7 +49,14 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     blurActiveElement();
     closePreview();
     setIsBatchMode(false);
-    Promise.resolve(navigate('/guid', { state: { resetAssistant: true } })).catch((error) => {
+    // New session starts in the current workspace (if one is selected); otherwise
+    // it falls under 会话工作区.
+    const current = getCurrentWorkspace();
+    Promise.resolve(
+      navigate('/guid', {
+        state: { resetAssistant: true, ...(current?.path ? { workspace: current.path } : {}) },
+      })
+    ).catch((error) => {
       console.error('Navigation failed:', error);
     });
     if (onSessionClick) {
@@ -230,6 +239,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                   {...workspaceHistoryProps}
                   afterPinnedContent={
                     <>
+                      <WorkspaceSwitcher collapsed={collapsed} />
                       <TeamSiderSection
                         collapsed={collapsed}
                         pathname={pathname}
