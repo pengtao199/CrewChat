@@ -7,7 +7,7 @@
 import type { TMessage } from '@/common/chat/chatLib';
 import type { IDirOrFile } from '@/common/adapter/ipcBridge';
 import type { TChatConversation } from '@/common/config/storage';
-import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 import { getMessageRoleKey, readMessageContent, sanitizeFileName } from '@/renderer/utils/chat/conversationExport';
 
 import type { ExportZipFile } from '../types';
@@ -72,7 +72,7 @@ const getMarkdownMessageRoleLabel = (message: TMessage): string => {
     case 'user':
       return 'User';
     case 'assistant':
-      return 'Assistant';
+      return 'Agent';
     case 'system':
       return 'System';
   }

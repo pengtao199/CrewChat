@@ -42,7 +42,7 @@ const AcpChat: React.FC<{
   loadedMcpStatuses?: IConversationMcpStatus[];
   teamSendMessage?: (payload: { input: string; files: ChatFileRef[] }) => Promise<void>;
   teamRuntime?: TeamSendBoxRuntime;
-  assistantId?: string;
+  agentId?: string;
   forkCapability?: { at_turn: boolean };
   promptCapability?: { image: boolean; audio: boolean };
 }> = ({
@@ -59,7 +59,7 @@ const AcpChat: React.FC<{
   loadedMcpStatuses,
   teamSendMessage,
   teamRuntime,
-  assistantId,
+  agentId,
   forkCapability,
   promptCapability,
 }) => {
@@ -83,7 +83,7 @@ const AcpChat: React.FC<{
         loadedSkills,
         loadedMcpServers,
         loadedMcpStatuses,
-        assistantId,
+        agentId,
         forkCapability,
         promptCapability,
       }}

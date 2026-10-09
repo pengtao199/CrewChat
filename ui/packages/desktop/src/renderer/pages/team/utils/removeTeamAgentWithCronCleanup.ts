@@ -7,7 +7,7 @@ type RemoveAgentParams = {
   slot_id: string;
 };
 
-type RemoveTeamAssistantWithCronCleanupParams = {
+type RemoveTeamAgentWithCronCleanupParams = {
   team: TTeam;
   slot_id: string;
   getConversation: (conversation_id: string) => Promise<TChatConversation | null>;
@@ -22,16 +22,16 @@ type RemoveTeamWithCronCleanupParams = {
   removeTeam: (params: { id: string }) => Promise<unknown>;
 };
 
-export async function removeTeamAssistantWithCronCleanup({
+export async function removeTeamAgentWithCronCleanup({
   team,
   slot_id,
   getConversation,
   removeCronJob,
   removeAgent,
-}: RemoveTeamAssistantWithCronCleanupParams): Promise<void> {
-  const assistant = team.assistants.find((item) => item.slot_id === slot_id);
-  if (assistant?.conversation_id) {
-    const conversation = await getConversation(assistant.conversation_id);
+}: RemoveTeamAgentWithCronCleanupParams): Promise<void> {
+  const agent = team.agents.find((item) => item.slot_id === slot_id);
+  if (agent?.conversation_id) {
+    const conversation = await getConversation(agent.conversation_id);
     const cronJobId = resolveCronJobId(conversation?.extra);
     if (cronJobId) {
       await removeCronJob(cronJobId);
@@ -48,9 +48,9 @@ export async function removeTeamWithCronCleanup({
   removeTeam,
 }: RemoveTeamWithCronCleanupParams): Promise<void> {
   const cronJobIds = new Set<string>();
-  for (const assistant of team.assistants) {
-    if (!assistant.conversation_id) continue;
-    const conversation = await getConversation(assistant.conversation_id);
+  for (const agent of team.agents) {
+    if (!agent.conversation_id) continue;
+    const conversation = await getConversation(agent.conversation_id);
     const cronJobId = resolveCronJobId(conversation?.extra);
     if (cronJobId) {
       cronJobIds.add(cronJobId);

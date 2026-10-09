@@ -120,11 +120,11 @@ const useChannelModelSelection = (platform: ChannelSettingsPlatform): GoogleMode
         const modelRef = { id: provider.id, use_model: modelName };
         await channel.setDefaultModelSetting.invoke({ platform, default_model: modelRef });
 
-        Message.success(t('settings.assistant.modelSwitched', 'Model switched successfully'));
+        Message.success(t('settings.agent.modelSwitched', 'Model switched successfully'));
         return true;
       } catch (error) {
         console.error(`[ChannelSettings] Failed to save model for ${platform}:`, error);
-        Message.error(t('settings.assistant.modelSaveFailed', 'Failed to save model'));
+        Message.error(t('settings.agent.modelSaveFailed', 'Failed to save model'));
         return false;
       }
     },
@@ -138,7 +138,7 @@ const useChannelModelSelection = (platform: ChannelSettingsPlatform): GoogleMode
 };
 
 /**
- * Assistant Settings Content Component
+ * Agent Settings Content Component
  */
 const ChannelModalContent: React.FC = () => {
   const { t } = useTranslation();
@@ -315,7 +315,7 @@ const ChannelModalContent: React.FC = () => {
         // Check if we have a token - either saved in database or entered in the form
         const pendingToken = telegramTokenRef.current.trim();
         if (!pluginStatus?.hasToken && !pendingToken) {
-          Message.warning(t('settings.assistant.tokenRequired', 'Please enter a bot token first'));
+          Message.warning(t('settings.agent.tokenRequired', 'Please enter a bot token first'));
           setEnableLoading(false);
           return;
         }
@@ -326,7 +326,7 @@ const ChannelModalContent: React.FC = () => {
           config: pendingToken ? { credentials: { token: pendingToken } } : {},
         });
 
-        Message.success(t('settings.assistant.pluginEnabled', 'Telegram bot enabled'));
+        Message.success(t('settings.agent.pluginEnabled', 'Telegram bot enabled'));
         await loadPluginStatus();
       } else {
         // disablePlugin returns void; success if no throw
@@ -334,7 +334,7 @@ const ChannelModalContent: React.FC = () => {
           plugin_id: 'telegram',
         });
 
-        Message.success(t('settings.assistant.pluginDisabled', 'Telegram bot disabled'));
+        Message.success(t('settings.agent.pluginDisabled', 'Telegram bot disabled'));
         await loadPluginStatus();
       }
     } catch (error: unknown) {
@@ -353,7 +353,7 @@ const ChannelModalContent: React.FC = () => {
         // SlackConfigForm's "Test" flow (which auto-enables on success). The
         // manual toggle only re-enables when tokens are already saved.
         if (!slackPluginStatus?.hasToken) {
-          Message.warning(t('settings.assistant.slackTokensRequired', 'Please enter and test your Slack tokens first'));
+          Message.warning(t('settings.agent.slackTokensRequired', 'Please enter and test your Slack tokens first'));
           setSlackEnableLoading(false);
           return;
         }
@@ -363,14 +363,14 @@ const ChannelModalContent: React.FC = () => {
           config: {},
         });
 
-        Message.success(t('settings.assistant.slackPluginEnabled', 'Slack bot enabled'));
+        Message.success(t('settings.agent.slackPluginEnabled', 'Slack bot enabled'));
         await loadPluginStatus();
       } else {
         await channel.disablePlugin.invoke({
           plugin_id: 'slack',
         });
 
-        Message.success(t('settings.assistant.slackPluginDisabled', 'Slack bot disabled'));
+        Message.success(t('settings.agent.slackPluginDisabled', 'Slack bot disabled'));
         await loadPluginStatus();
       }
     } catch (error: unknown) {
@@ -389,7 +389,7 @@ const ChannelModalContent: React.FC = () => {
         // typed into DiscordConfigForm (which also auto-enables on a successful Test).
         const pendingToken = discordTokenRef.current.trim();
         if (!discordPluginStatus?.hasToken && !pendingToken) {
-          Message.warning(t('settings.assistant.tokenRequired', 'Please enter a bot token first'));
+          Message.warning(t('settings.agent.tokenRequired', 'Please enter a bot token first'));
           setDiscordEnableLoading(false);
           return;
         }
@@ -399,14 +399,14 @@ const ChannelModalContent: React.FC = () => {
           config: pendingToken ? { credentials: { token: pendingToken } } : {},
         });
 
-        Message.success(t('settings.assistant.discordPluginEnabled', 'Discord bot enabled'));
+        Message.success(t('settings.agent.discordPluginEnabled', 'Discord bot enabled'));
         await loadPluginStatus();
       } else {
         await channel.disablePlugin.invoke({
           plugin_id: 'discord',
         });
 
-        Message.success(t('settings.assistant.discordPluginDisabled', 'Discord bot disabled'));
+        Message.success(t('settings.agent.discordPluginDisabled', 'Discord bot disabled'));
         await loadPluginStatus();
       }
     } catch (error: unknown) {
@@ -732,7 +732,7 @@ const ChannelModalContent: React.FC = () => {
     const telegramChannel: ChannelConfig = {
       id: 'telegram',
       title: t('settings.channels.telegramTitle', 'Telegram'),
-      description: t('settings.channels.telegramDesc', 'Chat with AionUi assistant via Telegram'),
+      description: t('settings.channels.telegramDesc', 'Chat with AionUi agent via Telegram'),
       status: 'active',
       enabled: pluginStatus?.enabled || false,
       disabled: enableLoading,
@@ -754,7 +754,7 @@ const ChannelModalContent: React.FC = () => {
     const slackChannel: ChannelConfig = {
       id: 'slack',
       title: t('settings.channels.slackTitle', 'Slack'),
-      description: t('settings.channels.slackDesc', 'Chat with AionUi assistant via Slack'),
+      description: t('settings.channels.slackDesc', 'Chat with AionUi agent via Slack'),
       status: 'active',
       enabled: slackPluginStatus?.enabled || false,
       disabled: slackEnableLoading,
@@ -776,7 +776,7 @@ const ChannelModalContent: React.FC = () => {
     const discordChannel: ChannelConfig = {
       id: 'discord',
       title: t('settings.channels.discordTitle', 'Discord'),
-      description: t('settings.channels.discordDesc', 'Chat with AionUi assistant via Discord'),
+      description: t('settings.channels.discordDesc', 'Chat with AionUi agent via Discord'),
       status: 'active',
       enabled: discordPluginStatus?.enabled || false,
       disabled: discordEnableLoading,
@@ -798,7 +798,7 @@ const ChannelModalContent: React.FC = () => {
     const larkChannel: ChannelConfig = {
       id: 'lark',
       title: t('settings.channels.larkTitle', 'Lark / Feishu'),
-      description: t('settings.channels.larkDesc', 'Chat with AionUi assistant via Lark or Feishu'),
+      description: t('settings.channels.larkDesc', 'Chat with AionUi agent via Lark or Feishu'),
       status: 'active',
       enabled: larkPluginStatus?.enabled || false,
       disabled: larkEnableLoading,
@@ -816,7 +816,7 @@ const ChannelModalContent: React.FC = () => {
     const dingtalkChannel: ChannelConfig = {
       id: 'dingtalk',
       title: t('settings.channels.dingtalkTitle', 'DingTalk'),
-      description: t('settings.channels.dingtalkDesc', 'Chat with AionUi assistant via DingTalk'),
+      description: t('settings.channels.dingtalkDesc', 'Chat with AionUi agent via DingTalk'),
       status: 'active',
       enabled: dingtalkPluginStatus?.enabled || false,
       disabled: dingtalkEnableLoading,
@@ -834,7 +834,7 @@ const ChannelModalContent: React.FC = () => {
     const weixinChannel: ChannelConfig = {
       id: 'weixin',
       title: t('settings.channels.weixinTitle', 'WeChat'),
-      description: t('settings.channels.weixinDesc', 'Chat with AionUi assistant via WeChat'),
+      description: t('settings.channels.weixinDesc', 'Chat with AionUi agent via WeChat'),
       status: 'active',
       enabled: weixinPluginStatus?.enabled || false,
       disabled: weixinEnableLoading,
@@ -852,7 +852,7 @@ const ChannelModalContent: React.FC = () => {
     const wecomChannel: ChannelConfig = {
       id: 'wecom',
       title: t('settings.channels.wecomTitle', 'WeCom'),
-      description: t('settings.channels.wecomDesc', 'Chat with AionUi assistant via WeCom (Enterprise WeChat)'),
+      description: t('settings.channels.wecomDesc', 'Chat with AionUi agent via WeCom (Enterprise WeChat)'),
       status: 'coming_soon' as const,
       enabled: false,
       disabled: true,
@@ -947,7 +947,7 @@ const ChannelModalContent: React.FC = () => {
       defaultValue: 'Select a channel and configure credentials.',
     }),
     t('settings.channels.enableAfterConfig', {
-      defaultValue: 'Enable it and start chatting with your AI assistant.',
+      defaultValue: 'Enable it and start chatting with your AI agent.',
     }),
   ];
 

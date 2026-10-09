@@ -6,7 +6,7 @@
 
 import AionModal from '@renderer/components/base/AionModal';
 import { FEEDBACK_MODULES } from './feedbackModules';
-import { useTalkToButler } from '@/renderer/hooks/assistant/useTalkToButler';
+import { useTalkToButler } from '@/renderer/hooks/agent/useTalkToButler';
 import { useAuth } from '@/renderer/hooks/context/AuthContext';
 import { uploadFileViaHttp } from '@/renderer/services/FileService';
 import { Button, Input, Select, Message, Upload } from '@arco-design/web-react';

@@ -6,7 +6,7 @@
 
 import { resolveBackendAssetUrl } from '@/renderer/utils/platform';
 
-export type AssistantAvatar =
+export type AgentAvatar =
   | { kind: 'image'; value: string }
   | { kind: 'emoji'; value: string }
   | { kind: 'fallback' };
@@ -24,7 +24,7 @@ export function isLikelyLocalFilePath(value: string): boolean {
   return unixLocalPathPrefixes.some((prefix) => value.startsWith(prefix));
 }
 
-export function resolveAssistantAvatar(avatar: string | undefined): AssistantAvatar {
+export function resolveAgentAvatar(avatar: string | undefined): AgentAvatar {
   const value = avatar?.trim();
   if (!value) return { kind: 'fallback' };
 

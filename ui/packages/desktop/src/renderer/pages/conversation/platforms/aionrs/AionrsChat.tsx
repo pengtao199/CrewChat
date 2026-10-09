@@ -40,7 +40,7 @@ const AionrsChat: React.FC<{
   agent_name?: string;
   teamSendMessage?: (payload: { input: string; files: ChatFileRef[] }) => Promise<void>;
   teamRuntime?: TeamSendBoxRuntime;
-  assistantId?: string;
+  agentId?: string;
   forkCapability?: { at_turn: boolean };
 }> = ({
   conversation_id,
@@ -55,7 +55,7 @@ const AionrsChat: React.FC<{
   agent_name,
   teamSendMessage,
   teamRuntime,
-  assistantId,
+  agentId,
   forkCapability,
 }) => {
   useMessageLstCache(conversation_id);
@@ -70,7 +70,7 @@ const AionrsChat: React.FC<{
       loadedSkills,
       loadedMcpServers,
       loadedMcpStatuses,
-      assistantId,
+      agentId,
       forkCapability,
     };
   }, [
@@ -80,7 +80,7 @@ const AionrsChat: React.FC<{
     loadedSkills,
     loadedMcpServers,
     loadedMcpStatuses,
-    assistantId,
+    agentId,
     forkCapability,
   ]);
 

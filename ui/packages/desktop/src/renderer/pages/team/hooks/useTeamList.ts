@@ -5,7 +5,7 @@ import type { TTeam } from '@/common/types/team/teamTypes';
 import { useCallback, useEffect } from 'react';
 import useSWR from 'swr';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
-import { removeTeamWithCronCleanup } from '../utils/removeTeamAssistantWithCronCleanup';
+import { removeTeamWithCronCleanup } from '../utils/removeTeamAgentWithCronCleanup';
 import { pruneOrphanTeamStorage } from '../utils/teamStorage';
 
 export function useTeamList() {

@@ -12,7 +12,7 @@ import { CronJobManager } from '@/renderer/pages/cron';
 import { resolveCronJobId } from '@/renderer/pages/cron/cronUtils';
 import { classifyConfigSetError, useAcpConfigOptions } from '@/renderer/hooks/agent/useAcpConfigOptions';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
-import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
+import { usePresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
 import { iconColors } from '@/renderer/styles/colors';
 import { Button, Dropdown, Menu, Message, Tooltip, Typography } from '@arco-design/web-react';
 import { History } from '@icon-park/react';
@@ -34,7 +34,7 @@ import AionrsModelSelector from '../platforms/aionrs/AionrsModelSelector';
 import { useAionrsModelSelection } from '../platforms/aionrs/useAionrsModelSelection';
 import { useConversationRuntimeView } from '../runtime/useConversationRuntimeView';
 import { isLegacyReadOnlyConversationType } from '../utils/conversationRuntime';
-import { resolveConversationBackend } from '../utils/conversationAssistantIdentity';
+import { resolveConversationBackend } from '../utils/conversationAgentIdentity';
 import LegacyReadOnlyConversation from '../platforms/legacy/LegacyReadOnlyConversation';
 import SingleChatEmptyState from './SingleChatEmptyState';
 import { useActiveLease } from '../hooks/useActiveLease';
@@ -177,8 +177,8 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
   // not double up or reserve an empty column.
   const workspaceEnabled = Boolean(conversation.extra?.workspace) && !conversation.project_id;
   const cronJobId = resolveCronJobId(conversation.extra);
-  const { info: presetAssistantInfo } = usePresetAssistantInfo(conversation);
-  const aionrsAssistantId = presetAssistantInfo?.assistantId;
+  const { info: presetAgentInfo } = usePresetAgentInfo(conversation);
+  const aionrsAgentId = presetAgentInfo?.agentId;
   const layout = useLayoutContext();
   // Mobile: model selection moved into the sendbox `+` action sheet to free up
   // header space; the dropdown stays available on desktop and tablets ≥768px.
@@ -232,14 +232,14 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
     isTemporaryWorkspace: (conversation.extra as { is_temporary_workspace?: boolean } | undefined)
       ?.is_temporary_workspace,
     backend: 'aionrs' as const,
-    presetAssistant: presetAssistantInfo ? { ...presetAssistantInfo, id: aionrsAssistantId } : undefined,
+    presetAgent: presetAgentInfo ? { ...presetAgentInfo, id: aionrsAgentId } : undefined,
   };
 
   const emptySlot = (
     <SingleChatEmptyState
       conversation_id={conversation.id}
-      assistant_name={presetAssistantInfo?.name}
-      assistant_backend={presetAssistantInfo?.backend}
+      agent_name={presetAgentInfo?.name}
+      agent_backend={presetAgentInfo?.backend}
     />
   );
 
@@ -257,8 +257,8 @@ const AionrsConversationPanel: React.FC<{ conversation: AionrsConversation; slid
         loadedMcpStatuses={
           (conversation.extra as { mcp_statuses?: IConversationMcpStatus[] } | undefined)?.mcp_statuses
         }
-        agent_name={presetAssistantInfo?.name}
-        assistantId={aionrsAssistantId}
+        agent_name={presetAgentInfo?.name}
+        agentId={aionrsAgentId}
         forkCapability={conversation.fork_capability}
       />
     </ChatLayout>
@@ -288,14 +288,14 @@ const ChatConversation: React.FC<{
   const resolvedHideSendBox = hideSendBox || isLegacyReadOnlyConversationType(conversation?.type);
 
   // 使用统一的 Hook 获取预设助手信息（ACP/Codex 会话）
-  // Use unified hook for preset assistant info (ACP/Codex conversations)
+  // Use unified hook for preset agent info (ACP/Codex conversations)
   const acpConversation = isAionrsConversation ? undefined : conversation;
-  const { info: presetAssistantInfo, isLoading: isLoadingPreset } = usePresetAssistantInfo(acpConversation);
-  const acpAssistantId = presetAssistantInfo?.assistantId;
-  const resolvedConversationBackend = resolveConversationBackend(conversation, presetAssistantInfo?.backend);
+  const { info: presetAgentInfo, isLoading: isLoadingPreset } = usePresetAgentInfo(acpConversation);
+  const acpAgentId = presetAgentInfo?.agentId;
+  const resolvedConversationBackend = resolveConversationBackend(conversation, presetAgentInfo?.backend);
 
   const conversationAgentName = (conversation?.extra as { agent_name?: string } | undefined)?.agent_name;
-  const assistantDisplayName = presetAssistantInfo?.name || conversationAgentName;
+  const agentDisplayName = presetAgentInfo?.name || conversationAgentName;
 
   const conversationNode = useMemo(() => {
     if (!conversation || isAionrsConversation) return null;
@@ -304,8 +304,8 @@ const ChatConversation: React.FC<{
     const emptySlot = (
       <SingleChatEmptyState
         conversation_id={conversation.id}
-        assistant_name={assistantDisplayName}
-        assistant_backend={resolvedConversationBackend}
+        agent_name={agentDisplayName}
+        agent_backend={resolvedConversationBackend}
       />
     );
     if (isLegacyReadOnlyConversation) {
@@ -326,7 +326,7 @@ const ChatConversation: React.FC<{
             workspace={conversation.extra?.workspace}
             backend={resolvedConversationBackend || 'claude'}
             session_mode={conversation.extra?.session_mode}
-            agent_name={assistantDisplayName}
+            agent_name={agentDisplayName}
             cron_job_id={cronJobId}
             hideSendBox={resolvedHideSendBox}
             emptySlot={emptySlot}
@@ -335,7 +335,7 @@ const ChatConversation: React.FC<{
             loadedMcpStatuses={
               (conversation.extra as { mcp_statuses?: IConversationMcpStatus[] } | undefined)?.mcp_statuses
             }
-            assistantId={acpAssistantId}
+            agentId={acpAgentId}
             forkCapability={conversation.fork_capability}
             promptCapability={conversation.prompt_capability}
           ></AcpChat>
@@ -348,10 +348,10 @@ const ChatConversation: React.FC<{
     isAionrsConversation,
     isLegacyReadOnlyConversation,
     resolvedConversationBackend,
-    assistantDisplayName,
+    agentDisplayName,
     cronJobId,
     resolvedHideSendBox,
-    acpAssistantId,
+    acpAgentId,
   ]);
 
   const sliderTitle = useMemo(() => {
@@ -393,10 +393,10 @@ const ChatConversation: React.FC<{
   }
 
   // 如果有预设助手信息，使用预设助手的 logo 和名称；加载中时不进入 fallback；否则使用 backend 的 logo
-  // If preset assistant info exists, use preset logo/name; while loading, avoid fallback; otherwise use backend logo
-  const chatLayoutProps = presetAssistantInfo
+  // If preset agent info exists, use preset logo/name; while loading, avoid fallback; otherwise use backend logo
+  const chatLayoutProps = presetAgentInfo
     ? {
-        presetAssistant: { ...presetAssistantInfo, id: acpAssistantId },
+        presetAgent: { ...presetAgentInfo, id: acpAgentId },
       }
     : isLoadingPreset
       ? {} // Still loading custom agents — avoid showing backend logo prematurely

@@ -6,7 +6,7 @@
 
 import React from 'react';
 import useSWR from 'swr';
-import { usePresetAssistantInfo } from '@renderer/hooks/agent/usePresetAssistantInfo';
+import { usePresetAgentInfo } from '@renderer/hooks/agent/usePresetAgentInfo';
 import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { Robot } from '@icon-park/react';
@@ -21,7 +21,7 @@ type Props = {
 
 /**
  * Avatar shown next to a teammate's message bubble. Prefers the sender's preset
- * assistant icon (emoji or svg) over the generic backend logo so preset-backed
+ * agent icon (emoji or svg) over the generic backend logo so preset-backed
  * teammates keep their persona when messaging others.
  */
 const TeammateMessageAvatar: React.FC<Props> = ({ senderName, senderConversationId, backendLogo }) => {
@@ -30,7 +30,7 @@ const TeammateMessageAvatar: React.FC<Props> = ({ senderName, senderConversation
   const { data: conversation } = useSWR(senderConversationId ? ['team-conversation', senderConversationId] : null, () =>
     getConversationOrNull(senderConversationId!)
   );
-  const { info: presetInfo } = usePresetAssistantInfo(conversation ?? undefined);
+  const { info: presetInfo } = usePresetAgentInfo(conversation ?? undefined);
 
   if (presetInfo) {
     if (presetInfo.isFallback) {

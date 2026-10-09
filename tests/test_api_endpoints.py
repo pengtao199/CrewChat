@@ -156,7 +156,7 @@ SHIPPED_PAGE_ENDPOINTS = [
     "/skills/import-limits",
     "/skills/import-history",
     "/agents/management",
-    "/assistants",
+    "/agents",
     "/settings/client",
     "/settings",
     "/system/info",

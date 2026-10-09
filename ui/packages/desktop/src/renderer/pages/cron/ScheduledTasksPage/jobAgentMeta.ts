@@ -7,40 +7,40 @@
 import type { ICronJob } from '@/common/adapter/ipcBridge';
 import type { AgentLogoMap } from '@renderer/utils/model/agentLogo';
 import { resolveAgentLogo } from '@renderer/utils/model/agentLogo';
-import { resolveAssistantAvatar } from '@renderer/utils/model/assistantAvatar';
-import type { Assistant } from '@/common/types/agent/assistantTypes';
+import { resolveAgentAvatar } from '@renderer/utils/model/agentAvatar';
+import type { Agent } from '@/common/types/agent/agentTypes';
 
 function normalizeAgentBackend(agent: string | undefined): string | undefined {
   if (!agent) return undefined;
   return agent.replace(/^cli:/, '').replace(/^preset:/, '');
 }
 
-function resolveCronAssistantId(config: ICronJob['metadata']['agent_config']): string | undefined {
-  return config?.assistant_id;
+function resolveCronAgentId(config: ICronJob['metadata']['agent_config']): string | undefined {
+  return config?.agent_id;
 }
 
 /**
  * Resolve the display name and logo for a cron job's agent.
  *
- * Assistant-backed jobs display from the assistant catalog. Non-assistant
+ * Agent-backed jobs display from the agent catalog. Non-agent
  * legacy jobs fall back to the derived runtime type.
  */
 export function getJobAgentMeta(
   job: ICronJob,
-  presetAssistants: Assistant[],
+  presetAgents: Agent[],
   logos: AgentLogoMap
-): { name?: string; logo?: string | null; emoji?: string; assistantFallback?: boolean } {
+): { name?: string; logo?: string | null; emoji?: string; agentFallback?: boolean } {
   const config = job.metadata.agent_config;
-  const assistantId = resolveCronAssistantId(config);
-  if (assistantId) {
-    const assistant = presetAssistants.find((item) => item.id === assistantId);
-    if (!assistant) {
-      return { name: config?.name || normalizeAgentBackend(job.metadata.agent_type), assistantFallback: true };
+  const agentId = resolveCronAgentId(config);
+  if (agentId) {
+    const agent = presetAgents.find((item) => item.id === agentId);
+    if (!agent) {
+      return { name: config?.name || normalizeAgentBackend(job.metadata.agent_type), agentFallback: true };
     }
 
     const rawType = normalizeAgentBackend(job.metadata.agent_type);
-    const displayName = assistant.name || rawType;
-    const avatar = resolveAssistantAvatar(assistant.avatar);
+    const displayName = agent.name || rawType;
+    const avatar = resolveAgentAvatar(agent.avatar);
     if (avatar.kind === 'image') {
       return { name: displayName, logo: avatar.value };
     }
@@ -48,7 +48,7 @@ export function getJobAgentMeta(
       return { name: displayName, emoji: avatar.value };
     }
 
-    return { name: displayName, assistantFallback: true };
+    return { name: displayName, agentFallback: true };
   }
 
   const rawType = normalizeAgentBackend(job.metadata.agent_type);

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Trigger } from '@arco-design/web-react';
-import type { TeamAssistantOption } from '../assistantSelectUtils';
-import TeamAssistantPicker from './TeamAssistantPicker';
+import type { TeamAgentOption } from '../agentSelectUtils';
+import TeamAgentPicker from './TeamAgentPicker';
 
 /**
- * TeamAssistantPickerDropdown —— “点击加号 → 弹出下拉 → 选择助手”的公用组件。
+ * TeamAgentPickerDropdown —— “点击加号 → 弹出下拉 → 选择助手”的公用组件。
  *
  * 团队相关界面里有多处这种交互：桌面/移动端团队页 Tab 栏的加号、新建团队弹窗窄屏的
  * “添加成员”。它们都是：一个锚点（加号按钮）触发一个下拉浮层，浮层里是带搜索的助手列表。
@@ -14,14 +14,14 @@ import TeamAssistantPicker from './TeamAssistantPicker';
 type Props = {
   /** 锚点元素（通常是“+”按钮）。 */
   children: React.ReactElement;
-  assistants: TeamAssistantOption[];
-  onSelect: (assistant: TeamAssistantOption) => void;
+  agents: TeamAgentOption[];
+  onSelect: (agent: TeamAgentOption) => void;
   /** 受控展开状态。 */
   visible: boolean;
   onVisibleChange: (visible: boolean) => void;
   disabled?: boolean;
   /** 正在处理的助手 id（调用方异步添加时用于行内 loading）。 */
-  pendingAssistantId?: string;
+  pendingAgentId?: string;
   /** testId 前缀，透传给内部 picker（搜索框/选项都基于它）。 */
   testIdPrefix: string;
   /** 浮层容器的 testId。 */
@@ -40,14 +40,14 @@ type Props = {
   density?: 'compact' | 'modal';
 };
 
-const TeamAssistantPickerDropdown: React.FC<Props> = ({
+const TeamAgentPickerDropdown: React.FC<Props> = ({
   children,
-  assistants,
+  agents,
   onSelect,
   visible,
   onVisibleChange,
   disabled = false,
-  pendingAssistantId,
+  pendingAgentId,
   testIdPrefix,
   panelTestId,
   title,
@@ -57,7 +57,7 @@ const TeamAssistantPickerDropdown: React.FC<Props> = ({
   emptyText,
   density = 'modal',
 }) => {
-  const showEmpty = emptyText !== undefined && assistants.length === 0;
+  const showEmpty = emptyText !== undefined && agents.length === 0;
 
   return (
     <Trigger
@@ -67,7 +67,7 @@ const TeamAssistantPickerDropdown: React.FC<Props> = ({
       position='br'
       popupAlign={{ bottom: 8 }}
       getPopupContainer={() => document.body}
-      classNames='team-assistant-picker-dropdown'
+      classNames='team-agent-picker-dropdown'
       popup={() => (
         <div
           data-testid={panelTestId}
@@ -88,11 +88,11 @@ const TeamAssistantPickerDropdown: React.FC<Props> = ({
               {emptyText}
             </div>
           ) : (
-            <TeamAssistantPicker
-              assistants={assistants}
+            <TeamAgentPicker
+              agents={agents}
               onSelect={onSelect}
               disabled={disabled}
-              pendingAssistantId={pendingAssistantId}
+              pendingAgentId={pendingAgentId}
               testIdPrefix={testIdPrefix}
               density={density}
               searchVariant='inline'
@@ -116,4 +116,4 @@ const TeamAssistantPickerDropdown: React.FC<Props> = ({
   );
 };
 
-export default TeamAssistantPickerDropdown;
+export default TeamAgentPickerDropdown;

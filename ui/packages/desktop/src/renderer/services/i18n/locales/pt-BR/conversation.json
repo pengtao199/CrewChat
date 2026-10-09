@@ -104,7 +104,7 @@
   },
   "dropdown": {
     "cliAgents": "Agentes CLI",
-    "presetAssistants": "Assistentes Predefinidos"
+    "presetAgents": "Assistentes Predefinidos"
   },
   "noAgentsAvailable": "Nenhum agente disponível",
   "noModelConfigured": "Nenhum modelo configurado. Por favor, configure nas configurações.",
@@ -115,9 +115,9 @@
       "WORKSPACE_PATH_CONTAINS_WHITESPACE_UNSUPPORTED": "O caminho do projeto selecionado \"{{workspacePath}}\" contém um nome de pasta com espaços ou outros caracteres de espaço em branco. Renomeie a pasta afetada ou escolha um caminho de projeto em que nenhum nome de diretório contenha espaços."
     },
     "codes": {
-      "TEAM_ASSISTANT_ID_REQUIRED": "Please select an assistant before creating the team.",
-      "TEAM_ASSISTANT_NOT_FOUND": "Assistant {{assistantId}} is no longer available. Refresh the assistant list and choose another one.",
-      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Use assistant_id instead of {{field}}."
+      "TEAM_ASSISTANT_ID_REQUIRED": "Please select an agent before creating the team.",
+      "TEAM_ASSISTANT_NOT_FOUND": "Agent {{agentId}} is no longer available. Refresh the agent list and choose another one.",
+      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Use agent_id instead of {{field}}."
     }
   },
   "agentError": {
@@ -344,16 +344,16 @@
         "body": "The local team session is still starting or has been interrupted. Wait a moment and retry."
       },
       "TEAM_ASSISTANT_ID_REQUIRED": {
-        "title": "A teammate assistant must be selected",
-        "body": "Choose a real assistant from the available assistant catalog before creating or spawning a teammate."
+        "title": "A teammate agent must be selected",
+        "body": "Choose a real agent from the available agent catalog before creating or spawning a teammate."
       },
       "TEAM_ASSISTANT_NOT_FOUND": {
-        "title": "The selected assistant is no longer available",
-        "body": "Refresh the assistant catalog, then choose another assistant for this teammate."
+        "title": "The selected agent is no longer available",
+        "body": "Refresh the agent catalog, then choose another agent for this teammate."
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "The request used a legacy team identity field",
-        "body": "This team action must use assistant_id instead of legacy backend or agent fields."
+        "body": "This team action must use agent_id instead of legacy backend or agent fields."
       }
     }
   },

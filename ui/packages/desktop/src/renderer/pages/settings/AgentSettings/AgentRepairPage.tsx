@@ -13,16 +13,16 @@ import { ipcBridge } from '@/common';
 import { useManagedAgents } from '@/renderer/hooks/agent/useManagedAgents';
 import { formatManagedAgentDiagnosticMessage } from '@/renderer/utils/model/agentTypes';
 import AgentRepairPanel from './AgentRepairPanel';
-import { BoundAssistantList, getBoundAssistants, useAssistantsForAgents } from './BoundAssistants';
+import { BoundAgentList, getBoundAgents, useAgentsForAgents } from './BoundAgents';
 
-const OPEN_ASSISTANT_EDITOR_INTENT_KEY = 'guid.openAssistantEditorIntent';
+const OPEN_ASSISTANT_EDITOR_INTENT_KEY = 'guid.openAgentEditorIntent';
 
 const AgentRepairPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { agents, isRefreshing, refreshCatalog } = useManagedAgents();
-  const { assistants } = useAssistantsForAgents();
+  const { agents: catalogAgents } = useAgentsForAgents();
   const [isTesting, setIsTesting] = useState(false);
 
   const agent = agents.find((a) => a.id === id);
@@ -65,20 +65,20 @@ const AgentRepairPage: React.FC = () => {
     }
   }, [agent, refreshCatalog, t]);
 
-  // Open the target assistant's detail/editor by handing the intent to the
-  // assistant settings page (which mounts its split-view editor on this key),
-  // mirroring how other surfaces jump into a specific assistant.
-  const handleOpenAssistant = useCallback(
-    (assistantId: string) => {
+  // Open the target agent's detail/editor by handing the intent to the
+  // agent settings page (which mounts its split-view editor on this key),
+  // mirroring how other surfaces jump into a specific agent.
+  const handleOpenAgent = useCallback(
+    (agentId: string) => {
       try {
         sessionStorage.setItem(
           OPEN_ASSISTANT_EDITOR_INTENT_KEY,
-          JSON.stringify({ assistantId, openAssistantEditor: true })
+          JSON.stringify({ agentId, openAgentEditor: true })
         );
       } catch (error) {
-        console.error('[AgentRepair] Failed to persist assistant open intent:', error);
+        console.error('[AgentRepair] Failed to persist agent open intent:', error);
       }
-      navigate('/settings/assistants', { state: { openAssistantEditor: true, openAssistantId: assistantId } });
+      navigate('/settings/agents', { state: { openAgentEditor: true, openAgentId: agentId } });
     },
     [navigate]
   );
@@ -98,7 +98,7 @@ const AgentRepairPage: React.FC = () => {
     void refreshCatalog();
   };
 
-  const boundAssistants = getBoundAssistants(agent, assistants);
+  const boundAgents = getBoundAgents(agent, catalogAgents);
 
   return (
     <div data-testid='agent-repair-page' className='flex h-full min-h-0 flex-col overflow-hidden bg-transparent'>
@@ -135,16 +135,16 @@ const AgentRepairPage: React.FC = () => {
         <div className='mx-auto w-full max-w-760px'>
           <AgentRepairPanel agent={agent} onSaved={handleSaved} />
 
-          {/* Which assistants depend on this agent — clicking one jumps to its
+          {/* Which agents depend on this agent — clicking one jumps to its
               detail/editor so the user can see and adjust the binding. */}
           <div className='mt-18px'>
             <Typography.Text className='mb-8px block text-13px font-medium text-t-primary'>
-              {t('settings.agentManagement.boundAssistantsTitle')}
-              {boundAssistants.length > 0 ? (
-                <span className='ms-4px text-t-tertiary'>{`（${boundAssistants.length}）`}</span>
+              {t('settings.agentManagement.boundAgentsTitle')}
+              {boundAgents.length > 0 ? (
+                <span className='ms-4px text-t-tertiary'>{`（${boundAgents.length}）`}</span>
               ) : null}
             </Typography.Text>
-            <BoundAssistantList assistants={boundAssistants} onOpenAssistant={handleOpenAssistant} />
+            <BoundAgentList agents={boundAgents} onOpenAgent={handleOpenAgent} />
           </div>
         </div>
       </div>

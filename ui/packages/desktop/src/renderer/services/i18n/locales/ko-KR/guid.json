@@ -5,7 +5,7 @@
     "cleanup": "이 폴더에서 중복되거나 쓸모없는 파일을 찾아 확인할 수 있게 목록으로 보여 줘",
     "create": "멋진 개인 홈페이지를 만들어서 완성되면 바로 열어서 보여 줘"
   },
-  "selectAssistantHint": "어시스턴트를 선택하여 작업을 시작하세요",
+  "selectAgentHint": "어시스턴트를 선택하여 작업을 시작하세요",
   "workspace": {
     "workInProject": "프로젝트에서 작업",
     "optional": "선택사항",

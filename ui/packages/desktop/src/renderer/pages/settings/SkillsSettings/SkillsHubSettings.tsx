@@ -1,5 +1,5 @@
 import { ipcBridge } from '@/common';
-import type { Assistant } from '@/common/types/agent/assistantTypes';
+import type { Agent } from '@/common/types/agent/agentTypes';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { Button, Checkbox, Message, Modal } from '@arco-design/web-react';
 import { Delete, Help, Lightning, Puzzle } from '@icon-park/react';
@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import useSWR from 'swr';
-import SkillUsedByStack, { getAssistantsUsingSkill } from './SkillUsedByStack';
+import SkillUsedByStack, { getAgentsUsingSkill } from './SkillUsedByStack';
 import SettingsPageWrapper from '../components/SettingsPageWrapper';
 import SettingsPageHeader from '../components/SettingsPageHeader';
 import TalkToButlerButton from '@/renderer/components/base/TalkToButlerButton';
@@ -159,8 +159,8 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
   // Batch management (Custom tab only): multi-select skills for bulk deletion.
   const [batchMode, setBatchMode] = useState(false);
   const [selectedSkillNames, setSelectedSkillNames] = useState<Set<string>>(new Set());
-  // Assistant catalog for the "used by" avatar stacks on skill cards.
-  const { data: assistantCatalog } = useSWR<Assistant[]>('assistants.list', () => ipcBridge.assistants.list.invoke());
+  // Agent catalog for the "used by" avatar stacks on skill cards.
+  const { data: agentCatalog } = useSWR<Agent[]>('agents.list', () => ipcBridge.agents.list.invoke());
 
   const openSkillDetail = useCallback(
     (skillName: string) => {
@@ -685,7 +685,7 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
           )}
         </div>
         <div className='shrink-0 sm:self-center flex items-center justify-end ps-4px'>
-          <SkillUsedByStack assistants={getAssistantsUsingSkill(skill.name, assistantCatalog ?? [])} />
+          <SkillUsedByStack agents={getAgentsUsingSkill(skill.name, agentCatalog ?? [])} />
         </div>
       </div>
     );
@@ -871,7 +871,7 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
 
               {!batchMode && (
                 <div className='shrink-0 sm:self-center flex items-center justify-end gap-10px mt-12px sm:mt-0 ps-4px'>
-                  <SkillUsedByStack assistants={getAssistantsUsingSkill(skill.name, assistantCatalog ?? [])} />
+                  <SkillUsedByStack agents={getAgentsUsingSkill(skill.name, agentCatalog ?? [])} />
                   <button
                     data-testid={`btn-delete-${normalizeTestId(skill.name)}`}
                     className='p-8px hover:bg-danger-1 hover:text-danger-6 text-t-tertiary rd-6px outline-none flex items-center justify-center border border-transparent cursor-pointer transition-colors shadow-sm bg-base sm:bg-transparent sm:shadow-none opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity'
@@ -987,7 +987,7 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
         data-testid='skills-header'
         title={t('settings.skills', { defaultValue: 'Skills' })}
         description={t('settings.skillsHub.description', {
-          defaultValue: 'Centrally manage AI skill packs — install once, use across all assistants.',
+          defaultValue: 'Centrally manage AI skill packs — install once, use across all agents.',
         })}
         actions={
           <>
@@ -1008,7 +1008,7 @@ const SkillsHubSettings: React.FC<SkillsHubSettingsProps> = ({ withWrapper = tru
               onManual={handleManualImport}
               manualLabel={t('settings.skillsHub.manualImport', { defaultValue: 'Import Skills' })}
               prompt={t('settings.talkToButler.prompt.addSkill', {
-                defaultValue: 'Help me import a skill and attach it to an assistant.',
+                defaultValue: 'Help me import a skill and attach it to an agent.',
               })}
               data-testid='btn-add-skill'
             />

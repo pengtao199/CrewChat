@@ -68,7 +68,7 @@
     "subtitle": "Let multiple AI agents team up and collaborate. We suggest one team focuses on a single goal — create separate teams for different tasks.",
     "nameLabel": "Team name",
     "workspaceLabel": "Workspace",
-    "allAssistantsWithCount": "All agents ({{count}})",
+    "allAgentsWithCount": "All agents ({{count}})",
     "selectedMembersWithCount": "Selected members {{count}} · ⚑ = Leader",
     "selectedMembersTitleWithCount": "Selected members {{count}}",
     "leaderLegend": "= Leader",
@@ -94,7 +94,7 @@
   "addMember": {
     "title": "Add member",
     "subtitle": "The same agent can be added repeatedly",
-    "searchAssistants": "Search agents...",
+    "searchAgents": "Search agents...",
     "addFailed": "Failed to add member",
     "noSearchResults": "No results found",
     "tellLeaderHint": "Not a good fit? You can also ask the Leader to arrange it.",

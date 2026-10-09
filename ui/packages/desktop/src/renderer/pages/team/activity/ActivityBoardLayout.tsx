@@ -72,8 +72,8 @@ const BoardColumn: React.FC<{
         ) : (
           <div className='flex items-center gap-6px min-w-0 flex-1' data-testid='team-agent-identity'>
             <TeamAgentIdentity
-              assistant_name={lane.name}
-              assistant_backend={lane.backend}
+              agent_name={lane.name}
+              agent_backend={lane.backend}
               icon={lane.icon}
               conversation_id={lane.conversationId}
               logoClassName='w-16px h-16px object-cover rounded-full'

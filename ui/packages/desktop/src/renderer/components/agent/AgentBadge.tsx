@@ -20,10 +20,10 @@ export type AgentBadgeProps = {
   agentLogo?: string;
   /** Whether the logo is an emoji */
   agentLogoIsEmoji?: boolean;
-  /** Whether the explicit assistant logo is intentionally empty. */
+  /** Whether the explicit agent logo is intentionally empty. */
   agentLogoIsFallback?: boolean;
-  /** Assistant ID — when provided, clicking the badge navigates to AssistantSettings */
-  assistantId?: string;
+  /** Agent ID — when provided, clicking the badge navigates to AgentCatalog */
+  agentId?: string;
 };
 
 /** Render agent logo from custom logo, backend logo, or fallback Robot icon */
@@ -62,7 +62,7 @@ export const AgentLogoIcon: React.FC<
 /**
  * AgentBadge - Agent identity badge (logo + name)
  *
- * When `assistantId` is provided, clicking navigates to AssistantSettings editor.
+ * When `agentId` is provided, clicking navigates to AgentCatalog editor.
  * Otherwise renders as a static display badge.
  */
 const AgentBadge: React.FC<AgentBadgeProps> = ({
@@ -71,17 +71,17 @@ const AgentBadge: React.FC<AgentBadgeProps> = ({
   agentLogo,
   agentLogoIsEmoji,
   agentLogoIsFallback,
-  assistantId,
+  agentId,
 }) => {
   const navigate = useNavigate();
   const handleClick = useCallback(() => {
-    if (!assistantId) return;
-    navigate(`/settings/assistants?highlight=${encodeURIComponent(assistantId)}`);
-  }, [assistantId, navigate]);
+    if (!agentId) return;
+    navigate(`/settings/agents?highlight=${encodeURIComponent(agentId)}`);
+  }, [agentId, navigate]);
 
   return (
     <div
-      className={`flex items-center gap-2 bg-2 w-fit rounded-full px-[8px] py-[2px] ${assistantId ? 'cursor-pointer hover:bg-3' : ''}`}
+      className={`flex items-center gap-2 bg-2 w-fit rounded-full px-[8px] py-[2px] ${agentId ? 'cursor-pointer hover:bg-3' : ''}`}
       data-testid='agent-badge'
       onClick={handleClick}
     >

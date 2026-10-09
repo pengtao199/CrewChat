@@ -39,20 +39,20 @@ type MemberLike = { slot_id: string; role: string };
  * 增量分配成员色号：给定上一版映射与当前成员列表，返回新映射。
  * 纯函数、无副作用，便于单测。
  */
-export function assignMemberColors(prev: Record<string, number>, assistants: MemberLike[]): Record<string, number> {
+export function assignMemberColors(prev: Record<string, number>, agents: MemberLike[]): Record<string, number> {
   const next: Record<string, number> = {};
   const used = new Set<number>();
   const paletteLen = TEAM_MEMBER_PALETTE.length;
 
   // 1) Leader 固定色号 0
-  const leader = assistants.find((a) => a.role === 'leader');
+  const leader = agents.find((a) => a.role === 'leader');
   if (leader) {
     next[leader.slot_id] = LEADER_COLOR_INDEX;
     used.add(LEADER_COLOR_INDEX);
   }
 
   // 2) 已分配过的成员沿用原色号（钉死）
-  for (const a of assistants) {
+  for (const a of agents) {
     if (a.slot_id in next) continue;
     const previous = prev[a.slot_id];
     if (previous !== undefined) {
@@ -75,7 +75,7 @@ export function assignMemberColors(prev: Record<string, number>, assistants: Mem
     cursor++;
     return idx;
   };
-  for (const a of assistants) {
+  for (const a of agents) {
     if (a.slot_id in next) continue;
     const idx = nextFreeIndex();
     next[a.slot_id] = idx;

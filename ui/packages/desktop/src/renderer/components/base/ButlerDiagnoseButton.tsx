@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useTalkToButler } from '@/renderer/hooks/assistant/useTalkToButler';
+import { useTalkToButler } from '@/renderer/hooks/agent/useTalkToButler';
 import { Robot } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback } from 'react';

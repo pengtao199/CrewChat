@@ -1,20 +1,20 @@
 import { resolveExtensionAssetUrl } from '@/renderer/utils/platform';
-import { isBackendRelativeAssetPath, isLikelyLocalFilePath } from '@/renderer/utils/model/assistantAvatar';
-import type { AssistantListItem, AvailableBackend } from './types';
+import { isBackendRelativeAssetPath, isLikelyLocalFilePath } from '@/renderer/utils/model/agentAvatar';
+import type { AgentListItem, AvailableBackend } from './types';
 import type { ManagedAgent } from '@/renderer/utils/model/agentTypes';
 
-export type AssistantListFilter = 'all' | 'enabled' | 'disabled' | 'builtin' | 'user';
+export type AgentListFilter = 'all' | 'enabled' | 'disabled' | 'builtin' | 'user';
 
 /**
- * Source tag shown next to an assistant in the settings list.
+ * Source tag shown next to an agent in the settings list.
  *
  * - `builtin` → "Built-in" tag
  * - `user` → "Custom" tag
  * - `generated` (agent-generated) → "CLI" tag, matching the product terminology.
  */
-export type AssistantSourceTag = 'builtin' | 'custom' | 'cli' | null;
+export type AgentSourceTag = 'builtin' | 'custom' | 'cli' | null;
 
-export const resolveAssistantSourceTag = (source: string): AssistantSourceTag => {
+export const resolveAgentSourceTag = (source: string): AgentSourceTag => {
   if (source === 'builtin') return 'builtin';
   if (source === 'generated') return 'cli';
   return 'custom';
@@ -45,48 +45,48 @@ export const resolveAvatarImageSrc = (avatar: string | undefined): string | unde
 };
 
 /**
- * Sort assistants by sortOrder. The backend already returns sorted lists; this
+ * Sort agents by sortOrder. The backend already returns sorted lists; this
  * is a deterministic fallback for local reorder operations.
  */
-export const sortAssistants = (list: AssistantListItem[]): AssistantListItem[] =>
+export const sortAgents = (list: AgentListItem[]): AgentListItem[] =>
   [...list].toSorted((a, b) => a.sort_order - b.sort_order);
 
 /**
- * Reorder assistants by moving `activeId` to the position of `overId`.
+ * Reorder agents by moving `activeId` to the position of `overId`.
  */
-export const reorderAssistantList = (
-  assistants: AssistantListItem[],
+export const reorderAgentList = (
+  agents: AgentListItem[],
   activeId: string,
   overId: string
-): AssistantListItem[] => {
-  const activeIndex = assistants.findIndex((assistant) => assistant.id === activeId);
-  const overIndex = assistants.findIndex((assistant) => assistant.id === overId);
+): AgentListItem[] => {
+  const activeIndex = agents.findIndex((agent) => agent.id === activeId);
+  const overIndex = agents.findIndex((agent) => agent.id === overId);
   if (activeIndex < 0 || overIndex < 0 || activeIndex === overIndex) {
-    return assistants;
+    return agents;
   }
 
-  const nextAssistants = [...assistants];
-  const [movedAssistant] = nextAssistants.splice(activeIndex, 1);
-  nextAssistants.splice(overIndex, 0, movedAssistant);
-  return nextAssistants;
+  const nextAgents = [...agents];
+  const [movedAgent] = nextAgents.splice(activeIndex, 1);
+  nextAgents.splice(overIndex, 0, movedAgent);
+  return nextAgents;
 };
 
 /**
- * Apply search and management filter to assistant list.
+ * Apply search and management filter to agent list.
  */
-export const filterAssistants = (
-  assistants: AssistantListItem[],
+export const filterAgents = (
+  agents: AgentListItem[],
   query: string,
-  filter: AssistantListFilter,
+  filter: AgentListFilter,
   localeKey: string
-): AssistantListItem[] => {
+): AgentListItem[] => {
   const normalizedQuery = query.trim().toLowerCase();
 
-  return assistants.filter((assistant) => {
+  return agents.filter((agent) => {
     if (normalizedQuery) {
       const searchableText = [
-        assistant.name_i18n?.[localeKey] || assistant.name,
-        assistant.description_i18n?.[localeKey] || assistant.description || '',
+        agent.name_i18n?.[localeKey] || agent.name,
+        agent.description_i18n?.[localeKey] || agent.description || '',
       ]
         .join(' ')
         .toLowerCase();
@@ -96,13 +96,13 @@ export const filterAssistants = (
 
     switch (filter) {
       case 'enabled':
-        return assistant.enabled !== false;
+        return agent.enabled !== false;
       case 'disabled':
-        return assistant.enabled === false;
+        return agent.enabled === false;
       case 'builtin':
-        return assistant.source === 'builtin';
+        return agent.source === 'builtin';
       case 'user':
-        return assistant.source === 'user';
+        return agent.source === 'user';
       case 'all':
       default:
         return true;
@@ -111,33 +111,33 @@ export const filterAssistants = (
 };
 
 /**
- * Split assistants into enabled and disabled groups while preserving order.
+ * Split agents into enabled and disabled groups while preserving order.
  */
-export const groupAssistantsByEnabled = (assistants: AssistantListItem[]) => ({
-  enabledAssistants: assistants.filter((assistant) => assistant.enabled !== false),
-  disabledAssistants: assistants.filter((assistant) => assistant.enabled === false),
+export const groupAgentsByEnabled = (agents: AgentListItem[]) => ({
+  enabledAgents: agents.filter((agent) => agent.enabled !== false),
+  disabledAgents: agents.filter((agent) => agent.enabled === false),
 });
 
-export type AssistantEnabledFilter = 'all' | 'enabled' | 'disabled';
+export type AgentEnabledFilter = 'all' | 'enabled' | 'disabled';
 
-/** Apply the enabled/disabled dropdown filter used by the "My Assistants" tab. */
+/** Apply the enabled/disabled dropdown filter used by the "My Agents" tab. */
 export const filterByEnabled = (
-  assistants: AssistantListItem[],
-  filter: AssistantEnabledFilter
-): AssistantListItem[] => {
+  agents: AgentListItem[],
+  filter: AgentEnabledFilter
+): AgentListItem[] => {
   switch (filter) {
     case 'enabled':
-      return assistants.filter((assistant) => assistant.enabled !== false);
+      return agents.filter((agent) => agent.enabled !== false);
     case 'disabled':
-      return assistants.filter((assistant) => assistant.enabled === false);
+      return agents.filter((agent) => agent.enabled === false);
     default:
-      return assistants;
+      return agents;
   }
 };
 
-const byAssistantSortOrder = (a: AssistantListItem, b: AssistantListItem) => a.sort_order - b.sort_order;
+const byAgentSortOrder = (a: AgentListItem, b: AgentListItem) => a.sort_order - b.sort_order;
 
-/// Agent types the assistant editor can drive.
+/// Agent types the agent editor can drive.
 ///
 /// This is a whitelist, so every new `AgentType` is invisible here until it is
 /// added — which is how Antigravity ended up missing from the Agent dropdown
@@ -155,19 +155,19 @@ const byAssistantSortOrder = (a: AssistantListItem, b: AssistantListItem) => a.s
 /// `openclaw-gateway` are not editor-driven.
 const ASSISTANT_EDITOR_AGENT_TYPES = new Set(['acp', 'aionrs', 'antigravity']);
 
-const isAssistantEditorAgent = (agent: ManagedAgent): boolean => ASSISTANT_EDITOR_AGENT_TYPES.has(agent.agent_type);
+const isAgentEditorAgent = (agent: ManagedAgent): boolean => ASSISTANT_EDITOR_AGENT_TYPES.has(agent.agent_type);
 
 /**
- * Split the user's own assistants into the two "My Assistants" groups, each
- * sorted by sort_order. Bare CLI assistants come first (fixed), then
- * user-created. Official (builtin) assistants live in the other tab and are
+ * Split the user's own agents into the two "My Agents" groups, each
+ * sorted by sort_order. Bare CLI agents come first (fixed), then
+ * user-created. Official (builtin) agents live in the other tab and are
  * excluded here.
  */
-export const groupMyAssistants = (assistants: AssistantListItem[]) => {
+export const groupMyAgents = (agents: AgentListItem[]) => {
   return {
-    // 'generated' == a bare CLI assistant auto-created from a local CLI tool.
-    cliAssistants: assistants.filter((a) => a.source === 'generated').toSorted(byAssistantSortOrder),
-    createdAssistants: assistants.filter((a) => a.source === 'user').toSorted(byAssistantSortOrder),
+    // 'generated' == a bare CLI agent auto-created from a local CLI tool.
+    cliAgents: agents.filter((a) => a.source === 'generated').toSorted(byAgentSortOrder),
+    createdAgents: agents.filter((a) => a.source === 'user').toSorted(byAgentSortOrder),
   };
 };
 
@@ -182,7 +182,7 @@ export const groupMyAssistants = (assistants: AssistantListItem[]) => {
  * testable on its own — driving an Arco popup to assert which rows survive is
  * both slower and less precise.
  */
-export const filterAssistantEditorBackends = (backends: AvailableBackend[], query: string): AvailableBackend[] => {
+export const filterAgentEditorBackends = (backends: AvailableBackend[], query: string): AvailableBackend[] => {
   const keyword = query.trim().toLowerCase();
   if (!keyword) return backends;
   return backends.filter((option) =>
@@ -190,7 +190,7 @@ export const filterAssistantEditorBackends = (backends: AvailableBackend[], quer
   );
 };
 
-export const buildAssistantEditorBackends = (
+export const buildAgentEditorBackends = (
   agents: ManagedAgent[],
   localeKey: string,
   currentAgentId?: string
@@ -198,7 +198,7 @@ export const buildAssistantEditorBackends = (
   const backendMap = new Map<string, AvailableBackend>();
 
   for (const agent of agents) {
-    if (!isAssistantEditorAgent(agent)) {
+    if (!isAgentEditorAgent(agent)) {
       continue;
     }
 

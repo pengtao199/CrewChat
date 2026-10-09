@@ -5,35 +5,35 @@
  */
 
 import styles from '../index.module.css';
-import { assistantRuntimeKey, type Assistant } from '@/common/types/agent/assistantTypes';
+import { agentRuntimeKey, type Agent } from '@/common/types/agent/agentTypes';
 import { Down, Robot } from '@icon-park/react';
 import { Button } from '@arco-design/web-react';
 import { AionSearchInput } from '@/renderer/components/base';
-import { useAssistantOrder } from '@/renderer/hooks/assistant/useAssistantOrder';
+import { useAgentOrder } from '@/renderer/hooks/agent/useAgentOrder';
 import { useManagedAgentRuntimeCatalog } from '@/renderer/hooks/agent/useManagedAgents';
 import { managedAgentSearchText } from '@/renderer/utils/model/agentTypes';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { resolveAssistantAvatar } from '@/renderer/utils/model/assistantAvatar';
+import { resolveAgentAvatar } from '@/renderer/utils/model/agentAvatar';
 import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
-import { selectableAssistants } from '@/renderer/utils/model/assistantSelection';
+import { selectableAgents } from '@/renderer/utils/model/agentSelection';
 import { useTranslation } from 'react-i18next';
 
 /**
- * Mirrors the Agent settings search: matches the assistant's own name and
+ * Mirrors the Agent settings search: matches the agent's own name and
  * description plus the joined runtime-agent haystack (backend/command/binary),
  * so both surfaces find the same agents for the same query.
  */
-export function assistantMatchesSearch(
-  assistant: Assistant,
+export function agentMatchesSearch(
+  agent: Agent,
   localeKey: string,
   query: string,
   agentSearchText?: string
 ): boolean {
   const searchableText = [
-    assistant.name,
-    assistant.name_i18n?.[localeKey],
-    assistant.description,
-    assistant.description_i18n?.[localeKey],
+    agent.name,
+    agent.name_i18n?.[localeKey],
+    agent.description,
+    agent.description_i18n?.[localeKey],
     agentSearchText,
   ]
     .filter(Boolean)
@@ -42,37 +42,37 @@ export function assistantMatchesSearch(
   return searchableText.includes(query);
 }
 
-export function resolveAssistantVisibleLimit(width: number): number {
+export function resolveAgentVisibleLimit(width: number): number {
   if (width >= 720) return 4;
   if (width >= 600) return 3;
   if (width >= 460) return 2;
   return 1;
 }
 
-export function hasTruncatedAssistantLabels(root: HTMLElement | null): boolean {
+export function hasTruncatedAgentLabels(root: HTMLElement | null): boolean {
   if (!root) return false;
-  return Array.from(root.querySelectorAll<HTMLElement>('[data-assistant-label="true"]')).some(
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-agent-label="true"]')).some(
     (element) => element.scrollWidth > element.clientWidth + 1
   );
 }
 
-type AssistantSelectionAreaProps = {
-  selectedAssistantId?: string | null;
-  assistants: Assistant[];
+type AgentSelectionAreaProps = {
+  selectedAgentId?: string | null;
+  agents: Agent[];
   localeKey: string;
-  maxVisibleAssistants?: number;
-  onSelectAssistant: (assistantId: string) => void;
+  maxVisibleAgents?: number;
+  onSelectAgent: (agentId: string) => void;
 };
 
-const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
-  selectedAssistantId,
-  assistants,
+const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
+  selectedAgentId,
+  agents,
   localeKey,
-  maxVisibleAssistants = 4,
-  onSelectAssistant,
+  maxVisibleAgents = 4,
+  onSelectAgent,
 }) => {
   const { t } = useTranslation();
-  const { assistantOrder } = useAssistantOrder();
+  const { agentOrder } = useAgentOrder();
   const [moreVisible, setMoreVisible] = useState(false);
   const [search, setSearch] = useState('');
   const [availableWidth, setAvailableWidth] = useState(() => (typeof window === 'undefined' ? 800 : window.innerWidth));
@@ -80,18 +80,18 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
   const barRef = useRef<HTMLDivElement>(null);
   const hoverOpenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const selectedId = selectedAssistantId || undefined;
-  const widthVisibleLimit = Math.min(Math.max(1, maxVisibleAssistants), resolveAssistantVisibleLimit(availableWidth));
+  const selectedId = selectedAgentId || undefined;
+  const widthVisibleLimit = Math.min(Math.max(1, maxVisibleAgents), resolveAgentVisibleLimit(availableWidth));
   const [adaptiveVisibleLimit, setAdaptiveVisibleLimit] = useState(widthVisibleLimit);
   const visibleLimit = Math.min(widthVisibleLimit, adaptiveVisibleLimit);
-  const enabledAssistants = useMemo(
-    () => selectableAssistants(assistants, assistantOrder),
-    [assistantOrder, assistants]
+  const enabledAgents = useMemo(
+    () => selectableAgents(agents, agentOrder),
+    [agentOrder, agents]
   );
 
   useEffect(() => {
     setAdaptiveVisibleLimit(widthVisibleLimit);
-  }, [enabledAssistants, selectedId, widthVisibleLimit]);
+  }, [enabledAgents, selectedId, widthVisibleLimit]);
 
   const clearHoverTimers = () => {
     if (hoverOpenTimer.current) {
@@ -167,35 +167,35 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
     return () => window.removeEventListener('resize', updateAvailableWidth);
   }, []);
 
-  const visibleAssistants = useMemo(() => {
-    if (enabledAssistants.length <= visibleLimit || !selectedId) {
-      return enabledAssistants.slice(0, visibleLimit);
+  const visibleAgents = useMemo(() => {
+    if (enabledAgents.length <= visibleLimit || !selectedId) {
+      return enabledAgents.slice(0, visibleLimit);
     }
 
-    const selectedIndex = enabledAssistants.findIndex((assistant) => assistant.id === selectedId);
+    const selectedIndex = enabledAgents.findIndex((agent) => agent.id === selectedId);
     if (selectedIndex < 0 || selectedIndex < visibleLimit) {
-      return enabledAssistants.slice(0, visibleLimit);
+      return enabledAgents.slice(0, visibleLimit);
     }
 
-    return [...enabledAssistants.slice(0, visibleLimit - 1), enabledAssistants[selectedIndex]];
-  }, [enabledAssistants, selectedId, visibleLimit]);
+    return [...enabledAgents.slice(0, visibleLimit - 1), enabledAgents[selectedIndex]];
+  }, [enabledAgents, selectedId, visibleLimit]);
 
   useLayoutEffect(() => {
-    if (visibleLimit <= 1 || !hasTruncatedAssistantLabels(containerRef.current)) {
+    if (visibleLimit <= 1 || !hasTruncatedAgentLabels(containerRef.current)) {
       return;
     }
 
     setAdaptiveVisibleLimit((currentLimit) => Math.max(1, Math.min(currentLimit, visibleLimit) - 1));
-  }, [visibleAssistants, visibleLimit]);
+  }, [visibleAgents, visibleLimit]);
 
-  const hasOverflow = enabledAssistants.length > visibleAssistants.length;
-  const overflowAssistants = useMemo(() => {
-    const visibleIds = new Set(visibleAssistants.map((assistant) => assistant.id));
-    return enabledAssistants.filter((assistant) => !visibleIds.has(assistant.id));
-  }, [enabledAssistants, visibleAssistants]);
+  const hasOverflow = enabledAgents.length > visibleAgents.length;
+  const overflowAgents = useMemo(() => {
+    const visibleIds = new Set(visibleAgents.map((agent) => agent.id));
+    return enabledAgents.filter((agent) => !visibleIds.has(agent.id));
+  }, [enabledAgents, visibleAgents]);
   const overflowColumns = widthVisibleLimit;
   // Search only earns its row when the unfiltered list is long enough to scan.
-  const showOverflowSearch = Math.ceil(overflowAssistants.length / overflowColumns) > 5;
+  const showOverflowSearch = Math.ceil(overflowAgents.length / overflowColumns) > 5;
   const managedAgentRuntimeCatalog = useManagedAgentRuntimeCatalog();
   // Same haystack as the Agent settings search: joining the runtime catalog row
   // adds backend/command/binary fields, so e.g. "ag" finds Antigravity (`agy`).
@@ -206,44 +206,44 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
     }
     return map;
   }, [localeKey, managedAgentRuntimeCatalog]);
-  const filteredOverflowAssistants = useMemo(() => {
+  const filteredOverflowAgents = useMemo(() => {
     const query = showOverflowSearch ? search.trim().toLowerCase() : '';
-    if (!query) return overflowAssistants;
-    return overflowAssistants.filter((assistant) =>
-      assistantMatchesSearch(
-        assistant,
+    if (!query) return overflowAgents;
+    return overflowAgents.filter((agent) =>
+      agentMatchesSearch(
+        agent,
         localeKey,
         query,
-        assistant.agent_id ? agentSearchTextById.get(assistant.agent_id) : undefined
+        agent.agent_id ? agentSearchTextById.get(agent.agent_id) : undefined
       )
     );
-  }, [agentSearchTextById, localeKey, overflowAssistants, search, showOverflowSearch]);
+  }, [agentSearchTextById, localeKey, overflowAgents, search, showOverflowSearch]);
 
-  if (enabledAssistants.length === 0) return null;
+  if (enabledAgents.length === 0) return null;
 
-  const renderAssistantPill = (assistant: Assistant, testId: string, fullWidth = false) => {
-    const avatar = resolveAssistantAvatar(assistant.avatar);
-    const isSelected = selectedId === assistant.id;
-    const label = assistant.name_i18n?.[localeKey] || assistant.name;
+  const renderAgentPill = (agent: Agent, testId: string, fullWidth = false) => {
+    const avatar = resolveAgentAvatar(agent.avatar);
+    const isSelected = selectedId === agent.id;
+    const label = agent.name_i18n?.[localeKey] || agent.name;
 
     return (
       <Button
-        key={assistant.id}
+        key={agent.id}
         data-testid={testId}
-        data-assistant-id={assistant.id}
-        data-assistant-backend={assistantRuntimeKey(assistant)}
-        data-assistant-selected={isSelected ? 'true' : 'false'}
+        data-agent-id={agent.id}
+        data-agent-backend={agentRuntimeKey(agent)}
+        data-agent-selected={isSelected ? 'true' : 'false'}
         type='text'
         className={`!inline-flex !min-w-0 !h-auto !items-center !gap-6px !rounded-999px !border-none !px-12px !py-8px !text-13px transition-all ${
           fullWidth ? '!w-full !justify-start' : ''
         } ${
           isSelected
             ? 'font-600 text-t-primary shadow-sm'
-            : `text-t-secondary opacity-75 hover:opacity-100 ${styles.assistantSelectorInactive}`
+            : `text-t-secondary opacity-75 hover:opacity-100 ${styles.agentSelectorInactive}`
         }`}
         style={isSelected ? { background: 'var(--bg-base, #fff)' } : { background: 'transparent' }}
         onClick={() => {
-          onSelectAssistant(assistant.id);
+          onSelectAgent(agent.id);
           setMoreVisible(false);
         }}
       >
@@ -251,12 +251,12 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
           {avatar.kind === 'image' ? (
             <ThemedLogo src={avatar.value} alt='' className='object-contain' style={{ width: 20, height: 20 }} />
           ) : avatar.kind === 'emoji' ? (
-            <span className={styles.assistantCardEmoji}>{avatar.value}</span>
+            <span className={styles.agentCardEmoji}>{avatar.value}</span>
           ) : (
             <Robot theme='outline' size={14} />
           )}
         </span>
-        <span data-assistant-label='true' className='min-w-0 max-w-180px truncate whitespace-nowrap'>
+        <span data-agent-label='true' className='min-w-0 max-w-180px truncate whitespace-nowrap'>
           {label}
         </span>
       </Button>
@@ -265,9 +265,9 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
 
   const overflowPanel = (
     <div
-      data-testid='assistant-overflow-panel'
+      data-testid='agent-overflow-panel'
       data-overflow-columns={overflowColumns}
-      className={`absolute start-0 top-[calc(100%+8px)] z-100 w-full rounded-12px border border-border-2 p-8px shadow-lg ${styles.assistantOverflowPanel}`}
+      className={`absolute start-0 top-[calc(100%+8px)] z-100 w-full rounded-12px border border-border-2 p-8px shadow-lg ${styles.agentOverflowPanel}`}
       style={{ background: 'var(--bg-base, #fff)' }}
     >
       {showOverflowSearch ? (
@@ -284,9 +284,9 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
         className='grid max-h-260px gap-6px overflow-y-auto'
         style={{ gridTemplateColumns: `repeat(${overflowColumns}, minmax(0, 1fr))` }}
       >
-        {filteredOverflowAssistants.map((assistant) => (
-          <div key={assistant.id} className='min-w-0'>
-            {renderAssistantPill(assistant, `assistant-overflow-${assistant.id}`, true)}
+        {filteredOverflowAgents.map((agent) => (
+          <div key={agent.id} className='min-w-0'>
+            {renderAgentPill(agent, `agent-overflow-${agent.id}`, true)}
           </div>
         ))}
       </div>
@@ -304,12 +304,12 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
           onMouseLeave={hasOverflow ? handleBarMouseLeave : undefined}
         >
           <div className='flex min-w-0 max-w-full items-center gap-6px'>
-            {visibleAssistants.map((assistant) => renderAssistantPill(assistant, `preset-pill-${assistant.id}`))}
+            {visibleAgents.map((agent) => renderAgentPill(agent, `preset-pill-${agent.id}`))}
             {hasOverflow ? (
               <Button
-                data-testid='assistant-more-btn'
+                data-testid='agent-more-btn'
                 type='text'
-                className={`!ms-6px !inline-flex !h-34px !shrink-0 !items-center !gap-4px !rounded-999px !border-none !px-12px !py-8px !text-13px !text-t-secondary opacity-75 transition-opacity hover:opacity-100 ${styles.assistantSelectorInactive}`}
+                className={`!ms-6px !inline-flex !h-34px !shrink-0 !items-center !gap-4px !rounded-999px !border-none !px-12px !py-8px !text-13px !text-t-secondary opacity-75 transition-opacity hover:opacity-100 ${styles.agentSelectorInactive}`}
                 onClick={() => setMoreVisible((visible) => !visible)}
               >
                 <span>{t('common.more', { defaultValue: 'More' })}</span>
@@ -324,4 +324,4 @@ const AssistantSelectionArea: React.FC<AssistantSelectionAreaProps> = ({
   );
 };
 
-export default AssistantSelectionArea;
+export default AgentSelectionArea;

@@ -9,7 +9,7 @@ export const TEAM_STORAGE_PREFIXES = [
   'team-view-mode-',
   'team-member-colors-',
   'team-active-slot-',
-  'team-assistant-order-',
+  'team-agent-order-',
   'team-pending-permissions-',
   'team-activity-controls-',
 ] as const;

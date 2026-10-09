@@ -14,7 +14,7 @@ import { useAllCronJobs } from '@renderer/pages/cron/useCronJobs';
 import { formatSchedule, formatNextRun } from '@renderer/pages/cron/cronUtils';
 import { systemSettings, type ICronJob } from '@/common/adapter/ipcBridge';
 import { configService } from '@/common/config/configService';
-import { useConversationAssistants } from '@renderer/pages/conversation/hooks/useConversationAssistants';
+import { useConversationAgents } from '@renderer/pages/conversation/hooks/useConversationAgents';
 import CronStatusTag from './CronStatusTag';
 import CreateTaskDialog from './CreateTaskDialog';
 import { getJobAgentMeta } from './jobAgentMeta';
@@ -31,7 +31,7 @@ const ScheduledTasksPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { jobs, loading, pauseJob, resumeJob } = useAllCronJobs();
-  const { presetAssistants } = useConversationAssistants();
+  const { presetAgents } = useConversationAgents();
   const logos = useAgentLogos();
   const [createDialogVisible, setCreateDialogVisible] = useState(false);
   const [keepAwake, setKeepAwake] = useState(false);
@@ -61,8 +61,8 @@ const ScheduledTasksPage: React.FC = () => {
   );
 
   // "Create via chat": jump to the home page with the default cron prompt
-  // pre-filled. The assistant selection is left to the home page's existing
-  // logic (it restores the user's last-used assistant).
+  // pre-filled. The agent selection is left to the home page's existing
+  // logic (it restores the user's last-used agent).
   const handleCreateViaChat = useCallback(() => {
     navigate('/guid', { state: { prefillPrompt: t('cron.status.defaultPrompt') } });
   }, [navigate, t]);
@@ -75,7 +75,7 @@ const ScheduledTasksPage: React.FC = () => {
   const filteredJobs = useMemo(() => {
     if (!normalizedSearchQuery) return jobs;
     return jobs.filter((job) => {
-      const agentMeta = getJobAgentMeta(job, presetAssistants, logos);
+      const agentMeta = getJobAgentMeta(job, presetAgents, logos);
       const executionModeLabel =
         job.target.execution_mode === 'new_conversation'
           ? t('cron.page.form.newConversation')
@@ -97,7 +97,7 @@ const ScheduledTasksPage: React.FC = () => {
         .toLowerCase();
       return searchableText.includes(normalizedSearchQuery);
     });
-  }, [jobs, logos, normalizedSearchQuery, presetAssistants, t]);
+  }, [jobs, logos, normalizedSearchQuery, presetAgents, t]);
 
   const handleToggleEnabled = useCallback(
     async (job: ICronJob) => {
@@ -200,7 +200,7 @@ const ScheduledTasksPage: React.FC = () => {
           ) : (
             <div className='w-full'>
               {filteredJobs.map((job, index) => {
-                const agentMeta = getJobAgentMeta(job, presetAssistants, logos);
+                const agentMeta = getJobAgentMeta(job, presetAgents, logos);
                 const isManualOnly = job.schedule.kind === 'cron' && !job.schedule.expr;
                 const hasError = job.state.last_status === 'error' || job.state.last_status === 'missed';
                 const executionModeLabel =

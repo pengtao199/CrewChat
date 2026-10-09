@@ -68,7 +68,7 @@
     "subtitle": "讓多個 AI 助手組隊協作。建議一個團隊只專注一個目標，不同任務分開建。",
     "nameLabel": "團隊名",
     "workspaceLabel": "工作空間",
-    "allAssistantsWithCount": "所有助手 ({{count}})",
+    "allAgentsWithCount": "所有助手 ({{count}})",
     "selectedMembersWithCount": "已選成員 {{count}} · ⚑ = Leader",
     "selectedMembersTitleWithCount": "已選成員 {{count}}",
     "leaderLegend": "= Leader",
@@ -94,7 +94,7 @@
   "addMember": {
     "title": "新增成員",
     "subtitle": "同一助手可被反覆新增",
-    "searchAssistants": "搜尋助手...",
+    "searchAgents": "搜尋助手...",
     "addFailed": "新增成員失敗",
     "noSearchResults": "未找到結果",
     "tellLeaderHint": "沒有合適的？也可以直接讓 Leader 幫你安排。",

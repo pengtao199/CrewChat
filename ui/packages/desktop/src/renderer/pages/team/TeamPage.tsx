@@ -6,7 +6,7 @@ import useSWR, { useSWRConfig } from 'swr';
 import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { ipcBridge } from '@/common';
-import type { ITeamSlotWork, TeamAssistant, TeamContextResetAvailability, TTeam } from '@/common/types/team/teamTypes';
+import type { ITeamSlotWork, TeamAgent, TeamContextResetAvailability, TTeam } from '@/common/types/team/teamTypes';
 import type { IProvider, TChatConversation, TProviderWithModel } from '@/common/config/storage';
 import {
   classifyConfigSetError,
@@ -223,16 +223,16 @@ const contextResetErrorMessageKey = (error: unknown) => {
 };
 
 const TeamAgentActions: React.FC<{
-  assistant: TeamAssistant;
+  agent: TeamAgent;
   team_id: string;
   runtimeAvailability: TeamContextResetAvailability;
   contextResetAvailability: TeamContextResetAvailability;
   onRuntimeChanged: () => Promise<void>;
-}> = ({ assistant, team_id, runtimeAvailability, contextResetAvailability, onRuntimeChanged }) => {
+}> = ({ agent, team_id, runtimeAvailability, contextResetAvailability, onRuntimeChanged }) => {
   const { t } = useTranslation();
-  const teamTarget = useMemo(() => ({ team_id, slot_id: assistant.slot_id }), [assistant.slot_id, team_id]);
+  const teamTarget = useMemo(() => ({ team_id, slot_id: agent.slot_id }), [agent.slot_id, team_id]);
   const { restart, restarting } = useAcpRuntimeRestart({
-    conversation_id: assistant.conversation_id,
+    conversation_id: agent.conversation_id,
     team: teamTarget,
   });
   const [resetting, setResetting] = useState(false);
@@ -266,7 +266,7 @@ const TeamAgentActions: React.FC<{
   const confirmContextReset = useCallback(() => {
     if (contextResetDisabled || restarting || resetting) return;
     Modal.confirm({
-      title: t('team.agentActions.contextReset.confirmTitle', { memberName: assistant.assistant_name }),
+      title: t('team.agentActions.contextReset.confirmTitle', { memberName: agent.agent_name }),
       content: t('team.agentActions.contextReset.confirmContent'),
       okText: t('team.agentActions.contextReset.confirm'),
       cancelText: t('common.cancel'),
@@ -276,15 +276,15 @@ const TeamAgentActions: React.FC<{
         try {
           const outcome = await ipcBridge.team.resetAgentContext.invoke(teamTarget);
           if (outcome.reset_status === 'completed' && outcome.runtime_status === 'ready') {
-            Message.success(t('team.agentActions.contextReset.success', { memberName: assistant.assistant_name }));
+            Message.success(t('team.agentActions.contextReset.success', { memberName: agent.agent_name }));
           } else if (outcome.reset_status === 'completed') {
             Message.warning(
-              t('team.agentActions.contextReset.partialSuccess', { memberName: assistant.assistant_name })
+              t('team.agentActions.contextReset.partialSuccess', { memberName: agent.agent_name })
             );
           } else {
             Message.error(t('team.agentActions.contextReset.notApplied'));
           }
-          await Promise.all([revalidateAcpConfigOptions(assistant.conversation_id), onRuntimeChanged()]);
+          await Promise.all([revalidateAcpConfigOptions(agent.conversation_id), onRuntimeChanged()]);
         } catch (error) {
           Message.error(t(contextResetErrorMessageKey(error)));
         } finally {
@@ -293,8 +293,8 @@ const TeamAgentActions: React.FC<{
       },
     });
   }, [
-    assistant.assistant_name,
-    assistant.conversation_id,
+    agent.agent_name,
+    agent.conversation_id,
     contextResetDisabled,
     onRuntimeChanged,
     restarting,
@@ -355,9 +355,9 @@ const TeamAgentActions: React.FC<{
   );
 };
 
-/** Fetches conversation for a single assistant and renders TeamChatView */
-const AssistantChatSlot: React.FC<{
-  assistant: TeamAssistant;
+/** Fetches conversation for a single agent and renders TeamChatView */
+const AgentChatSlot: React.FC<{
+  agent: TeamAgent;
   team_id: string;
   isLeader: boolean;
   /** 成员身份色（列头名字 / 列身淡底）。 */
@@ -375,7 +375,7 @@ const AssistantChatSlot: React.FC<{
   /** 整队 warming 期间为 true —— 此时不下发手动触发器。 */
   warmupDisabled?: boolean;
 }> = ({
-  assistant,
+  agent,
   team_id,
   isLeader,
   color,
@@ -394,13 +394,13 @@ const AssistantChatSlot: React.FC<{
   const teamPermission = useTeamPermission();
   const isMobile = layout?.isMobile ?? false;
   const { data: conversation, mutate: mutateConversation } = useSWR(
-    assistant.conversation_id ? ['team-conversation', assistant.conversation_id] : null,
-    () => getConversationOrNull(assistant.conversation_id)
+    agent.conversation_id ? ['team-conversation', agent.conversation_id] : null,
+    () => getConversationOrNull(agent.conversation_id)
   );
 
   const isAionrs = conversation?.type === 'aionrs';
   const initialModelId = (conversation?.extra as { current_model_id?: string })?.current_model_id;
-  const isAcpLike = conversation?.type === 'acp' || isAcpLikeBackend(assistant.assistant_backend);
+  const isAcpLike = conversation?.type === 'acp' || isAcpLikeBackend(agent.agent_backend);
   const cronJobId = resolveCronJobId(conversation?.extra);
   // No model-change handler here on purpose: the team config-option request that
   // switches the runtime also persists the selection onto the roster, so there is
@@ -411,24 +411,24 @@ const AssistantChatSlot: React.FC<{
   const warmup = useMemo<{ status: AcpWarmupStatus; trigger?: () => Promise<void> }>(
     () => ({
       status: warmupStatus ?? (warmupDisabled ? 'dormant' : runtimeAvailabilityToWarmupStatus(fallbackAvailability)),
-      trigger: warmupDisabled ? undefined : buildTeamRetryStartHandler({ team_id, slot_id: assistant.slot_id }),
+      trigger: warmupDisabled ? undefined : buildTeamRetryStartHandler({ team_id, slot_id: agent.slot_id }),
     }),
-    [warmupStatus, fallbackAvailability, warmupDisabled, team_id, assistant.slot_id]
+    [warmupStatus, fallbackAvailability, warmupDisabled, team_id, agent.slot_id]
   );
   const runtimeActionAvailability = resolveRuntimeActionAvailability({
     warmupStatus,
     warmupDisabled: Boolean(warmupDisabled),
-    slotWork: teamRunView.slotWorkBySlot[assistant.slot_id],
+    slotWork: teamRunView.slotWorkBySlot[agent.slot_id],
     sessionStopped: teamRunView.sessionStopped,
     fallbackAvailability,
   });
   const restartDisabled = runtimeActionAvailability !== 'ready';
   const contextResetAvailability =
-    assistant.role === 'leader'
+    agent.role === 'leader'
       ? 'leader_not_targetable'
-      : assistant.context_reset.supported
+      : agent.context_reset.supported
         ? runtimeActionAvailability
-        : assistant.context_reset.availability;
+        : agent.context_reset.availability;
   const handleRuntimeChanged = useCallback(async () => {
     await Promise.all([mutateConversation(), onRunStateStale('context-reset.result')]);
   }, [mutateConversation, onRunStateStale]);
@@ -438,10 +438,10 @@ const AssistantChatSlot: React.FC<{
     <div className='flex flex-col h-full' style={{ background: `color-mix(in srgb, ${color} 4%, var(--bg-base))` }}>
       <div className='flex items-center justify-between gap-8px px-12px h-40px shrink-0 border-b border-solid border-[color:var(--border-base)] relative z-10 bg-1'>
         <TeamAgentIdentity
-          assistant_name={assistant.assistant_name}
-          assistant_backend={assistant.assistant_backend}
-          icon={assistant.icon}
-          conversation_id={assistant.conversation_id}
+          agent_name={agent.agent_name}
+          agent_backend={agent.agent_backend}
+          icon={agent.icon}
+          conversation_id={agent.conversation_id}
           isLeader={isLeader}
           className='min-w-0'
           nameClassName='text-13px font-600'
@@ -449,12 +449,12 @@ const AssistantChatSlot: React.FC<{
         />
         <div className='flex items-center gap-8px shrink-0'>
           {conversation && <CronJobManager conversation_id={conversation.id} cron_job_id={cronJobId} />}
-          {!isMobile && assistant.conversation_id && !isAionrs && isAcpLike && (
+          {!isMobile && agent.conversation_id && !isAionrs && isAcpLike && (
             <div className='min-w-0 max-w-140px [&_button]:max-w-full [&_button_span]:truncate'>
               <AcpModelSelector
-                key={assistant.conversation_id}
-                conversation_id={assistant.conversation_id}
-                backend={assistant.assistant_backend}
+                key={agent.conversation_id}
+                conversation_id={agent.conversation_id}
+                backend={agent.agent_backend}
                 initialModelId={initialModelId}
                 prepareSetRuntime={teamPermission?.warmupSession}
                 configOptionsPort={teamPermission?.configOptionsPort}
@@ -462,11 +462,11 @@ const AssistantChatSlot: React.FC<{
               />
             </div>
           )}
-          {assistant.conversation_id && !isAionrs && isAcpLike && isLeader && (
+          {agent.conversation_id && !isAionrs && isAcpLike && isLeader && (
             <div className='shrink-0'>
               <AcpRuntimeRestartButton
-                conversation_id={assistant.conversation_id}
-                team={{ team_id, slot_id: assistant.slot_id }}
+                conversation_id={agent.conversation_id}
+                team={{ team_id, slot_id: agent.slot_id }}
                 availability={restartDisabled ? 'initializing' : 'ready'}
                 disabled={restartDisabled}
                 disabledReason={
@@ -475,10 +475,10 @@ const AssistantChatSlot: React.FC<{
               />
             </div>
           )}
-          {assistant.conversation_id && !isAionrs && isAcpLike && !isLeader && (
+          {agent.conversation_id && !isAionrs && isAcpLike && !isLeader && (
             <div className='shrink-0'>
               <TeamAgentActions
-                assistant={assistant}
+                agent={agent}
                 team_id={team_id}
                 runtimeAvailability={runtimeActionAvailability}
                 contextResetAvailability={contextResetAvailability}
@@ -486,11 +486,11 @@ const AssistantChatSlot: React.FC<{
               />
             </div>
           )}
-          {!isMobile && isAionrs && assistant.conversation_id && (
+          {!isMobile && isAionrs && agent.conversation_id && (
             <div className='min-w-0 max-w-140px [&_button]:max-w-full [&_button_span]:truncate'>
               <AionrsHeaderModelSelector
-                key={assistant.conversation_id}
-                conversation_id={assistant.conversation_id}
+                key={agent.conversation_id}
+                conversation_id={agent.conversation_id}
                 initialModel={conversation?.model as TProviderWithModel | undefined}
               />
             </div>
@@ -509,10 +509,10 @@ const AssistantChatSlot: React.FC<{
           <TeamChatView
             conversation={conversation as TChatConversation}
             team_id={team_id}
-            slot_id={assistant.slot_id}
-            assistant_name={assistant.assistant_name}
-            assistant_backend={assistant.assistant_backend}
-            agent_icon={assistant.icon}
+            slot_id={agent.slot_id}
+            agent_name={agent.agent_name}
+            agent_backend={agent.agent_backend}
+            agent_icon={agent.icon}
             isLeader={isLeader}
             teamRunView={teamRunView}
             onTeamRunAck={onTeamRunAck}
@@ -539,19 +539,19 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
 }) => {
   const { t } = useTranslation();
   useActiveLease({ type: 'team', id: team.id });
-  const { assistants, activeSlotId, switchTab, colorOf, colorOfConversation } = useTeamTabs();
+  const { agents, activeSlotId, switchTab, colorOf, colorOfConversation } = useTeamTabs();
   const [, messageContext] = Message.useMessage({ maxCount: 1 });
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const assistantRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const agentRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
   // 视图模式（并行/单聊），按团队记忆。单聊 = 全屏当前选中成员。
   const [viewMode, setViewMode] = useTeamViewMode(team.id);
   const isSingleView = viewMode === 'single';
 
-  const activeAssistant = assistants.find((assistant) => assistant.slot_id === activeSlotId);
-  const leadAssistant = assistants.find((assistant) => assistant.role === 'leader');
+  const activeAgent = agents.find((agent) => agent.slot_id === activeSlotId);
+  const leadAgent = agents.find((agent) => agent.role === 'leader');
   const teamRun = useTeamRunView(team.id);
 
   // 进团队 warmup：以团队会话整体就绪为闸门（ensureSession resolve = 全员成功）。遮罩覆盖对话区。
@@ -559,30 +559,30 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
   // 仅在「唤醒进行中」禁用改成员；失败态（error/timeout）要放开，让用户能移除失败成员来自救。
   const isWarmingUp = warmupPhase === 'warming';
 
-  const leaderConversationId = leadAssistant?.conversation_id ?? '';
-  const isLeaderAssistant = activeAssistant?.role === 'leader';
+  const leaderConversationId = leadAgent?.conversation_id ?? '';
+  const isLeaderAgent = activeAgent?.role === 'leader';
   const allConversationIds = useMemo(
-    () => assistants.map((assistant) => assistant.conversation_id).filter(Boolean),
-    [assistants]
+    () => agents.map((agent) => agent.conversation_id).filter(Boolean),
+    [agents]
   );
   const runtimeStartingConversationIds = useMemo(
     () =>
       new Set(
-        assistants
-          .filter((assistant) => teamRun.state.slotWorkBySlot[assistant.slot_id]?.blocked_reason === 'runtime_starting')
-          .map((assistant) => assistant.conversation_id)
+        agents
+          .filter((agent) => teamRun.state.slotWorkBySlot[agent.slot_id]?.blocked_reason === 'runtime_starting')
+          .map((agent) => agent.conversation_id)
           .filter(Boolean)
       ),
-    [assistants, teamRun.state.slotWorkBySlot]
+    [agents, teamRun.state.slotWorkBySlot]
   );
 
-  // Fetch leader assistant's conversation for the workspace sider. Its
+  // Fetch leader agent's conversation for the workspace sider. Its
   // project_id (populated by the shared mapper) is the team's project.
   const { data: dispatchConversation, mutate: mutateDispatchConversation } = useSWR(
-    leadAssistant?.conversation_id ? ['team-conversation', leadAssistant.conversation_id] : null,
-    () => getConversationOrNull(leadAssistant!.conversation_id)
+    leadAgent?.conversation_id ? ['team-conversation', leadAgent.conversation_id] : null,
+    () => getConversationOrNull(leadAgent!.conversation_id)
   );
-  const leaderConversationIdForProject = leadAssistant?.conversation_id;
+  const leaderConversationIdForProject = leadAgent?.conversation_id;
   // Prefer the synchronous list-snapshot project id for the leader conversation
   // so switching teams publishes the project immediately. `dispatchConversation`
   // is an async SWR fetch that previously lagged the switch, leaving the prior
@@ -606,8 +606,8 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
   // leader; every column is a real agent conversation). Only meaningful once the
   // team is project-bound (host visible).
   useEffect(() => {
-    setCurrentConversation(teamProjectId ? (activeAssistant?.conversation_id ?? null) : null);
-  }, [teamProjectId, activeAssistant?.conversation_id]);
+    setCurrentConversation(teamProjectId ? (activeAgent?.conversation_id ?? null) : null);
+  }, [teamProjectId, activeAgent?.conversation_id]);
 
   // Backfill catch-up: the leader conversation lazily backfills its project_id on
   // resume and the backend emits one `conversation.listChanged` when it lands;
@@ -622,7 +622,7 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
     });
   }, [leaderConversationIdForProject, mutateDispatchConversation]);
 
-  // Use team workspace if specified, otherwise fall back to leader assistant's conversation workspace (temp workspace)
+  // Use team workspace if specified, otherwise fall back to leader agent's conversation workspace (temp workspace)
   const teamWorkspaceView = resolveTeamWorkspaceView(
     team.workspace,
     (dispatchConversation?.extra as { workspace?: string } | undefined)?.workspace
@@ -633,7 +633,7 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
   // ChatConversation's `workspaceEnabled && !project_id`.
   const workspaceEnabled = teamWorkspaceView.workspaceEnabled && !teamProjectId;
   // Team is "user-picked" only when team.workspace was explicitly set at team
-  // creation. Falling back to a leader assistant's auto-temp workspace counts as
+  // creation. Falling back to a leader agent's auto-temp workspace counts as
   // temporary, mirroring single-chat behavior.
   const isTeamWorkspaceTemporary = teamWorkspaceView.isTemporaryWorkspace;
 
@@ -689,7 +689,7 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
       // 单聊视图只显示选中成员，无需滚动定位/闪动；并行视图滚动到对应列并闪一下。
       if (isSingleView) return;
       requestAnimationFrame(() => {
-        const el = assistantRefs.current[slot_id];
+        const el = agentRefs.current[slot_id];
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
           // Flash: opacity 1→0→1
@@ -711,22 +711,22 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
   );
 
   const scrollToPrev = useCallback(() => {
-    const idx = assistants.findIndex((assistant) => assistant.slot_id === activeSlotId);
+    const idx = agents.findIndex((agent) => agent.slot_id === activeSlotId);
     const target = idx > 0 ? idx - 1 : 0;
-    if (assistants[target]) handleTabClick(assistants[target].slot_id);
-  }, [assistants, activeSlotId, handleTabClick]);
+    if (agents[target]) handleTabClick(agents[target].slot_id);
+  }, [agents, activeSlotId, handleTabClick]);
 
   const scrollToNext = useCallback(() => {
-    const idx = assistants.findIndex((assistant) => assistant.slot_id === activeSlotId);
-    const target = idx >= 0 && idx < assistants.length - 1 ? idx + 1 : 0;
-    if (assistants[target]) handleTabClick(assistants[target].slot_id);
-  }, [assistants, activeSlotId, handleTabClick]);
+    const idx = agents.findIndex((agent) => agent.slot_id === activeSlotId);
+    const target = idx >= 0 && idx < agents.length - 1 ? idx + 1 : 0;
+    if (agents[target]) handleTabClick(agents[target].slot_id);
+  }, [agents, activeSlotId, handleTabClick]);
 
   // Every time the page mounts, scroll + flash the active tab
   useEffect(() => {
-    if (activeSlotId && assistants.length > 0) {
+    if (activeSlotId && agents.length > 0) {
       const timer = setTimeout(() => {
-        const el = assistantRefs.current[activeSlotId];
+        const el = agentRefs.current[activeSlotId];
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
           setTimeout(() => {
@@ -750,23 +750,23 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
   // 把对应列滚动到可视区，避免选中的成员列不在画面中。
   useEffect(() => {
     if (isSingleView || !activeSlotId) return;
-    const el = assistantRefs.current[activeSlotId];
+    const el = agentRefs.current[activeSlotId];
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
   }, [activeSlotId, isSingleView]);
 
-  // Track pending permission confirmation counts per assistant (requirements 5, 6, 7, 8)
+  // Track pending permission confirmation counts per agent (requirements 5, 6, 7, 8)
   const { pendingCounts } = useTeamPendingPermissions(team.id, allConversationIds);
 
   // Build slot_id → pendingCount map for tab badge display
   const slotPendingCounts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const assistant of assistants) {
-      if (assistant.conversation_id) {
-        map.set(assistant.slot_id, pendingCounts[assistant.conversation_id] ?? 0);
+    for (const agent of agents) {
+      if (agent.conversation_id) {
+        map.set(agent.slot_id, pendingCounts[agent.conversation_id] ?? 0);
       }
     }
     return map;
-  }, [assistants, pendingCounts]);
+  }, [agents, pendingCounts]);
 
   // warmup 失败的成员 slot 集合：胶囊头像标红。仅在失败态计算（进行中/就绪都无需标红）。
   const warmupFailedSlotIds = useMemo(() => {
@@ -793,7 +793,7 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
   return (
     <TeamPermissionProvider
       team_id={team.id}
-      isLeaderAgent={isLeaderAssistant}
+      isLeaderAgent={isLeaderAgent}
       leaderConversationId={leaderConversationId}
       allConversationIds={allConversationIds}
       runtimeStartingConversationIds={runtimeStartingConversationIds}
@@ -807,13 +807,13 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
           workspaceEnabled={workspaceEnabled}
           previewHosted={Boolean(teamProjectId)}
           tabsSlot={tabsSlot}
-          conversation_id={activeAssistant?.conversation_id}
+          conversation_id={activeAgent?.conversation_id}
           agent_name={undefined}
           workspacePath={effectiveWorkspace}
           isTemporaryWorkspace={isTeamWorkspaceTemporary}
           workspacePreferenceKey={team.id}
           onRenameTitle={onRenameTeam}
-          headerExtra={assistants.length > 1 ? <TeamViewToggle value={viewMode} onChange={setViewMode} /> : undefined}
+          headerExtra={agents.length > 1 ? <TeamViewToggle value={viewMode} onChange={setViewMode} /> : undefined}
           headerLeading={
             <span className='inline-flex w-16px h-16px items-center justify-center shrink-0 leading-none text-t-primary'>
               <Peoples theme='outline' size='16' fill='currentColor' style={{ lineHeight: 0 }} />
@@ -823,7 +823,7 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
           <div className='relative flex h-full'>
             <TeamWarmupOverlay
               phase={warmupPhase}
-              assistants={assistants}
+              agents={agents}
               runtimeStatus={warmupRuntimeStatus}
               colorOf={colorOf}
               onRetry={onRetryWarmup}
@@ -836,26 +836,26 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
             ) : isSingleView ? (
               // 单聊视图：全屏显示当前选中成员（activeSlotId），找不到时回退到 Leader。
               (() => {
-                const assistant =
-                  assistants.find((candidate) => candidate.slot_id === activeSlotId) ?? leadAssistant ?? assistants[0];
-                if (!assistant) return null;
-                const isLeaderSlot = assistant.slot_id === leadAssistant?.slot_id;
+                const agent =
+                  agents.find((candidate) => candidate.slot_id === activeSlotId) ?? leadAgent ?? agents[0];
+                if (!agent) return null;
+                const isLeaderSlot = agent.slot_id === leadAgent?.slot_id;
                 return (
                   <div className='flex-1 h-full'>
-                    <AssistantChatSlot
-                      assistant={assistant}
+                    <AgentChatSlot
+                      agent={agent}
                       team_id={team.id}
                       isLeader={isLeaderSlot}
-                      color={colorOf(assistant.slot_id)}
+                      color={colorOf(agent.slot_id)}
                       isFullscreen
                       onToggleFullscreen={() => setViewMode('parallel')}
                       teamRunView={teamRun.state}
                       onTeamRunAck={teamRun.applyAck}
                       onTeamSlotPaused={teamRun.applyLocalPause}
                       onRunStateStale={teamRun.reconcile}
-                      warmupStatus={warmupRuntimeStatus.get(assistant.slot_id)?.status}
+                      warmupStatus={warmupRuntimeStatus.get(agent.slot_id)?.status}
                       fallbackAvailability={
-                        isLeaderSlot ? teamWarmupPhaseAvailability(warmupPhase) : assistant.context_reset.availability
+                        isLeaderSlot ? teamWarmupPhaseAvailability(warmupPhase) : agent.context_reset.availability
                       }
                       warmupDisabled={isWarmingUp}
                     />
@@ -883,17 +883,17 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
                   className='flex h-full w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none]'
                   style={{ scrollSnapType: 'x proximity' }}
                 >
-                  {assistants.map((assistant, index) => {
-                    const isSingle = assistants.length <= 2;
-                    const isLeaderSlot = assistant.slot_id === leadAssistant?.slot_id;
-                    const isLastColumn = index === assistants.length - 1;
+                  {agents.map((agent, index) => {
+                    const isSingle = agents.length <= 2;
+                    const isLeaderSlot = agent.slot_id === leadAgent?.slot_id;
+                    const isLastColumn = index === agents.length - 1;
                     return (
                       <div
-                        key={assistant.slot_id}
+                        key={agent.slot_id}
                         ref={(el) => {
-                          assistantRefs.current[assistant.slot_id] = el;
+                          agentRefs.current[agent.slot_id] = el;
                         }}
-                        data-slot-id={assistant.slot_id}
+                        data-slot-id={agent.slot_id}
                         data-role={isLeaderSlot ? 'leader' : 'member'}
                         // 列间灰色隔离线：除最后一列外，右侧加一条分隔线，避免多列浅底粘连看不清边界。
                         className={`relative h-full ${isLastColumn ? '' : 'border-e border-solid border-[color:var(--border-base)]'}`}
@@ -908,24 +908,24 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
                           scrollSnapAlign: 'start',
                         }}
                       >
-                        <AssistantChatSlot
-                          assistant={assistant}
+                        <AgentChatSlot
+                          agent={agent}
                           team_id={team.id}
                           isLeader={isLeaderSlot}
-                          color={colorOf(assistant.slot_id)}
+                          color={colorOf(agent.slot_id)}
                           onToggleFullscreen={() => {
-                            switchTab(assistant.slot_id);
+                            switchTab(agent.slot_id);
                             setViewMode('single');
                           }}
                           teamRunView={teamRun.state}
                           onTeamRunAck={teamRun.applyAck}
                           onTeamSlotPaused={teamRun.applyLocalPause}
                           onRunStateStale={teamRun.reconcile}
-                          warmupStatus={warmupRuntimeStatus.get(assistant.slot_id)?.status}
+                          warmupStatus={warmupRuntimeStatus.get(agent.slot_id)?.status}
                           fallbackAvailability={
                             isLeaderSlot
                               ? teamWarmupPhaseAvailability(warmupPhase)
-                              : assistant.context_reset.availability
+                              : agent.context_reset.availability
                           }
                           warmupDisabled={isWarmingUp}
                         />
@@ -959,19 +959,19 @@ const TeamPageContent: React.FC<TeamPageContentProps> = ({
 const TeamPage: React.FC<Props> = ({ team }) => {
   const { t } = useTranslation();
   const { phase: warmupPhase, runtimeStatus: warmupRuntimeStatus, retry: retryWarmup } = useTeamWarmup(team.id);
-  const { statusMap, membershipMutationBusy, addAssistant, renameAssistant, removeAssistant, mutateTeam } =
+  const { statusMap, membershipMutationBusy, addAgent, renameAgent, removeAgent, mutateTeam } =
     useTeamSession(team, warmupPhase);
   const { user } = useAuth();
   const { mutate: globalMutate } = useSWRConfig();
-  const defaultSlotId = team.assistants[0]?.slot_id ?? '';
+  const defaultSlotId = team.agents[0]?.slot_id ?? '';
 
-  const handleRemoveAssistantWithConfirm = useCallback(
+  const handleRemoveAgentWithConfirm = useCallback(
     (slot_id: string) => {
       if (membershipMutationBusy) return;
 
-      const doRemoveAssistant = async () => {
+      const doRemoveAgent = async () => {
         try {
-          await removeAssistant(slot_id);
+          await removeAgent(slot_id);
           Message.success(t('common.deleteSuccess'));
         } catch (error) {
           Message.error(String(error));
@@ -988,10 +988,10 @@ const TeamPage: React.FC<Props> = ({ team }) => {
             })
           : t('team.removeAgent.confirmContent', { defaultValue: 'Remove this member from the team?' }),
         okButtonProps: { status: 'danger' },
-        onOk: doRemoveAssistant,
+        onOk: doRemoveAgent,
       });
     },
-    [membershipMutationBusy, statusMap, removeAssistant, t]
+    [membershipMutationBusy, statusMap, removeAgent, t]
   );
 
   const handleRenameTeam = useCallback(
@@ -1011,13 +1011,13 @@ const TeamPage: React.FC<Props> = ({ team }) => {
 
   return (
     <TeamTabsProvider
-      assistants={team.assistants}
+      agents={team.agents}
       statusMap={statusMap}
       defaultActiveSlotId={defaultSlotId}
       team_id={team.id}
-      addAssistant={addAssistant}
-      renameAssistant={renameAssistant}
-      removeAssistant={handleRemoveAssistantWithConfirm}
+      addAgent={addAgent}
+      renameAgent={renameAgent}
+      removeAgent={handleRemoveAgentWithConfirm}
       membershipMutationBusy={membershipMutationBusy}
     >
       <TeamPageContent

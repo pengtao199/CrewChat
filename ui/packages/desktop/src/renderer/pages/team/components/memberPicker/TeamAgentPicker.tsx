@@ -3,13 +3,13 @@ import { Button, Empty, Spin, Tooltip } from '@arco-design/web-react';
 import { Plus } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { AionSearchInput, AionInlineSearchInput } from '@renderer/components/base';
-import { AssistantOptionLabel, assistantKey, type TeamAssistantOption } from '../assistantSelectUtils';
+import { AgentOptionLabel, agentKey, type TeamAgentOption } from '../agentSelectUtils';
 
 type Props = {
-  assistants: TeamAssistantOption[];
-  onSelect: (assistant: TeamAssistantOption) => void;
+  agents: TeamAgentOption[];
+  onSelect: (agent: TeamAgentOption) => void;
   disabled?: boolean;
-  pendingAssistantId?: string;
+  pendingAgentId?: string;
   testIdPrefix?: string;
   density?: 'compact' | 'modal';
   className?: string;
@@ -22,12 +22,12 @@ type Props = {
   searchVariant?: 'default' | 'inline';
 };
 
-const TeamAssistantPicker: React.FC<Props> = ({
-  assistants,
+const TeamAgentPicker: React.FC<Props> = ({
+  agents,
   onSelect,
   disabled = false,
-  pendingAssistantId,
-  testIdPrefix = 'team-assistant-picker',
+  pendingAgentId,
+  testIdPrefix = 'team-agent-picker',
   density = 'compact',
   className,
   footer,
@@ -38,11 +38,11 @@ const TeamAssistantPicker: React.FC<Props> = ({
   const isInlineSearch = searchVariant === 'inline';
   const [query, setQuery] = useState('');
   const searchPlaceholder = t('team.create.searchPlaceholder', { defaultValue: 'Search' });
-  const filteredAssistants = useMemo(() => {
+  const filteredAgents = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return assistants;
-    return assistants.filter((assistant) => assistant.name.toLowerCase().includes(q));
-  }, [assistants, query]);
+    if (!q) return agents;
+    return agents.filter((agent) => agent.name.toLowerCase().includes(q));
+  }, [agents, query]);
 
   return (
     <div className={`flex min-h-0 flex-col ${isModalDensity ? 'gap-12px' : ''} ${className ?? ''}`}>
@@ -76,19 +76,19 @@ const TeamAssistantPicker: React.FC<Props> = ({
             : 'max-h-300px overflow-y-auto border-b border-border-1 bg-dialog-fill-0 px-8px py-10px'
         }
       >
-        {filteredAssistants.length === 0 ? (
+        {filteredAgents.length === 0 ? (
           <Empty description={t('team.create.noSearchResults', { defaultValue: 'No results found' })} />
         ) : (
           <div className={isModalDensity ? 'flex flex-col gap-6px' : 'flex flex-col gap-6px'}>
-            {filteredAssistants.map((assistant, index) => {
-              const rowKey = `${assistantKey(assistant)}-${index}`;
-              const rowBlocked = assistant.team_selectable === false;
+            {filteredAgents.map((agent, index) => {
+              const rowKey = `${agentKey(agent)}-${index}`;
+              const rowBlocked = agent.team_selectable === false;
               const rowDisabled = disabled || rowBlocked;
-              const isPending = pendingAssistantId === assistant.id;
+              const isPending = pendingAgentId === agent.id;
               const blockReason = rowBlocked
-                ? assistant.team_block_reason ||
-                  t('settings.assistantTeamUnsupported', {
-                    defaultValue: 'This assistant cannot be used in team mode right now.',
+                ? agent.team_block_reason ||
+                  t('settings.agentTeamUnsupported', {
+                    defaultValue: 'This agent cannot be used in team mode right now.',
                   })
                 : undefined;
               const rowBaseClassName = isModalDensity
@@ -107,7 +107,7 @@ const TeamAssistantPicker: React.FC<Props> = ({
                   className={`flex ${addIconBoxClassName} shrink-0 items-center justify-center ${
                     rowDisabled ? 'text-t-quaternary' : 'text-t-secondary'
                   }`}
-                  data-testid='team-assistant-picker-add-icon'
+                  data-testid='team-agent-picker-add-icon'
                 >
                   {/* Keep the fixed-size icon box; swap the plus for an inline spinner while this
                       row's add is in flight so the row geometry never shifts. Using Arco Button's
@@ -127,14 +127,14 @@ const TeamAssistantPicker: React.FC<Props> = ({
                   className={rowClassName}
                   aria-disabled='true'
                   tabIndex={-1}
-                  data-testid={`${testIdPrefix}-option-${assistantKey(assistant)}`}
+                  data-testid={`${testIdPrefix}-option-${agentKey(agent)}`}
                 >
-                  <div className={rowContentClassName} data-testid='team-assistant-picker-row-content'>
+                  <div className={rowContentClassName} data-testid='team-agent-picker-row-content'>
                     <div
                       className='min-w-0 flex flex-1 flex-col items-start overflow-hidden'
-                      data-testid='team-assistant-picker-text'
+                      data-testid='team-agent-picker-text'
                     >
-                      <AssistantOptionLabel assistant={assistant} size={isModalDensity ? 'large' : 'compact'} muted />
+                      <AgentOptionLabel agent={agent} size={isModalDensity ? 'large' : 'compact'} muted />
                     </div>
                     {addIcon}
                   </div>
@@ -145,16 +145,16 @@ const TeamAssistantPicker: React.FC<Props> = ({
                   type='text'
                   disabled={disabled || isPending}
                   className={rowClassName}
-                  onClick={() => onSelect(assistant)}
-                  data-testid={`${testIdPrefix}-option-${assistantKey(assistant)}`}
+                  onClick={() => onSelect(agent)}
+                  data-testid={`${testIdPrefix}-option-${agentKey(agent)}`}
                 >
-                  <div className={rowContentClassName} data-testid='team-assistant-picker-row-content'>
+                  <div className={rowContentClassName} data-testid='team-agent-picker-row-content'>
                     <div
                       className='min-w-0 flex flex-1 flex-col items-start overflow-hidden'
-                      data-testid='team-assistant-picker-text'
+                      data-testid='team-agent-picker-text'
                     >
-                      <AssistantOptionLabel
-                        assistant={assistant}
+                      <AgentOptionLabel
+                        agent={agent}
                         size={isModalDensity ? 'large' : 'compact'}
                         muted={disabled}
                       />
@@ -199,4 +199,4 @@ const TeamAssistantPicker: React.FC<Props> = ({
   );
 };
 
-export default TeamAssistantPicker;
+export default TeamAgentPicker;

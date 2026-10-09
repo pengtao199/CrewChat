@@ -590,7 +590,7 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({
           })}
         </div>
       ) : (
-        <Empty description={t('settings.assistantAvatarNoBuiltinImages', { defaultValue: 'No built-in images' })} />
+        <Empty description={t('settings.agentAvatarNoBuiltinImages', { defaultValue: 'No built-in images' })} />
       )}
     </div>
   );
@@ -604,7 +604,7 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({
             title={
               <span className='flex items-center gap-4px'>
                 <span aria-hidden='true'>👤</span>{' '}
-                <span>{t('settings.assistantAvatarBuiltinTab', { defaultValue: 'Built-in' })}</span>
+                <span>{t('settings.agentAvatarBuiltinTab', { defaultValue: 'Built-in' })}</span>
               </span>
             }
           >
@@ -615,7 +615,7 @@ const EmojiPicker: React.FC<EmojiPickerProps> = ({
             title={
               <span className='flex items-center gap-4px'>
                 <span aria-hidden='true'>🙂</span>{' '}
-                <span>{t('settings.assistantAvatarEmojiTab', { defaultValue: 'Emoji' })}</span>
+                <span>{t('settings.agentAvatarEmojiTab', { defaultValue: 'Emoji' })}</span>
               </span>
             }
           >

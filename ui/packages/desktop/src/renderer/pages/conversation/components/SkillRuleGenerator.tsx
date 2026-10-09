@@ -203,7 +203,7 @@ const SkillRuleGenerator: React.FC<SkillRuleGeneratorProps> = ({ conversation_id
       let historyText = messages.items
         .map((msg: TMessage) => {
           if (msg.type === 'text') {
-            const role = msg.position === 'right' ? 'User' : 'Assistant';
+            const role = msg.position === 'right' ? 'User' : 'Agent';
             return `${role}: ${msg.content.content}`;
           }
           return null;
@@ -269,16 +269,16 @@ Requirements:
 
   const registerPreset = async (name: string, content: string) => {
     try {
-      const created = await ipcBridge.assistants.create.invoke({ name });
+      const created = await ipcBridge.agents.create.invoke({ name });
       // Persist the rule content separately via the skill-md dispatch endpoint
-      // (backend spec §6.4); the Assistant row doesn't carry inline context.
+      // (backend spec §6.4); the Agent row doesn't carry inline context.
       if (content.trim()) {
-        await ipcBridge.fs.writeAssistantRule.invoke({
-          assistant_id: created.id,
+        await ipcBridge.fs.writeAgentRule.invoke({
+          agent_id: created.id,
           content,
         });
       }
-      await mutate('assistants.list');
+      await mutate('agents.list');
       Message.success(
         t('conversation.skill_generator.preset_registered', { defaultValue: 'Agent preset registered successfully!' })
       );

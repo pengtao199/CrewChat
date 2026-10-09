@@ -42,7 +42,7 @@
   "export.typeLabel": "種類",
   "export.noMessages": "メッセージはありません",
   "export.userLabel": "ユーザー",
-  "export.assistantLabel": "アシスタント",
+  "export.agentLabel": "アシスタント",
   "export.systemLabel": "システム",
   "export.menuTitle": "会話をエクスポート",
   "export.menuHint": "現在の会話のエクスポート方法を選択してください",

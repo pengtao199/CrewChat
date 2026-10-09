@@ -17,8 +17,8 @@ import type { TeamSendBoxRuntime } from './teamSendRuntime';
 import type { TeamRunReconcileResult, TeamRunViewState } from '../hooks/useTeamRunView';
 import TeamChatEmptyState from './TeamChatEmptyState';
 import { useTeamTabs } from '@/renderer/pages/team/hooks/TeamTabsContext';
-import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
-import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { usePresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
+import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 
 const AcpChat = React.lazy(() => import('@/renderer/pages/conversation/platforms/acp/AcpChat'));
 const AionrsChat = React.lazy(() => import('@/renderer/pages/conversation/platforms/aionrs/AionrsChat'));
@@ -41,14 +41,14 @@ const EMPTY_TEAM_RUN_VIEW: TeamRunViewState = {
   sessionStopped: false,
 };
 
-const resolveAssistantDisplayName = (
+const resolveAgentDisplayName = (
   conversation: TChatConversation,
-  presetAssistantName: string | null,
-  explicitAssistantName?: string
+  presetAgentName: string | null,
+  explicitAgentName?: string
 ): string | undefined => {
-  if (presetAssistantName) return presetAssistantName;
-  const trimmedExplicitAssistantName = explicitAssistantName?.trim();
-  if (trimmedExplicitAssistantName) return trimmedExplicitAssistantName;
+  if (presetAgentName) return presetAgentName;
+  const trimmedExplicitAgentName = explicitAgentName?.trim();
+  if (trimmedExplicitAgentName) return trimmedExplicitAgentName;
   const extraAgentName = (conversation.extra as { agent_name?: string } | undefined)?.agent_name;
   if (extraAgentName?.trim()) return extraAgentName.trim();
   return undefined;
@@ -58,7 +58,7 @@ const resolveAssistantDisplayName = (
 const AionrsTeamChat: React.FC<{
   conversation: AionrsConversation;
   emptySlot?: React.ReactNode;
-  assistant_name?: string;
+  agent_name?: string;
   teamSendMessage?: TeamSendOverride;
   teamRuntime?: ReturnType<typeof buildTeamSendRuntime>;
   loadedSkills?: string[];
@@ -67,7 +67,7 @@ const AionrsTeamChat: React.FC<{
 }> = ({
   conversation,
   emptySlot,
-  assistant_name,
+  agent_name,
   teamSendMessage,
   teamRuntime,
   loadedSkills,
@@ -91,7 +91,7 @@ const AionrsTeamChat: React.FC<{
       workspace={conversation.extra.workspace}
       modelSelection={modelSelection}
       emptySlot={emptySlot}
-      agent_name={assistant_name}
+      agent_name={agent_name}
       teamSendMessage={teamSendMessage}
       teamRuntime={teamRuntime}
       loadedSkills={loadedSkills}
@@ -107,8 +107,8 @@ type TeamChatViewProps = {
   /** When set, shows the team greeting empty state */
   team_id?: string;
   slot_id?: string;
-  assistant_name?: string;
-  assistant_backend?: string;
+  agent_name?: string;
+  agent_backend?: string;
   agent_icon?: string;
   isLeader?: boolean;
   teamRunView?: TeamRunViewState;
@@ -126,8 +126,8 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
   hideSendBox,
   team_id,
   slot_id,
-  assistant_name,
-  assistant_backend,
+  agent_name,
+  agent_backend,
   agent_icon,
   isLeader,
   teamRunView = EMPTY_TEAM_RUN_VIEW,
@@ -137,18 +137,18 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const { activeSlotId, switchTab } = useTeamTabs();
-  const { info: presetAssistantInfo } = usePresetAssistantInfo(conversation);
+  const { info: presetAgentInfo } = usePresetAgentInfo(conversation);
   const capabilitySnapshot = conversation.extra as TeamConversationCapabilitySnapshot | undefined;
   // Single source of truth for the team greeting. Each *Chat simply forwards
-  // `emptySlot` to MessageList. The empty state can derive preset assistant
+  // `emptySlot` to MessageList. The empty state can derive preset agent
   // details from the shared SWR-cached conversation record, but it should
-  // prefer the assistant identity already carried by the team runtime.
+  // prefer the agent identity already carried by the team runtime.
   const resolvedHideSendBox = hideSendBox || isLegacyReadOnlyConversationType(conversation.type);
   const emptySlot = team_id ? (
     <TeamChatEmptyState
       conversation_id={conversation.id}
-      assistant_name={assistant_name}
-      assistant_backend={assistant_backend}
+      agent_name={agent_name}
+      agent_backend={agent_backend}
       icon={agent_icon}
       isLeader={isLeader}
     />
@@ -168,12 +168,12 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
     [isLeader, onTeamRunAck, slot_id, team_id]
   );
   const teamSendMessageOverride = team_id ? teamSendMessage : undefined;
-  const resolvedAssistantBackend =
-    resolveConversationBackend(conversation, assistant_backend || presetAssistantInfo?.backend) || 'claude';
-  const resolvedAssistantName = resolveAssistantDisplayName(
+  const resolvedAgentBackend =
+    resolveConversationBackend(conversation, agent_backend || presetAgentInfo?.backend) || 'claude';
+  const resolvedAgentName = resolveAgentDisplayName(
     conversation,
-    presetAssistantInfo?.name ?? null,
-    assistant_name
+    presetAgentInfo?.name ?? null,
+    agent_name
   );
   const slotWork = slot_id ? teamRunView.slotWorkBySlot[slot_id] : undefined;
   // Prefer the event-driven stopped flag so the prompt shows even when the stale
@@ -187,9 +187,9 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
             count,
             defaultValue: `Processing… ${count} queued`,
           }),
-        runtimeStarting: () => t('team.work.runtimeStarting', { defaultValue: 'Waiting for this assistant to start…' }),
-        runtimeFailed: () => t('team.work.runtimeFailed', { defaultValue: 'This assistant failed to start.' }),
-        removing: () => t('team.work.removing', { defaultValue: 'Removing this assistant…' }),
+        runtimeStarting: () => t('team.work.runtimeStarting', { defaultValue: 'Waiting for this agent to start…' }),
+        runtimeFailed: () => t('team.work.runtimeFailed', { defaultValue: 'This agent failed to start.' }),
+        removing: () => t('team.work.removing', { defaultValue: 'Removing this agent…' }),
         sessionStopped: () => t('team.work.sessionStopped', { defaultValue: 'The team session has stopped.' }),
       });
   const isRuntimeFailed = slot_id ? slotWork?.blocked_reason === 'runtime_failed' : false;
@@ -261,9 +261,9 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
             key={conversation.id}
             conversation_id={conversation.id}
             workspace={conversation.extra?.workspace}
-            backend={resolvedAssistantBackend}
+            backend={resolvedAgentBackend}
             session_mode={conversation.extra?.session_mode}
-            agent_name={resolvedAssistantName}
+            agent_name={resolvedAgentName}
             hideSendBox={resolvedHideSendBox}
             emptySlot={emptySlot}
             teamSendMessage={teamSendMessageOverride}
@@ -279,7 +279,7 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
             key={conversation.id}
             conversation={conversation as AionrsConversation}
             emptySlot={emptySlot}
-            assistant_name={resolvedAssistantName}
+            agent_name={resolvedAgentName}
             teamSendMessage={teamSendMessageOverride}
             teamRuntime={teamRuntime}
             loadedSkills={capabilitySnapshot?.skills}

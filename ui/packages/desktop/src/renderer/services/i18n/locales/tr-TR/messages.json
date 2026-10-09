@@ -42,7 +42,7 @@
   "export.typeLabel": "Tür",
   "export.noMessages": "Mesaj yok",
   "export.userLabel": "Kullanıcı",
-  "export.assistantLabel": "Asistan",
+  "export.agentLabel": "Asistan",
   "export.systemLabel": "Sistem",
   "export.menuTitle": "Konuşmayı Aktar",
   "export.menuHint": "Geçerli konuşmayı nasıl aktaracağınızı seçin",

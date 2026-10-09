@@ -74,7 +74,7 @@ export function useConversationExport(options: UseConversationExportOptions): Us
       type: t('messages.export.typeLabel'),
       noMessages: t('messages.export.noMessages'),
       user: t('messages.export.userLabel'),
-      assistant: t('messages.export.assistantLabel'),
+      agent: t('messages.export.agentLabel'),
       system: t('messages.export.systemLabel'),
     }),
     [t]

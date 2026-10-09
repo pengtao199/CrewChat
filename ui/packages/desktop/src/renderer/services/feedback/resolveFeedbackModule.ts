@@ -20,7 +20,7 @@ const ROUTE_MODULE_MAP: ReadonlyArray<readonly [prefix: string, tag: FeedbackMod
   ['/conversation', 'conversation-session'],
   ['/team', 'agent-team'],
   ['/scheduled', 'scheduled-task'],
-  ['/assistants', 'assistant-preset'],
+  ['/agents', 'agent-preset'],
   ['/settings/agent', 'agent-detection'],
   ['/settings/model', 'model-auth'],
   ['/settings/skills', 'skills-plugin'],

@@ -8,7 +8,7 @@
  * Detection layer types — represents available execution engines in the system.
  *
  * Each `kind` corresponds to a distinct execution engine / communication protocol.
- * Assistants (user-configured presets with skills, prompts, etc.) are a configuration
+ * Agents (user-configured presets with skills, prompts, etc.) are a configuration
  * layer that *references* these execution engines — they are NOT detected agents.
  *
  * Uses generic `DetectedAgent<K>`:

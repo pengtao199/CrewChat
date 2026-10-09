@@ -6,7 +6,7 @@ import { removeStack } from '@/renderer/utils/common';
 const buildTeamCounts = (teams: TTeam[]): Map<string, number> => {
   const map = new Map<string, number>();
   for (const team of teams) {
-    const total = team.assistants.reduce((sum, assistant) => sum + (assistant.pending_confirmations ?? 0), 0);
+    const total = team.agents.reduce((sum, agent) => sum + (agent.pending_confirmations ?? 0), 0);
     map.set(team.id, total);
   }
   return map;
@@ -22,8 +22,8 @@ export function useSiderTeamBadges(teams: TTeam[]): Map<string, number> {
   const teamSignature = teams
     .map(
       (t) =>
-        `${t.id}:${t.assistants
-          .map((assistant) => `${assistant.conversation_id || ''}:${assistant.pending_confirmations ?? 0}`)
+        `${t.id}:${t.agents
+          .map((agent) => `${agent.conversation_id || ''}:${agent.pending_confirmations ?? 0}`)
           .join(',')}`
     )
     .join('|');
@@ -39,9 +39,9 @@ export function useSiderTeamBadges(teams: TTeam[]): Map<string, number> {
     // Build conversation_id → team_id lookup
     const cidToTeamId = new Map<string, string>();
     for (const team of teams) {
-      for (const assistant of team.assistants) {
-        if (assistant.conversation_id) {
-          cidToTeamId.set(assistant.conversation_id, team.id);
+      for (const agent of team.agents) {
+        if (agent.conversation_id) {
+          cidToTeamId.set(agent.conversation_id, team.id);
         }
       }
     }
@@ -67,7 +67,7 @@ export function useSiderTeamBadges(teams: TTeam[]): Map<string, number> {
         updateCount(data.conversation_id, -1);
       })
     );
-    // Include assistant conversation_ids in deps so the effect re-runs when assistants
+    // Include agent conversation_ids in deps so the effect re-runs when agents
     // spawn and receive their conversation_id (initially undefined until spawn completes).
   }, [teamSignature]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -15,8 +15,8 @@ const TAB_OVERFLOW_THRESHOLD = 10;
 
 type TeamTabViewProps = {
   slot_id: string;
-  assistant_name: string;
-  assistant_backend: string;
+  agent_name: string;
+  agent_backend: string;
   icon?: string;
   conversation_id?: string;
   isActive: boolean;
@@ -37,8 +37,8 @@ type TeamTabViewProps = {
 
 const TeamTabView: React.FC<TeamTabViewProps> = ({
   slot_id,
-  assistant_name,
-  assistant_backend,
+  agent_name,
+  agent_backend,
   icon,
   conversation_id,
   isActive,
@@ -54,7 +54,7 @@ const TeamTabView: React.FC<TeamTabViewProps> = ({
 }) => {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(assistant_name);
+  const [editValue, setEditValue] = useState(agent_name);
   const [hovered, setHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // Leader stays fixed at index 0 and never takes part in sorting.
@@ -74,33 +74,33 @@ const TeamTabView: React.FC<TeamTabViewProps> = ({
     const nextValue = inputRef.current?.value ?? editValue;
     const trimmed = nextValue.trim();
     setEditing(false);
-    if (trimmed && trimmed !== assistant_name && onRename) {
+    if (trimmed && trimmed !== agent_name && onRename) {
       setEditValue(trimmed);
       onRename(slot_id, trimmed);
     } else {
-      setEditValue(assistant_name);
+      setEditValue(agent_name);
     }
-  }, [editValue, assistant_name, slot_id, onRename]);
+  }, [editValue, agent_name, slot_id, onRename]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') {
         commitRename();
       } else if (e.key === 'Escape') {
-        setEditValue(assistant_name);
+        setEditValue(agent_name);
         setEditing(false);
       }
     },
-    [commitRename, assistant_name]
+    [commitRename, agent_name]
   );
 
   const startEditing = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      setEditValue(assistant_name);
+      setEditValue(agent_name);
       setEditing(true);
     },
-    [assistant_name]
+    [agent_name]
   );
 
   // 胶囊底色恒定浅灰（hover / 选中都不改底色，避免压低彩色名字可读性）；
@@ -168,8 +168,8 @@ const TeamTabView: React.FC<TeamTabViewProps> = ({
             </span>
           )}
           <TeamAgentIdentity
-            assistant_name={assistant_name}
-            assistant_backend={assistant_backend}
+            agent_name={agent_name}
+            agent_backend={agent_backend}
             icon={icon}
             conversation_id={conversation_id}
             isLeader={isLeader}
@@ -223,7 +223,7 @@ const TeamTabView: React.FC<TeamTabViewProps> = ({
 
 type TeamTabsProps = {
   onTabClick?: (slot_id: string) => void;
-  /** Pending permission confirmation counts per assistant slot ID */
+  /** Pending permission confirmation counts per agent slot ID */
   pendingCounts?: Map<string, number>;
   /** 团队 warmup 进行中：禁用改成员（添加/移除/重命名）——PRD 第 7 节要求。 */
   warmingUp?: boolean;
@@ -232,20 +232,20 @@ type TeamTabsProps = {
 };
 
 /**
- * Tab bar for team mode showing assistant tabs with status badges.
+ * Tab bar for team mode showing agent tabs with status badges.
  * Supports scroll overflow with fade indicators.
  */
 const TeamTabs: React.FC<TeamTabsProps> = ({ onTabClick, pendingCounts, warmingUp = false, failedSlotIds }) => {
   const { t } = useTranslation();
   const {
-    assistants,
+    agents,
     activeSlotId,
     statusMap,
     switchTab,
-    renameAssistant,
-    removeAssistant,
-    reorderAssistants,
-    addAssistant,
+    renameAgent,
+    removeAgent,
+    reorderAgents,
+    addAgent,
     colorOf,
   } = useTeamTabs();
   // 胶囊操作（增/删/改名）只在「warmup 进行中」禁用。warmup 一旦结束——无论成功还是失败——
@@ -261,8 +261,8 @@ const TeamTabs: React.FC<TeamTabsProps> = ({ onTabClick, pendingCounts, warmingU
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   // Only teammates are sortable; the leader pill is rendered outside the sortable id list.
   const sortableIds = useMemo(
-    () => assistants.filter((assistant) => assistant.role !== 'leader').map((assistant) => assistant.slot_id),
-    [assistants]
+    () => agents.filter((agent) => agent.role !== 'leader').map((agent) => agent.slot_id),
+    [agents]
   );
 
   const updateTabOverflow = useCallback(() => {
@@ -296,14 +296,14 @@ const TeamTabs: React.FC<TeamTabsProps> = ({ onTabClick, pendingCounts, warmingU
     ({ active, over }: DragEndEvent) => {
       setDragActive(false);
       if (!over || active.id === over.id) return;
-      reorderAssistants(String(active.id), String(over.id));
+      reorderAgents(String(active.id), String(over.id));
     },
-    [reorderAssistants]
+    [reorderAgents]
   );
 
   const handleDragCancel = useCallback(() => setDragActive(false), []);
 
-  if (assistants.length === 0) return null;
+  if (agents.length === 0) return null;
 
   return (
     <div
@@ -325,31 +325,31 @@ const TeamTabs: React.FC<TeamTabsProps> = ({ onTabClick, pendingCounts, warmingU
             onDragCancel={handleDragCancel}
           >
             <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
-              {assistants.map((assistant) => {
-                const statusInfo = statusMap.get(assistant.slot_id);
+              {agents.map((agent) => {
+                const statusInfo = statusMap.get(agent.slot_id);
                 return (
                   <TeamTabView
-                    key={assistant.slot_id}
-                    slot_id={assistant.slot_id}
-                    assistant_name={assistant.assistant_name}
-                    assistant_backend={assistant.assistant_backend}
-                    icon={assistant.icon}
-                    conversation_id={assistant.conversation_id}
-                    isActive={assistant.slot_id === activeSlotId}
-                    status={statusInfo?.status ?? assistant.status}
-                    isLeader={assistant.role === 'leader'}
-                    warmupFailed={failedSlotIds?.has(assistant.slot_id) ?? false}
-                    color={colorOf(assistant.slot_id)}
-                    pendingCount={pendingCounts?.get(assistant.slot_id) ?? 0}
+                    key={agent.slot_id}
+                    slot_id={agent.slot_id}
+                    agent_name={agent.agent_name}
+                    agent_backend={agent.agent_backend}
+                    icon={agent.icon}
+                    conversation_id={agent.conversation_id}
+                    isActive={agent.slot_id === activeSlotId}
+                    status={statusInfo?.status ?? agent.status}
+                    isLeader={agent.role === 'leader'}
+                    warmupFailed={failedSlotIds?.has(agent.slot_id) ?? false}
+                    color={colorOf(agent.slot_id)}
+                    pendingCount={pendingCounts?.get(agent.slot_id) ?? 0}
                     dragActive={dragActive}
                     onSwitch={(slot_id) => {
                       switchTab(slot_id);
                       onTabClick?.(slot_id);
                     }}
                     onRename={
-                      renameAssistant && !memberOpsDisabled ? (sid, name) => void renameAssistant(sid, name) : undefined
+                      renameAgent && !memberOpsDisabled ? (sid, name) => void renameAgent(sid, name) : undefined
                     }
-                    onRemove={removeAssistant && !memberOpsDisabled ? (sid) => void removeAssistant(sid) : undefined}
+                    onRemove={removeAgent && !memberOpsDisabled ? (sid) => void removeAgent(sid) : undefined}
                   />
                 );
               })}
@@ -373,7 +373,7 @@ const TeamTabs: React.FC<TeamTabsProps> = ({ onTabClick, pendingCounts, warmingU
           />
         )}
         {/* 固定在最右、不随列表滚动的「添加成员」；左侧一根分隔线与成员列表隔开，按钮本身无边框。 */}
-        {addAssistant ? (
+        {addAgent ? (
           <div className='flex items-center shrink-0 border-s border-solid border-[color:var(--border-base)] px-8px'>
             <TeamAddMemberPopover disabled={memberOpsDisabled}>
               <button

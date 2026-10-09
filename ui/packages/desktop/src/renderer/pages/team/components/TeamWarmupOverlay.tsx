@@ -7,13 +7,13 @@
 import React from 'react';
 import { Refresh } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
-import type { TeamAssistant } from '@/common/types/team/teamTypes';
+import type { TeamAgent } from '@/common/types/team/teamTypes';
 import type { TeamWarmupMemberState, TeamWarmupPhase } from '../hooks/useTeamWarmup';
 import TeamAgentIdentity from './TeamAgentIdentity';
 
 type Props = {
   phase: TeamWarmupPhase;
-  assistants: TeamAssistant[];
+  agents: TeamAgent[];
   /** slot_id → 运行时状态（来自 useTeamWarmup，逐个成员的真实唤醒信号 + 失败原因）。 */
   runtimeStatus: Map<string, TeamWarmupMemberState>;
   colorOf: (slot_id: string | undefined) => string;
@@ -51,27 +51,27 @@ export function simplifyWarmupError(raw: string | undefined): string | undefined
   return s || raw.trim();
 }
 
-const TeamWarmupOverlay: React.FC<Props> = ({ phase, assistants, runtimeStatus, colorOf, onRetry }) => {
+const TeamWarmupOverlay: React.FC<Props> = ({ phase, agents, runtimeStatus, colorOf, onRetry }) => {
   const { t } = useTranslation();
   if (phase === 'ready') return null;
 
   const isFailure = phase === 'error';
 
   // 收集**所有**失败成员（后端并发重建可能同时报多个 failed，各带自己的 error）。
-  // 按 assistants 顺序（Leader 在前）稳定排序，便于逐行展示。
-  const failedMembers = assistants
+  // 按 agents 顺序（Leader 在前）稳定排序，便于逐行展示。
+  const failedMembers = agents
     .filter((a) => runtimeStatus.get(a.slot_id)?.status === 'failed')
-    .map((a) => ({ assistant: a, error: runtimeStatus.get(a.slot_id)?.error }));
+    .map((a) => ({ agent: a, error: runtimeStatus.get(a.slot_id)?.error }));
   // 取不到任何 failed 时，回退到 Leader 作为单个失败对象。
-  const fallbackLeader = assistants.find((a) => a.role === 'leader');
+  const fallbackLeader = agents.find((a) => a.role === 'leader');
   if (failedMembers.length === 0 && fallbackLeader) {
-    failedMembers.push({ assistant: fallbackLeader, error: undefined });
+    failedMembers.push({ agent: fallbackLeader, error: undefined });
   }
   const isMulti = failedMembers.length > 1;
   const single = failedMembers[0];
-  const singleIsLeader = single?.assistant.role === 'leader';
+  const singleIsLeader = single?.agent.role === 'leader';
   // 引导：任一失败成员是可移除的 teammate 时，才提「移除」这条路（Leader 不可移除）。
-  const anyRemovable = failedMembers.some((m) => m.assistant.role !== 'leader');
+  const anyRemovable = failedMembers.some((m) => m.agent.role !== 'leader');
 
   return (
     <div
@@ -87,7 +87,7 @@ const TeamWarmupOverlay: React.FC<Props> = ({ phase, assistants, runtimeStatus, 
       <div className='flex flex-col items-center gap-14px px-40px py-28px max-w-420px'>
         {/* 成员头像：跟随各自 runtime 状态。Leader 先亮（后端优先重建它）。 */}
         <div className='flex items-center gap-10px'>
-          {assistants.slice(0, 6).map((a) => {
+          {agents.slice(0, 6).map((a) => {
             const status = runtimeStatus.get(a.slot_id)?.status;
             const mc = colorOf(a.slot_id);
             const isReady = status === 'ready';
@@ -111,8 +111,8 @@ const TeamWarmupOverlay: React.FC<Props> = ({ phase, assistants, runtimeStatus, 
                 style={{ opacity, boxShadow }}
               >
                 <TeamAgentIdentity
-                  assistant_name=''
-                  assistant_backend={a.assistant_backend}
+                  agent_name=''
+                  agent_backend={a.agent_backend}
                   icon={a.icon}
                   conversation_id={a.conversation_id}
                   className='!gap-0'
@@ -145,11 +145,11 @@ const TeamWarmupOverlay: React.FC<Props> = ({ phase, assistants, runtimeStatus, 
                   ? singleIsLeader
                     ? t('team.warmup.leaderFailedTitle', {
                         defaultValue: 'Lead {{name}} failed to start',
-                        name: single.assistant.assistant_name,
+                        name: single.agent.agent_name,
                       })
                     : t('team.warmup.memberFailedTitle', {
                         defaultValue: 'Member {{name}} failed to start',
-                        name: single.assistant.assistant_name,
+                        name: single.agent.agent_name,
                       })
                   : t('team.warmup.genericFailedTitle', { defaultValue: 'The team could not start' })}
             </div>
@@ -162,12 +162,12 @@ const TeamWarmupOverlay: React.FC<Props> = ({ phase, assistants, runtimeStatus, 
               >
                 {failedMembers.map((m) => (
                   <div
-                    key={m.assistant.slot_id}
+                    key={m.agent.slot_id}
                     className='flex items-start gap-6px text-11px leading-relaxed text-start'
                   >
                     <span className='shrink-0 font-600' style={{ color: 'var(--danger)' }}>
-                      {m.assistant.assistant_name}
-                      {m.assistant.role === 'leader' ? t('team.warmup.leaderSuffix', { defaultValue: ' (Lead)' }) : ''}
+                      {m.agent.agent_name}
+                      {m.agent.role === 'leader' ? t('team.warmup.leaderSuffix', { defaultValue: ' (Lead)' }) : ''}
                     </span>
                     <span className='min-w-0 break-words' style={{ color: 'var(--danger)' }}>
                       {simplifyWarmupError(m.error) ??

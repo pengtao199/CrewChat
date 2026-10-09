@@ -1,27 +1,27 @@
 /**
- * AssistantAvatar — Renders an assistant's avatar with emoji, image, or fallback icon.
+ * AgentAvatar — Renders an agent's avatar with emoji, image, or fallback icon.
  */
-import type { AssistantListItem } from './types';
+import type { AgentListItem } from './types';
 import { Avatar } from '@arco-design/web-react';
 import { Robot } from '@icon-park/react';
 import React from 'react';
-import { isEmoji, resolveAvatarImageSrc } from './assistantUtils';
+import { isEmoji, resolveAvatarImageSrc } from './agentUtils';
 import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
 
-type AssistantAvatarProps = {
-  assistant: AssistantListItem;
+type AgentAvatarProps = {
+  agent: AgentListItem;
   imageFit?: 'contain' | 'cover';
   shape?: 'circle' | 'square';
   size?: number;
 };
 
-const AssistantAvatar: React.FC<AssistantAvatarProps> = ({
-  assistant,
+const AgentAvatar: React.FC<AgentAvatarProps> = ({
+  agent,
   imageFit = 'cover',
   shape = 'square',
   size = 32,
 }) => {
-  const resolvedAvatar = assistant.avatar?.trim();
+  const resolvedAvatar = agent.avatar?.trim();
   const hasEmojiAvatar = Boolean(resolvedAvatar && isEmoji(resolvedAvatar));
   const avatarImage = resolveAvatarImageSrc(resolvedAvatar);
   const iconSize = Math.floor(size * 0.5);
@@ -49,4 +49,4 @@ const AssistantAvatar: React.FC<AssistantAvatarProps> = ({
   );
 };
 
-export default AssistantAvatar;
+export default AgentAvatar;

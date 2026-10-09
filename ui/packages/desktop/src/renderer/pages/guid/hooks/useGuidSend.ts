@@ -29,9 +29,9 @@ export type GuidSendDeps = {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   loading: boolean;
 
-  // Assistant state
-  selectedAssistantId: string | null;
-  selectedAssistantBackend: string;
+  // Agent state
+  selectedAgentId: string | null;
+  selectedAgentBackend: string;
   selectedMode: string;
   selectedAcpModel: string | null;
   selectedThoughtLevelValue?: string;
@@ -39,11 +39,11 @@ export type GuidSendDeps = {
 
   guidDisabledBuiltinSkills: string[] | undefined;
   guidEnabledSkills: string[] | undefined;
-  assistantDefaultSkillIds?: string[];
-  assistantDefaultDisabledBuiltinSkillIds?: string[];
+  agentDefaultSkillIds?: string[];
+  agentDefaultDisabledBuiltinSkillIds?: string[];
   availableMcpServers: IMcpServer[];
   selectedMcpServerIds: string[] | undefined;
-  assistantDefaultMcpIds?: string[];
+  agentDefaultMcpIds?: string[];
   isGoogleAuth: boolean;
 
   // Mention state reset
@@ -77,19 +77,19 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     setDir,
     setLoading,
     loading,
-    selectedAssistantId,
-    selectedAssistantBackend,
+    selectedAgentId,
+    selectedAgentBackend,
     selectedMode,
     selectedAcpModel,
     selectedThoughtLevelValue,
     current_model,
     guidDisabledBuiltinSkills,
     guidEnabledSkills,
-    assistantDefaultSkillIds,
-    assistantDefaultDisabledBuiltinSkillIds,
+    agentDefaultSkillIds,
+    agentDefaultDisabledBuiltinSkillIds,
     availableMcpServers,
     selectedMcpServerIds,
-    assistantDefaultMcpIds,
+    agentDefaultMcpIds,
     setMentionOpen,
     setMentionQuery,
     setMentionSelectorOpen,
@@ -103,7 +103,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   const { workspaces } = useWorkspaces();
 
   const handleSend = useCallback(async () => {
-    if (!selectedAssistantId) {
+    if (!selectedAgentId) {
       return;
     }
 
@@ -111,10 +111,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     const finalWorkspace = dir || '';
     const projectId = dir ? workspaces.find((workspace) => workspace.path === dir)?.id : undefined;
 
-    const assistantConversationId = selectedAssistantId;
-    const assistantBackend = selectedAssistantBackend;
-    const enabled_skills_to_send = guidEnabledSkills ?? assistantDefaultSkillIds;
-    const excludeBuiltinSkills = guidDisabledBuiltinSkills ?? assistantDefaultDisabledBuiltinSkillIds;
+    const agentConversationId = selectedAgentId;
+    const agentBackend = selectedAgentBackend;
+    const enabled_skills_to_send = guidEnabledSkills ?? agentDefaultSkillIds;
+    const excludeBuiltinSkills = guidDisabledBuiltinSkills ?? agentDefaultDisabledBuiltinSkillIds;
     const selectedAllMcpServerIds = selectedMcpServerIds ?? [];
     const selectedMcpServerIdSet = new Set(selectedAllMcpServerIds);
     const selectedUserMcpServerIds = availableMcpServers
@@ -126,11 +126,11 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     const selectedSessionMcpServers = availableMcpServers
       .filter((server) => selectedMcpServerIdSet.has(server.id) && server.builtin === true)
       .map((server) => toSessionMcpServer(server));
-    const defaultSelectedMcpServerIds = assistantDefaultMcpIds;
+    const defaultSelectedMcpServerIds = agentDefaultMcpIds;
     const defaultSelectedUserMcpServerIds = availableMcpServers
       .filter((server) => (defaultSelectedMcpServerIds ?? []).includes(server.id) && server.builtin !== true)
       .map((server) => server.id);
-    const assistantOverrideMcpIds =
+    const agentOverrideMcpIds =
       selectedMcpServerIds !== undefined ? selectedAllMcpServerIds : defaultSelectedMcpServerIds;
     const selectedUserMcpServerIdsToSend =
       selectedMcpServerIds !== undefined ? selectedUserMcpServerIds : defaultSelectedUserMcpServerIds;
@@ -163,18 +163,18 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     // picker contradicted itself (the row promised one model, the session used
     // another). Omit it: no pick means no override, and the agent resolves the
     // model from the user's own config.
-    const assistantOverrideModel =
-      selectedAcpModel || (assistantBackend === 'aionrs' ? current_model?.use_model : undefined) || undefined;
-    const assistantOverrides = {
-      model: assistantOverrideModel,
+    const agentOverrideModel =
+      selectedAcpModel || (agentBackend === 'aionrs' ? current_model?.use_model : undefined) || undefined;
+    const agentOverrides = {
+      model: agentOverrideModel,
       permission: selectedMode || undefined,
       thought_level: selectedThoughtLevelValue || undefined,
       skill_ids: enabled_skills_to_send,
       disabled_builtin_skill_ids: excludeBuiltinSkills,
-      mcp_ids: assistantOverrideMcpIds,
+      mcp_ids: agentOverrideMcpIds,
     };
 
-    if (assistantBackend === 'aionrs') {
+    if (agentBackend === 'aionrs') {
       if (!current_model) {
         Message.warning(t('conversation.noModelConfigured'));
         return;
@@ -183,10 +183,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         const conversation = await ipcBridge.conversation.create.invoke({
           name: input,
           model: current_model,
-          assistant: {
-            id: assistantConversationId,
+          agent: {
+            id: agentConversationId,
             locale: localeKey,
-            conversation_overrides: assistantOverrides,
+            conversation_overrides: agentOverrides,
           },
           extra: {
             default_files: files.map(chatFileRefPath),
@@ -207,10 +207,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
           updateWorkspaceTime(finalWorkspace);
         }
 
-        if (assistantConversationId) {
+        if (agentConversationId) {
           await Promise.all([
-            swrMutate(`guid.assistant.detail.${assistantConversationId}.${localeKey}`),
-            swrMutate('assistants.list'),
+            swrMutate(`guid.agent.detail.${agentConversationId}.${localeKey}`),
+            swrMutate('agents.list'),
           ]);
         }
 
@@ -238,10 +238,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     try {
       const conversation = await ipcBridge.conversation.create.invoke({
         name: input,
-        assistant: {
-          id: assistantConversationId,
+        agent: {
+          id: agentConversationId,
           locale: localeKey,
-          conversation_overrides: assistantOverrides,
+          conversation_overrides: agentOverrides,
         },
         extra: {
           workspace: finalWorkspace,
@@ -262,10 +262,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
         updateWorkspaceTime(finalWorkspace);
       }
 
-      if (assistantConversationId) {
+      if (agentConversationId) {
         await Promise.all([
-          swrMutate(`guid.assistant.detail.${assistantConversationId}.${localeKey}`),
-          swrMutate('assistants.list'),
+          swrMutate(`guid.agent.detail.${agentConversationId}.${localeKey}`),
+          swrMutate('agents.list'),
         ]);
       }
 
@@ -291,19 +291,19 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     input,
     files,
     dir,
-    selectedAssistantId,
-    selectedAssistantBackend,
+    selectedAgentId,
+    selectedAgentBackend,
     selectedMode,
     selectedAcpModel,
     selectedThoughtLevelValue,
     current_model,
     guidDisabledBuiltinSkills,
     guidEnabledSkills,
-    assistantDefaultSkillIds,
-    assistantDefaultDisabledBuiltinSkillIds,
+    agentDefaultSkillIds,
+    agentDefaultDisabledBuiltinSkillIds,
     availableMcpServers,
     selectedMcpServerIds,
-    assistantDefaultMcpIds,
+    agentDefaultMcpIds,
     navigate,
     t,
     localeKey,
@@ -346,10 +346,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   ]);
 
   // Calculate button disabled state
-  // Calculate button disabled state. Empty input is allowed once an assistant is
+  // Calculate button disabled state. Empty input is allowed once an agent is
   // picked — that path creates an empty conversation ("start chat") rather than
-  // sending a message, so the gate only blocks while loading or with no assistant.
-  const isButtonDisabled = loading || !selectedAssistantId;
+  // sending a message, so the gate only blocks while loading or with no agent.
+  const isButtonDisabled = loading || !selectedAgentId;
 
   return {
     handleSend,

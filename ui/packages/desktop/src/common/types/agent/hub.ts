@@ -14,7 +14,7 @@ export type HubExtensionStatus =
 export type HubContributes = {
   acpAdapters?: string[];
   mcpServers?: string[];
-  assistants?: string[];
+  agents?: string[];
   agents?: string[];
   skills?: string[];
   channelPlugins?: string[];

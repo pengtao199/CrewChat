@@ -11,7 +11,7 @@ import type { TFunction } from 'i18next';
  * SWR key for the Agent settings management view (`/api/agents/management`).
  *
  * Phase 2 removed the renderer-side detected-agent candidate cache; business
- * surfaces now consume assistants only. The management view keeps its own
+ * surfaces now consume agents only. The management view keeps its own
  * diagnostics cache so disabled/missing rows remain visible for troubleshooting.
  */
 export const MANAGED_AGENTS_SWR_KEY = 'agents.managed';
@@ -181,7 +181,7 @@ export async function fetchManagedAgents(): Promise<ManagedAgent[]> {
 
 /**
  * Lowercased haystack for agent search inputs. Every agent-picking surface
- * (Agent settings page, home-page assistant dropdown) must match on the same
+ * (Agent settings page, home-page agent dropdown) must match on the same
  * fields, so a query like "ag" finds Antigravity via its `agy` command on all
  * of them.
  */

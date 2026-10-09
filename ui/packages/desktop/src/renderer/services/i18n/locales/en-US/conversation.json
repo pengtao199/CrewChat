@@ -106,7 +106,7 @@
   },
   "dropdown": {
     "cliAgents": "CLI Agents",
-    "presetAssistants": "Preset Agents"
+    "presetAgents": "Preset Agents"
   },
   "noAgentsAvailable": "No agents available",
   "noModelConfigured": "No model configured. Please configure in settings.",
@@ -117,8 +117,8 @@
     },
     "codes": {
       "TEAM_ASSISTANT_ID_REQUIRED": "Please select an agent before creating the team.",
-      "TEAM_ASSISTANT_NOT_FOUND": "Agent {{assistantId}} is no longer available. Refresh the agent list and choose another one.",
-      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Use assistant_id instead of {{field}}."
+      "TEAM_ASSISTANT_NOT_FOUND": "Agent {{agentId}} is no longer available. Refresh the agent list and choose another one.",
+      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Use agent_id instead of {{field}}."
     }
   },
   "agentError": {
@@ -349,7 +349,7 @@
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "The request used a legacy team identity field",
-        "body": "This team action must use assistant_id instead of legacy backend or agent fields."
+        "body": "This team action must use agent_id instead of legacy backend or agent fields."
       }
     }
   },

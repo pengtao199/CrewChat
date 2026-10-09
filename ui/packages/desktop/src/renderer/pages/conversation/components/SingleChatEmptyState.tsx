@@ -9,32 +9,32 @@ import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import type { TChatConversation } from '@/common/config/storage';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
-import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 import { resolveAgentAvatar, useAgentLogos } from '@renderer/utils/model/agentLogo';
-import { usePresetAssistantInfo } from '@renderer/hooks/agent/usePresetAssistantInfo';
+import { usePresetAgentInfo } from '@renderer/hooks/agent/usePresetAgentInfo';
 import { Robot } from '@icon-park/react';
 
 type Props = {
   conversation_id: string;
-  assistant_name?: string;
-  assistant_backend?: string;
+  agent_name?: string;
+  agent_backend?: string;
   icon?: string;
 };
 
 /**
- * Resolve the assistant display name for an empty single-chat window. Unlike
+ * Resolve the agent display name for an empty single-chat window. Unlike
  * team conversations, a single-chat `conversation.name` is the chat title (a
- * summary of the first message), not the assistant identity — so it is never
+ * summary of the first message), not the agent identity — so it is never
  * used as a fallback here.
  */
-const resolveAssistantName = (
+const resolveAgentName = (
   conversation: TChatConversation,
   presetName: string | null,
-  explicitAssistantName: string | undefined,
+  explicitAgentName: string | undefined,
   fallback: string
 ): string => {
   if (presetName) return presetName;
-  const trimmedExplicitName = explicitAssistantName?.trim();
+  const trimmedExplicitName = explicitAgentName?.trim();
   if (trimmedExplicitName) return trimmedExplicitName;
   const extraAgentName = (conversation.extra as { agent_name?: string } | undefined)?.agent_name;
   if (extraAgentName && extraAgentName.trim()) return extraAgentName.trim();
@@ -43,10 +43,10 @@ const resolveAssistantName = (
 
 /**
  * Empty state shown in a single-chat window that has no messages yet (for
- * example a freshly created or cloned conversation). Renders the assistant
+ * example a freshly created or cloned conversation). Renders the agent
  * identity plus a short greeting so the pre-built window is not blank.
  */
-const SingleChatEmptyState: React.FC<Props> = ({ conversation_id, assistant_name, assistant_backend, icon }) => {
+const SingleChatEmptyState: React.FC<Props> = ({ conversation_id, agent_name, agent_backend, icon }) => {
   const { t } = useTranslation();
   const logos = useAgentLogos();
 
@@ -55,18 +55,18 @@ const SingleChatEmptyState: React.FC<Props> = ({ conversation_id, assistant_name
   const { data: conversation } = useSWR(conversation_id ? ['single-conversation', conversation_id] : null, () =>
     getConversationOrNull(conversation_id)
   );
-  const { info: presetInfo } = usePresetAssistantInfo(conversation ?? undefined);
+  const { info: presetInfo } = usePresetAgentInfo(conversation ?? undefined);
 
   if (!conversation) return null;
 
-  const assistantBackend = resolveConversationBackend(conversation, assistant_backend || presetInfo?.backend) || 'acp';
-  const assistantName = resolveAssistantName(
+  const agentBackend = resolveConversationBackend(conversation, agent_backend || presetInfo?.backend) || 'acp';
+  const agentName = resolveAgentName(
     conversation,
     presetInfo?.name ?? null,
-    assistant_name,
-    t('common.aiAssistant', { defaultValue: 'AI Assistant' })
+    agent_name,
+    t('common.aiAgent', { defaultValue: 'AI Agent' })
   );
-  const agentAvatar = resolveAgentAvatar(logos, { icon, backend: assistantBackend });
+  const agentAvatar = resolveAgentAvatar(logos, { icon, backend: agentBackend });
 
   const renderAvatar = () => {
     if (presetInfo) {
@@ -96,7 +96,7 @@ const SingleChatEmptyState: React.FC<Props> = ({ conversation_id, assistant_name
       return (
         <img
           src={agentAvatar.value}
-          alt={assistantName}
+          alt={agentName}
           className='w-48px h-48px object-contain rounded-8px opacity-80'
         />
       );
@@ -122,7 +122,7 @@ const SingleChatEmptyState: React.FC<Props> = ({ conversation_id, assistant_name
     >
       {renderAvatar()}
       <div className='flex flex-col gap-6px'>
-        <span className='text-16px font-semibold text-t-primary'>{assistantName}</span>
+        <span className='text-16px font-semibold text-t-primary'>{agentName}</span>
         <span data-testid='single-chat-empty-state-greeting' className='text-13px text-t-secondary'>
           {t('conversation.emptyState.greeting')}
         </span>

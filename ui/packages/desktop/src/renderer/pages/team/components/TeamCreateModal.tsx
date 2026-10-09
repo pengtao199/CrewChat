@@ -5,17 +5,17 @@ import { Plus } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
 import { ipcBridge } from '@/common';
 import type { TTeam } from '@/common/types/team/teamTypes';
-import type { TeamAssistantInput } from '@/common/adapter/teamMapper';
+import type { TeamAgentInput } from '@/common/adapter/teamMapper';
 import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import AionModal from '@renderer/components/base/AionModal';
 import { WorkspaceFolderSelect } from '@renderer/components/workspace';
 import { getConversationCreateErrorMessage } from '@renderer/pages/conversation/utils/conversationCreateError';
-import { useTeamAssistantOptions } from '../hooks/useTeamAssistantOptions';
-import type { TeamAssistantOption } from './assistantSelectUtils';
+import { useTeamAgentOptions } from '../hooks/useTeamAgentOptions';
+import type { TeamAgentOption } from './agentSelectUtils';
 import { resolveDefaultTeamAgentModel } from './teamCreateModelResolver';
-import TeamAssistantPicker from './memberPicker/TeamAssistantPicker';
-import TeamAssistantPickerDropdown from './memberPicker/TeamAssistantPickerDropdown';
+import TeamAgentPicker from './memberPicker/TeamAgentPicker';
+import TeamAgentPickerDropdown from './memberPicker/TeamAgentPickerDropdown';
 import TeamMemberDraftList, { type TeamMemberDraft } from './memberPicker/TeamMemberDraftList';
 
 // [E2E SYNC] 修改此组件的 DOM 结构（class、标题、关闭按钮等）时，
@@ -37,14 +37,14 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
   const { user } = useAuth();
   const layout = useLayoutContext();
   const isMobile = layout?.isMobile ?? false;
-  const { assistants: allAssistants } = useTeamAssistantOptions(i18n?.language ?? 'en-US');
+  const { agents: allAgents } = useTeamAgentOptions(i18n?.language ?? 'en-US');
   const [name, setName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<TeamMemberDraft[]>([]);
   const [leaderSelectionId, setLeaderSelectionId] = useState<string | undefined>(undefined);
   const [workspace, setWorkspace] = useState('');
   const [loading, setLoading] = useState(false);
   // 窄屏专用：助手选择器以下拉列表形式，锚在“添加成员”按钮上按需唤出。
-  const [assistantDropdownOpen, setAssistantDropdownOpen] = useState(false);
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
   const nameInputRef = useRef<RefInputType | null>(null);
 
   const hasOneLeader = useMemo(
@@ -57,14 +57,14 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
     setSelectedMembers([]);
     setLeaderSelectionId(undefined);
     setWorkspace('');
-    setAssistantDropdownOpen(false);
+    setAgentDropdownOpen(false);
     onClose();
   };
 
-  const handleSelectAssistant = (assistant: TeamAssistantOption) => {
+  const handleSelectAgent = (agent: TeamAgentOption) => {
     const draft = {
-      selectionId: `${assistant.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      assistant,
+      selectionId: `${agent.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      agent,
     };
     setSelectedMembers((members) => [...members, draft]);
     setLeaderSelectionId((current) => current ?? draft.selectionId);
@@ -99,22 +99,22 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
         selectedMembers.map(async (member) => {
           try {
             const model = await resolveDefaultTeamAgentModel({
-              assistant_id: member.assistant.id,
-              assistant_backend: member.assistant.backend,
+              agent_id: member.agent.id,
+              agent_backend: member.agent.backend,
             });
             return [member.selectionId, model] as const;
           } catch (error) {
-            throw new Error(`${member.assistant.name}: ${getConversationCreateErrorMessage(error, t)}`, {
+            throw new Error(`${member.agent.name}: ${getConversationCreateErrorMessage(error, t)}`, {
               cause: error,
             });
           }
         })
       );
       const modelBySelectionId = new Map(resolvedModels);
-      const agents: TeamAssistantInput[] = selectedMembers.map((member) => ({
+      const agents: TeamAgentInput[] = selectedMembers.map((member) => ({
         role: member.selectionId === leaderSelectionId ? 'leader' : 'teammate',
-        assistant_name: member.assistant.name,
-        assistant_id: member.assistant.id,
+        agent_name: member.agent.name,
+        agent_id: member.agent.id,
         model: modelBySelectionId.get(member.selectionId),
       }));
 
@@ -142,16 +142,16 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
     }
   };
   // 助手选择器：桌面端嵌在左栏，窄屏端复用同一份放进底部面板。空态文案与逻辑完全一致。
-  const assistantPicker = (
+  const agentPicker = (
     <>
-      {allAssistants.length === 0 ? (
+      {allAgents.length === 0 ? (
         <div className='flex min-h-112px items-center justify-center rounded-8px border border-dashed border-border-2 bg-fill-1 py-14px text-13px text-t-tertiary'>
-          {t('team.create.noSupportedAgents', { defaultValue: 'No supported assistants available' })}
+          {t('team.create.noSupportedAgents', { defaultValue: 'No supported agents available' })}
         </div>
       ) : (
-        <TeamAssistantPicker
-          assistants={allAssistants}
-          onSelect={handleSelectAssistant}
+        <TeamAgentPicker
+          agents={allAgents}
+          onSelect={handleSelectAgent}
           testIdPrefix='team-create-agent'
           density='modal'
         />
@@ -205,15 +205,15 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
     >
       <section
         className='flex min-h-0 flex-col border-e border-border-3 px-20px pb-18px pt-12px'
-        data-testid='team-create-assistant-pane'
+        data-testid='team-create-agent-pane'
       >
         <div className='mb-12px text-15px font-600 leading-22px text-t-secondary'>
-          {t('team.create.allAssistantsWithCount', {
-            count: allAssistants.length,
-            defaultValue: `All assistants (${allAssistants.length})`,
+          {t('team.create.allAgentsWithCount', {
+            count: allAgents.length,
+            defaultValue: `All agents (${allAgents.length})`,
           })}
         </div>
-        {assistantPicker}
+        {agentPicker}
       </section>
 
       <section className='flex min-h-0 flex-col px-20px pb-14px pt-12px' data-testid='team-create-details-pane'>
@@ -230,19 +230,19 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
 
   // 窄屏端：单栏——只留“已选成员”与团队字段；助手选择器做成锚在“添加成员”按钮上的下拉列表。
   // 选中即关：下拉收起后，用户直接看到助手出现在下方的已选成员列表里（这就是“加成功了”的反馈）。
-  const handleSelectFromDropdown = (assistant: TeamAssistantOption) => {
-    handleSelectAssistant(assistant);
-    setAssistantDropdownOpen(false);
+  const handleSelectFromDropdown = (agent: TeamAgentOption) => {
+    handleSelectAgent(agent);
+    setAgentDropdownOpen(false);
   };
   const addMemberDropdown = (
-    <TeamAssistantPickerDropdown
-      assistants={allAssistants}
+    <TeamAgentPickerDropdown
+      agents={allAgents}
       onSelect={handleSelectFromDropdown}
-      visible={assistantDropdownOpen}
-      onVisibleChange={setAssistantDropdownOpen}
+      visible={agentDropdownOpen}
+      onVisibleChange={setAgentDropdownOpen}
       testIdPrefix='team-create-agent'
-      panelTestId='team-create-assistant-pane'
-      emptyText={t('team.create.noSupportedAgents', { defaultValue: 'No supported assistants available' })}
+      panelTestId='team-create-agent-pane'
+      emptyText={t('team.create.noSupportedAgents', { defaultValue: 'No supported agents available' })}
     >
       <Button
         type='outline'
@@ -253,7 +253,7 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
       >
         {t('team.addMember.title', { defaultValue: 'Add member' })}
       </Button>
-    </TeamAssistantPickerDropdown>
+    </TeamAgentPickerDropdown>
   );
   const mobileBody = (
     <div data-testid='team-create-layout-mobile' className='flex min-h-0 flex-col gap-16px px-20px py-16px'>
@@ -295,7 +295,7 @@ const TeamCreateModal: React.FC<Props> = ({ visible, onClose, onCreated }) => {
         title: t('team.create.title', { defaultValue: 'New Team' }),
         subtitle: t('team.create.subtitle', {
           defaultValue:
-            'Let multiple AI assistants team up and collaborate. We suggest one team focuses on a single goal — create separate teams for different tasks.',
+            'Let multiple AI agents team up and collaborate. We suggest one team focuses on a single goal — create separate teams for different tasks.',
         }),
         showClose: true,
       }}

@@ -59,9 +59,9 @@ export interface ConversationContextValue {
   loadedMcpStatuses?: IConversationMcpStatus[];
 
   /**
-   * Assistant id bound to this conversation snapshot, if any.
+   * Agent id bound to this conversation snapshot, if any.
    */
-  assistantId?: string;
+  agentId?: string;
 
   /**
    * Session-fork capability from the conversation detail response

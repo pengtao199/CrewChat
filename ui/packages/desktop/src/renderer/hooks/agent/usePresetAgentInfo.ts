@@ -8,58 +8,58 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TChatConversation } from '@/common/config/storage';
 import { ipcBridge } from '@/common';
-import { assistantRuntimeKey, type Assistant } from '@/common/types/agent/assistantTypes';
+import { agentRuntimeKey, type Agent } from '@/common/types/agent/agentTypes';
 import { resolveLocaleKey } from '@/common/utils';
 import type { AgentLogoMap } from '@/renderer/utils/model/agentLogo';
 import { resolveAgentLogo, useAgentLogos } from '@/renderer/utils/model/agentLogo';
-import { isLikelyLocalFilePath, resolveAssistantAvatar } from '@/renderer/utils/model/assistantAvatar';
+import { isLikelyLocalFilePath, resolveAgentAvatar } from '@/renderer/utils/model/agentAvatar';
 import useSWR from 'swr';
-export interface PresetAssistantInfo {
+export interface PresetAgentInfo {
   name: string;
   logo: string;
   isEmoji: boolean;
   isFallback?: boolean;
   backend?: string;
-  assistantId?: string;
+  agentId?: string;
 }
 
 /**
  * 从 conversation extra 中解析预设助手 ID
- * Resolve preset assistant ID from conversation extra
+ * Resolve preset agent ID from conversation extra
  *
  * 处理向后兼容：
- * - preset_assistant_id: 新格式 'builtin-xxx'
+ * - preset_agent_id: 新格式 'builtin-xxx'
  * - custom_agent_id: ACP 会话的旧格式
  * - enabled_skills: Gemini Cowork 会话的旧格式
  */
 /**
- * Resolve the explicit assistant identity stored on a conversation.
+ * Resolve the explicit agent identity stored on a conversation.
  * Legacy `custom_agent_id` is excluded here because older ACP rows used it as
- * a runtime row id, not an assistant id.
+ * a runtime row id, not an agent id.
  */
-export function resolveAssistantConfigId(conversation: TChatConversation): string | null {
+export function resolveAgentConfigId(conversation: TChatConversation): string | null {
   const extra = conversation.extra as {
-    assistant_id?: unknown;
-    preset_assistant_id?: unknown;
+    agent_id?: unknown;
+    preset_agent_id?: unknown;
   };
-  const assistant_id = typeof extra?.assistant_id === 'string' ? extra.assistant_id.trim() : '';
-  const preset_assistant_id = typeof extra?.preset_assistant_id === 'string' ? extra.preset_assistant_id.trim() : '';
-  return assistant_id || preset_assistant_id || null;
+  const agent_id = typeof extra?.agent_id === 'string' ? extra.agent_id.trim() : '';
+  const preset_agent_id = typeof extra?.preset_agent_id === 'string' ? extra.preset_agent_id.trim() : '';
+  return agent_id || preset_agent_id || null;
 }
 
-function collectExplicitAssistantIdentityCandidates(conversation: TChatConversation): string[] {
+function collectExplicitAgentIdentityCandidates(conversation: TChatConversation): string[] {
   const extra = conversation.extra as {
-    assistant_id?: unknown;
-    preset_assistant_id?: unknown;
+    agent_id?: unknown;
+    preset_agent_id?: unknown;
   };
-  const assistant_id = typeof extra?.assistant_id === 'string' ? extra.assistant_id.trim() : '';
-  const preset_assistant_id = typeof extra?.preset_assistant_id === 'string' ? extra.preset_assistant_id.trim() : '';
-  return [assistant_id, preset_assistant_id].filter(
+  const agent_id = typeof extra?.agent_id === 'string' ? extra.agent_id.trim() : '';
+  const preset_agent_id = typeof extra?.preset_agent_id === 'string' ? extra.preset_agent_id.trim() : '';
+  return [agent_id, preset_agent_id].filter(
     (value, index, values) => Boolean(value) && values.indexOf(value) === index
   );
 }
 
-function collectLegacyAssistantIdentityCandidates(conversation: TChatConversation): string[] {
+function collectLegacyAgentIdentityCandidates(conversation: TChatConversation): string[] {
   const extra = conversation.extra as {
     custom_agent_id?: unknown;
     enabled_skills?: unknown;
@@ -68,20 +68,20 @@ function collectLegacyAssistantIdentityCandidates(conversation: TChatConversatio
   return [custom_agent_id].filter(Boolean);
 }
 
-function normalizeAssistantIdentityCandidate(value: string): string {
+function normalizeAgentIdentityCandidate(value: string): string {
   return value.replace('builtin-', '');
 }
 
-function findAssistantByIdentityCandidates(
-  assistants: Assistant[] | null | undefined,
+function findAgentByIdentityCandidates(
+  agents: Agent[] | null | undefined,
   candidates: string[]
-): Assistant | undefined {
-  if (!assistants?.length || !candidates.length) return undefined;
+): Agent | undefined {
+  if (!agents?.length || !candidates.length) return undefined;
 
   for (const rawCandidate of candidates) {
-    const candidate = normalizeAssistantIdentityCandidate(rawCandidate);
-    const match = assistants.find((assistant) => {
-      const ids = new Set([assistant.id, `builtin-${assistant.id}`, `ext-${assistant.id}`]);
+    const candidate = normalizeAgentIdentityCandidate(rawCandidate);
+    const match = agents.find((agent) => {
+      const ids = new Set([agent.id, `builtin-${agent.id}`, `ext-${agent.id}`]);
       return ids.has(rawCandidate) || ids.has(candidate);
     });
     if (match) return match;
@@ -90,14 +90,14 @@ function findAssistantByIdentityCandidates(
   return undefined;
 }
 
-function hasExplicitAssistantIdentity(conversation: TChatConversation): boolean {
+function hasExplicitAgentIdentity(conversation: TChatConversation): boolean {
   const extra = conversation.extra as {
-    assistant_id?: unknown;
-    preset_assistant_id?: unknown;
+    agent_id?: unknown;
+    preset_agent_id?: unknown;
   };
-  const assistant_id = typeof extra?.assistant_id === 'string' ? extra.assistant_id.trim() : '';
-  const preset_assistant_id = typeof extra?.preset_assistant_id === 'string' ? extra.preset_assistant_id.trim() : '';
-  return Boolean(assistant_id || preset_assistant_id);
+  const agent_id = typeof extra?.agent_id === 'string' ? extra.agent_id.trim() : '';
+  const preset_agent_id = typeof extra?.preset_agent_id === 'string' ? extra.preset_agent_id.trim() : '';
+  return Boolean(agent_id || preset_agent_id);
 }
 
 function resolveLegacyRuntimeRowId(conversation: TChatConversation): string | null {
@@ -133,7 +133,7 @@ function resolveLegacyRuntimeDisplayName(conversation: TChatConversation): strin
  * Normalize avatar to either emoji text or a renderable image URL
  */
 function normalizeAvatar(avatar: string | undefined): { logo: string; isEmoji: boolean; isFallback?: boolean } {
-  const resolved = resolveAssistantAvatar(avatar);
+  const resolved = resolveAgentAvatar(avatar);
   if (resolved.kind === 'image') {
     return { logo: resolved.value, isEmoji: false };
   }
@@ -145,7 +145,7 @@ function normalizeAvatar(avatar: string | undefined): { logo: string; isEmoji: b
   return { logo: resolved.value, isEmoji: true };
 }
 
-function normalizeAssistantLabel(value: string | undefined): string {
+function normalizeAgentLabel(value: string | undefined): string {
   return (value || '')
     .normalize('NFKC')
     .replace(/[*_`>#]/g, ' ')
@@ -177,27 +177,27 @@ function extractLegacyPresetPayload(conversation: TChatConversation): {
   };
 }
 
-function extractAssistantNameFromRules(rules: string): string | null {
+function extractAgentNameFromRules(rules: string): string | null {
   const trimmed = rules.trim();
   if (!trimmed) return null;
 
   const headingMatch = trimmed.match(/^\s*#\s+(.+?)\s*$/m);
   if (headingMatch?.[1]) return headingMatch[1].trim();
 
-  const zhAssistantMatch = trimmed.match(/你是\s+\*\*([^*]+)\*\*/);
-  if (zhAssistantMatch?.[1]) return zhAssistantMatch[1].trim();
+  const zhAgentMatch = trimmed.match(/你是\s+\*\*([^*]+)\*\*/);
+  if (zhAgentMatch?.[1]) return zhAgentMatch[1].trim();
 
-  const enAssistantMatch = trimmed.match(/you are\s+\*\*([^*]+)\*\*/i);
-  if (enAssistantMatch?.[1]) return enAssistantMatch[1].trim();
+  const enAgentMatch = trimmed.match(/you are\s+\*\*([^*]+)\*\*/i);
+  if (enAgentMatch?.[1]) return enAgentMatch[1].trim();
 
   return null;
 }
 
-function matchesAssistantName(candidate: string | null, names: Array<string | undefined>): boolean {
+function matchesAgentName(candidate: string | null, names: Array<string | undefined>): boolean {
   if (!candidate) return false;
-  const normalizedCandidate = normalizeAssistantLabel(candidate);
+  const normalizedCandidate = normalizeAgentLabel(candidate);
   if (!normalizedCandidate) return false;
-  return names.some((name) => normalizeAssistantLabel(name) === normalizedCandidate);
+  return names.some((name) => normalizeAgentLabel(name) === normalizedCandidate);
 }
 
 function hasMatchingEnabledSkills(candidateSkills: string[] | undefined, enabled_skills: string[]): boolean {
@@ -209,80 +209,80 @@ function hasMatchingEnabledSkills(candidateSkills: string[] | undefined, enabled
 }
 
 /**
- * Build assistant info from a backend-provided Assistant record.
+ * Build agent info from a backend-provided Agent record.
  */
-function buildPresetInfoFromAssistant(assistant: Assistant, locale: string): PresetAssistantInfo {
+function buildPresetInfoFromAgent(agent: Agent, locale: string): PresetAgentInfo {
   const localeKey = resolveLocaleKey(locale);
-  const name = assistant.name_i18n?.[localeKey] || assistant.name_i18n?.[locale] || assistant.name || assistant.id;
-  const avatar = typeof assistant.avatar === 'string' ? assistant.avatar : '';
+  const name = agent.name_i18n?.[localeKey] || agent.name_i18n?.[locale] || agent.name || agent.id;
+  const avatar = typeof agent.avatar === 'string' ? agent.avatar : '';
   const normalized = normalizeAvatar(avatar);
   return {
     name,
     logo: normalized.logo,
     isEmoji: normalized.isEmoji,
     isFallback: normalized.isFallback,
-    backend: assistantRuntimeKey(assistant) || undefined,
-    assistantId: assistant.id,
+    backend: agentRuntimeKey(agent) || undefined,
+    agentId: agent.id,
   };
 }
 
-function buildPresetInfoFromConversationAssistant(
-  assistant: NonNullable<TChatConversation['assistant']>
-): PresetAssistantInfo {
-  const normalized = normalizeAvatar(assistant.avatar);
+function buildPresetInfoFromConversationAgent(
+  agent: NonNullable<TChatConversation['assistant']>
+): PresetAgentInfo {
+  const normalized = normalizeAvatar(agent.avatar);
   return {
-    name: assistant.name,
+    name: agent.name,
     logo: normalized.logo,
     isEmoji: normalized.isEmoji,
     isFallback: normalized.isFallback,
-    backend: assistant.backend,
-    assistantId: assistant.id,
+    backend: agent.backend,
+    agentId: agent.id,
   };
 }
 
-function inferLegacyAssistantInfo(
+function inferLegacyAgentInfo(
   conversation: TChatConversation,
   locale: string,
-  assistants?: Assistant[] | null
-): PresetAssistantInfo | null {
+  agents?: Agent[] | null
+): PresetAgentInfo | null {
   const { rules, enabled_skills } = extractLegacyPresetPayload(conversation);
-  const extractedName = extractAssistantNameFromRules(rules);
+  const extractedName = extractAgentNameFromRules(rules);
 
-  const byName = assistants?.find((assistant) =>
-    matchesAssistantName(extractedName, [
-      assistant.id,
-      assistant.name,
-      assistant.name_i18n?.['zh-CN'],
-      assistant.name_i18n?.['en-US'],
+  const byName = agents?.find((agent) =>
+    matchesAgentName(extractedName, [
+      agent.id,
+      agent.name,
+      agent.name_i18n?.['zh-CN'],
+      agent.name_i18n?.['en-US'],
     ])
   );
-  if (byName) return buildPresetInfoFromAssistant(byName, locale);
+  if (byName) return buildPresetInfoFromAgent(byName, locale);
 
-  const bySkills = assistants?.filter((assistant) =>
-    hasMatchingEnabledSkills(assistant.enabled_skills, enabled_skills)
+  const bySkills = agents?.filter((agent) =>
+    hasMatchingEnabledSkills(agent.enabled_skills, enabled_skills)
   );
-  if (bySkills?.length === 1) return buildPresetInfoFromAssistant(bySkills[0], locale);
+  if (bySkills?.length === 1) return buildPresetInfoFromAgent(bySkills[0], locale);
 
   return null;
 }
 
 /**
  * 获取预设助手信息的 Hook
- * Hook to get preset assistant info from conversation
+ * Hook to get preset agent info from conversation
  *
  * @param conversation - 会话对象 / Conversation object
- * @returns 预设助手信息或 null / Preset assistant info or null
+ * @returns 预设助手信息或 null / Preset agent info or null
  */
-export function usePresetAssistantInfo(conversation: TChatConversation | undefined): {
-  info: PresetAssistantInfo | null;
+export function usePresetAgentInfo(conversation: TChatConversation | undefined): {
+  info: PresetAgentInfo | null;
   isLoading: boolean;
 } {
   const { i18n } = useTranslation();
   const logos = useAgentLogos();
 
-  // Merged assistant catalog (builtin + user) from backend
-  const { data: assistantsList, isLoading: isLoadingAssistants } = useSWR('assistants.list', () =>
-    ipcBridge.assistants.list.invoke().catch(() => [] as Assistant[])
+  // Merged agent catalog (builtin + user) from backend
+  const { data: agentsList, isLoading: isLoadingAgents } = useSWR('agents.list', () =>
+    ipcBridge.agents.list.invoke().catch(() => [] as Agent[])
   );
 
   // Extension-contributed ACP adapters (for ext:{extensionName}:{adapterId} conversations)
@@ -303,24 +303,24 @@ export function usePresetAssistantInfo(conversation: TChatConversation | undefin
 
     const locale = i18n.language || 'en-US';
 
-    if (conversation.assistant) {
+    if (conversation.agent) {
       const snapshotAvatar =
-        typeof conversation.assistant.avatar === 'string' ? conversation.assistant.avatar.trim() : '';
+        typeof conversation.agent.avatar === 'string' ? conversation.agent.avatar.trim() : '';
       if (snapshotAvatar && isLikelyLocalFilePath(snapshotAvatar)) {
         const snapshotCandidates = [
-          conversation.assistant.id,
-          ...collectExplicitAssistantIdentityCandidates(conversation),
-          ...collectLegacyAssistantIdentityCandidates(conversation),
+          conversation.agent.id,
+          ...collectExplicitAgentIdentityCandidates(conversation),
+          ...collectLegacyAgentIdentityCandidates(conversation),
         ].filter((value, index, values) => Boolean(value) && values.indexOf(value) === index);
-        const catalogAssistant = findAssistantByIdentityCandidates(assistantsList, snapshotCandidates);
-        if (catalogAssistant) {
-          return { info: buildPresetInfoFromAssistant(catalogAssistant, locale), isLoading: false };
+        const catalogAgent = findAgentByIdentityCandidates(agentsList, snapshotCandidates);
+        if (catalogAgent) {
+          return { info: buildPresetInfoFromAgent(catalogAgent, locale), isLoading: false };
         }
-        if (isLoadingAssistants) return { info: null, isLoading: true };
+        if (isLoadingAgents) return { info: null, isLoading: true };
       }
 
       return {
-        info: buildPresetInfoFromConversationAssistant(conversation.assistant),
+        info: buildPresetInfoFromConversationAgent(conversation.agent),
         isLoading: false,
       };
     }
@@ -343,18 +343,18 @@ export function usePresetAssistantInfo(conversation: TChatConversation | undefin
       return { info: null, isLoading: false };
     }
 
-    const explicitAssistantCandidates = collectExplicitAssistantIdentityCandidates(conversation);
-    const legacyAssistantCandidates = collectLegacyAssistantIdentityCandidates(conversation);
-    const hasExplicitAssistantId = hasExplicitAssistantIdentity(conversation);
-    const assistantMatch = hasExplicitAssistantId
-      ? findAssistantByIdentityCandidates(assistantsList, explicitAssistantCandidates)
-      : findAssistantByIdentityCandidates(assistantsList, legacyAssistantCandidates);
+    const explicitAgentCandidates = collectExplicitAgentIdentityCandidates(conversation);
+    const legacyAgentCandidates = collectLegacyAgentIdentityCandidates(conversation);
+    const hasExplicitAgentId = hasExplicitAgentIdentity(conversation);
+    const agentMatch = hasExplicitAgentId
+      ? findAgentByIdentityCandidates(agentsList, explicitAgentCandidates)
+      : findAgentByIdentityCandidates(agentsList, legacyAgentCandidates);
     const runtimeRowAgentId = resolveLegacyRuntimeRowId(conversation);
-    const adapterIdentity = (hasExplicitAssistantId ? explicitAssistantCandidates : legacyAssistantCandidates).find(
+    const adapterIdentity = (hasExplicitAgentId ? explicitAgentCandidates : legacyAgentCandidates).find(
       (candidate) => candidate.startsWith('ext:')
     );
 
-    const resolveLegacyRuntimeInfo = (): { info: PresetAssistantInfo; isLoading: false } | null => {
+    const resolveLegacyRuntimeInfo = (): { info: PresetAgentInfo; isLoading: false } | null => {
       if (!runtimeRowAgentId) return null;
       const name = resolveLegacyRuntimeDisplayName(conversation);
       if (!name) return null;
@@ -372,22 +372,22 @@ export function usePresetAssistantInfo(conversation: TChatConversation | undefin
       return { info: { name, logo: '', isEmoji: false, isFallback: true }, isLoading: false };
     };
 
-    if (assistantMatch) {
-      return { info: buildPresetInfoFromAssistant(assistantMatch, locale), isLoading: false };
+    if (agentMatch) {
+      return { info: buildPresetInfoFromAgent(agentMatch, locale), isLoading: false };
     }
 
-    const inferredInfo = inferLegacyAssistantInfo(conversation, locale, assistantsList);
+    const inferredInfo = inferLegacyAgentInfo(conversation, locale, agentsList);
     if (inferredInfo) return { info: inferredInfo, isLoading: false };
 
     const { hasPayload } = extractLegacyPresetPayload(conversation);
     if (
-      (hasPayload || explicitAssistantCandidates.length > 0 || legacyAssistantCandidates.length > 0) &&
-      isLoadingAssistants
+      (hasPayload || explicitAgentCandidates.length > 0 || legacyAgentCandidates.length > 0) &&
+      isLoadingAgents
     ) {
       return { info: null, isLoading: true };
     }
 
-    if (adapterIdentity && isLoadingExtAdapters) return { info: null as PresetAssistantInfo | null, isLoading: true };
+    if (adapterIdentity && isLoadingExtAdapters) return { info: null as PresetAgentInfo | null, isLoading: true };
 
     // Extension ACP adapters (custom_agent_id like ext:{extensionName}:{adapterId})
     if (adapterIdentity && extensionAcpAdapters && Array.isArray(extensionAcpAdapters)) {
@@ -417,10 +417,10 @@ export function usePresetAssistantInfo(conversation: TChatConversation | undefin
       }
     }
 
-    // Custom ACP row short-circuit: only when there is no explicit assistant
+    // Custom ACP row short-circuit: only when there is no explicit agent
     // identity. Legacy `custom_agent_id` sometimes carries a runtime row id,
-    // not an assistant id, so let assistant-based restore win first.
-    if (!hasExplicitAssistantId) {
+    // not an agent id, so let agent-based restore win first.
+    if (!hasExplicitAgentId) {
       const runtimeInfo = resolveLegacyRuntimeInfo();
       if (runtimeInfo) return runtimeInfo;
     }
@@ -433,8 +433,8 @@ export function usePresetAssistantInfo(conversation: TChatConversation | undefin
     conversation,
     i18n.language,
     logos,
-    assistantsList,
-    isLoadingAssistants,
+    agentsList,
+    isLoadingAgents,
     extensionAcpAdapters,
     isLoadingExtAdapters,
     remoteAgentId,

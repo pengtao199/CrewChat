@@ -43,7 +43,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     closePreview();
     setIsBatchMode(false);
     // New session is global (no project) → it lands under 会话 (session workspace).
-    Promise.resolve(navigate('/guid', { state: { resetAssistant: true } })).catch((error) => {
+    Promise.resolve(navigate('/guid', { state: { resetAgent: true } })).catch((error) => {
       console.error('Navigation failed:', error);
     });
     if (onSessionClick) {

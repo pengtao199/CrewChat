@@ -17,7 +17,7 @@ import useSWR from 'swr';
 
 import SettingsPageHeader from '../components/SettingsPageHeader';
 import SettingsPageWrapper from '../components/SettingsPageWrapper';
-import { resolveConversationLeadingMark } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { resolveConversationLeadingMark } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 
 const ARCHIVED_SWR_KEY = 'sidebar-archived';
 
@@ -129,7 +129,7 @@ const ArchivedSettings: React.FC = () => {
           />
         );
       }
-      if (leadingMark.kind === 'assistant_fallback') {
+      if (leadingMark.kind === 'agent_fallback') {
         return <Robot theme='outline' size='16' className='block leading-none text-t-secondary' />;
       }
       return <MessageOne theme='outline' size='16' className='block leading-none text-t-secondary' />;

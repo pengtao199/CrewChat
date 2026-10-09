@@ -68,7 +68,7 @@
     "subtitle": "让多个 AI 智能体组队协作。建议一个团队只专注一个目标，不同任务分开建。",
     "nameLabel": "团队名",
     "workspaceLabel": "工作空间",
-    "allAssistantsWithCount": "所有智能体 ({{count}})",
+    "allAgentsWithCount": "所有智能体 ({{count}})",
     "selectedMembersWithCount": "已选成员 {{count}} · ⚑ = Leader",
     "selectedMembersTitleWithCount": "已选成员 {{count}}",
     "leaderLegend": "= Leader",
@@ -94,7 +94,7 @@
   "addMember": {
     "title": "添加成员",
     "subtitle": "同一智能体可被反复添加",
-    "searchAssistants": "搜索智能体...",
+    "searchAgents": "搜索智能体...",
     "addFailed": "添加成员失败",
     "noSearchResults": "未找到结果",
     "tellLeaderHint": "没有合适的？也可以直接让 Leader 帮你安排。",

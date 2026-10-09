@@ -1,6 +1,6 @@
 import { ipcBridge } from '@/common';
 import { httpRequest } from '@/common/adapter/httpBridge';
-import { assistantRuntimeKey, type AssistantAgent } from '@/common/types/agent/assistantTypes';
+import { agentRuntimeKey, type AgentAgent } from '@/common/types/agent/agentTypes';
 import type { CreateProviderRequest, ModelTag } from '@/common/types/provider/providerApi';
 
 import type { ConfigKey } from './configKeys';
@@ -14,16 +14,16 @@ export type ConfigFile = {
 
 const LEGACY_MCP_CONFIG_KEY = 'mcp.config' as const;
 const LEGACY_CHANNEL_KEYS = [
-  'assistant.telegram.defaultModel',
-  'assistant.telegram.agent',
-  'assistant.lark.defaultModel',
-  'assistant.lark.agent',
-  'assistant.dingtalk.defaultModel',
-  'assistant.dingtalk.agent',
-  'assistant.weixin.defaultModel',
-  'assistant.weixin.agent',
-  'assistant.wecom.defaultModel',
-  'assistant.wecom.agent',
+  'agent.telegram.defaultModel',
+  'agent.telegram.agent',
+  'agent.lark.defaultModel',
+  'agent.lark.agent',
+  'agent.dingtalk.defaultModel',
+  'agent.dingtalk.agent',
+  'agent.weixin.defaultModel',
+  'agent.weixin.agent',
+  'agent.wecom.defaultModel',
+  'agent.wecom.agent',
 ] as const;
 
 const LEGACY_CHANNEL_PLATFORMS = ['telegram', 'lark', 'dingtalk', 'weixin', 'wecom'] as const;
@@ -48,11 +48,11 @@ type LegacyChannelConfigFile = ConfigFile & {
   get(key: LegacyConfigKey): Promise<unknown>;
 };
 
-type ChannelAssistantCandidate = {
+type ChannelAgentCandidate = {
   id: string;
   source: string;
   agent_id: string;
-  agent?: AssistantAgent;
+  agent?: AgentAgent;
 };
 
 const ALL_LEGACY_KEYS: LegacyConfigKey[] = [
@@ -195,33 +195,33 @@ function normalizeLegacyMcpServer(
 }
 
 async function migrateLegacyChannelSettings(configFile: LegacyChannelConfigFile): Promise<void> {
-  const assistants: ChannelAssistantCandidate[] = await ipcBridge.assistants.list
+  const agents: ChannelAgentCandidate[] = await ipcBridge.agents.list
     .invoke()
-    .catch((): ChannelAssistantCandidate[] => []);
-  if (!Array.isArray(assistants) || assistants.length === 0) {
-    console.info('[Migration] channel settings migration skipped — no assistants available');
+    .catch((): ChannelAgentCandidate[] => []);
+  if (!Array.isArray(agents) || agents.length === 0) {
+    console.info('[Migration] channel settings migration skipped — no agents available');
     return;
   }
 
   for (const platform of LEGACY_CHANNEL_PLATFORMS) {
-    const assistantKey = `assistant.${platform}.agent` as const;
-    const defaultModelKey = `assistant.${platform}.defaultModel` as const;
+    const agentKey = `agent.${platform}.agent` as const;
+    const defaultModelKey = `agent.${platform}.defaultModel` as const;
 
-    const [legacyAssistant, legacyDefaultModel, currentSettings] = await Promise.all([
-      configFile.get(assistantKey).catch((): undefined => undefined),
+    const [legacyAgent, legacyDefaultModel, currentSettings] = await Promise.all([
+      configFile.get(agentKey).catch((): undefined => undefined),
       configFile.get(defaultModelKey).catch((): undefined => undefined),
       ipcBridge.channel.getPlatformSettings.invoke({ platform }).catch((): null => null),
     ]);
 
-    const nextAssistantId =
-      currentSettings?.assistant?.assistant_id ?? resolveLegacyChannelAssistantId(legacyAssistant, assistants);
+    const nextAgentId =
+      currentSettings?.agent?.agent_id ?? resolveLegacyChannelAgentId(legacyAgent, agents);
 
     let changed = false;
 
-    if (!currentSettings?.assistant?.assistant_id && nextAssistantId) {
-      await ipcBridge.channel.setAssistantSetting.invoke({
+    if (!currentSettings?.agent?.agent_id && nextAgentId) {
+      await ipcBridge.channel.setAgentSetting.invoke({
         platform,
-        assistant: { assistant_id: nextAssistantId },
+        agent: { agent_id: nextAgentId },
       });
       changed = true;
     }
@@ -259,40 +259,40 @@ function normalizeLegacyChannelDefaultModelSetting(value: unknown):
     : undefined;
 }
 
-function resolveLegacyChannelAssistantId(saved: unknown, assistants: ChannelAssistantCandidate[]): string | undefined {
+function resolveLegacyChannelAgentId(saved: unknown, agents: ChannelAgentCandidate[]): string | undefined {
   if (!saved) return undefined;
 
   if (typeof saved === 'string') {
-    return findAssistantIdByBackend(saved, assistants);
+    return findAgentIdByBackend(saved, agents);
   }
 
   if (typeof saved !== 'object') return undefined;
 
   const record = saved as Record<string, unknown>;
-  const explicitAssistantId =
-    (typeof record.assistant_id === 'string' ? record.assistant_id : undefined) ||
+  const explicitAgentId =
+    (typeof record.agent_id === 'string' ? record.agent_id : undefined) ||
     (typeof record.custom_agent_id === 'string' ? record.custom_agent_id : undefined);
 
-  if (explicitAssistantId && assistants.some((assistant) => assistant.id === explicitAssistantId)) {
-    return explicitAssistantId;
+  if (explicitAgentId && agents.some((agent) => agent.id === explicitAgentId)) {
+    return explicitAgentId;
   }
 
   const backend =
     (typeof record.backend === 'string' ? record.backend : undefined) ||
     (typeof record.agent_type === 'string' ? record.agent_type : undefined);
 
-  return findAssistantIdByBackend(backend, assistants);
+  return findAgentIdByBackend(backend, agents);
 }
 
-function findAssistantIdByBackend(
+function findAgentIdByBackend(
   backend: string | undefined,
-  assistants: ChannelAssistantCandidate[]
+  agents: ChannelAgentCandidate[]
 ): string | undefined {
   if (!backend) return undefined;
 
   return (
-    assistants.find((assistant) => assistant.source === 'generated' && assistantRuntimeKey(assistant) === backend)
-      ?.id || assistants.find((assistant) => assistantRuntimeKey(assistant) === backend)?.id
+    agents.find((agent) => agent.source === 'generated' && agentRuntimeKey(agent) === backend)
+      ?.id || agents.find((agent) => agentRuntimeKey(agent) === backend)?.id
   );
 }
 

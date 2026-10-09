@@ -43,7 +43,7 @@ export type CreateConversationBodyInput = {
   id?: string;
   name?: string;
   model?: TProviderWithModel;
-  assistant?: unknown;
+  agent?: unknown;
   extra?: unknown;
 };
 
@@ -54,12 +54,12 @@ export type CreateConversationBodyInput = {
  * agent types carry model info via `extra`.
  */
 export function buildCreateConversationBody(p: CreateConversationBodyInput): Record<string, unknown> {
-  const hasAssistant = p.assistant !== undefined && p.assistant !== null;
+  const hasAgent = p.agent !== undefined && p.agent !== null;
   const body: Record<string, unknown> = {
-    type: hasAssistant ? undefined : p.type,
+    type: hasAgent ? undefined : p.type,
     id: p.id,
     name: p.name,
-    assistant: p.assistant,
+    agent: p.agent,
     extra: p.extra,
   };
   const model = p.type === 'acp' ? undefined : toApiModelOptional(p.model);

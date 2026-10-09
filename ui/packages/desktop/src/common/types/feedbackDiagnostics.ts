@@ -17,9 +17,9 @@ export const FEEDBACK_MODULES = [
     tag: 'agent-detection',
   },
   {
-    i18nKey: 'settings.bugReportModuleAssistant',
-    descriptionI18nKey: 'settings.bugReportModuleAssistantDescription',
-    tag: 'assistant-preset',
+    i18nKey: 'settings.bugReportModuleAgent',
+    descriptionI18nKey: 'settings.bugReportModuleAgentDescription',
+    tag: 'agent-preset',
   },
   {
     i18nKey: 'settings.bugReportModuleLlmConfig',
@@ -94,8 +94,8 @@ export type FeedbackDiagnosticsProfile = FeedbackModuleTag | 'global-summary';
 
 export type FeedbackDiagnosticsExplicitContext = {
   agentId?: string;
-  assistantDefinitionId?: string;
-  assistantId?: string;
+  agentDefinitionId?: string;
+  agentId?: string;
   conversationId?: string;
   mcpServerId?: string;
   mcpServerName?: string;

@@ -34,7 +34,7 @@ import {
 import { buildAttachedMentionRanges } from '@/renderer/utils/chat/mentionHighlight';
 import { applyMentionInsertion, insertMentionAtCaret } from '@/renderer/utils/chat/mentionInsertion';
 import { reconcileSessionRefs } from './sessionMentionReconcile';
-import { getLastAssistantText } from '@/renderer/utils/chat/getLastAssistantText';
+import { getLastAgentText } from '@/renderer/utils/chat/getLastAgentText';
 import { formatRelativeTime } from '@/renderer/utils/chat/relativeTime';
 import { emitter, type ReplyQuote, useAddEventListener } from '@/renderer/utils/emitter';
 import { mergeFileSelectionItems, type FileSelectionItem } from '@/renderer/utils/file/fileSelection';
@@ -652,11 +652,11 @@ const SendBox: React.FC<{
     commands: mergedSlashCommands,
     onExecuteBuiltin: (name) => {
       if (name === 'copy') {
-        const lastAssistantText = getLastAssistantText(messageList, Boolean(loading));
-        if (!lastAssistantText) {
+        const lastAgentText = getLastAgentText(messageList, Boolean(loading));
+        if (!lastAgentText) {
           Message.warning(t('messages.copyLastOutput.empty'));
         } else {
-          void copyText(lastAssistantText)
+          void copyText(lastAgentText)
             .then(() => {
               Message.success(t('messages.copySuccess'));
             })

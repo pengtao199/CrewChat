@@ -42,7 +42,7 @@
   "export.typeLabel": "Typ",
   "export.noMessages": "Keine Nachrichten",
   "export.userLabel": "Benutzer",
-  "export.assistantLabel": "Assistent",
+  "export.agentLabel": "Assistent",
   "export.systemLabel": "System",
   "export.menuTitle": "Gespräch exportieren",
   "export.menuHint": "Exportmethode für das aktuelle Gespräch wählen",

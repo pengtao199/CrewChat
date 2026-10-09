@@ -69,8 +69,8 @@ src/crewchat/
     ├── chat.py                 发送/取消/流式转发
     ├── conversations.py        会话与消息
     ├── store.py                SQLite（偏好/会话/消息）
-    ├── agents_api.py           上游契约：CLI 身体清单
-    ├── assistants_api.py       上游契约：Assistant 投影
+    ├── agents_api.py           上游契约：CLI 身体清单（/api/agents/management|custom|refresh）
+    ├── agent_catalog_api.py    上游契约：Agent 目录投影（/api/agents、/{id}、import）
     ├── providers_api.py        上游契约：模型端点
     ├── skills_api.py           上游契约：技能
     ├── mcp_api.py              上游契约：MCP 服务
@@ -96,7 +96,7 @@ src/crewchat/
 
 ### 归属判定
 
-- **聚合视图归契约层**：每个端点需要什么形状就自己算（`agents_api` 按身体聚合、`assistants_api` 按 Agent 聚合）。它们的上游契约本来就不同，不硬抽公共"健康"层。
+- **聚合视图归契约层**：每个端点需要什么形状就自己算（`agents_api` 按身体聚合、`agent_catalog_api` 按 Agent 聚合）。它们的上游契约本来就不同，不硬抽公共"健康"层。
 - **契约层文件名**：对接上游 `/api/*` 的用 `<domain>_api.py`；自研 `/api/v1/crewchat/*` 的用 `crewchat_<domain>.py`；其余（app/auth/chat/conversations/hub/store）是自研实现。
 - **新的跨层需求先问**：能否下移到更低层？下移不了再考虑放 L3。
 
@@ -112,7 +112,7 @@ src/crewchat/
 
 - 新增能力先问「属于哪一层」，再问「有没有现成的」。跨层直接调用（前端 → 执行器）一律禁止。
 - 前端通过 `/api/v1/*` 与 `/ws` 访问后端；后端不感知前端路由。
-- `api/` 中出现的上游用语（`assistant`、`backend`）必须集中在一个文件里翻译，不扩散到 `orchestrator` 或 `executors`。
+- `api/` 中出现的上游用语（`backend`）必须集中在一个文件里翻译，不扩散到 `orchestrator` 或 `executors`。
 - 新增执行器只需在 `executors/` 加一个文件并 `register`，不改编排层。
 - 配置读取统一走 `config.get_settings()`；禁止模块级直接读环境变量。
 

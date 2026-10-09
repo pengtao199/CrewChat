@@ -5,7 +5,7 @@
     "cleanup": "Encontre arquivos duplicados e inúteis nesta pasta e liste-os para minha confirmação",
     "create": "Crie uma página pessoal bonita para mim e abra-a quando estiver pronta"
   },
-  "selectAssistantHint": "Selecione um assistente para iniciar uma tarefa",
+  "selectAgentHint": "Selecione um assistente para iniciar uma tarefa",
   "workspace": {
     "workInProject": "Trabalhar em um projeto",
     "optional": "Opcional",

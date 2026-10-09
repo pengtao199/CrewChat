@@ -1,5 +1,5 @@
 import { AgentLogoIcon } from '@/renderer/components/agent/AgentBadge';
-import type { PresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
+import type { PresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
 import FlexFullContainer from '@/renderer/components/layout/FlexFullContainer';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useResizableSplit } from '@/renderer/hooks/ui/useResizableSplit';
@@ -32,9 +32,9 @@ const ChatLayout: React.FC<{
   sider: React.ReactNode;
   siderTitle?: React.ReactNode;
   backend?: string;
-  /** Preset assistant info — when provided, badge shows assistant identity instead of backend */
-  presetAssistant?: PresetAssistantInfo & { id?: string };
-  /** Fallback agent name (used when no presetAssistant, e.g. from conversation.extra.agent_name) */
+  /** Preset agent info — when provided, badge shows agent identity instead of backend */
+  presetAgent?: PresetAgentInfo & { id?: string };
+  /** Fallback agent name (used when no presetAgent, e.g. from conversation.extra.agent_name) */
   agent_name?: string;
   headerExtra?: React.ReactNode;
   workspaceEnabled?: boolean;
@@ -65,7 +65,7 @@ const ChatLayout: React.FC<{
   headerLeading?: React.ReactNode;
 }> = (props) => {
   const { conversation_id, workspacePath, isTemporaryWorkspace } = props;
-  const { backend, presetAssistant, agent_name, workspaceEnabled = true, workspacePreferenceKey } = props;
+  const { backend, presetAgent, agent_name, workspaceEnabled = true, workspacePreferenceKey } = props;
   const layout = useLayoutContext();
   const isDesktop = !layout?.isMobile;
   const isMobile = Boolean(layout?.isMobile);
@@ -115,7 +115,7 @@ const ChatLayout: React.FC<{
   const capitalizedBackend = backend ? backend.charAt(0).toUpperCase() + backend.slice(1) : backend;
 
   // Compute display name with fallback chain
-  const display_name = presetAssistant?.name || agent_name || capitalizedBackend;
+  const display_name = presetAgent?.name || agent_name || capitalizedBackend;
 
   const {
     splitRatio: workspaceWidthPxPref,
@@ -216,13 +216,13 @@ const ChatLayout: React.FC<{
           conversation_id={conversation_id}
           leading={
             props.headerLeading ??
-            ((backend || presetAssistant) && (
+            ((backend || presetAgent) && (
               <AgentLogoIcon
                 backend={backend}
                 agent_name={display_name}
-                agentLogo={presetAssistant?.logo}
-                agentLogoIsEmoji={presetAssistant?.isEmoji}
-                agentLogoIsFallback={presetAssistant?.isFallback}
+                agentLogo={presetAgent?.logo}
+                agentLogoIsEmoji={presetAgent?.isEmoji}
+                agentLogoIsFallback={presetAgent?.isFallback}
               />
             ))
           }

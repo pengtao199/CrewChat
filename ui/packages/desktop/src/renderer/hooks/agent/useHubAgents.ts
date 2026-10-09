@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { IHubAgentItem } from '@/common/types/agent/hub';
 import { ipcBridge } from '@/common';
-import { refreshManagedAgentCatalogAndAssistants } from './useManagedAgents';
+import { refreshManagedAgentCatalogAndAgents } from './useManagedAgents';
 
 export function useHubAgents() {
   const [agents, setAgents] = useState<IHubAgentItem[]>([]);
@@ -44,10 +44,10 @@ export function useHubAgents() {
       );
 
       // Hub installs can change both the management diagnostics view and
-      // the generated generated-assistant catalog, so refresh both through the
+      // the generated generated-agent catalog, so refresh both through the
       // shared helper used by AgentSettings.
       if (payload.status === 'installed') {
-        void refreshManagedAgentCatalogAndAssistants();
+        void refreshManagedAgentCatalogAndAgents();
       }
     });
 

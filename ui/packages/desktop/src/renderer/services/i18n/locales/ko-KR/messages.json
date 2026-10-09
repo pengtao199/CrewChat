@@ -42,7 +42,7 @@
   "export.typeLabel": "유형",
   "export.noMessages": "메시지가 없습니다",
   "export.userLabel": "사용자",
-  "export.assistantLabel": "어시스턴트",
+  "export.agentLabel": "어시스턴트",
   "export.systemLabel": "시스템",
   "export.menuTitle": "대화 내보내기",
   "export.menuHint": "현재 대화를 내보내는 방법을 선택하세요",

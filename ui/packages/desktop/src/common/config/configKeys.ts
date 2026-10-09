@@ -22,9 +22,9 @@ export type ConfigKeyMap = {
   'theme.activeId': string;
   'theme.userThemes': Theme[];
   'workspace.pasteConfirm': boolean | undefined;
-  'guid.lastAssistantId': string | undefined;
-  /** User-defined order for the enabled assistant picker surfaces. */
-  'assistants.enabledOrder': string[] | undefined;
+  'guid.lastAgentId': string | undefined;
+  /** User-defined order for the enabled agent picker surfaces. */
+  'agents.enabledOrder': string[] | undefined;
   'upload.saveToWorkspace': boolean | undefined;
   'system.closeToTray': boolean | undefined;
   'system.notificationEnabled': boolean | undefined;
@@ -44,9 +44,9 @@ export type ConfigKeyMap = {
   // One-shot completion flags for legacy → backend migrations. Kept in the
   // local config file (not the backend client-preferences bag) so a downgrade
   // to a pre-flag build still re-reads the legacy data unchanged. See
-  // `migrateProviders` / `migrateAssistantsToBackend` (ELECTRON-1KT).
+  // `migrateProviders` / `migrateAgentsToBackend` (ELECTRON-1KT).
   'migration.providersMigrated_v1': boolean | undefined;
-  'migration.assistantsMigrated_v1': boolean | undefined;
+  'migration.agentsMigrated_v1': boolean | undefined;
 };
 
 export type ConfigKey = keyof ConfigKeyMap;

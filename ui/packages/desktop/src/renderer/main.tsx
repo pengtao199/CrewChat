@@ -288,7 +288,7 @@ const RuntimeFailureDialogs: React.FC = () => {
 };
 
 // Global SWR default: do NOT revalidate every query on window focus. Focus
-// refetch (SWR's default) made the app re-hit /api/assistants, /api/skills,
+// refetch (SWR's default) made the app re-hit /api/agents, /api/skills,
 // /api/conversations, etc. on every window focus — often twice (same endpoint
 // under different SWR keys) — even though those are kept fresh by WebSocket
 // events (conversation.listChanged, team events, extensions.state-changed) or

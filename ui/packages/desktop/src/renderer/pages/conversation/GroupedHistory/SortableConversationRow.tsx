@@ -33,7 +33,7 @@ const SortableConversationRow: React.FC<ConversationRowProps> = (props) => {
   };
 
   // Hover-reveal drag handle overlaying the leading icon (same affordance as
-  // assistant / draft-box sorting). The handle is the only drag activator so
+  // agent / draft-box sorting). The handle is the only drag activator so
   // clicks elsewhere on the row keep their normal meaning.
   const dragHandle = (
     <span

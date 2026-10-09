@@ -8,9 +8,9 @@ import { configService } from '@/common/config/configService';
 import { useConfig } from '@/renderer/hooks/config/useConfig';
 import { useCallback, useMemo } from 'react';
 
-export const ASSISTANT_ENABLED_ORDER_CONFIG_KEY = 'assistants.enabledOrder' as const;
+export const ASSISTANT_ENABLED_ORDER_CONFIG_KEY = 'agents.enabledOrder' as const;
 
-export function normalizeAssistantOrder(value: readonly string[] | undefined): string[] {
+export function normalizeAgentOrder(value: readonly string[] | undefined): string[] {
   if (!Array.isArray(value)) return [];
 
   const seen = new Set<string>();
@@ -26,13 +26,13 @@ export function normalizeAssistantOrder(value: readonly string[] | undefined): s
 }
 
 /**
- * Persist an assistant order through the shared client-preferences endpoint.
+ * Persist an agent order through the shared client-preferences endpoint.
  * `configService.set` updates its reactive cache before the request completes,
  * so restore the previous cache value if the request fails.
  */
-export async function persistAssistantOrder(nextOrder: readonly string[]): Promise<void> {
+export async function persistAgentOrder(nextOrder: readonly string[]): Promise<void> {
   const previousOrder = configService.get(ASSISTANT_ENABLED_ORDER_CONFIG_KEY);
-  const normalizedOrder = normalizeAssistantOrder(nextOrder);
+  const normalizedOrder = normalizeAgentOrder(nextOrder);
 
   try {
     await configService.set(ASSISTANT_ENABLED_ORDER_CONFIG_KEY, normalizedOrder);
@@ -42,13 +42,13 @@ export async function persistAssistantOrder(nextOrder: readonly string[]): Promi
   }
 }
 
-export function useAssistantOrder(): {
-  assistantOrder: string[];
-  setAssistantOrder: (nextOrder: readonly string[]) => Promise<void>;
+export function useAgentOrder(): {
+  agentOrder: string[];
+  setAgentOrder: (nextOrder: readonly string[]) => Promise<void>;
 } {
   const [configuredOrder] = useConfig(ASSISTANT_ENABLED_ORDER_CONFIG_KEY);
-  const assistantOrder = useMemo(() => normalizeAssistantOrder(configuredOrder), [configuredOrder]);
-  const setAssistantOrder = useCallback((nextOrder: readonly string[]) => persistAssistantOrder(nextOrder), []);
+  const agentOrder = useMemo(() => normalizeAgentOrder(configuredOrder), [configuredOrder]);
+  const setAgentOrder = useCallback((nextOrder: readonly string[]) => persistAgentOrder(nextOrder), []);
 
-  return { assistantOrder, setAssistantOrder };
+  return { agentOrder, setAgentOrder };
 }

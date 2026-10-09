@@ -1,15 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Message } from '@arco-design/web-react';
 import { useTranslation } from 'react-i18next';
-import type { TeamAssistant } from '@/common/types/team/teamTypes';
-import type { TeamAssistantInput } from '@/common/adapter/teamMapper';
+import type { TeamAgent } from '@/common/types/team/teamTypes';
+import type { TeamAgentInput } from '@/common/adapter/teamMapper';
 import { getConversationCreateErrorMessage } from '@renderer/pages/conversation/utils/conversationCreateError';
 import { getSendBoxDraftHook } from '@renderer/hooks/chat/useSendBoxDraft';
-import { useTeamAssistantOptions } from '../../hooks/useTeamAssistantOptions';
+import { useTeamAgentOptions } from '../../hooks/useTeamAgentOptions';
 import { useTeamTabs } from '../../hooks/TeamTabsContext';
-import type { TeamAssistantOption } from '../assistantSelectUtils';
+import type { TeamAgentOption } from '../agentSelectUtils';
 import { resolveDefaultTeamAgentModel } from '../teamCreateModelResolver';
-import TeamAssistantPickerDropdown from './TeamAssistantPickerDropdown';
+import TeamAgentPickerDropdown from './TeamAgentPickerDropdown';
 
 const useAcpDraft = getSendBoxDraftHook('acp', { _type: 'acp', atPath: [], content: '', uploadFile: [] });
 const useAionrsDraft = getSendBoxDraftHook('aionrs', { _type: 'aionrs', atPath: [], content: '', uploadFile: [] });
@@ -21,10 +21,10 @@ type Props = {
 
 const TeamAddMemberPopover: React.FC<Props> = ({ children, disabled = false }) => {
   const { t, i18n } = useTranslation();
-  const { assistants } = useTeamAssistantOptions(i18n?.language ?? 'en-US');
-  const { addAssistant, switchTab, assistants: teamMembers = [] } = useTeamTabs();
+  const { agents } = useTeamAgentOptions(i18n?.language ?? 'en-US');
+  const { addAgent, switchTab, agents: teamMembers = [] } = useTeamTabs();
   const [visible, setVisible] = useState(false);
-  const [pendingAssistantId, setPendingAssistantId] = useState<string | undefined>();
+  const [pendingAgentId, setPendingAgentId] = useState<string | undefined>();
 
   // Leader 会话草稿：用于「告诉 Leader」预填提示词。Hook 必须无条件调用，
   // 未知 Leader 会话时传空串（不写入）。按 Leader 后端选 acp/aionrs 草稿。
@@ -43,50 +43,50 @@ const TeamAddMemberPopover: React.FC<Props> = ({ children, disabled = false }) =
     const text = t('team.addMember.tellLeaderPrefill', {
       defaultValue: 'Help me add a member good at ___ to the team',
     });
-    if (leader.assistant_backend === 'aionrs') {
+    if (leader.agent_backend === 'aionrs') {
       aionrsDraft.mutate((prev) => ({ ...prev, content: text }));
     } else {
       acpDraft.mutate((prev) => ({ ...prev, content: text }));
     }
     setVisible(false);
-  }, [leader?.slot_id, leader?.assistant_backend, leaderConversationId, switchTab, t, acpDraft, aionrsDraft]);
+  }, [leader?.slot_id, leader?.agent_backend, leaderConversationId, switchTab, t, acpDraft, aionrsDraft]);
 
-  const handleSelect = async (assistant: TeamAssistantOption) => {
-    if (disabled || !addAssistant || pendingAssistantId) return;
-    setPendingAssistantId(assistant.id);
+  const handleSelect = async (agent: TeamAgentOption) => {
+    if (disabled || !addAgent || pendingAgentId) return;
+    setPendingAgentId(agent.id);
     try {
       const model = await resolveDefaultTeamAgentModel({
-        assistant_id: assistant.id,
-        assistant_backend: assistant.backend,
+        agent_id: agent.id,
+        agent_backend: agent.backend,
       });
-      const input: TeamAssistantInput = {
+      const input: TeamAgentInput = {
         role: 'teammate',
-        assistant_name: assistant.name,
-        assistant_id: assistant.id,
+        agent_name: agent.name,
+        agent_id: agent.id,
         model,
       };
-      const created: TeamAssistant = await addAssistant(input);
+      const created: TeamAgent = await addAgent(input);
       setVisible(false);
       switchTab(created.slot_id);
     } catch (error) {
       Message.error(getConversationCreateErrorMessage(error, t));
     } finally {
-      setPendingAssistantId(undefined);
+      setPendingAgentId(undefined);
     }
   };
 
   return (
-    <TeamAssistantPickerDropdown
-      assistants={assistants}
+    <TeamAgentPickerDropdown
+      agents={agents}
       onSelect={handleSelect}
       visible={visible}
       onVisibleChange={setVisible}
-      disabled={disabled || !addAssistant}
-      pendingAssistantId={pendingAssistantId}
+      disabled={disabled || !addAgent}
+      pendingAgentId={pendingAgentId}
       testIdPrefix='team-add-member'
       panelTestId='team-add-member-panel'
       title={t('team.addMember.title', { defaultValue: 'Add member' })}
-      subtitle={t('team.addMember.subtitle', { defaultValue: 'The same assistant can be added repeatedly' })}
+      subtitle={t('team.addMember.subtitle', { defaultValue: 'The same agent can be added repeatedly' })}
       guidanceFooter={
         leader?.slot_id ? (
           <div className='text-12px leading-18px text-t-tertiary'>
@@ -105,7 +105,7 @@ const TeamAddMemberPopover: React.FC<Props> = ({ children, disabled = false }) =
       }
     >
       {children}
-    </TeamAssistantPickerDropdown>
+    </TeamAgentPickerDropdown>
   );
 };
 

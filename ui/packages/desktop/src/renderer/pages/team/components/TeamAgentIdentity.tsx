@@ -2,13 +2,13 @@ import React from 'react';
 import useSWR from 'swr';
 import { resolveAgentAvatar, useAgentLogos } from '@renderer/utils/model/agentLogo';
 import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
-import { usePresetAssistantInfo } from '@renderer/hooks/agent/usePresetAssistantInfo';
+import { usePresetAgentInfo } from '@renderer/hooks/agent/usePresetAgentInfo';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { Robot } from '@icon-park/react';
 
 type Props = {
-  assistant_name: string;
-  assistant_backend: string;
+  agent_name: string;
+  agent_backend: string;
   icon?: string;
   /** When provided, enables preset-aware avatar (emoji / custom svg) via the agent's conversation extras. */
   conversation_id?: string;
@@ -26,8 +26,8 @@ type Props = {
 };
 
 const TeamAgentIdentity: React.FC<Props> = ({
-  assistant_name,
-  assistant_backend,
+  agent_name,
+  agent_backend,
   icon,
   conversation_id,
   isLeader = false,
@@ -45,9 +45,9 @@ const TeamAgentIdentity: React.FC<Props> = ({
   const { data: conversation } = useSWR(conversation_id ? ['team-conversation', conversation_id] : null, () =>
     getConversationOrNull(conversation_id!)
   );
-  const { info: presetInfo } = usePresetAssistantInfo(conversation ?? undefined);
-  const displayName = assistant_name || presetInfo?.name || 'Assistant';
-  const agentAvatar = resolveAgentAvatar(logos, { icon, backend: assistant_backend });
+  const { info: presetInfo } = usePresetAgentInfo(conversation ?? undefined);
+  const displayName = agent_name || presetInfo?.name || 'Agent';
+  const agentAvatar = resolveAgentAvatar(logos, { icon, backend: agent_backend });
 
   const defaultLogoClassName = 'w-16px h-16px object-contain rounded-2px opacity-80';
   const resolvedLogoClassName = logoClassName ?? defaultLogoClassName;

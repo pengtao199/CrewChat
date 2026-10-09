@@ -1,29 +1,29 @@
 import type { TChatConversation } from '@/common/config/storage';
-import type { PresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
-import { resolveAssistantAvatar } from '@/renderer/utils/model/assistantAvatar';
+import type { PresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
+import { resolveAgentAvatar } from '@/renderer/utils/model/agentAvatar';
 import { resolveAgentLogo } from '@/renderer/utils/model/agentLogo';
 import type { AgentLogoMap } from '@/renderer/utils/model/agentLogo';
 
 /**
  * Resolve the effective runtime backend for a conversation.
  *
- * New assistant-led flows should pass the assistant backend explicitly when it
+ * New agent-led flows should pass the agent backend explicitly when it
  * is known. Legacy conversations may still fall back to `extra.backend`.
  */
 export function resolveConversationBackend(
   conversation: TChatConversation | undefined,
-  presetAssistantBackend?: string
+  presetAgentBackend?: string
 ): string | undefined {
-  const explicitAssistantBackend = presetAssistantBackend?.trim();
-  if (explicitAssistantBackend) {
-    return explicitAssistantBackend;
+  const explicitAgentBackend = presetAgentBackend?.trim();
+  if (explicitAgentBackend) {
+    return explicitAgentBackend;
   }
 
   if (!conversation) return undefined;
 
-  const conversationAssistantBackend = conversation.assistant?.backend?.trim();
-  if (conversationAssistantBackend) {
-    return conversationAssistantBackend;
+  const conversationAgentBackend = conversation.agent?.backend?.trim();
+  if (conversationAgentBackend) {
+    return conversationAgentBackend;
   }
 
   if (conversation.type === 'acp') {
@@ -57,57 +57,57 @@ export type ConversationLeadingMark =
       label: string;
     }
   | {
-      kind: 'assistant_fallback';
+      kind: 'agent_fallback';
       label: string;
     };
 
 export function resolveConversationLeadingMark(
   conversation: TChatConversation,
-  assistantInfo: PresetAssistantInfo | undefined,
+  agentInfo: PresetAgentInfo | undefined,
   logos: AgentLogoMap
 ): ConversationLeadingMark {
-  if (assistantInfo) {
-    if (assistantInfo.isFallback) {
+  if (agentInfo) {
+    if (agentInfo.isFallback) {
       return {
-        kind: 'assistant_fallback',
-        label: assistantInfo.name,
+        kind: 'agent_fallback',
+        label: agentInfo.name,
       };
     }
 
-    return assistantInfo.isEmoji
+    return agentInfo.isEmoji
       ? {
           kind: 'emoji',
-          value: assistantInfo.logo,
-          label: assistantInfo.name,
+          value: agentInfo.logo,
+          label: agentInfo.name,
         }
       : {
           kind: 'image',
-          value: assistantInfo.logo,
-          label: assistantInfo.name,
+          value: agentInfo.logo,
+          label: agentInfo.name,
         };
   }
 
-  if (conversation.assistant) {
-    const assistantLabel = conversation.assistant.name.trim() || conversation.assistant.id;
-    const assistantAvatar = resolveAssistantAvatar(conversation.assistant.avatar);
-    if (assistantAvatar.kind === 'emoji') {
+  if (conversation.agent) {
+    const agentLabel = conversation.agent.name.trim() || conversation.agent.id;
+    const agentAvatar = resolveAgentAvatar(conversation.agent.avatar);
+    if (agentAvatar.kind === 'emoji') {
       return {
         kind: 'emoji',
-        value: assistantAvatar.value,
-        label: assistantLabel,
+        value: agentAvatar.value,
+        label: agentLabel,
       };
     }
-    if (assistantAvatar.kind === 'image') {
+    if (agentAvatar.kind === 'image') {
       return {
         kind: 'image',
-        value: assistantAvatar.value,
-        label: assistantLabel,
+        value: agentAvatar.value,
+        label: agentLabel,
       };
     }
 
     return {
-      kind: 'assistant_fallback',
-      label: assistantLabel,
+      kind: 'agent_fallback',
+      label: agentLabel,
     };
   }
 

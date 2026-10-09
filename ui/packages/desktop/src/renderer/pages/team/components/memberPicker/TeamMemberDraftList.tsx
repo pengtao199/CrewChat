@@ -2,11 +2,11 @@ import React from 'react';
 import { Button } from '@arco-design/web-react';
 import { CloseSmall, Crown } from '@icon-park/react';
 import { useTranslation } from 'react-i18next';
-import { AssistantOptionLabel, type TeamAssistantOption } from '../assistantSelectUtils';
+import { AgentOptionLabel, type TeamAgentOption } from '../agentSelectUtils';
 
 export type TeamMemberDraft = {
   selectionId: string;
-  assistant: TeamAssistantOption;
+  agent: TeamAgentOption;
 };
 
 type Props = {
@@ -57,7 +57,7 @@ const TeamMemberDraftList: React.FC<Props> = ({
       </div>
       <p className='m-0 mb-12px text-12px leading-18px text-t-tertiary'>
         {t('team.create.membersHelper', {
-          defaultValue: 'Choose team members and assign one Leader. The same assistant can be selected multiple times.',
+          defaultValue: 'Choose team members and assign one Leader. The same agent can be selected multiple times.',
         })}
       </p>
       <div
@@ -68,13 +68,13 @@ const TeamMemberDraftList: React.FC<Props> = ({
           <div className='flex max-w-260px flex-col items-center gap-6px text-center'>
             <span className='text-13px font-500 leading-20px text-t-secondary'>
               {t('team.create.selectAtLeastOneMember', {
-                defaultValue: 'Select at least one assistant as the Team Leader.',
+                defaultValue: 'Select at least one agent as the Team Leader.',
               })}
             </span>
             <span className='text-12px leading-18px text-t-tertiary'>
               {t('team.create.memberHint', {
                 defaultValue:
-                  'No suitable assistant as a member? After creation, let the Leader create temporary team members in chat.',
+                  'No suitable agent as a member? After creation, let the Leader create temporary team members in chat.',
               })}
             </span>
           </div>
@@ -90,7 +90,7 @@ const TeamMemberDraftList: React.FC<Props> = ({
                 className='flex h-40px shrink-0 items-center gap-8px rounded-8px px-8px hover:bg-fill-2'
                 data-testid={`team-create-member-draft-${member.selectionId}`}
               >
-                <AssistantOptionLabel assistant={member.assistant} size='large' />
+                <AgentOptionLabel agent={member.agent} size='large' />
                 <div className='flex flex-1 items-center justify-end gap-10px'>
                   <Button
                     type='text'

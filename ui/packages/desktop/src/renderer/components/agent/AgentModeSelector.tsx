@@ -35,7 +35,7 @@ export interface AgentModeSelectorProps {
   agentLogo?: string;
   /** Whether the logo is an emoji / logo 是否为 emoji */
   agentLogoIsEmoji?: boolean;
-  /** Whether the explicit assistant logo is intentionally empty. */
+  /** Whether the explicit agent logo is intentionally empty. */
   agentLogoIsFallback?: boolean;
   /** Conversation ID for mode switching / 用于切换模式的会话 ID */
   conversation_id?: string;

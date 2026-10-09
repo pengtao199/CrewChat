@@ -70,13 +70,13 @@ export interface IConfigStorageRefer {
    */
   'migration.providersMigrated_v1'?: boolean;
   /**
-   * One-shot completion flag for the legacy `assistants` → backend assistants
-   * migration in {@link migrateAssistantsToBackend}. Same rationale as
-   * `migration.providersMigrated_v1` — without it, an assistant the user
+   * One-shot completion flag for the legacy `agents` → backend agents
+   * migration in {@link migrateAgentsToBackend}. Same rationale as
+   * `migration.providersMigrated_v1` — without it, an agent the user
    * deletes after migration would be re-imported on the next launch from the
    * still-on-disk legacy field.
    */
-  'migration.assistantsMigrated_v1'?: boolean;
+  'migration.agentsMigrated_v1'?: boolean;
   // Desktop Pet: whether the desktop pet feature is enabled
   'pet.enabled'?: boolean;
   // Desktop Pet: size in pixels (200, 280, or 360)
@@ -151,7 +151,7 @@ export type TConversationRuntimeSummary = {
   supports_midturn_delivery?: boolean;
 };
 
-export type TConversationAssistantIdentity = {
+export type TConversationAgentIdentity = {
   id: string;
   source: string;
   name: string;
@@ -174,8 +174,8 @@ interface IChatConversation<T, Extra> {
   source?: ConversationSource;
   /** Channel chat isolation ID (e.g. user:xxx, group:xxx) */
   channel_chat_id?: string;
-  /** Explicit assistant identity for assistant-led conversations */
-  assistant?: TConversationAssistantIdentity;
+  /** Explicit agent identity for agent-led conversations */
+  agent?: TConversationAgentIdentity;
   /**
    * Owning Project id (top-level, from `ConversationResponse.project_id`, stage3
    * contract). Drives Project-scoped Explorer mounting + preview isolation.
@@ -248,7 +248,7 @@ export type TChatConversation =
           custom_workspace?: boolean;
           agent_name?: string;
           custom_agent_id?: string; // UUID for identifying specific custom agent
-          preset_context?: string; // 智能助手的预设规则/提示词 / Preset context from smart assistant
+          preset_context?: string; // 智能助手的预设规则/提示词 / Preset context from smart agent
           /** Skills snapshot for this conversation — authoritative list, written
            * once at creation. Join with `GET /api/skills` for descriptions. */
           skills?: string[];
@@ -260,8 +260,8 @@ export type TChatConversation =
           mcp_statuses?: IConversationMcpStatus[];
           /** Session-only MCP server snapshot persisted at creation time. */
           session_mcp_servers?: ISessionMcpServer[];
-          /** 预设助手 ID，用于在会话面板显示助手名称和头像 / Preset assistant ID for displaying name and avatar in conversation panel */
-          preset_assistant_id?: string;
+          /** 预设助手 ID，用于在会话面板显示助手名称和头像 / Preset agent ID for displaying name and avatar in conversation panel */
+          preset_agent_id?: string;
           /** 是否置顶会话 / Whether this conversation is pinned */
           pinned?: boolean;
           /** 置顶时间戳（毫秒）/ Pin timestamp in milliseconds */
@@ -302,12 +302,12 @@ export type TChatConversation =
           cli_path?: string;
           custom_workspace?: boolean;
           sandboxMode?: 'read-only' | 'workspace-write' | 'danger-full-access'; // Codex sandbox permission mode
-          preset_context?: string; // 智能助手的预设规则/提示词 / Preset context from smart assistant
+          preset_context?: string; // 智能助手的预设规则/提示词 / Preset context from smart agent
           /** Skills snapshot for this conversation — authoritative list, written
            * once at creation. Join with `GET /api/skills` for descriptions. */
           skills?: string[];
-          /** 预设助手 ID，用于在会话面板显示助手名称和头像 / Preset assistant ID for displaying name and avatar in conversation panel */
-          preset_assistant_id?: string;
+          /** 预设助手 ID，用于在会话面板显示助手名称和头像 / Preset agent ID for displaying name and avatar in conversation panel */
+          preset_agent_id?: string;
           /** 是否置顶会话 / Whether this conversation is pinned */
           pinned?: boolean;
           /** 置顶时间戳（毫秒）/ Pin timestamp in milliseconds */
@@ -356,8 +356,8 @@ export type TChatConversation =
           /** Skills snapshot for this conversation — authoritative list, written
            * once at creation. Join with `GET /api/skills` for descriptions. */
           skills?: string[];
-          /** 预设助手 ID / Preset assistant ID */
-          preset_assistant_id?: string;
+          /** 预设助手 ID / Preset agent ID */
+          preset_agent_id?: string;
           /** 是否置顶会话 / Whether this conversation is pinned */
           pinned?: boolean;
           /** 置顶时间戳（毫秒）/ Pin timestamp in milliseconds */
@@ -384,7 +384,7 @@ export type TChatConversation =
           workspace?: string;
           custom_workspace?: boolean;
           agent_name?: string;
-          preset_assistant_id?: string;
+          preset_agent_id?: string;
           pinned?: boolean;
           pinned_at?: number;
           /** Legacy marker for pre-provider-probe health-check conversations */
@@ -405,8 +405,8 @@ export type TChatConversation =
           /** Skills snapshot for this conversation — authoritative list, written
            * once at creation. Join with `GET /api/skills` for descriptions. */
           skills?: string[];
-          /** 预设助手 ID / Preset assistant ID */
-          preset_assistant_id?: string;
+          /** 预设助手 ID / Preset agent ID */
+          preset_agent_id?: string;
           /** 是否置顶会话 / Whether this conversation is pinned */
           pinned?: boolean;
           /** 置顶时间戳（毫秒）/ Pin timestamp in milliseconds */
@@ -432,8 +432,8 @@ export type TChatConversation =
           /** Skills snapshot for this conversation — authoritative list, written
            * once at creation. Join with `GET /api/skills` for descriptions. */
           skills?: string[];
-          /** Preset assistant ID */
-          preset_assistant_id?: string;
+          /** Preset agent ID */
+          preset_agent_id?: string;
           /** Whether this conversation is pinned */
           pinned?: boolean;
           /** Pin timestamp in milliseconds */
@@ -465,8 +465,8 @@ export type TChatConversation =
         mcp_statuses?: IConversationMcpStatus[];
         /** Session-only MCP server snapshot persisted at creation time. */
         session_mcp_servers?: ISessionMcpServer[];
-        /** Preset assistant ID */
-        preset_assistant_id?: string;
+        /** Preset agent ID */
+        preset_agent_id?: string;
         /** Whether this conversation is pinned */
         pinned?: boolean;
         /** Pin timestamp in milliseconds */

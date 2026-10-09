@@ -43,11 +43,11 @@ type TranslateFn = (key: string, options?: { defaultValue?: string }) => string;
 export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): NavItem[] {
   const builtinMap: Record<string, NavItem> = {
     model: { id: 'model', label: t('settings.model'), icon: <LinkCloud theme='outline' size='16' />, path: 'model' },
-    assistants: {
-      id: 'assistants',
-      label: t('settings.assistants', { defaultValue: 'Assistants' }),
+    agents: {
+      id: 'agents',
+      label: t('settings.agents', { defaultValue: 'Agents' }),
       icon: <Robot theme='outline' size='16' />,
-      path: 'assistants',
+      path: 'agents',
     },
     // [crewchat] 与 SettingsSider 同步：上游此处重复定义导航，漏改会整页崩溃
     agents: {

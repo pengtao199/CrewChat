@@ -6,20 +6,20 @@
 
 /**
  * SkillDetailPage — detail view for a single skill, styled after the
- * assistant editor page (sticky top bar + centered section cards).
+ * agent editor page (sticky top bar + centered section cards).
  *
- * A single "used by" list is the source of truth for the skill↔assistant
- * relation (GitHub-collaborators pattern): rows link to the assistant and
- * expose an inline remove; an "Add assistant" dropdown lists only the
- * assistants not yet attached. Builtin assistants are read-only because
+ * A single "used by" list is the source of truth for the skill↔agent
+ * relation (GitHub-collaborators pattern): rows link to the agent and
+ * expose an inline remove; an "Add agent" dropdown lists only the
+ * agents not yet attached. Builtin agents are read-only because
  * their update path only accepts agent/defaults fields.
  */
 
 import { ipcBridge } from '@/common';
-import type { Assistant, UpdateAssistantRequest } from '@/common/types/agent/assistantTypes';
+import type { Agent, UpdateAgentRequest } from '@/common/types/agent/agentTypes';
 import { resolveLocaleKey } from '@/common/utils';
-import { useTalkToButler } from '@/renderer/hooks/assistant/useTalkToButler';
-import AssistantAvatar from '@/renderer/pages/settings/AssistantSettings/AssistantAvatar';
+import { useTalkToButler } from '@/renderer/hooks/agent/useTalkToButler';
+import AgentAvatar from '@/renderer/pages/settings/AgentCatalog/AgentAvatar';
 import { Button, Dropdown, Menu, Message, Spin, Typography } from '@arco-design/web-react';
 import { ArrowLeft, Close, Plus, Right } from '@icon-park/react';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -28,7 +28,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import useSWR, { mutate as swrMutate } from 'swr';
 import SettingsPageWrapper from '../components/SettingsPageWrapper';
 import SkillFileBrowser from './SkillFileBrowser';
-import { getAssistantsUsingSkill } from './SkillUsedByStack';
+import { getAgentsUsingSkill } from './SkillUsedByStack';
 
 interface SkillInfo {
   name: string;
@@ -85,23 +85,23 @@ const SkillDetailPage: React.FC = () => {
     ipcBridge.fs.listAvailableSkills.invoke()
   );
   const {
-    data: assistants,
-    isLoading: assistantsLoading,
-    mutate: mutateAssistants,
-  } = useSWR<Assistant[]>('assistants.list', () => ipcBridge.assistants.list.invoke());
+    data: agents,
+    isLoading: agentsLoading,
+    mutate: mutateAgents,
+  } = useSWR<Agent[]>('agents.list', () => ipcBridge.agents.list.invoke());
 
   const skill = useMemo(() => (skills ?? []).find((s) => s.name === decodedName), [skills, decodedName]);
-  const usingAssistants = useMemo(
-    () => getAssistantsUsingSkill(decodedName, assistants ?? []),
-    [assistants, decodedName]
+  const usingAgents = useMemo(
+    () => getAgentsUsingSkill(decodedName, agents ?? []),
+    [agents, decodedName]
   );
-  // Attachment editing covers user + generated assistants; builtin assistants'
-  // update endpoint only accepts agent_id/defaults (see useAssistantEditor).
-  const editableAssistants = useMemo(() => (assistants ?? []).filter((a) => a.source !== 'builtin'), [assistants]);
-  const readonlyUsers = useMemo(() => usingAssistants.filter((a) => a.source === 'builtin'), [usingAssistants]);
+  // Attachment editing covers user + generated agents; builtin agents'
+  // update endpoint only accepts agent_id/defaults (see useAgentEditor).
+  const editableAgents = useMemo(() => (agents ?? []).filter((a) => a.source !== 'builtin'), [agents]);
+  const readonlyUsers = useMemo(() => usingAgents.filter((a) => a.source === 'builtin'), [usingAgents]);
 
-  const assistantLabel = useCallback(
-    (assistant: Assistant): string => assistant.name_i18n?.[localeKey] || assistant.name,
+  const agentLabel = useCallback(
+    (agent: Agent): string => agent.name_i18n?.[localeKey] || agent.name,
     [localeKey]
   );
 
@@ -127,9 +127,9 @@ const SkillDetailPage: React.FC = () => {
     });
   }, [decodedName, t, talkToButler]);
 
-  const openAssistant = useCallback(
-    (assistantId: string) => {
-      void navigate('/assistants', { state: { openAssistantEditor: true, openAssistantId: assistantId } });
+  const openAgent = useCallback(
+    (agentId: string) => {
+      void navigate('/agents', { state: { openAgentEditor: true, openAgentId: agentId } });
     },
     [navigate]
   );
@@ -141,37 +141,37 @@ const SkillDetailPage: React.FC = () => {
     return t('settings.skillsHub.tabOfficial', { defaultValue: 'Official' });
   };
 
-  /** Attach or detach this skill on a single assistant. */
+  /** Attach or detach this skill on a single agent. */
   const setAttachment = useCallback(
-    async (assistant: Assistant, attach: boolean) => {
+    async (agent: Agent, attach: boolean) => {
       setSaving(true);
       try {
-        const update: UpdateAssistantRequest = {
-          id: assistant.id,
+        const update: UpdateAgentRequest = {
+          id: agent.id,
           enabled_skills: attach
-            ? Array.from(new Set([...(assistant.enabled_skills ?? []), decodedName]))
-            : (assistant.enabled_skills ?? []).filter((n) => n !== decodedName),
+            ? Array.from(new Set([...(agent.enabled_skills ?? []), decodedName]))
+            : (agent.enabled_skills ?? []).filter((n) => n !== decodedName),
         };
-        await ipcBridge.assistants.update.invoke(update);
-        Message.success(t('settings.skillsHub.detailAttachSuccess', { defaultValue: 'Assistants updated' }));
-        await Promise.all([mutateAssistants(), swrMutate('agents.boundAssistants.list')]);
+        await ipcBridge.agents.update.invoke(update);
+        Message.success(t('settings.skillsHub.detailAttachSuccess', { defaultValue: 'Agents updated' }));
+        await Promise.all([mutateAgents(), swrMutate('agents.boundAgents.list')]);
       } catch (error) {
-        console.error('Failed to update assistant skills:', error);
-        Message.error(t('settings.skillsHub.detailAttachError', { defaultValue: 'Failed to update assistants' }));
+        console.error('Failed to update agent skills:', error);
+        Message.error(t('settings.skillsHub.detailAttachError', { defaultValue: 'Failed to update agents' }));
       } finally {
         setSaving(false);
       }
     },
-    [decodedName, mutateAssistants, t]
+    [decodedName, mutateAgents, t]
   );
 
-  // Assistants that can still be added: editable and not yet using the skill.
-  const addableAssistants = useMemo(() => {
-    const usingIds = new Set(usingAssistants.map((a) => a.id));
-    return editableAssistants.filter((a) => !usingIds.has(a.id));
-  }, [editableAssistants, usingAssistants]);
+  // Agents that can still be added: editable and not yet using the skill.
+  const addableAgents = useMemo(() => {
+    const usingIds = new Set(usingAgents.map((a) => a.id));
+    return editableAgents.filter((a) => !usingIds.has(a.id));
+  }, [editableAgents, usingAgents]);
 
-  const loading = skillsLoading || assistantsLoading;
+  const loading = skillsLoading || agentsLoading;
 
   return (
     <SettingsPageWrapper>
@@ -227,28 +227,28 @@ const SkillDetailPage: React.FC = () => {
               </div>
             </SectionCard>
 
-            {/* Single source of truth: assistants using this skill, with inline add/remove */}
+            {/* Single source of truth: agents using this skill, with inline add/remove */}
             <SectionCard
               title={
-                t('settings.skillsHub.detailUsedByTitle', { defaultValue: 'Used by' }) + ` (${usingAssistants.length})`
+                t('settings.skillsHub.detailUsedByTitle', { defaultValue: 'Used by' }) + ` (${usingAgents.length})`
               }
               data-testid='skill-detail-used-by'
               extra={
                 <Dropdown
                   trigger='click'
                   position='br'
-                  disabled={saving || addableAssistants.length === 0}
+                  disabled={saving || addableAgents.length === 0}
                   droplist={
                     <Menu style={{ maxHeight: 320, overflow: 'auto' }}>
-                      {addableAssistants.map((assistant) => (
+                      {addableAgents.map((agent) => (
                         <Menu.Item
-                          key={assistant.id}
-                          data-testid={`menu-add-assistant-${assistant.id}`}
-                          onClick={() => void setAttachment(assistant, true)}
+                          key={agent.id}
+                          data-testid={`menu-add-agent-${agent.id}`}
+                          onClick={() => void setAttachment(agent, true)}
                         >
                           <span className='flex items-center gap-8px'>
-                            <AssistantAvatar assistant={assistant} size={20} />
-                            <span className='truncate'>{assistantLabel(assistant)}</span>
+                            <AgentAvatar agent={agent} size={20} />
+                            <span className='truncate'>{agentLabel(agent)}</span>
                           </span>
                         </Menu.Item>
                       ))}
@@ -260,59 +260,59 @@ const SkillDetailPage: React.FC = () => {
                     type='text'
                     loading={saving}
                     icon={<Plus size={14} />}
-                    data-testid='btn-add-assistant'
+                    data-testid='btn-add-agent'
                     className='!h-24px !px-8px !text-12px !text-t-secondary hover:!text-t-primary'
                   >
-                    {t('settings.skillsHub.detailAddAssistant', { defaultValue: 'Attach to assistant' })}
+                    {t('settings.skillsHub.detailAddAgent', { defaultValue: 'Attach to agent' })}
                   </Button>
                 </Dropdown>
               }
             >
-              {usingAssistants.length === 0 ? (
+              {usingAgents.length === 0 ? (
                 <div
                   data-testid='skill-detail-used-by-empty'
                   className='rounded-8px bg-fill-1 px-12px py-16px text-center text-12px text-t-tertiary'
                 >
                   {t('settings.skillsHub.detailUsedByEmpty', {
-                    defaultValue: 'No assistants are using this skill yet.',
+                    defaultValue: 'No agents are using this skill yet.',
                   })}
                 </div>
               ) : (
                 <div className='flex flex-col gap-4px'>
-                  {usingAssistants.map((assistant) => {
-                    const isReadonly = readonlyUsers.some((a) => a.id === assistant.id);
+                  {usingAgents.map((agent) => {
+                    const isReadonly = readonlyUsers.some((a) => a.id === agent.id);
                     return (
                       <div
-                        key={assistant.id}
+                        key={agent.id}
                         className='group flex cursor-pointer items-center gap-10px rounded-8px px-12px py-10px transition-colors hover:bg-fill-1'
-                        data-testid={`skill-used-by-row-${assistant.id}`}
-                        onClick={() => openAssistant(assistant.id)}
+                        data-testid={`skill-used-by-row-${agent.id}`}
+                        onClick={() => openAgent(agent.id)}
                       >
-                        <AssistantAvatar assistant={assistant} size={26} />
+                        <AgentAvatar agent={agent} size={26} />
                         <Typography.Text className='flex-1 truncate text-13px font-500 text-t-primary'>
-                          {assistantLabel(assistant)}
+                          {agentLabel(agent)}
                         </Typography.Text>
                         {isReadonly ? (
                           <span className='rounded-4px border border-border-2 bg-fill-1 px-6px py-1px text-11px text-t-tertiary'>
-                            {t('settings.skillsHub.detailBuiltinAssistant', { defaultValue: 'Built-in' })}
+                            {t('settings.skillsHub.detailBuiltinAgent', { defaultValue: 'Built-in' })}
                           </span>
                         ) : (
                           <Button
                             size='mini'
                             type='text'
                             icon={<Close size={13} />}
-                            data-testid={`btn-detach-${assistant.id}`}
+                            data-testid={`btn-detach-${agent.id}`}
                             className='!h-22px !px-6px !text-12px !text-t-tertiary hover:!text-danger-6 opacity-0 group-hover:opacity-100 transition-opacity'
                             onClick={(e) => {
                               e.stopPropagation();
-                              void setAttachment(assistant, false);
+                              void setAttachment(agent, false);
                             }}
                           >
                             {t('settings.skillsHub.detailDetach', { defaultValue: 'Remove' })}
                           </Button>
                         )}
                         <span className='flex items-center gap-2px text-12px text-t-tertiary group-hover:text-t-secondary'>
-                          {t('settings.agentManagement.viewAssistant', { defaultValue: 'View' })}
+                          {t('settings.agentManagement.viewAgent', { defaultValue: 'View' })}
                           <Right size={13} fill='currentColor' />
                         </span>
                       </div>

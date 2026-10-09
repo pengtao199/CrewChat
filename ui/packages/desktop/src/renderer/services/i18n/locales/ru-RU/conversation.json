@@ -108,7 +108,7 @@
   },
   "dropdown": {
     "cliAgents": "CLI-агенты",
-    "presetAssistants": "Предустановленные ассистенты"
+    "presetAgents": "Предустановленные ассистенты"
   },
   "noAgentsAvailable": "Нет доступных агентов",
   "noModelConfigured": "Модель не настроена. Настройте в параметрах.",
@@ -119,8 +119,8 @@
     },
     "codes": {
       "TEAM_ASSISTANT_ID_REQUIRED": "Перед созданием команды выберите ассистента.",
-      "TEAM_ASSISTANT_NOT_FOUND": "Ассистент {{assistantId}} больше недоступен. Обновите список ассистентов и выберите другого.",
-      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Используйте assistant_id вместо {{field}}."
+      "TEAM_ASSISTANT_NOT_FOUND": "Ассистент {{agentId}} больше недоступен. Обновите список ассистентов и выберите другого.",
+      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Используйте agent_id вместо {{field}}."
     }
   },
   "agentError": {
@@ -351,7 +351,7 @@
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "В запросе использовано устаревшее поле идентификации команды",
-        "body": "Это командное действие должно использовать assistant_id вместо устаревших полей backend или agent."
+        "body": "Это командное действие должно использовать agent_id вместо устаревших полей backend или agent."
       }
     }
   },

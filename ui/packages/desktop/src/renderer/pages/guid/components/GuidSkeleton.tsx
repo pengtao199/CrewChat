@@ -8,10 +8,10 @@ import React from 'react';
 import styles from '../index.module.css';
 
 /**
- * Skeleton placeholder for the AssistantSelectionArea while custom agents load.
+ * Skeleton placeholder for the AgentSelectionArea while custom agents load.
  * Shows 3 pill-shaped shimmer elements with varying widths.
  */
-export const AssistantsSkeleton: React.FC = () => {
+export const AgentsSkeleton: React.FC = () => {
   const widths = [80, 100, 90];
   return (
     <div className='mt-16px w-full'>

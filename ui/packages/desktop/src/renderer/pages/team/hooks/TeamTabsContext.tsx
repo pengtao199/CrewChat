@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { TeamAssistant, TeammateStatus } from '@/common/types/team/teamTypes';
-import type { TeamAssistantInput } from '@/common/adapter/teamMapper';
+import type { TeamAgent, TeammateStatus } from '@/common/types/team/teamTypes';
+import type { TeamAgentInput } from '@/common/adapter/teamMapper';
 import {
   readStoredSiderOrder,
   sortSiderItemsByStoredOrder,
@@ -15,16 +15,16 @@ type AgentStatusInfo = {
 };
 
 export type TeamTabsContextValue = {
-  assistants: TeamAssistant[];
+  agents: TeamAgent[];
   activeSlotId: string;
   statusMap: Map<string, AgentStatusInfo>;
   team_id: string;
   switchTab: (slot_id: string) => void;
-  renameAssistant?: (slot_id: string, new_name: string) => Promise<void>;
-  removeAssistant?: (slot_id: string) => void;
-  addAssistant?: (assistant: TeamAssistantInput) => Promise<TeamAssistant>;
+  renameAgent?: (slot_id: string, new_name: string) => Promise<void>;
+  removeAgent?: (slot_id: string) => void;
+  addAgent?: (agent: TeamAgentInput) => Promise<TeamAgent>;
   membershipMutationBusy: boolean;
-  reorderAssistants: (fromSlotId: string, toSlotId: string) => void;
+  reorderAgents: (fromSlotId: string, toSlotId: string) => void;
   /** 成员实例身份色（仅团队详情页展示用）。 */
   colorOf: (slot_id: string | undefined) => string;
   /** 会话对应成员的身份色（消息侧按 conversation_id 取色）。 */
@@ -32,90 +32,90 @@ export type TeamTabsContextValue = {
 };
 
 const TeamTabsContext = createContext<TeamTabsContextValue | null>(null);
-const TEAM_ASSISTANT_ORDER_STORAGE_PREFIX = 'team-assistant-order-';
+const TEAM_ASSISTANT_ORDER_STORAGE_PREFIX = 'team-agent-order-';
 
-const getTeamAssistantOrderStorageKey = (team_id: string): string => `${TEAM_ASSISTANT_ORDER_STORAGE_PREFIX}${team_id}`;
+const getTeamAgentOrderStorageKey = (team_id: string): string => `${TEAM_ASSISTANT_ORDER_STORAGE_PREFIX}${team_id}`;
 
-const sortTeamAssistants = (
-  assistants: TeamAssistant[],
+const sortTeamAgents = (
+  agents: TeamAgent[],
   team_id: string,
   fallbackOrder?: string[]
-): TeamAssistant[] => {
-  const leadAssistant = assistants.find((assistant) => assistant.role === 'leader');
-  const teammateAssistants = assistants.filter((assistant) => assistant.role !== 'leader');
-  const storedOrder = fallbackOrder ?? readStoredSiderOrder(getTeamAssistantOrderStorageKey(team_id));
+): TeamAgent[] => {
+  const leadAgent = agents.find((agent) => agent.role === 'leader');
+  const teammateAgents = agents.filter((agent) => agent.role !== 'leader');
+  const storedOrder = fallbackOrder ?? readStoredSiderOrder(getTeamAgentOrderStorageKey(team_id));
   const orderedTeammates = sortSiderItemsByStoredOrder({
-    items: teammateAssistants,
+    items: teammateAgents,
     storedOrder,
-    getId: (assistant) => assistant.slot_id,
+    getId: (agent) => agent.slot_id,
   });
 
-  return leadAssistant ? [leadAssistant, ...orderedTeammates] : orderedTeammates;
+  return leadAgent ? [leadAgent, ...orderedTeammates] : orderedTeammates;
 };
 
 export const TeamTabsProvider: React.FC<{
   children: React.ReactNode;
-  assistants: TeamAssistant[];
+  agents: TeamAgent[];
   statusMap: Map<string, AgentStatusInfo>;
   defaultActiveSlotId: string;
   team_id: string;
-  renameAssistant?: (slot_id: string, new_name: string) => Promise<void>;
-  removeAssistant?: (slot_id: string) => void;
-  addAssistant?: (assistant: TeamAssistantInput) => Promise<TeamAssistant>;
+  renameAgent?: (slot_id: string, new_name: string) => Promise<void>;
+  removeAgent?: (slot_id: string) => void;
+  addAgent?: (agent: TeamAgentInput) => Promise<TeamAgent>;
   membershipMutationBusy?: boolean;
 }> = ({
   children,
-  assistants: externalAssistants,
+  agents: externalAgents,
   statusMap,
   defaultActiveSlotId,
   team_id,
-  renameAssistant,
-  removeAssistant,
-  addAssistant,
+  renameAgent,
+  removeAgent,
+  addAgent,
   membershipMutationBusy = false,
 }) => {
   const storageKey = `team-active-slot-${team_id}`;
   const savedSlotId = localStorage.getItem(storageKey);
   const initialSlotId =
-    savedSlotId && externalAssistants.some((assistant) => assistant.slot_id === savedSlotId)
+    savedSlotId && externalAgents.some((agent) => agent.slot_id === savedSlotId)
       ? savedSlotId
       : defaultActiveSlotId;
   const [activeSlotId, setActiveSlotId] = useState(initialSlotId);
-  const [localAssistants, setLocalAssistants] = useState<TeamAssistant[]>(() =>
-    sortTeamAssistants(externalAssistants, team_id)
+  const [localAgents, setLocalAgents] = useState<TeamAgent[]>(() =>
+    sortTeamAgents(externalAgents, team_id)
   );
 
-  // Sync external assistant list changes (e.g., new assistant added)
+  // Sync external agent list changes (e.g., new agent added)
   useEffect(() => {
-    setLocalAssistants((previousAssistants) => {
-      const previousTeammateOrder = previousAssistants
-        .filter((assistant) => assistant.role !== 'leader')
-        .map((assistant) => assistant.slot_id);
-      return sortTeamAssistants(externalAssistants, team_id, previousTeammateOrder);
+    setLocalAgents((previousAgents) => {
+      const previousTeammateOrder = previousAgents
+        .filter((agent) => agent.role !== 'leader')
+        .map((agent) => agent.slot_id);
+      return sortTeamAgents(externalAgents, team_id, previousTeammateOrder);
     });
-  }, [externalAssistants, team_id]);
+  }, [externalAgents, team_id]);
 
   useEffect(() => {
     writeStoredSiderOrder(
-      getTeamAssistantOrderStorageKey(team_id),
-      localAssistants.filter((assistant) => assistant.role !== 'leader').map((assistant) => assistant.slot_id)
+      getTeamAgentOrderStorageKey(team_id),
+      localAgents.filter((agent) => agent.role !== 'leader').map((agent) => agent.slot_id)
     );
-  }, [localAssistants, team_id]);
+  }, [localAgents, team_id]);
 
-  const assistants = localAssistants;
+  const agents = localAgents;
 
-  const { colorOf, colorOfConversation } = useTeamMemberColors(team_id, assistants);
+  const { colorOf, colorOfConversation } = useTeamMemberColors(team_id, agents);
 
   // Auto-switch when active tab is removed or on first spawn
   useEffect(() => {
-    if (assistants.length > 0 && !assistants.some((assistant) => assistant.slot_id === activeSlotId)) {
-      // Prefer leader tab; fall back to first assistant
-      const leadAssistant = assistants.find((assistant) => assistant.role === 'leader');
-      const fallbackSlotId = leadAssistant?.slot_id ?? assistants[0]?.slot_id ?? '';
+    if (agents.length > 0 && !agents.some((agent) => agent.slot_id === activeSlotId)) {
+      // Prefer leader tab; fall back to first agent
+      const leadAgent = agents.find((agent) => agent.role === 'leader');
+      const fallbackSlotId = leadAgent?.slot_id ?? agents[0]?.slot_id ?? '';
       setActiveSlotId(fallbackSlotId);
       localStorage.setItem(storageKey, fallbackSlotId);
     }
-  }, [assistants, activeSlotId, storageKey]);
+  }, [agents, activeSlotId, storageKey]);
 
   const switchTab = useCallback(
     (slot_id: string) => {
@@ -125,63 +125,63 @@ export const TeamTabsProvider: React.FC<{
     [storageKey]
   );
 
-  const reorderAssistants = useCallback((fromSlotId: string, toSlotId: string) => {
+  const reorderAgents = useCallback((fromSlotId: string, toSlotId: string) => {
     if (fromSlotId === toSlotId) return;
 
-    setLocalAssistants((prev) => {
-      const leadAssistant = prev.find((assistant) => assistant.role === 'leader');
-      const teammates = prev.filter((assistant) => assistant.role !== 'leader');
-      const fromIndex = teammates.findIndex((assistant) => assistant.slot_id === fromSlotId);
-      const toIndex = teammates.findIndex((assistant) => assistant.slot_id === toSlotId);
+    setLocalAgents((prev) => {
+      const leadAgent = prev.find((agent) => agent.role === 'leader');
+      const teammates = prev.filter((agent) => agent.role !== 'leader');
+      const fromIndex = teammates.findIndex((agent) => agent.slot_id === fromSlotId);
+      const toIndex = teammates.findIndex((agent) => agent.slot_id === toSlotId);
       if (fromIndex === -1 || toIndex === -1) return prev;
 
       const nextTeammates = [...teammates];
       const [removed] = nextTeammates.splice(fromIndex, 1);
       nextTeammates.splice(toIndex, 0, removed);
 
-      return leadAssistant ? [leadAssistant, ...nextTeammates] : nextTeammates;
+      return leadAgent ? [leadAgent, ...nextTeammates] : nextTeammates;
     });
   }, []);
 
-  const handleRenameAssistant = useCallback(
+  const handleRenameAgent = useCallback(
     async (slot_id: string, new_name: string) => {
-      await renameAssistant?.(slot_id, new_name);
-      setLocalAssistants((prev) =>
-        prev.map((assistant) =>
-          assistant.slot_id === slot_id ? { ...assistant, assistant_name: new_name } : assistant
+      await renameAgent?.(slot_id, new_name);
+      setLocalAgents((prev) =>
+        prev.map((agent) =>
+          agent.slot_id === slot_id ? { ...agent, agent_name: new_name } : agent
         )
       );
     },
-    [renameAssistant]
+    [renameAgent]
   );
 
   const contextValue = useMemo(
     () => ({
-      assistants,
+      agents,
       activeSlotId,
       statusMap,
       team_id,
       switchTab,
-      renameAssistant: renameAssistant ? handleRenameAssistant : undefined,
-      removeAssistant,
-      addAssistant,
+      renameAgent: renameAgent ? handleRenameAgent : undefined,
+      removeAgent,
+      addAgent,
       membershipMutationBusy,
-      reorderAssistants,
+      reorderAgents,
       colorOf,
       colorOfConversation,
     }),
     [
-      assistants,
+      agents,
       activeSlotId,
       statusMap,
       team_id,
       switchTab,
-      renameAssistant,
-      handleRenameAssistant,
-      removeAssistant,
-      addAssistant,
+      renameAgent,
+      handleRenameAgent,
+      removeAgent,
+      addAgent,
       membershipMutationBusy,
-      reorderAssistants,
+      reorderAgents,
       colorOf,
       colorOfConversation,
     ]

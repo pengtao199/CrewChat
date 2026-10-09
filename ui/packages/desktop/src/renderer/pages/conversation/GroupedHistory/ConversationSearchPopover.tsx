@@ -9,10 +9,10 @@ import type { IMessageSearchItem } from '@/common/types/team/database';
 import AionModal from '@/renderer/components/base/AionModal';
 import { AionSearchInput } from '@/renderer/components/base';
 import { formatDateTime } from '@/renderer/services/i18n/format';
-import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
+import { usePresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
 import { useAgentLogos } from '@/renderer/utils/model/agentLogo';
 import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
-import { resolveConversationLeadingMark } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { resolveConversationLeadingMark } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 import { blockMobileInputFocus, blurActiveElement } from '@/renderer/utils/ui/focus';
 import { isPrimaryApplicationShortcut } from '@/renderer/utils/ui/keyboardShortcuts';
 import { Empty, Spin, Typography } from '@arco-design/web-react';
@@ -104,8 +104,8 @@ interface ConversationSearchPopoverProps {
 
 const ConversationAgentMark: React.FC<{ conversation: IMessageSearchItem['conversation'] }> = ({ conversation }) => {
   const logos = useAgentLogos();
-  const { info: assistantInfo } = usePresetAssistantInfo(conversation);
-  const leadingMark = resolveConversationLeadingMark(conversation, assistantInfo, logos);
+  const { info: agentInfo } = usePresetAgentInfo(conversation);
+  const leadingMark = resolveConversationLeadingMark(conversation, agentInfo, logos);
   if (leadingMark.kind === 'emoji') {
     return (
       <span className='text-18px leading-none flex-shrink-0' title={leadingMark.label}>
@@ -123,7 +123,7 @@ const ConversationAgentMark: React.FC<{ conversation: IMessageSearchItem['conver
       />
     );
   }
-  if (leadingMark.kind === 'assistant_fallback') {
+  if (leadingMark.kind === 'agent_fallback') {
     return <Robot theme='outline' size='18' className='line-height-0 flex-shrink-0 text-t-secondary' />;
   }
 

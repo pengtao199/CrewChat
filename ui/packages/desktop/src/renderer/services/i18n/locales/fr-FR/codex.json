@@ -16,7 +16,7 @@
     "retry_count": "Nombre de tentatives",
     "error_details": "Détails de l'erreur",
     "quick_switch_title": "💡 **Options de basculement rapide :**",
-    "quick_switch_content": "Quand le service actuel rencontre des restrictions réseau, vous pouvez :\n\n1. **Changer d'assistant IA immédiatement** : Sélectionnez d'autres assistants disponibles dans le panneau gauche\n2. **Vérifier la disponibilité du service** : La disponibilité des différents services IA peut varier selon la région\n3. **Optimisation réseau** : Utilisez un environnement réseau stable pour améliorer le taux de succès\n4. **Réessayer plus tard** : Les restrictions réseau sont généralement temporaires\n\n**Conseil** : Il est recommandé de configurer plusieurs services IA alternatifs pour assurer la continuité du travail.",
+    "quick_switch_content": "Quand le service actuel rencontre des restrictions réseau, vous pouvez :\n\n1. **Changer d'agent IA immédiatement** : Sélectionnez d'autres agents disponibles dans le panneau gauche\n2. **Vérifier la disponibilité du service** : La disponibilité des différents services IA peut varier selon la région\n3. **Optimisation réseau** : Utilisez un environnement réseau stable pour améliorer le taux de succès\n4. **Réessayer plus tard** : Les restrictions réseau sont généralement temporaires\n\n**Conseil** : Il est recommandé de configurer plusieurs services IA alternatifs pour assurer la continuité du travail.",
     "recovery_actions": {
       "cloudflare_blocked": [
         "• Use VPN or proxy service",

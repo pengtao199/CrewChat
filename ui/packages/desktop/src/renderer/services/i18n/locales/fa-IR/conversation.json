@@ -104,7 +104,7 @@
   },
   "dropdown": {
     "cliAgents": "ایجنت‌های CLI",
-    "presetAssistants": "دستیارهای پیش‌تنظیم"
+    "presetAgents": "دستیارهای پیش‌تنظیم"
   },
   "noAgentsAvailable": "ایجنتی در دسترس نیست",
   "noModelConfigured": "مدلی پیکربندی نشده است. لطفاً در تنظیمات پیکربندی کنید.",
@@ -115,8 +115,8 @@
     },
     "codes": {
       "TEAM_ASSISTANT_ID_REQUIRED": "لطفاً قبل از ایجاد تیم، یک دستیار انتخاب کنید.",
-      "TEAM_ASSISTANT_NOT_FOUND": "دستیار {{assistantId}} دیگر در دسترس نیست. لیست دستیارها را بازخوانی کنید و دستیار دیگری انتخاب کنید.",
-      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "به‌جای {{field}} از assistant_id استفاده کنید."
+      "TEAM_ASSISTANT_NOT_FOUND": "دستیار {{agentId}} دیگر در دسترس نیست. لیست دستیارها را بازخوانی کنید و دستیار دیگری انتخاب کنید.",
+      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "به‌جای {{field}} از agent_id استفاده کنید."
     }
   },
   "agentError": {
@@ -347,7 +347,7 @@
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "درخواست از فیلد قدیمی هویت تیم استفاده کرده است",
-        "body": "این عمل تیم باید به‌جای فیلدهای قدیمی backend یا agent از assistant_id استفاده کند."
+        "body": "این عمل تیم باید به‌جای فیلدهای قدیمی backend یا agent از agent_id استفاده کند."
       }
     }
   },

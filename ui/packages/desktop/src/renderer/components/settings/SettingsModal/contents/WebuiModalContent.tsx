@@ -10,7 +10,7 @@ import { isBackendHttpError } from '@/common/adapter/httpBridge';
 import { configService } from '@/common/config/configService';
 import AionModal from '@/renderer/components/base/AionModal';
 import AionScrollArea from '@/renderer/components/base/AionScrollArea';
-import { useTalkToButler } from '@/renderer/hooks/assistant/useTalkToButler';
+import { useTalkToButler } from '@/renderer/hooks/agent/useTalkToButler';
 import ChannelDingTalkLogo from '@/renderer/assets/channel-logos/dingtalk.svg';
 import ChannelDiscordLogo from '@/renderer/assets/channel-logos/discord.svg';
 import ChannelLarkLogo from '@/renderer/assets/channel-logos/lark.svg';

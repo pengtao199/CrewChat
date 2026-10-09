@@ -1,7 +1,7 @@
-"""Assistants: our agents presented as the UI's assistant cards and detail page.
+"""Agents: our agents presented as the UI's agent cards and detail page.
 
 The Guid page reads `detail.defaults.model.mode` unguarded, so the detail
-response must always carry the full AssistantDetail shape — a missing `defaults`
+response must always carry the full AgentDetail shape — a missing `defaults`
 crashes the page rather than degrading.
 """
 
@@ -21,7 +21,7 @@ router = APIRouter()
 def _session():  # type: ignore[no-untyped-def]
     settings = get_settings()
     settings.ensure_dirs()
-    return session_for("__assistants__")
+    return session_for("__agents__")
 
 
 def _scalar(value: str | None = None, mode: str = "auto") -> dict[str, Any]:
@@ -58,7 +58,7 @@ def to_list_item(spec, index: int) -> dict[str, Any]:  # type: ignore[no-untyped
         "enabled": spec.enabled,
         "sort_order": index,
         # agent_id 指引擎（身体），与 /api/agents/management 的 id 对齐，
-        # 否则上游的「绑定助手」栈永远匹配不到（它按 assistant.agent_id === managedAgent.id 过滤）
+        # 否则上游的「绑定助手」栈永远匹配不到（它按 agent.agent_id === managedAgent.id 过滤）
         "agent_id": spec.body,
         "agent": {"type": spec.body, "source": "custom", "acp_backend": spec.body},
         "enabled_skills": list(spec.skills),
@@ -131,30 +131,30 @@ def to_detail(spec, index: int) -> dict[str, Any]:
     }
 
 
-def _find(assistant_id: str):  # type: ignore[no-untyped-def]
+def _find(agent_id: str):  # type: ignore[no-untyped-def]
     specs = list(_session().specs.values())
     for index, spec in enumerate(specs):
-        if spec.id == assistant_id:
+        if spec.id == agent_id:
             return spec, index
     return None, -1
 
 
-@router.get("/api/assistants")
-async def list_assistants() -> list[dict[str, Any]]:
+@router.get("/api/agents")
+async def list_agents() -> list[dict[str, Any]]:
     specs = list(_session().specs.values())
     return [to_list_item(s, i) for i, s in enumerate(specs)]
 
 
-@router.get("/api/assistants/{assistant_id}")
-async def get_assistant(assistant_id: str) -> Any:
-    spec, index = _find(assistant_id)
+@router.get("/api/agents/{agent_id}")
+async def get_agent(agent_id: str) -> Any:
+    spec, index = _find(agent_id)
     if spec is None:
         return JSONResponse({"error": "not_found"}, status_code=404)
     return to_detail(spec, index)
 
 
-@router.patch("/api/assistants/{assistant_id}/state")
-async def set_state(assistant_id: str, request: Request) -> Any:
+@router.patch("/api/agents/{agent_id}/state")
+async def set_state(agent_id: str, request: Request) -> Any:
     """启停一个 Agent。
 
     只改文件里的 enabled 字段，其余键原样保留（用户可能手写过额外字段）。
@@ -165,7 +165,7 @@ async def set_state(assistant_id: str, request: Request) -> Any:
     if "enabled" not in body:
         return JSONResponse({"error": "missing_enabled"}, status_code=400)
 
-    spec, index = _find(assistant_id)
+    spec, index = _find(agent_id)
     if spec is None:
         return JSONResponse({"error": "not_found"}, status_code=404)
 
@@ -175,7 +175,7 @@ async def set_state(assistant_id: str, request: Request) -> Any:
     settings = get_settings()
     settings.ensure_dirs()
     directory = agents_dir_for(settings)
-    for candidate in (directory / f"{assistant_id}.jsonc", directory / f"{assistant_id}.json"):
+    for candidate in (directory / f"{agent_id}.jsonc", directory / f"{agent_id}.json"):
         if not candidate.exists():
             continue
         try:
@@ -186,25 +186,25 @@ async def set_state(assistant_id: str, request: Request) -> Any:
         candidate.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         break
 
-    session_for("__assistants__").reload()
     session_for("__agents__").reload()
-    spec, index = _find(assistant_id)
+    session_for("__agents__").reload()
+    spec, index = _find(agent_id)
     if spec is None:
         return JSONResponse({"error": "reload_failed"}, status_code=500)
     return to_list_item(spec, index)
 
 
-@router.get("/api/assistants/{assistant_id}/rules")
-async def get_rules(assistant_id: str) -> dict[str, Any]:
-    spec, _ = _find(assistant_id)
+@router.get("/api/agents/{agent_id}/rules")
+async def get_rules(agent_id: str) -> dict[str, Any]:
+    spec, _ = _find(agent_id)
     return {"content": spec.persona() if spec else "", "storage_mode": "inline"}
 
 
-@router.get("/api/assistants/{assistant_id}/prompts")
-async def get_prompts(assistant_id: str) -> dict[str, Any]:
+@router.get("/api/agents/{agent_id}/prompts")
+async def get_prompts(agent_id: str) -> dict[str, Any]:
     return {"recommended": [], "recommended_i18n": {}}
 
 
-@router.post("/api/assistants/import")
-async def import_assistants() -> dict[str, Any]:
+@router.post("/api/agents/import")
+async def import_agents() -> dict[str, Any]:
     return {"success": True, "imported": 0, "skipped": 0}

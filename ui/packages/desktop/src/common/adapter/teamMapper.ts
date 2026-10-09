@@ -6,7 +6,7 @@
 
 import type {
   BackendTeammateStatus,
-  TeamAssistant,
+  TeamAgent,
   TeamContextResetAvailability,
   TeamContextResetCapability,
   TeammateRole,
@@ -20,21 +20,21 @@ import type {
 /**
  * Fields the backend actually consumes when creating a team member. The
  * runtime backend / conversation type are derived server-side from the
- * assistant, so callers only supply assistant identity, role, and model.
+ * agent, so callers only supply agent identity, role, and model.
  */
-export type TeamAssistantInput = Pick<TeamAssistant, 'role' | 'assistant_name' | 'assistant_id' | 'model'>;
+export type TeamAgentInput = Pick<TeamAgent, 'role' | 'agent_name' | 'agent_id' | 'model'>;
 
 export type ICreateTeamParams = {
   user_id: string;
   name: string;
   workspace: string;
   workspace_mode: WorkspaceMode;
-  agents: TeamAssistantInput[];
+  agents: TeamAgentInput[];
 };
 
-export type IAddTeamAssistantParams = {
+export type IAddTeamAgentParams = {
   team_id: string;
-  assistant: TeamAssistantInput;
+  agent: TeamAgentInput;
 };
 
 // ── Backend → Frontend ─────────────────────────────────────────────────
@@ -95,24 +95,24 @@ function toContextResetCapability(raw: unknown): TeamContextResetCapability {
   };
 }
 
-export function fromBackendAssistant(raw: unknown): TeamAssistant {
+export function fromBackendAgent(raw: unknown): TeamAgent {
   const r = (raw ?? {}) as Record<string, unknown>;
   const agentType = (r.agent_type as string | undefined) ?? (r.backend as string | undefined) ?? '';
-  const backend = (r.assistant_backend as string | undefined) ?? (r.backend as string | undefined) ?? agentType;
+  const backend = (r.agent_backend as string | undefined) ?? (r.backend as string | undefined) ?? agentType;
   return {
     slot_id: (r.slot_id as string | undefined) ?? '',
     conversation_id: (r.conversation_id as string | undefined) ?? '',
     role: toRole(r.role as string | undefined),
-    assistant_backend: backend,
+    agent_backend: backend,
     icon: r.icon as string | undefined,
-    assistant_name:
-      (r.assistant_name as string | undefined) ??
+    agent_name:
+      (r.agent_name as string | undefined) ??
       (r.agent_name as string | undefined) ??
       (r.name as string | undefined) ??
       '',
     status: normalizeTeamStatus(r.status as BackendTeammateStatus | undefined),
     cli_path: r.cli_path as string | undefined,
-    assistant_id: r.assistant_id as string | undefined,
+    agent_id: r.agent_id as string | undefined,
     model: r.model as string | undefined,
     pending_confirmations: (r.pending_confirmations ?? r.pendingConfirmations ?? 0) as number,
     context_reset: toContextResetCapability(r.context_reset),
@@ -121,24 +121,24 @@ export function fromBackendAssistant(raw: unknown): TeamAssistant {
 
 export function fromBackendTeam(raw: unknown): TTeam {
   const r = (raw ?? {}) as Record<string, unknown>;
-  const rawAssistants = Array.isArray(r.assistants)
-    ? (r.assistants as unknown[])
+  const rawAgents = Array.isArray(r.agents)
+    ? (r.agents as unknown[])
     : Array.isArray(r.agents)
       ? (r.agents as unknown[])
       : [];
-  const assistants = rawAssistants.map(fromBackendAssistant);
-  const leaderAssistantId =
-    (r.leader_assistant_id as string | undefined) ?? (r.leader_agent_id as string | undefined) ?? '';
+  const agents = rawAgents.map(fromBackendAgent);
+  const leaderAgentId =
+    (r.leader_agent_id as string | undefined) ?? (r.leader_agent_id as string | undefined) ?? '';
   return {
     id: (r.id as string | undefined) ?? '',
     user_id: (r.user_id as string | undefined) ?? '',
     name: (r.name as string | undefined) ?? '',
     workspace: (r.workspace as string | undefined) ?? '',
     workspace_mode: toWorkspaceMode(r.workspace_mode as string | undefined),
-    leader_assistant_id: leaderAssistantId,
-    assistants,
-    leader_agent_id: leaderAssistantId,
-    agents: assistants,
+    leader_agent_id: leaderAgentId,
+    agents,
+    leader_agent_id: leaderAgentId,
+    agents: agents,
     session_mode: r.session_mode as string | undefined,
     created_at: (r.created_at as number | undefined) ?? 0,
     updated_at: (r.updated_at as number | undefined) ?? 0,
@@ -155,15 +155,15 @@ export function fromBackendTeamOptional(raw: unknown): TTeam | null {
 
 // ── Frontend → Backend ─────────────────────────────────────────────────
 
-export function toBackendAssistant(a: TeamAssistantInput): Record<string, unknown> {
-  if (!a.assistant_id) {
-    throw new Error('assistant_id is required');
+export function toBackendAgent(a: TeamAgentInput): Record<string, unknown> {
+  if (!a.agent_id) {
+    throw new Error('agent_id is required');
   }
 
   return {
-    name: a.assistant_name,
+    name: a.agent_name,
     role: a.role === 'leader' ? 'lead' : a.role,
     model: a.model || 'default',
-    assistant_id: a.assistant_id,
+    agent_id: a.agent_id,
   };
 }

@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import type { TeamAssistant } from '@/common/types/team/teamTypes';
+import type { TeamAgent } from '@/common/types/team/teamTypes';
 import { assignMemberColors, memberColorValue } from './teamMemberColors';
 
 const storageKey = (team_id: string): string => `team-member-colors-${team_id}`;
@@ -42,14 +42,14 @@ export type TeamMemberColorResolver = {
  * 团队成员身份色 —— 每团队一份 `slot_id -> 色号` 映射，随成员列表增量维护并持久化到
  * localStorage（key `team-member-colors-${team_id}`）。仅团队详情页使用，不落库。
  */
-export function useTeamMemberColors(team_id: string, assistants: TeamAssistant[]): TeamMemberColorResolver {
+export function useTeamMemberColors(team_id: string, agents: TeamAgent[]): TeamMemberColorResolver {
   const key = storageKey(team_id);
   const [colorMap, setColorMap] = useState<Record<string, number>>(() => readColorMap(key));
 
   // 成员列表变化时增量重算：新成员补色、被移除成员释放色，已有成员钉死不变。
   useEffect(() => {
     setColorMap((prev) => {
-      const next = assignMemberColors(prev, assistants);
+      const next = assignMemberColors(prev, agents);
       if (shallowEqual(prev, next)) return prev;
       try {
         localStorage.setItem(key, JSON.stringify(next));
@@ -58,16 +58,16 @@ export function useTeamMemberColors(team_id: string, assistants: TeamAssistant[]
       }
       return next;
     });
-  }, [assistants, key]);
+  }, [agents, key]);
 
   // conversation_id -> slot_id 索引：消息只携带 senderConversationId，需借此回到成员实例取色。
   const conversationToSlot = useMemo(() => {
     const index: Record<string, string> = {};
-    for (const a of assistants) {
+    for (const a of agents) {
       if (a.conversation_id) index[a.conversation_id] = a.slot_id;
     }
     return index;
-  }, [assistants]);
+  }, [agents]);
 
   return useMemo(
     () => ({

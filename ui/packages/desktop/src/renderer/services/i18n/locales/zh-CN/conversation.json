@@ -106,7 +106,7 @@
   },
   "dropdown": {
     "cliAgents": "CLI Agents",
-    "presetAssistants": "预设智能体"
+    "presetAgents": "预设智能体"
   },
   "noAgentsAvailable": "没有可用的 Agent",
   "noModelConfigured": "未配置模型，请前往设置页面配置。",
@@ -117,8 +117,8 @@
     },
     "codes": {
       "TEAM_ASSISTANT_ID_REQUIRED": "创建团队前请先选择智能体。",
-      "TEAM_ASSISTANT_NOT_FOUND": "智能体 {{assistantId}} 已不可用。请刷新智能体列表后重新选择。",
-      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "请使用 assistant_id，不要再传 {{field}}。"
+      "TEAM_ASSISTANT_NOT_FOUND": "智能体 {{agentId}} 已不可用。请刷新智能体列表后重新选择。",
+      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "请使用 agent_id，不要再传 {{field}}。"
     }
   },
   "agentError": {
@@ -341,7 +341,7 @@
       },
       "TEAM_ASSISTANT_ID_REQUIRED": {
         "title": "必须先选择队友智能体",
-        "body": "创建或拉起队友前，请先从可用智能体目录中选择一个真实的 assistant。"
+        "body": "创建或拉起队友前，请先从可用智能体目录中选择一个真实的 agent。"
       },
       "TEAM_ASSISTANT_NOT_FOUND": {
         "title": "所选智能体已不可用",
@@ -349,7 +349,7 @@
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "请求仍在使用旧的团队身份字段",
-        "body": "这个团队操作必须使用 assistant_id，不能再使用旧的 backend 或 agent 字段。"
+        "body": "这个团队操作必须使用 agent_id，不能再使用旧的 backend 或 agent 字段。"
       }
     }
   },

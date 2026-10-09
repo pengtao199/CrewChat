@@ -67,9 +67,9 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
             element={TEAM_MODE_ENABLED ? withRouteFallback(TeamIndex) : <Navigate to='/guid' replace />}
           />
           <Route path='/settings/model' element={withRouteFallback(ModeSettings)} />
-          {/* Agents live only under Settings now; old assistant entries redirect there. */}
-          <Route path='/assistants' element={<Navigate to='/settings/agents' replace />} />
-          <Route path='/settings/assistants' element={<Navigate to='/settings/agents' replace />} />
+          {/* Agents live only under Settings now; old agent entries redirect there. */}
+          <Route path='/agents' element={<Navigate to='/settings/agents' replace />} />
+          <Route path='/settings/agents' element={<Navigate to='/settings/agents' replace />} />
           {/* [crewchat] Agent 编排页优先于上游的 CLI 清单页 */}
           <Route path='/settings/agents' element={withRouteFallback(AgentComposer)} />
           <Route path='/settings/agent' element={withRouteFallback(AgentSettings)} />

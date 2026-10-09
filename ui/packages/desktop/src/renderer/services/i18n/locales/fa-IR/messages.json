@@ -42,7 +42,7 @@
   "export.typeLabel": "نوع",
   "export.noMessages": "پیامی وجود ندارد",
   "export.userLabel": "کاربر",
-  "export.assistantLabel": "دستیار",
+  "export.agentLabel": "دستیار",
   "export.systemLabel": "سیستم",
   "export.menuTitle": "خروجی گفتگو",
   "export.menuHint": "نوع خروجی گرفتن از گفتگوی فعلی را انتخاب کنید",

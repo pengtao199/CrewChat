@@ -38,17 +38,17 @@ export type TeamContextResetResponse = {
   preserved_unread_count: number;
 };
 
-/** Persisted assistant configuration within a team */
-export type TeamAssistant = {
+/** Persisted agent configuration within a team */
+export type TeamAgent = {
   slot_id: string;
   conversation_id: string;
   role: TeammateRole;
-  assistant_backend: string;
+  agent_backend: string;
   icon?: string;
-  assistant_name: string;
+  agent_name: string;
   status: TeammateStatus;
   cli_path?: string;
-  assistant_id?: string;
+  agent_id?: string;
   model?: string;
   pending_confirmations?: number;
   context_reset: TeamContextResetCapability;
@@ -61,13 +61,13 @@ export type TTeam = {
   name: string;
   workspace: string;
   workspace_mode: WorkspaceMode;
-  leader_assistant_id: string;
-  assistants: TeamAssistant[];
-  /** @deprecated Use leader_assistant_id. */
+  leader_agent_id: string;
+  agents: TeamAgent[];
+  /** @deprecated Use leader_agent_id. */
   leader_agent_id?: string;
-  /** @deprecated Use assistants. */
-  agents?: TeamAssistant[];
-  /** Current session permission mode (e.g. 'plan', 'auto'). Persisted so newly spawned assistants inherit it. */
+  /** @deprecated Use agents. */
+  agents?: TeamAgent[];
+  /** Current session permission mode (e.g. 'plan', 'auto'). Persisted so newly spawned agents inherit it. */
   session_mode?: string;
   created_at: number;
   updated_at: number;
@@ -193,9 +193,9 @@ export type ITeamAgentStatusEvent = {
 /** IPC event pushed to renderer when a new agent is spawned at runtime */
 export type ITeamAgentSpawnedEvent = {
   team_id: string;
-  assistant: TeamAssistant;
-  /** @deprecated Use assistant. */
-  agent?: TeamAssistant;
+  agent: TeamAgent;
+  /** @deprecated Use agent. */
+  agent?: TeamAgent;
 };
 
 /** IPC event pushed to renderer when an agent is removed from the team */

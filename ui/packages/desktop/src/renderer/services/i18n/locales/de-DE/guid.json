@@ -11,7 +11,7 @@
     "cleanup": "Finde doppelte und unnötige Dateien in diesem Ordner und liste sie zur Bestätigung auf",
     "create": "Erstelle mir eine schöne persönliche Homepage und öffne sie, sobald sie fertig ist"
   },
-  "selectAssistantHint": "Wähle einen Assistenten, um eine Aufgabe zu starten",
+  "selectAgentHint": "Wähle einen Assistenten, um eine Aufgabe zu starten",
   "agentSwitcherLabel": "Agent",
   "switchedToAgent": "Zu {{agent}} gewechselt",
   "workspace": {

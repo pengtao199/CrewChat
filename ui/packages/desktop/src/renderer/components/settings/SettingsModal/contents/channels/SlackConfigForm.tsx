@@ -6,10 +6,10 @@
 
 import { firstModelId } from '@/common/types/provider/providerApi';
 import type { IChannelPairingRequest, IChannelPluginStatus, IChannelUser } from '@/common/types/channel/channel';
-import { assistants, channel } from '@/common/adapter/ipcBridge';
-import { isAionrsAssistant, type Assistant } from '@/common/types/agent/assistantTypes';
+import { agents, channel } from '@/common/adapter/ipcBridge';
+import { isAionrsAgent, type Agent } from '@/common/types/agent/agentTypes';
 import { resolveLocaleKey } from '@/common/utils';
-import { resolveAssistantName } from '@/renderer/utils/model/assistantDisplay';
+import { resolveAgentName } from '@/renderer/utils/model/agentDisplay';
 import { formatDateTime } from '@/renderer/services/i18n/format';
 import GoogleModelSelector from '@/renderer/pages/conversation/platforms/gemini/GoogleModelSelector';
 import type { GoogleModelSelection } from '@/renderer/pages/conversation/platforms/gemini/useGoogleModelSelection';
@@ -18,10 +18,10 @@ import { CheckOne, CloseOne, Copy, Delete, Down, Refresh } from '@icon-park/reac
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  buildChannelAssistantBinding,
-  getDefaultChannelAssistant,
-  resolveChannelAssistantSelection,
-} from './assistantBinding';
+  buildChannelAgentBinding,
+  getDefaultChannelAgent,
+  resolveChannelAgentSelection,
+} from './agentBinding';
 
 /**
  * Preference row component
@@ -80,10 +80,10 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
   const [pendingPairings, setPendingPairings] = useState<IChannelPairingRequest[]>([]);
   const [authorizedUsers, setAuthorizedUsers] = useState<IChannelUser[]>([]);
 
-  // Assistant selection (used for Slack conversations)
-  const [availableAssistants, setAvailableAssistants] = useState<Assistant[]>([]);
-  const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);
-  const [hasBrokenSavedAssistant, setHasBrokenSavedAssistant] = useState(false);
+  // Agent selection (used for Slack conversations)
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([]);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [hasBrokenSavedAgent, setHasBrokenSavedAgent] = useState(false);
 
   // Load pending pairings
   const loadPendingPairings = useCallback(async () => {
@@ -121,42 +121,42 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
     void loadAuthorizedUsers();
   }, [loadPendingPairings, loadAuthorizedUsers]);
 
-  // Load available assistants + saved selection
+  // Load available agents + saved selection
   useEffect(() => {
-    const loadAssistantsAndSelection = async () => {
+    const loadAgentsAndSelection = async () => {
       try {
-        const [assistantList, saved] = await Promise.all([
-          assistants.list.invoke(),
+        const [agentList, saved] = await Promise.all([
+          agents.list.invoke(),
           channel.getPlatformSettings.invoke({ platform: 'slack' }),
         ]);
 
-        setAvailableAssistants(assistantList);
+        setAvailableAgents(agentList);
 
-        const selection = resolveChannelAssistantSelection(saved.assistant ?? undefined, assistantList);
-        const nextAssistant =
-          assistantList.find((assistant) => assistant.id === selection.assistantId) ||
-          (!selection.hasBrokenSavedAssistant ? getDefaultChannelAssistant(assistantList) : undefined) ||
+        const selection = resolveChannelAgentSelection(saved.agent ?? undefined, agentList);
+        const nextAgent =
+          agentList.find((agent) => agent.id === selection.agentId) ||
+          (!selection.hasBrokenSavedAgent ? getDefaultChannelAgent(agentList) : undefined) ||
           null;
 
-        setHasBrokenSavedAssistant(selection.hasBrokenSavedAssistant);
-        setSelectedAssistant(nextAssistant);
+        setHasBrokenSavedAgent(selection.hasBrokenSavedAgent);
+        setSelectedAgent(nextAgent);
       } catch (error) {
-        console.error('[SlackConfig] Failed to load assistants:', error);
+        console.error('[SlackConfig] Failed to load agents:', error);
       }
     };
 
-    void loadAssistantsAndSelection();
+    void loadAgentsAndSelection();
   }, []);
 
-  const persistSelectedAssistant = async (assistant: Assistant) => {
+  const persistSelectedAgent = async (agent: Agent) => {
     try {
-      await channel.setAssistantSetting.invoke({
+      await channel.setAgentSetting.invoke({
         platform: 'slack',
-        assistant: buildChannelAssistantBinding(assistant),
+        agent: buildChannelAgentBinding(agent),
       });
-      Message.success(t('settings.assistant.agentSwitched', 'Assistant switched successfully'));
+      Message.success(t('settings.agent.agentSwitched', 'Agent switched successfully'));
     } catch (error) {
-      console.error('[SlackConfig] Failed to save assistant:', error);
+      console.error('[SlackConfig] Failed to save agent:', error);
       Message.error(t('common.saveFailed', 'Failed to save'));
     }
   };
@@ -193,20 +193,20 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
     const trimmedAppToken = appToken.trim();
 
     if (!trimmedBotToken) {
-      Message.warning(t('settings.assistant.slackBotTokenRequired', 'Please enter a Bot Token (xoxb-)'));
+      Message.warning(t('settings.agent.slackBotTokenRequired', 'Please enter a Bot Token (xoxb-)'));
       return;
     }
     if (!trimmedAppToken) {
-      Message.warning(t('settings.assistant.slackAppTokenRequired', 'Please enter an App-Level Token (xapp-)'));
+      Message.warning(t('settings.agent.slackAppTokenRequired', 'Please enter an App-Level Token (xapp-)'));
       return;
     }
     // Soft prefix validation (hard validation happens on the backend)
     if (!trimmedBotToken.startsWith('xoxb-')) {
-      Message.warning(t('settings.assistant.slackBotTokenPrefix', 'Bot Token should start with "xoxb-"'));
+      Message.warning(t('settings.agent.slackBotTokenPrefix', 'Bot Token should start with "xoxb-"'));
       return;
     }
     if (!trimmedAppToken.startsWith('xapp-')) {
-      Message.warning(t('settings.assistant.slackAppTokenPrefix', 'App-Level Token should start with "xapp-"'));
+      Message.warning(t('settings.agent.slackAppTokenPrefix', 'App-Level Token should start with "xapp-"'));
       return;
     }
 
@@ -226,7 +226,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
         setTokenTested(true);
         setTestedBotUsername(result.bot_username || null);
         Message.success(
-          t('settings.assistant.connectionSuccess', {
+          t('settings.agent.connectionSuccess', {
             defaultValue: 'Connected! Bot: @{{username}}',
             username: result.bot_username || 'unknown',
           })
@@ -236,11 +236,11 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
         await handleAutoEnable();
       } else {
         setTokenTested(false);
-        Message.error(result.error || t('settings.assistant.connectionFailed', 'Connection failed'));
+        Message.error(result.error || t('settings.agent.connectionFailed', 'Connection failed'));
       }
     } catch (error: any) {
       setTokenTested(false);
-      Message.error(error.message || t('settings.assistant.connectionFailed', 'Connection failed'));
+      Message.error(error.message || t('settings.agent.connectionFailed', 'Connection failed'));
     } finally {
       setTestLoading(false);
     }
@@ -260,7 +260,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
         },
       });
 
-      Message.success(t('settings.assistant.slackPluginEnabled', 'Slack bot enabled'));
+      Message.success(t('settings.agent.slackPluginEnabled', 'Slack bot enabled'));
       const plugins = await channel.getPluginStatus.invoke();
       if (plugins) {
         const slackPlugin = plugins.find((p) => p.type === 'slack');
@@ -290,7 +290,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
   const handleApprovePairing = async (code: string) => {
     try {
       await channel.approvePairing.invoke({ code });
-      Message.success(t('settings.assistant.pairingApproved', 'Pairing approved'));
+      Message.success(t('settings.agent.pairingApproved', 'Pairing approved'));
       await loadPendingPairings();
       await loadAuthorizedUsers();
     } catch (error: unknown) {
@@ -302,7 +302,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
   const handleRejectPairing = async (code: string) => {
     try {
       await channel.rejectPairing.invoke({ code });
-      Message.info(t('settings.assistant.pairingRejected', 'Pairing rejected'));
+      Message.info(t('settings.agent.pairingRejected', 'Pairing rejected'));
       await loadPendingPairings();
     } catch (error: unknown) {
       Message.error(error instanceof Error ? error.message : String(error));
@@ -313,7 +313,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
   const handleRevokeUser = async (user_id: string) => {
     try {
       await channel.revokeUser.invoke({ user_id });
-      Message.success(t('settings.assistant.userRevoked', 'User access revoked'));
+      Message.success(t('settings.agent.userRevoked', 'User access revoked'));
       await loadAuthorizedUsers();
     } catch (error: unknown) {
       Message.error(error instanceof Error ? error.message : String(error));
@@ -336,11 +336,11 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
     return Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000 / 60));
   };
 
-  const showModelSelector = isAionrsAssistant(selectedAssistant);
-  const assistantOptions = availableAssistants;
-  const selectedAssistantName = selectedAssistant
-    ? resolveAssistantName(selectedAssistant, localeKey, selectedAssistant.name)
-    : t('settings.assistant.name', 'Assistant');
+  const showModelSelector = isAionrsAgent(selectedAgent);
+  const agentOptions = availableAgents;
+  const selectedAgentName = selectedAgent
+    ? resolveAgentName(selectedAgent, localeKey, selectedAgent.name)
+    : t('settings.agent.name', 'Agent');
 
   // Tokens are locked once there are authorized users (mirrors Telegram).
   const tokensLocked = authorizedUsers.length > 0;
@@ -349,16 +349,16 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
     <div className='flex flex-col gap-24px'>
       {/* Bot Token (xoxb-) */}
       <PreferenceRow
-        label={t('settings.assistant.slackBotToken', 'Bot Token')}
+        label={t('settings.agent.slackBotToken', 'Bot Token')}
         description={t(
-          'settings.assistant.slackBotTokenDesc',
+          'settings.agent.slackBotTokenDesc',
           'Create a Slack app, install it to your workspace, then copy the Bot User OAuth Token (xoxb-).'
         )}
       >
         {tokensLocked ? (
           <Tooltip
             content={t(
-              'settings.assistant.tokenLocked',
+              'settings.agent.tokenLocked',
               'Please close the Channel and delete all authorized users before modifying the configuration'
             )}
           >
@@ -387,9 +387,9 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
 
       {/* App-Level Token (xapp-) */}
       <PreferenceRow
-        label={t('settings.assistant.slackAppToken', 'App-Level Token')}
+        label={t('settings.agent.slackAppToken', 'App-Level Token')}
         description={t(
-          'settings.assistant.slackAppTokenDesc',
+          'settings.agent.slackAppTokenDesc',
           'Enable Socket Mode and generate an App-Level Token with the connections:write scope (xapp-).'
         )}
       >
@@ -397,7 +397,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
           {tokensLocked ? (
             <Tooltip
               content={t(
-                'settings.assistant.tokenLocked',
+                'settings.agent.tokenLocked',
                 'Please close the Channel and delete all authorized users before modifying the configuration'
               )}
             >
@@ -425,36 +425,36 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
           {tokensLocked ? (
             <Tooltip
               content={t(
-                'settings.assistant.tokenLocked',
+                'settings.agent.tokenLocked',
                 'Please close the Channel and delete all authorized users before modifying the configuration'
               )}
             >
               <span>
                 <Button type='outline' loading={testLoading} onClick={handleTestConnection} disabled={tokensLocked}>
-                  {t('settings.assistant.testConnection', 'Test')}
+                  {t('settings.agent.testConnection', 'Test')}
                 </Button>
               </span>
             </Tooltip>
           ) : (
             <Button type='outline' loading={testLoading} onClick={handleTestConnection} disabled={tokensLocked}>
-              {t('settings.assistant.testConnection', 'Test')}
+              {t('settings.agent.testConnection', 'Test')}
             </Button>
           )}
         </div>
       </PreferenceRow>
 
-      {/* Assistant Selection */}
+      {/* Agent Selection */}
       <div className='flex flex-col gap-8px'>
         <PreferenceRow
-          label={t('settings.assistant.name', 'Assistant')}
+          label={t('settings.agent.name', 'Agent')}
           description={
             <div className='flex flex-col gap-4px'>
-              <span>{t('settings.assistant.agentDescSlack', 'Used for Slack conversations')}</span>
-              {hasBrokenSavedAssistant && (
+              <span>{t('settings.agent.agentDescSlack', 'Used for Slack conversations')}</span>
+              {hasBrokenSavedAgent && (
                 <span className='text-orange-6'>
                   {t(
                     'conversation.agentError.codes.TEAM_ASSISTANT_NOT_FOUND.title',
-                    'The selected assistant is no longer available'
+                    'The selected agent is no longer available'
                   )}
                 </span>
               )}
@@ -465,20 +465,20 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
             trigger='click'
             position='br'
             droplist={
-              <Menu selectedKeys={selectedAssistant ? [selectedAssistant.id] : []}>
-                {assistantOptions.map((assistant) => {
-                  const assistantName = resolveAssistantName(assistant, localeKey, assistant.name);
+              <Menu selectedKeys={selectedAgent ? [selectedAgent.id] : []}>
+                {agentOptions.map((agent) => {
+                  const agentName = resolveAgentName(agent, localeKey, agent.name);
                   return (
                     <Menu.Item
-                      key={assistant.id}
+                      key={agent.id}
                       onClick={() => {
-                        if (assistant.id === selectedAssistant?.id) return;
+                        if (agent.id === selectedAgent?.id) return;
 
-                        setHasBrokenSavedAssistant(false);
-                        setSelectedAssistant(assistant);
-                        void persistSelectedAssistant(assistant);
+                        setHasBrokenSavedAgent(false);
+                        setSelectedAgent(agent);
+                        void persistSelectedAgent(agent);
 
-                        if (isAionrsAssistant(assistant)) {
+                        if (isAionrsAgent(agent)) {
                           const providers = modelSelection.providers;
                           const savedProviderExists =
                             modelSelection.current_model?.id &&
@@ -492,7 +492,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
                         }
                       }}
                     >
-                      {assistantName}
+                      {agentName}
                     </Menu.Item>
                   );
                 })}
@@ -500,7 +500,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
             }
           >
             <Button type='secondary' className='min-w-160px flex items-center justify-between gap-8px'>
-              <span className='truncate'>{selectedAssistantName}</span>
+              <span className='truncate'>{selectedAgentName}</span>
               <Down theme='outline' size={14} />
             </Button>
           </Dropdown>
@@ -509,15 +509,15 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
 
       {/* Default Model Selection */}
       <PreferenceRow
-        label={t('settings.assistant.defaultModel', 'Default Model')}
-        description={t('settings.assistant.defaultModelDescSlack', 'Model used for Slack conversations')}
+        label={t('settings.agent.defaultModel', 'Default Model')}
+        description={t('settings.agent.defaultModelDescSlack', 'Model used for Slack conversations')}
       >
         <GoogleModelSelector
           selection={showModelSelector ? modelSelection : undefined}
           disabled={!showModelSelector}
           label={
             !showModelSelector
-              ? t('settings.assistant.autoFollowCliModel', 'Automatically follow the model when CLI is running')
+              ? t('settings.agent.autoFollowCliModel', 'Automatically follow the model when CLI is running')
               : undefined
           }
           variant='settings'
@@ -527,11 +527,11 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
       {/* Next Steps Guide - show when bot is enabled and no authorized users yet */}
       {pluginStatus?.enabled && pluginStatus?.connected && authorizedUsers.length === 0 && (
         <div className='bg-blue-50 dark:bg-blue-900/20 rd-12px p-16px border border-blue-200 dark:border-blue-800'>
-          <SectionHeader title={t('settings.assistant.nextSteps', 'Next Steps')} />
+          <SectionHeader title={t('settings.agent.nextSteps', 'Next Steps')} />
           <div className='text-14px text-t-secondary space-y-8px'>
             <p className='m-0'>
               <strong>1.</strong>{' '}
-              {t('settings.assistant.slackStep1', 'Open Slack and mention your bot in a channel, or send it a DM')}
+              {t('settings.agent.slackStep1', 'Open Slack and mention your bot in a channel, or send it a DM')}
               {pluginStatus.botUsername && (
                 <span className='ms-4px'>
                   <code className='bg-fill-2 px-6px py-2px rd-4px'>@{pluginStatus.botUsername}</code>
@@ -540,18 +540,18 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
             </p>
             <p className='m-0'>
               <strong>2.</strong>{' '}
-              {t('settings.assistant.slackStep2', 'Send any message or @mention to initiate pairing')}
+              {t('settings.agent.slackStep2', 'Send any message or @mention to initiate pairing')}
             </p>
             <p className='m-0'>
               <strong>3.</strong>{' '}
               {t(
-                'settings.assistant.slackStep3',
+                'settings.agent.slackStep3',
                 'A pairing request will appear below. Click "Approve" to authorize the user.'
               )}
             </p>
             <p className='m-0'>
               <strong>4.</strong>{' '}
-              {t('settings.assistant.slackStep4', 'Once approved, you can start chatting with the assistant in Slack!')}
+              {t('settings.agent.slackStep4', 'Once approved, you can start chatting with the agent in Slack!')}
             </p>
           </div>
         </div>
@@ -561,7 +561,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
       {pluginStatus?.enabled && authorizedUsers.length === 0 && (
         <div className='bg-fill-1 rd-12px pt-16px pe-16px pb-16px ps-0'>
           <SectionHeader
-            title={t('settings.assistant.pendingPairings', 'Pending Pairing Requests')}
+            title={t('settings.agent.pendingPairings', 'Pending Pairing Requests')}
             action={
               <Button
                 size='mini'
@@ -580,7 +580,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
               <Spin />
             </div>
           ) : pendingPairings.length === 0 ? (
-            <Empty description={t('settings.assistant.noPendingPairings', 'No pending pairing requests')} />
+            <Empty description={t('settings.agent.noPendingPairings', 'No pending pairing requests')} />
           ) : (
             <div className='flex flex-col gap-12px'>
               {pendingPairings.map((pairing) => (
@@ -588,9 +588,9 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
                   <div className='flex-1'>
                     <div className='flex items-center gap-8px'>
                       <span className='text-14px font-500 text-t-primary'>
-                        {pairing.display_name || t('settings.assistant.unknownUser', 'Unknown User')}
+                        {pairing.display_name || t('settings.agent.unknownUser', 'Unknown User')}
                       </span>
-                      <Tooltip content={t('settings.assistant.copyCode', 'Copy pairing code')}>
+                      <Tooltip content={t('settings.agent.copyCode', 'Copy pairing code')}>
                         <Button
                           type='text'
                           size='mini'
@@ -600,10 +600,10 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
                       </Tooltip>
                     </div>
                     <div className='text-12px text-t-tertiary mt-4px'>
-                      {t('settings.assistant.pairingCode', 'Code')}:{' '}
+                      {t('settings.agent.pairingCode', 'Code')}:{' '}
                       <code className='bg-fill-3 px-4px rd-2px'>{pairing.code}</code>
                       <span className='mx-8px'>|</span>
-                      {t('settings.assistant.expiresInMinutes', { count: getRemainingMinutes(pairing.expiresAt) })}
+                      {t('settings.agent.expiresInMinutes', { count: getRemainingMinutes(pairing.expiresAt) })}
                     </div>
                   </div>
                   <div className='flex items-center gap-8px'>
@@ -613,7 +613,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
                       icon={<CheckOne size={14} />}
                       onClick={() => handleApprovePairing(pairing.code)}
                     >
-                      {t('settings.assistant.approve', 'Approve')}
+                      {t('settings.agent.approve', 'Approve')}
                     </Button>
                     <Button
                       type='secondary'
@@ -622,7 +622,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
                       icon={<CloseOne size={14} />}
                       onClick={() => handleRejectPairing(pairing.code)}
                     >
-                      {t('settings.assistant.reject', 'Reject')}
+                      {t('settings.agent.reject', 'Reject')}
                     </Button>
                   </div>
                 </div>
@@ -636,7 +636,7 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
       {authorizedUsers.length > 0 && (
         <div className='bg-fill-1 rd-12px pt-16px pe-16px pb-16px ps-0'>
           <SectionHeader
-            title={t('settings.assistant.authorizedUsers', 'Authorized Users')}
+            title={t('settings.agent.authorizedUsers', 'Authorized Users')}
             action={
               <Button
                 size='mini'
@@ -655,22 +655,22 @@ const SlackConfigForm: React.FC<SlackConfigFormProps> = ({
               <Spin />
             </div>
           ) : authorizedUsers.length === 0 ? (
-            <Empty description={t('settings.assistant.noAuthorizedUsers', 'No authorized users yet')} />
+            <Empty description={t('settings.agent.noAuthorizedUsers', 'No authorized users yet')} />
           ) : (
             <div className='flex flex-col gap-12px'>
               {authorizedUsers.map((user) => (
                 <div key={user.id} className='flex items-center justify-between bg-fill-2 rd-8px p-12px'>
                   <div className='flex-1'>
                     <div className='text-14px font-500 text-t-primary'>
-                      {user.display_name || t('settings.assistant.unknownUser', 'Unknown User')}
+                      {user.display_name || t('settings.agent.unknownUser', 'Unknown User')}
                     </div>
                     <div className='text-12px text-t-tertiary mt-4px'>
-                      {t('settings.assistant.platform', 'Platform')}: {user.platformType}
+                      {t('settings.agent.platform', 'Platform')}: {user.platformType}
                       <span className='mx-8px'>|</span>
-                      {t('settings.assistant.authorizedAt', 'Authorized')}: {formatTime(user.authorizedAt)}
+                      {t('settings.agent.authorizedAt', 'Authorized')}: {formatTime(user.authorizedAt)}
                     </div>
                   </div>
-                  <Tooltip content={t('settings.assistant.revokeAccess', 'Revoke access')}>
+                  <Tooltip content={t('settings.agent.revokeAccess', 'Revoke access')}>
                     <Button
                       type='text'
                       status='danger'

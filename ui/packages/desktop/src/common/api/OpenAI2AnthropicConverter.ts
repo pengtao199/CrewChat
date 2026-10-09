@@ -102,7 +102,7 @@ export class OpenAI2AnthropicConverter implements ProtocolConverter<
       }
     }
 
-    // Ensure messages alternate between user and assistant
+    // Ensure messages alternate between user and agent
     // Anthropic requires the first message to be from user
     const validatedMessages = this.ensureAlternatingMessages(messages);
 
@@ -250,7 +250,7 @@ export class OpenAI2AnthropicConverter implements ProtocolConverter<
   }
 
   /**
-   * Ensure messages alternate between user and assistant
+   * Ensure messages alternate between user and agent
    * Anthropic requires the first message to be from user
    */
   private ensureAlternatingMessages(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {

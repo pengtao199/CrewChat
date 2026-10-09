@@ -43,8 +43,7 @@
     "noHistory": "Sin ejecuciones aún",
     "notFound": "Tarea no encontrada",
     "executionModeDescriptionNew": "Cada ejecución inicia una conversación nueva, por lo que el contexto anterior no se lleva. Ideal para informes o verificaciones periódicas que deben ser independientes.",
-    "executionModeDescriptionExisting": "Cada ejecución continúa en la misma conversación, por lo que el contexto y los resultados anteriores están disponibles. Ideal para tareas de seguimiento que se basan en ejecuciones previas.",
-    "assistant": "Assistant"
+    "executionModeDescriptionExisting": "Cada ejecución continúa en la misma conversación, por lo que el contexto y los resultados anteriores están disponibles. Ideal para tareas de seguimiento que se basan en ejecuciones previas."
   },
   "notification": {
     "taskComplete": "Tarea completada",
@@ -94,8 +93,8 @@
       "scheduleDescPlaceholder": "Ej., Todos los lunes a las 9:00 AM",
       "descriptionRequired": "La descripción es obligatoria",
       "agent": "Agente",
-      "agentRequired": "Por favor selecciona un agente",
-      "agentPlaceholder": "Selecciona el agente para ejecutar esta tarea",
+      "agentRequired": "Please select an agent",
+      "agentPlaceholder": "Select the agent to execute this task",
       "executionMode": "Modo de ejecución",
       "newConversation": "Nueva conversación",
       "existingConversation": "Conversación continua",
@@ -110,10 +109,7 @@
       "model": "Modelo",
       "aionrsModelRequired": "Por favor selecciona un modelo para Aion CLI",
       "aionrsNoProvider": "No hay modelos disponibles",
-      "assistant": "Assistant",
-      "assistantRequired": "Please select an assistant",
-      "assistantPlaceholder": "Select the assistant to execute this task",
-      "assistantLockedExistingConversation": "Ongoing conversation tasks must keep their original assistant. Create a new task to use another assistant.",
+      "agentLockedExistingConversation": "Ongoing conversation tasks must keep their original agent. Create a new task to use another agent.",
       "teamTaskExecutionModeLockedReason": "Team scheduled tasks must keep running in the owning team conversation, so the execution mode cannot be changed."
     },
     "freq": {

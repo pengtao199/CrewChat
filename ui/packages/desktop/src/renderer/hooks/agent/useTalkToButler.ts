@@ -5,15 +5,15 @@
  */
 
 import { ipcBridge } from '@/common';
-import type { Assistant } from '@/common/types/agent/assistantTypes';
+import type { Agent } from '@/common/types/agent/agentTypes';
 import { globalNavigate } from '@/renderer/utils/navigation';
 import { Message } from '@arco-design/web-react';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { mutate as swrMutate } from 'swr';
 
-/** Backend manifest id of the built-in AionUi Butler assistant. */
-const BUTLER_ASSISTANT_ID = 'aionui-assistant';
+/** Backend manifest id of the built-in AionUi Butler agent. */
+const BUTLER_ASSISTANT_ID = 'aionui-agent';
 
 export type TalkToButlerArgs = {
   /** Prompt pre-filled into the home chat input. */
@@ -23,13 +23,13 @@ export type TalkToButlerArgs = {
 };
 
 /**
- * Resolve the Butler assistant from the catalog, tolerating the `builtin-`
+ * Resolve the Butler agent from the catalog, tolerating the `builtin-`
  * prefix the frontend sometimes carries on built-in ids.
  */
-const findButler = (assistants: Assistant[]): Assistant | undefined => {
+const findButler = (agents: Agent[]): Agent | undefined => {
   const candidates = new Set([BUTLER_ASSISTANT_ID, `builtin-${BUTLER_ASSISTANT_ID}`]);
-  return assistants.find(
-    (assistant) => candidates.has(assistant.id) || assistant.id.replace(/^builtin-/, '') === BUTLER_ASSISTANT_ID
+  return agents.find(
+    (agent) => candidates.has(agent.id) || agent.id.replace(/^builtin-/, '') === BUTLER_ASSISTANT_ID
   );
 };
 
@@ -49,16 +49,16 @@ export const useTalkToButler = (): ((args: TalkToButlerArgs) => Promise<void>) =
 
   return useCallback(
     async ({ prompt, files }: TalkToButlerArgs) => {
-      let selectedAssistantId: string | undefined;
+      let selectedAgentId: string | undefined;
 
       try {
-        const assistants = await ipcBridge.assistants.list.invoke();
-        const butler = findButler(assistants);
+        const agents = await ipcBridge.agents.list.invoke();
+        const butler = findButler(agents);
         if (butler) {
-          selectedAssistantId = butler.id;
+          selectedAgentId = butler.id;
           if (butler.enabled === false) {
-            await ipcBridge.assistants.setState.invoke({ id: butler.id, enabled: true });
-            await swrMutate('assistants.list');
+            await ipcBridge.agents.setState.invoke({ id: butler.id, enabled: true });
+            await swrMutate('agents.list');
             Message.success(
               t('settings.talkToButler.enabledToast', { defaultValue: 'Enabled the AionUi Butler for you' })
             );
@@ -66,13 +66,13 @@ export const useTalkToButler = (): ((args: TalkToButlerArgs) => Promise<void>) =
         }
       } catch (error) {
         // Non-fatal: fall through to the home page with the prompt pre-filled
-        // but no assistant pinned, rather than blocking the user.
+        // but no agent pinned, rather than blocking the user.
         console.error('[talkToButler] failed to resolve/enable butler:', error);
       }
 
       globalNavigate('/guid', {
         state: {
-          selectedAssistantId,
+          selectedAgentId,
           prefillPrompt: prompt,
           prefillFiles: files,
         },

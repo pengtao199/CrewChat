@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useTalkToButler } from '@/renderer/hooks/assistant/useTalkToButler';
+import { useTalkToButler } from '@/renderer/hooks/agent/useTalkToButler';
 import { Button, Dropdown, Menu } from '@arco-design/web-react';
 import { Down } from '@icon-park/react';
 import classNames from 'classnames';
@@ -18,7 +18,7 @@ export type TalkToButlerExtraAction = {
 
 export type TalkToButlerButtonProps = {
   /**
-   * Button label in its plain, action-neutral form — e.g. "Create assistant",
+   * Button label in its plain, action-neutral form — e.g. "Create agent",
    * "Add model". Clicking the button opens the menu; it does NOT run any action
    * itself (we don't bias the user toward chat or manual).
    */
@@ -31,7 +31,7 @@ export type TalkToButlerButtonProps = {
    * Override for the "via chat" action. Default behaviour hands off to the
    * AionUi Butler (select it + pre-fill `prompt`). Callers that want a
    * different chat target — e.g. the scheduled-tasks page, which creates with
-   * the user's last-used assistant — pass their own handler here.
+   * the user's last-used agent — pass their own handler here.
    */
   onChat?: () => void;
   /** Menu label for the "via chat" item, e.g. "Create via chat". */

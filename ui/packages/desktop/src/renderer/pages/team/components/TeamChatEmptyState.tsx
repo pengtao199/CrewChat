@@ -6,8 +6,8 @@ import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conve
 import { getSendBoxDraftHook } from '@renderer/hooks/chat/useSendBoxDraft';
 import { resolveAgentAvatar, useAgentLogos } from '@renderer/utils/model/agentLogo';
 import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
-import { usePresetAssistantInfo } from '@renderer/hooks/agent/usePresetAssistantInfo';
-import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { usePresetAgentInfo } from '@renderer/hooks/agent/usePresetAgentInfo';
+import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 import { useTeammateColor } from '../identity/TeamIdentityContext';
 import { Robot } from '@icon-park/react';
 
@@ -16,8 +16,8 @@ const useAionrsDraft = getSendBoxDraftHook('aionrs', { _type: 'aionrs', atPath: 
 
 type Props = {
   conversation_id: string;
-  assistant_name?: string;
-  assistant_backend?: string;
+  agent_name?: string;
+  agent_backend?: string;
   icon?: string;
   isLeader?: boolean;
 };
@@ -29,7 +29,7 @@ const SUGGESTIONS = [
 ];
 
 const SUGGESTION_DEFAULTS: Record<string, string> = {
-  debate: 'Organize a debate with assistants taking different sides',
+  debate: 'Organize a debate with agents taking different sides',
   add_member: 'Help me add a member good at ___ to the team',
   expert_review: 'Have multiple experts analyze the same problem',
 };
@@ -41,13 +41,13 @@ const toDraftKind = (type: TChatConversation['type']): TeamDraftKind => {
   return type === 'aionrs' ? 'aionrs' : 'acp';
 };
 
-const resolveAssistantName = (
+const resolveAgentName = (
   conversation: TChatConversation,
   presetName: string | null,
-  explicitAssistantName?: string
+  explicitAgentName?: string
 ): string => {
   if (presetName) return presetName;
-  const trimmedExplicitName = explicitAssistantName?.trim();
+  const trimmedExplicitName = explicitAgentName?.trim();
   if (trimmedExplicitName) return trimmedExplicitName;
   const extraAgentName = (conversation.extra as { agent_name?: string } | undefined)?.agent_name;
   if (extraAgentName && extraAgentName.trim()) return extraAgentName.trim();
@@ -60,8 +60,8 @@ const resolveAssistantName = (
 
 const TeamChatEmptyState: React.FC<Props> = ({
   conversation_id,
-  assistant_name,
-  assistant_backend,
+  agent_name,
+  agent_backend,
   icon,
   isLeader = false,
 }) => {
@@ -74,7 +74,7 @@ const TeamChatEmptyState: React.FC<Props> = ({
   const { data: conversation } = useSWR(conversation_id ? ['team-conversation', conversation_id] : null, () =>
     getConversationOrNull(conversation_id)
   );
-  const { info: presetInfo } = usePresetAssistantInfo(conversation ?? undefined);
+  const { info: presetInfo } = usePresetAgentInfo(conversation ?? undefined);
 
   // Hooks must run unconditionally; the lookup below picks the right draft at call time.
   const acpDraft = useAcpDraft(conversation_id);
@@ -99,9 +99,9 @@ const TeamChatEmptyState: React.FC<Props> = ({
   )?.trim();
   if (!team_id) return null;
 
-  const assistantBackend = resolveConversationBackend(conversation, assistant_backend || presetInfo?.backend) || 'acp';
-  const assistantName = resolveAssistantName(conversation, presetInfo?.name ?? null, assistant_name);
-  const agentAvatar = resolveAgentAvatar(logos, { icon, backend: assistantBackend });
+  const agentBackend = resolveConversationBackend(conversation, agent_backend || presetInfo?.backend) || 'acp';
+  const agentName = resolveAgentName(conversation, presetInfo?.name ?? null, agent_name);
+  const agentAvatar = resolveAgentAvatar(logos, { icon, backend: agentBackend });
 
   const renderAvatar = () => {
     if (presetInfo) {
@@ -131,7 +131,7 @@ const TeamChatEmptyState: React.FC<Props> = ({
       return (
         <ThemedLogo
           src={agentAvatar.value}
-          alt={assistantName}
+          alt={agentName}
           className='w-48px h-48px object-contain rounded-8px opacity-80'
         />
       );
@@ -158,7 +158,7 @@ const TeamChatEmptyState: React.FC<Props> = ({
       {renderAvatar()}
       <div className='flex flex-col gap-6px'>
         <span className='text-16px font-semibold' style={identityColor ? { color: identityColor } : undefined}>
-          {assistantName}
+          {agentName}
         </span>
         <span data-testid='team-chat-empty-state-subtitle' className='text-13px text-t-secondary'>
           {isLeader

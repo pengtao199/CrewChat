@@ -16,7 +16,7 @@ function stripThinkTags(text: string): string {
 }
 
 /**
- * Strip think tags from the assistant message for display.
+ * Strip think tags from the agent message for display.
  * Cron job creation/update/listing is handled through the injected HTTP helper.
  */
 export async function processLocalCronResponse(

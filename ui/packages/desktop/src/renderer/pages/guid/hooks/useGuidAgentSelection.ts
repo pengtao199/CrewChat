@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { assistantRuntimeKey, isAionrsAssistant, type Assistant } from '@/common/types/agent/assistantTypes';
+import { agentRuntimeKey, isAionrsAgent, type Agent } from '@/common/types/agent/agentTypes';
 import { configService } from '@/common/config/configService';
 import type { AcpModelInfo } from '../types';
 import type { AgentModeOption } from '@/renderer/utils/model/agentTypes';
@@ -28,14 +28,14 @@ export {
   type AgentRuntimeCatalog,
 };
 
-export type GuidAssistantSelectionResult = {
-  selectedAssistantId: string | null;
-  setSelectedAssistantId: (assistantId: string) => void;
-  defaultAssistantId: string | null;
-  selectedAssistant: Assistant | undefined;
-  selectedAssistantBackend: string;
-  selectedAssistantAvailable: boolean;
-  assistants: Assistant[];
+export type GuidAgentSelectionResult = {
+  selectedAgentId: string | null;
+  setSelectedAgentId: (agentId: string) => void;
+  defaultAgentId: string | null;
+  selectedAgent: Agent | undefined;
+  selectedAgentBackend: string;
+  selectedAgentAvailable: boolean;
+  agents: Agent[];
   selectedMode: string;
   setSelectedMode: (mode: React.SetStateAction<string>, options?: { persistPreference?: boolean }) => void;
   selectedAcpModel: string | null;
@@ -51,7 +51,7 @@ export type GuidAssistantSelectionResult = {
   ) => void;
 };
 
-export function resolveInitialAssistantModel(models: string[]): string | null {
+export function resolveInitialAgentModel(models: string[]): string | null {
   if (models.length > 0) {
     return models[0];
   }
@@ -59,7 +59,7 @@ export function resolveInitialAssistantModel(models: string[]): string | null {
   return null;
 }
 
-export function buildAssistantModelInfo(models: string[]): AcpModelInfo | null {
+export function buildAgentModelInfo(models: string[]): AcpModelInfo | null {
   if (models.length > 0) {
     return {
       current_model_id: models[0],
@@ -71,61 +71,61 @@ export function buildAssistantModelInfo(models: string[]): AcpModelInfo | null {
   return null;
 }
 
-export function resolveAssistantSelectionKey(
+export function resolveAgentSelectionKey(
   savedKey: string | undefined,
-  assistants: Assistant[]
+  agents: Agent[]
 ): string | undefined {
   if (!savedKey) return undefined;
 
   if (savedKey.startsWith('custom:')) {
-    const assistantId = savedKey.slice(7);
-    return assistants.some((assistant) => assistant.id === assistantId) ? assistantId : undefined;
+    const agentId = savedKey.slice(7);
+    return agents.some((agent) => agent.id === agentId) ? agentId : undefined;
   }
 
-  if (assistants.some((assistant) => assistant.id === savedKey)) {
+  if (agents.some((agent) => agent.id === savedKey)) {
     return savedKey;
   }
 
   return undefined;
 }
 
-function readPersistedGuidAssistantSelectionKey(assistants: Assistant[]): string | undefined {
-  const savedKey = configService.get('guid.lastAssistantId');
-  const enabledAssistants = assistants.filter((assistant) => assistant.enabled !== false);
-  return resolveAssistantSelectionKey(savedKey, enabledAssistants);
+function readPersistedGuidAgentSelectionKey(agents: Agent[]): string | undefined {
+  const savedKey = configService.get('guid.lastAgentId');
+  const enabledAgents = agents.filter((agent) => agent.enabled !== false);
+  return resolveAgentSelectionKey(savedKey, enabledAgents);
 }
 
-function persistGuidAssistantSelectionKey(assistantId: string): void {
-  void configService.set('guid.lastAssistantId', assistantId).catch((error) => {
-    console.error('[Guid] Failed to persist selected assistant:', error);
+function persistGuidAgentSelectionKey(agentId: string): void {
+  void configService.set('guid.lastAgentId', agentId).catch((error) => {
+    console.error('[Guid] Failed to persist selected agent:', error);
   });
 }
 
-export function pickDefaultAssistantSelectionKey(assistants: Assistant[]): string | null {
-  const enabledAssistants = assistants.filter((assistant) => assistant.enabled !== false);
+export function pickDefaultAgentSelectionKey(agents: Agent[]): string | null {
+  const enabledAgents = agents.filter((agent) => agent.enabled !== false);
   const preferred =
-    enabledAssistants.find((assistant) => assistant.source === 'generated' && isAionrsAssistant(assistant)) ??
-    enabledAssistants.find((assistant) => isAionrsAssistant(assistant)) ??
-    enabledAssistants[0];
+    enabledAgents.find((agent) => agent.source === 'generated' && isAionrsAgent(agent)) ??
+    enabledAgents.find((agent) => isAionrsAgent(agent)) ??
+    enabledAgents[0];
   return preferred?.id ?? null;
 }
 
-type UseGuidAssistantSelectionOptions = {
-  resetAssistant?: boolean;
-  preselectAssistantId?: string;
+type UseGuidAgentSelectionOptions = {
+  resetAgent?: boolean;
+  preselectAgentId?: string;
   locationKey?: string;
 };
 
-export const useGuidAssistantSelection = ({
-  resetAssistant,
-  preselectAssistantId,
+export const useGuidAgentSelection = ({
+  resetAgent,
+  preselectAgentId,
   locationKey,
-}: UseGuidAssistantSelectionOptions): GuidAssistantSelectionResult => {
-  const [selectedAssistantIdState, _setSelectedAssistantId] = useState<string | null>(null);
+}: UseGuidAgentSelectionOptions): GuidAgentSelectionResult => {
+  const [selectedAgentIdState, _setSelectedAgentId] = useState<string | null>(null);
   const [selectedMode, _setSelectedMode] = useState<string>('default');
   const [selectedAcpModel, _setSelectedAcpModel] = useState<string | null>(null);
   const [selectedThoughtLevelValue, _setSelectedThoughtLevelValue] = useState<string>('');
-  const { assistants } = useCustomAgentsLoader();
+  const { agents } = useCustomAgentsLoader();
   const managedAgentRuntimeCatalog = useManagedAgentRuntimeCatalog();
 
   const setSelectedMode = useCallback(
@@ -158,13 +158,13 @@ export const useGuidAssistantSelection = ({
     []
   );
 
-  const setSelectedAssistantId = useCallback(
-    (assistantId: string) => {
-      const normalizedId = resolveAssistantSelectionKey(assistantId, assistants) ?? assistantId;
-      _setSelectedAssistantId(normalizedId);
-      persistGuidAssistantSelectionKey(normalizedId);
+  const setSelectedAgentId = useCallback(
+    (agentId: string) => {
+      const normalizedId = resolveAgentSelectionKey(agentId, agents) ?? agentId;
+      _setSelectedAgentId(normalizedId);
+      persistGuidAgentSelectionKey(normalizedId);
     },
-    [assistants]
+    [agents]
   );
 
   const resetHandledRef = useRef(false);
@@ -175,51 +175,51 @@ export const useGuidAssistantSelection = ({
   }
 
   useLayoutEffect(() => {
-    if (assistants.length === 0) return;
+    if (agents.length === 0) return;
     if (resetHandledRef.current) return;
 
-    if (preselectAssistantId) {
-      const resolvedPreselect = resolveAssistantSelectionKey(preselectAssistantId, assistants);
+    if (preselectAgentId) {
+      const resolvedPreselect = resolveAgentSelectionKey(preselectAgentId, agents);
       if (resolvedPreselect) {
         resetHandledRef.current = true;
-        _setSelectedAssistantId(resolvedPreselect);
+        _setSelectedAgentId(resolvedPreselect);
         return;
       }
     }
 
-    if (resetAssistant) {
+    if (resetAgent) {
       resetHandledRef.current = true;
       const fallbackId =
-        readPersistedGuidAssistantSelectionKey(assistants) ?? pickDefaultAssistantSelectionKey(assistants);
-      _setSelectedAssistantId(fallbackId);
+        readPersistedGuidAgentSelectionKey(agents) ?? pickDefaultAgentSelectionKey(agents);
+      _setSelectedAgentId(fallbackId);
     }
-  }, [assistants, preselectAssistantId, resetAssistant]);
+  }, [agents, preselectAgentId, resetAgent]);
 
   useEffect(() => {
-    if (assistants.length === 0) return;
-    if (resetAssistant) return;
-    if (preselectAssistantId && resolveAssistantSelectionKey(preselectAssistantId, assistants)) return;
-    if (!selectedAssistantIdState || !assistants.some((assistant) => assistant.id === selectedAssistantIdState)) {
-      _setSelectedAssistantId(
-        readPersistedGuidAssistantSelectionKey(assistants) ?? pickDefaultAssistantSelectionKey(assistants)
+    if (agents.length === 0) return;
+    if (resetAgent) return;
+    if (preselectAgentId && resolveAgentSelectionKey(preselectAgentId, agents)) return;
+    if (!selectedAgentIdState || !agents.some((agent) => agent.id === selectedAgentIdState)) {
+      _setSelectedAgentId(
+        readPersistedGuidAgentSelectionKey(agents) ?? pickDefaultAgentSelectionKey(agents)
       );
     }
-  }, [assistants, preselectAssistantId, resetAssistant, selectedAssistantIdState]);
+  }, [agents, preselectAgentId, resetAgent, selectedAgentIdState]);
 
-  const selectedAssistant = useMemo(
+  const selectedAgent = useMemo(
     () =>
-      selectedAssistantIdState ? assistants.find((assistant) => assistant.id === selectedAssistantIdState) : undefined,
-    [assistants, selectedAssistantIdState]
+      selectedAgentIdState ? agents.find((agent) => agent.id === selectedAgentIdState) : undefined,
+    [agents, selectedAgentIdState]
   );
-  const selectedAssistantId = selectedAssistant?.id ?? null;
-  const selectedAssistantBackend = assistantRuntimeKey(selectedAssistant);
-  const selectedAssistantModels = selectedAssistant?.models ?? [];
+  const selectedAgentId = selectedAgent?.id ?? null;
+  const selectedAgentBackend = agentRuntimeKey(selectedAgent);
+  const selectedAgentModels = selectedAgent?.models ?? [];
   const selectedManagedAgentRuntimeCatalog = useMemo(
     () =>
-      selectedAssistant?.agent_id
-        ? managedAgentRuntimeCatalog.find((agent) => agent.id === selectedAssistant.agent_id)
+      selectedAgent?.agent_id
+        ? managedAgentRuntimeCatalog.find((agent) => agent.id === selectedAgent.agent_id)
         : undefined,
-    [managedAgentRuntimeCatalog, selectedAssistant?.agent_id]
+    [managedAgentRuntimeCatalog, selectedAgent?.agent_id]
   );
   const selectedAgentRuntimeModelInfo = useMemo(
     () => buildAgentRuntimeModelInfo(selectedManagedAgentRuntimeCatalog),
@@ -246,9 +246,9 @@ export const useGuidAssistantSelection = ({
   }, [selectedAgentRuntimeThoughtLevelOption, selectedThoughtLevelValue]);
   const currentAgentModeOptions = selectedAgentRuntimeModeState.options;
 
-  const selectedAssistantAvailable = useMemo(() => {
-    return selectedAssistant?.agent_status === 'online';
-  }, [selectedAssistant]);
+  const selectedAgentAvailable = useMemo(() => {
+    return selectedAgent?.agent_status === 'online';
+  }, [selectedAgent]);
 
   const modelSelectionScopeRef = useRef<string | null>(null);
   useEffect(() => {
@@ -264,17 +264,17 @@ export const useGuidAssistantSelection = ({
     // picker renders this as no checkmark + the generic "default model" label, and once a
     // session exists the backend reports the model it actually resolved to.
     //
-    // Assistants backed by an API provider have no runtime catalog; they keep seeding from
-    // their own `models` list, which is a real per-assistant configuration.
+    // Agents backed by an API provider have no runtime catalog; they keep seeding from
+    // their own `models` list, which is a real per-agent configuration.
     const fallbackModelId = selectedAgentRuntimeModelInfo
       ? null
-      : selectedAssistantModels.length > 0
-        ? resolveInitialAssistantModel(selectedAssistantModels)
+      : selectedAgentModels.length > 0
+        ? resolveInitialAgentModel(selectedAgentModels)
         : null;
     const availableModelIds = new Set(
-      selectedAgentRuntimeModelInfo?.available_models.map((model) => model.id) ?? selectedAssistantModels
+      selectedAgentRuntimeModelInfo?.available_models.map((model) => model.id) ?? selectedAgentModels
     );
-    const selectionScope = selectedAssistantId ?? '';
+    const selectionScope = selectedAgentId ?? '';
 
     _setSelectedAcpModel((previousModelId) => {
       const scopeChanged = modelSelectionScopeRef.current !== selectionScope;
@@ -290,7 +290,7 @@ export const useGuidAssistantSelection = ({
 
       return fallbackModelId;
     });
-  }, [selectedAssistantId, selectedAssistantModels, selectedAgentRuntimeModelInfo]);
+  }, [selectedAgentId, selectedAgentModels, selectedAgentRuntimeModelInfo]);
 
   useEffect(() => {
     const fallbackMode =
@@ -305,7 +305,7 @@ export const useGuidAssistantSelection = ({
       selectedAgentRuntimeThoughtLevelOption?.currentValue ||
       selectedAgentRuntimeThoughtLevelOption?.options[0]?.value ||
       '';
-    const selectionScope = selectedAssistantId ?? '';
+    const selectionScope = selectedAgentId ?? '';
 
     _setSelectedThoughtLevelValue((previousValue) => {
       const scopeChanged = thoughtLevelSelectionScopeRef.current !== selectionScope;
@@ -321,26 +321,26 @@ export const useGuidAssistantSelection = ({
 
       return fallbackThoughtLevel;
     });
-  }, [selectedAgentRuntimeThoughtLevelOption, selectedAssistantId]);
+  }, [selectedAgentRuntimeThoughtLevelOption, selectedAgentId]);
 
   const currentAcpCachedModelInfo = useMemo(() => {
     if (selectedAgentRuntimeModelInfo) {
       return selectedAgentRuntimeModelInfo;
     }
 
-    return buildAssistantModelInfo(selectedAssistantModels);
-  }, [selectedAssistantModels, selectedAgentRuntimeModelInfo]);
+    return buildAgentModelInfo(selectedAgentModels);
+  }, [selectedAgentModels, selectedAgentRuntimeModelInfo]);
 
-  const defaultAssistantId = useMemo(() => pickDefaultAssistantSelectionKey(assistants), [assistants]);
+  const defaultAgentId = useMemo(() => pickDefaultAgentSelectionKey(agents), [agents]);
 
   return {
-    selectedAssistantId,
-    setSelectedAssistantId,
-    defaultAssistantId,
-    selectedAssistant,
-    selectedAssistantBackend,
-    selectedAssistantAvailable,
-    assistants,
+    selectedAgentId,
+    setSelectedAgentId,
+    defaultAgentId,
+    selectedAgent,
+    selectedAgentBackend,
+    selectedAgentAvailable,
+    agents,
     selectedMode,
     setSelectedMode,
     selectedAcpModel,

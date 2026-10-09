@@ -19,12 +19,12 @@
  */
 
 import { ipcBridge } from '@/common';
-import type { AssistantAvatar } from '@/renderer/utils/model/assistantAvatar';
+import type { AgentAvatar } from '@/renderer/utils/model/agentAvatar';
 import {
   isBackendRelativeAssetPath,
   isLikelyLocalFilePath,
-  resolveAssistantAvatar,
-} from '@/renderer/utils/model/assistantAvatar';
+  resolveAgentAvatar,
+} from '@/renderer/utils/model/agentAvatar';
 import type { ManagedAgent } from '@/renderer/utils/model/agentTypes';
 import { resolveBackendAssetUrl } from '@/renderer/utils/platform';
 import useSWR from 'swr';
@@ -97,9 +97,9 @@ function lookupBackendLogo(logos: AgentLogoMap, backend: string | undefined | nu
   return logo ? normalizeLogoUrl(logo) : null;
 }
 
-function lookupBackendAvatar(logos: AgentLogoMap, backend: string | undefined | null): AssistantAvatar {
+function lookupBackendAvatar(logos: AgentLogoMap, backend: string | undefined | null): AgentAvatar {
   const logo = lookupBackendLogoValue(logos, backend);
-  return resolveAssistantAvatar(logo || undefined);
+  return resolveAgentAvatar(logo || undefined);
 }
 
 /**
@@ -139,8 +139,8 @@ export function resolveAgentAvatar(
     custom_agent_id?: string | null;
     isExtension?: boolean;
   }
-): AssistantAvatar {
-  const explicitAvatar = resolveAssistantAvatar(opts.icon || undefined);
+): AgentAvatar {
+  const explicitAvatar = resolveAgentAvatar(opts.icon || undefined);
   if (explicitAvatar.kind !== 'fallback') return explicitAvatar;
 
   if (opts.isExtension && opts.custom_agent_id) {

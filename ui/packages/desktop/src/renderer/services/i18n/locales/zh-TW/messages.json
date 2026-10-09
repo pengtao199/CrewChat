@@ -42,7 +42,7 @@
   "export.typeLabel": "類型",
   "export.noMessages": "沒有訊息",
   "export.userLabel": "使用者",
-  "export.assistantLabel": "助理",
+  "export.agentLabel": "助理",
   "export.systemLabel": "系統",
   "export.menuTitle": "匯出對話",
   "export.menuHint": "選擇匯出目前對話的方式",

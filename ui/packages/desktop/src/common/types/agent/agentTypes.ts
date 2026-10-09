@@ -4,30 +4,30 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-// Mirror of aionui-api-types/src/assistant.rs.
+// Mirror of aionui-api-types/src/agent.rs.
 // Any shape change on either side requires a same-PR update on the other.
 
-export type AssistantSource = 'builtin' | 'generated' | 'user';
-export type AssistantAgentStatus = 'missing' | 'online' | 'offline' | 'unchecked';
-export type AssistantAgentSource = 'internal' | 'builtin' | 'extension' | 'custom';
+export type AgentSource = 'builtin' | 'generated' | 'user';
+export type AgentAgentStatus = 'missing' | 'online' | 'offline' | 'unchecked';
+export type AgentAgentSource = 'internal' | 'builtin' | 'extension' | 'custom';
 
-export type AssistantAgent = {
+export type AgentAgent = {
   type: string;
-  source: AssistantAgentSource;
+  source: AgentAgentSource;
   acp_backend?: string;
 };
 
-export function assistantRuntimeKey(assistant?: Pick<Assistant, 'agent'> | null): string {
-  return assistant?.agent?.acp_backend || assistant?.agent?.type || '';
+export function agentRuntimeKey(agent?: Pick<Agent, 'agent'> | null): string {
+  return agent?.agent?.acp_backend || agent?.agent?.type || '';
 }
 
-export function isAionrsAssistant(assistant?: Pick<Assistant, 'agent'> | null): boolean {
-  return assistant?.agent?.type === 'aionrs';
+export function isAionrsAgent(agent?: Pick<Agent, 'agent'> | null): boolean {
+  return agent?.agent?.type === 'aionrs';
 }
 
-export interface Assistant {
+export interface Agent {
   id: string;
-  source: AssistantSource;
+  source: AgentSource;
   name: string;
   name_i18n: Record<string, string>;
   description?: string;
@@ -36,7 +36,7 @@ export interface Assistant {
   enabled: boolean;
   sort_order: number;
   agent_id: string;
-  agent?: AssistantAgent;
+  agent?: AgentAgent;
   enabled_skills: string[];
   custom_skill_names: string[];
   disabled_builtin_skills: string[];
@@ -46,14 +46,14 @@ export interface Assistant {
   prompts_i18n: Record<string, string[]>;
   models: string[];
   last_used_at?: number;
-  agent_status: AssistantAgentStatus;
+  agent_status: AgentAgentStatus;
   agent_status_message?: string;
   team_selectable: boolean;
   team_block_reason?: string;
   deletable: boolean;
 }
 
-export interface AssistantProfile {
+export interface AgentProfile {
   name: string;
   name_i18n: Record<string, string>;
   description?: string;
@@ -61,60 +61,60 @@ export interface AssistantProfile {
   avatar?: string;
 }
 
-export interface AssistantState {
+export interface AgentState {
   enabled: boolean;
   sort_order: number;
   last_used_at?: number;
 }
 
-export interface AssistantEngine {
+export interface AgentEngine {
   agent_id: string;
-  agent?: AssistantAgent;
+  agent?: AgentAgent;
 }
 
-export interface AssistantRules {
+export interface AgentRules {
   content: string;
   storage_mode: string;
 }
 
-export interface AssistantPrompts {
+export interface AgentPrompts {
   recommended: string[];
   recommended_i18n: Record<string, string[]>;
 }
 
-export interface AssistantDefaultScalar {
+export interface AgentDefaultScalar {
   mode: string;
   value?: string;
 }
 
-export interface AssistantDefaultList {
+export interface AgentDefaultList {
   mode: string;
   value: string[];
 }
 
-export interface AssistantDefaults {
-  model: AssistantDefaultScalar;
-  permission: AssistantDefaultScalar;
-  thought_level: AssistantDefaultScalar;
-  skills: AssistantDefaultList;
-  mcps: AssistantDefaultList;
+export interface AgentDefaults {
+  model: AgentDefaultScalar;
+  permission: AgentDefaultScalar;
+  thought_level: AgentDefaultScalar;
+  skills: AgentDefaultList;
+  mcps: AgentDefaultList;
 }
 
-export interface AssistantDefaultsRequest {
-  model?: AssistantDefaultScalar;
-  permission?: AssistantDefaultScalar;
-  thought_level?: AssistantDefaultScalar;
-  skills?: AssistantDefaultList;
-  mcps?: AssistantDefaultList;
+export interface AgentDefaultsRequest {
+  model?: AgentDefaultScalar;
+  permission?: AgentDefaultScalar;
+  thought_level?: AgentDefaultScalar;
+  skills?: AgentDefaultList;
+  mcps?: AgentDefaultList;
 }
 
-export interface AssistantCapabilities {
+export interface AgentCapabilities {
   default_skill_ids: string[];
   custom_skill_names: string[];
   default_disabled_builtin_skill_ids: string[];
 }
 
-export interface AssistantPreferences {
+export interface AgentPreferences {
   last_model_id?: string;
   last_permission_value?: string;
   last_thought_level_value?: string;
@@ -123,25 +123,25 @@ export interface AssistantPreferences {
   last_mcp_ids: string[];
 }
 
-export interface AssistantDetail {
+export interface AgentDetail {
   id: string;
-  source: AssistantSource;
-  agent_status: AssistantAgentStatus;
+  source: AgentSource;
+  agent_status: AgentAgentStatus;
   agent_status_message?: string;
   team_selectable: boolean;
   team_block_reason?: string;
   deletable: boolean;
-  profile: AssistantProfile;
-  state: AssistantState;
-  engine: AssistantEngine;
-  rules: AssistantRules;
-  prompts: AssistantPrompts;
-  defaults: AssistantDefaults;
-  capabilities: AssistantCapabilities;
-  preferences: AssistantPreferences;
+  profile: AgentProfile;
+  state: AgentState;
+  engine: AgentEngine;
+  rules: AgentRules;
+  prompts: AgentPrompts;
+  defaults: AgentDefaults;
+  capabilities: AgentCapabilities;
+  preferences: AgentPreferences;
 }
 
-export interface CreateAssistantRequest {
+export interface CreateAgentRequest {
   id?: string;
   name: string;
   description?: string;
@@ -157,22 +157,22 @@ export interface CreateAssistantRequest {
   prompts_i18n?: Record<string, string[]>;
   recommended_prompts?: string[];
   recommended_prompts_i18n?: Record<string, string[]>;
-  defaults?: AssistantDefaultsRequest;
+  defaults?: AgentDefaultsRequest;
 }
 
-export type UpdateAssistantRequest = Partial<Omit<CreateAssistantRequest, 'id'>> & {
+export type UpdateAgentRequest = Partial<Omit<CreateAgentRequest, 'id'>> & {
   id: string;
 };
 
-export interface SetAssistantStateRequest {
+export interface SetAgentStateRequest {
   id: string;
   enabled?: boolean;
   sort_order?: number;
   last_used_at?: number;
 }
 
-export interface ImportAssistantsRequest {
-  assistants: CreateAssistantRequest[];
+export interface ImportAgentsRequest {
+  agents: CreateAgentRequest[];
 }
 
 export interface ImportError {
@@ -180,7 +180,7 @@ export interface ImportError {
   error: string;
 }
 
-export interface ImportAssistantsResult {
+export interface ImportAgentsResult {
   imported: number;
   skipped: number;
   failed: number;

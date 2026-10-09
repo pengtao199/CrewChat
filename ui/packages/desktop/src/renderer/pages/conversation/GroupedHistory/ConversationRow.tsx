@@ -7,9 +7,9 @@
 import { useAgentLogos } from '@/renderer/utils/model/agentLogo';
 import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
 import FlexFullContainer from '@/renderer/components/layout/FlexFullContainer';
-import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
+import { usePresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
 import { CronJobIndicator } from '@/renderer/pages/cron';
-import { resolveConversationLeadingMark } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { resolveConversationLeadingMark } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@/renderer/utils/ui/siderTooltip';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { Checkbox, Dropdown, Menu, Spin, Tooltip } from '@arco-design/web-react';
@@ -66,7 +66,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     getJobStatus,
   } = props;
   const { t } = useTranslation();
-  const { info: assistantInfo } = usePresetAssistantInfo(conversation);
+  const { info: agentInfo } = usePresetAgentInfo(conversation);
   const isPinned = isConversationPinned(conversation);
   // Fork-lineage badge: present only on forked conversations (extra.fork is
   // server-minted by the fork API). Parent name resolves from the loaded
@@ -90,7 +90,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
     const pinnedHoverFade = isPinned ? 'group-hover:opacity-0 transition-opacity' : '';
     const composedClass = classNames(pinnedHoverFade);
 
-    const leadingMark = resolveConversationLeadingMark(conversation, assistantInfo, logos);
+    const leadingMark = resolveConversationLeadingMark(conversation, agentInfo, logos);
     if (leadingMark.kind === 'emoji') {
       return (
         <span className={classNames('text-16px leading-none flex-shrink-0', composedClass)}>{leadingMark.value}</span>
@@ -105,7 +105,7 @@ const ConversationRow: React.FC<ConversationRowProps> = (props) => {
         />
       );
     }
-    if (leadingMark.kind === 'assistant_fallback') {
+    if (leadingMark.kind === 'agent_fallback') {
       return (
         <Robot
           theme='outline'

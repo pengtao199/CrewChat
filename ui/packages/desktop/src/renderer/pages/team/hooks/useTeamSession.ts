@@ -1,7 +1,7 @@
 // src/renderer/pages/team/hooks/useTeamSession.ts
 import { ipcBridge } from '@/common';
 import { normalizeTeamStatus } from '@/common/adapter/teamMapper';
-import type { TeamAssistantInput } from '@/common/adapter/teamMapper';
+import type { TeamAgentInput } from '@/common/adapter/teamMapper';
 import type {
   ITeamAgentRemovedEvent,
   ITeamAgentRenamedEvent,
@@ -11,7 +11,7 @@ import type {
   ITeamSessionChangedEvent,
   ITeamSessionStatusChangedEvent,
   ITeamTaskChangedEvent,
-  TeamAssistant,
+  TeamAgent,
   TeammateStatus,
   TTeam,
 } from '@/common/types/team/teamTypes';
@@ -19,7 +19,7 @@ import { useCallback, useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { revalidateAcpConfigOptions } from '@/renderer/hooks/agent/useAcpConfigOptions';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
-import { removeTeamAssistantWithCronCleanup } from '../utils/removeTeamAssistantWithCronCleanup';
+import { removeTeamAgentWithCronCleanup } from '../utils/removeTeamAgentWithCronCleanup';
 import {
   applyTeamRuntimeStatusToMembershipMutationState,
   applyTeamSessionStatusToMembershipMutationState,
@@ -40,7 +40,7 @@ export function useTeamSession(team: TTeam, warmupPhase?: TeamWarmupPhase) {
   );
 
   const [statusMap, setStatusMap] = useState<Map<string, AgentStatusInfo>>(() => {
-    return new Map(team.assistants.map((a) => [a.slot_id, { slot_id: a.slot_id, status: a.status }]));
+    return new Map(team.agents.map((a) => [a.slot_id, { slot_id: a.slot_id, status: a.status }]));
   });
   const [membershipMutationState, setMembershipMutationState] = useState(createTeamMembershipMutationState);
   const membershipMutationBusy = isTeamMembershipMutationBusy(membershipMutationState);
@@ -127,16 +127,16 @@ export function useTeamSession(team: TTeam, warmupPhase?: TeamWarmupPhase) {
     };
   }, [team.id, mutateTeam]);
 
-  const addAssistant = useCallback(
-    async (assistant: TeamAssistantInput): Promise<TeamAssistant> => {
-      const created = await ipcBridge.team.addAgent.invoke({ team_id: team.id, assistant });
+  const addAgent = useCallback(
+    async (agent: TeamAgentInput): Promise<TeamAgent> => {
+      const created = await ipcBridge.team.addAgent.invoke({ team_id: team.id, agent });
       await mutateTeam();
       return created;
     },
     [team.id, mutateTeam]
   );
 
-  const renameAssistant = useCallback(
+  const renameAgent = useCallback(
     async (slot_id: string, new_name: string) => {
       await ipcBridge.team.renameAgent.invoke({ team_id: team.id, slot_id, new_name });
       await mutateTeam();
@@ -144,9 +144,9 @@ export function useTeamSession(team: TTeam, warmupPhase?: TeamWarmupPhase) {
     [team.id, mutateTeam]
   );
 
-  const removeAssistant = useCallback(
+  const removeAgent = useCallback(
     async (slot_id: string) => {
-      await removeTeamAssistantWithCronCleanup({
+      await removeTeamAgentWithCronCleanup({
         team,
         slot_id,
         getConversation: getConversationOrNull,
@@ -158,5 +158,5 @@ export function useTeamSession(team: TTeam, warmupPhase?: TeamWarmupPhase) {
     [team, mutateTeam]
   );
 
-  return { statusMap, membershipMutationBusy, addAssistant, renameAssistant, removeAssistant, mutateTeam };
+  return { statusMap, membershipMutationBusy, addAgent, renameAgent, removeAgent, mutateTeam };
 }

@@ -58,7 +58,7 @@
 | 鉴权、客户端偏好、WS 连接 | 已实现 |
 | 会话列表/详情/创建/删除、消息历史 | 已实现 |
 | 会话发送/取消、流式帧 | 已实现 |
-| 大脑池、Assistants（投影自 Agent）、技能、MCP、CLI 探测 | 已实现 |
+| 大脑池、Agent 目录（投影）、技能、MCP、CLI 探测 | 已实现 |
 | 用量（自研 `/api/v1/crewchat/usage`，按身体/模型/天聚合） | 已实现 |
 | 项目=工作区（自研 `/api/v1/crewchat/projects` CRUD） | 已实现 |
 | 文件/目录浏览（上游 `/api/v1/fs/*`：dir/list/read/write/metadata/image-base64） | 已实现（其余 fs 端点未实现） |

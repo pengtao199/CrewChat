@@ -1,8 +1,8 @@
 """Agent composer: read and write `agents/*.jsonc`, the declarative source of truth.
 
-This is our own endpoint rather than /api/assistants on purpose: the file is the
+This is our own endpoint rather than /api/agents on purpose: the file is the
 truth and the UI is an editor for it, so the payload is the raw AgentSpec
-(brain/body/skills/mcps/memory/rules) instead of the assistant projection the
+(brain/body/skills/mcps/memory/rules) instead of the agent projection the
 rest of the fork consumes.
 """
 

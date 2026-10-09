@@ -104,7 +104,7 @@
   },
   "dropdown": {
     "cliAgents": "CLI Agents",
-    "presetAssistants": "預設助手"
+    "presetAgents": "預設助手"
   },
   "noAgentsAvailable": "沒有可用的 Agent",
   "noModelConfigured": "未設定模型，請前往設定頁面設定。",
@@ -115,8 +115,8 @@
     },
     "codes": {
       "TEAM_ASSISTANT_ID_REQUIRED": "建立團隊前請先選擇助手。",
-      "TEAM_ASSISTANT_NOT_FOUND": "助手 {{assistantId}} 已不可用。請重新整理助手列表後再選擇。",
-      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "請使用 assistant_id，不要再傳 {{field}}。"
+      "TEAM_ASSISTANT_NOT_FOUND": "助手 {{agentId}} 已不可用。請重新整理助手列表後再選擇。",
+      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "請使用 agent_id，不要再傳 {{field}}。"
     }
   },
   "agentError": {
@@ -339,7 +339,7 @@
       },
       "TEAM_ASSISTANT_ID_REQUIRED": {
         "title": "必須先選擇隊友助手",
-        "body": "建立或拉起隊友前，請先從可用助手目錄選擇一個真實 assistant。"
+        "body": "建立或拉起隊友前，請先從可用助手目錄選擇一個真實 agent。"
       },
       "TEAM_ASSISTANT_NOT_FOUND": {
         "title": "所選助手已不可用",
@@ -347,7 +347,7 @@
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "請求仍在使用舊的團隊身份欄位",
-        "body": "這個團隊操作必須使用 assistant_id，不能再使用舊的 backend 或 agent 欄位。"
+        "body": "這個團隊操作必須使用 agent_id，不能再使用舊的 backend 或 agent 欄位。"
       }
     }
   },

@@ -19,8 +19,8 @@ export type UseManagedAgentsResult = {
   refreshCustomAgents: () => Promise<void>;
 };
 
-export async function refreshManagedAgentCatalogAndAssistants(): Promise<ManagedAgent[] | undefined> {
-  const [agents] = await Promise.all([mutate<ManagedAgent[]>(MANAGED_AGENTS_SWR_KEY), mutate('assistants.list')]);
+export async function refreshManagedAgentCatalogAndAgents(): Promise<ManagedAgent[] | undefined> {
+  const [agents] = await Promise.all([mutate<ManagedAgent[]>(MANAGED_AGENTS_SWR_KEY), mutate('agents.list')]);
   return agents;
 }
 
@@ -34,9 +34,9 @@ export async function refreshManagedAgentCatalogAndAssistants(): Promise<Managed
  * diagnostics-only changes such as health checks that should not invalidate the
  * shared detected-agent catalog.
  *
- * `refreshCatalog` refreshes the management catalog plus assistant list caches
- * after structural or health changes that can affect generated generated assistants.
- * Business assistant pickers must not depend on this hook or on `/api/agents`.
+ * `refreshCatalog` refreshes the management catalog plus agent list caches
+ * after structural or health changes that can affect generated generated agents.
+ * Business agent pickers must not depend on this hook or on `/api/agents`.
  *
  * Do not use this anywhere other than `AgentSettings`.
  */
@@ -51,16 +51,16 @@ export const useManagedAgents = (): UseManagedAgentsResult => {
     isRefreshing: isValidating && !isLoading,
     error,
     revalidate: revalidateManaged,
-    refreshCatalog: refreshManagedAgentCatalogAndAssistants,
+    refreshCatalog: refreshManagedAgentCatalogAndAgents,
     refreshCustomAgents: async () => {
       await ipcBridge.acpConversation.refreshCustomAgents.invoke();
-      await refreshManagedAgentCatalogAndAssistants();
+      await refreshManagedAgentCatalogAndAgents();
     },
   };
 };
 
 /**
- * Lightweight runtime catalog read model for assistant-bound agent rows.
+ * Lightweight runtime catalog read model for agent-bound agent rows.
  * Uses the same `/api/agents/management` payload because that endpoint is
  * backed by `agent_metadata`, where ACP catalog snapshots are persisted.
  */

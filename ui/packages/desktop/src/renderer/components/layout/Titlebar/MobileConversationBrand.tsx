@@ -6,8 +6,8 @@
 
 import { ipcBridge } from '@/common';
 import { AgentLogoIcon } from '@/renderer/components/agent/AgentBadge';
-import { usePresetAssistantInfo } from '@/renderer/hooks/agent/usePresetAssistantInfo';
-import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAssistantIdentity';
+import { usePresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
+import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
 import React from 'react';
 import useSWR from 'swr';
 
@@ -21,10 +21,10 @@ const MobileConversationBrand: React.FC<MobileConversationBrandProps> = ({ conve
     conversation_id ? `mobile-titlebar.conversation.${conversation_id}` : null,
     () => ipcBridge.conversation.get.invoke({ id: conversation_id })
   );
-  const { info: presetAssistant } = usePresetAssistantInfo(conversation || undefined);
-  const backend = resolveConversationBackend(conversation, presetAssistant?.backend);
+  const { info: presetAgent } = usePresetAgentInfo(conversation || undefined);
+  const backend = resolveConversationBackend(conversation, presetAgent?.backend);
 
-  const showLogo = Boolean(backend || presetAssistant);
+  const showLogo = Boolean(backend || presetAgent);
   const title = conversation?.name || fallbackTitle;
 
   return (
@@ -33,9 +33,9 @@ const MobileConversationBrand: React.FC<MobileConversationBrandProps> = ({ conve
         <AgentLogoIcon
           backend={backend}
           agent_name={title}
-          agentLogo={presetAssistant?.logo}
-          agentLogoIsEmoji={presetAssistant?.isEmoji}
-          agentLogoIsFallback={presetAssistant?.isFallback}
+          agentLogo={presetAgent?.logo}
+          agentLogoIsEmoji={presetAgent?.isEmoji}
+          agentLogoIsFallback={presetAgent?.isFallback}
         />
       )}
       <span className='app-titlebar__brand-text'>{title}</span>

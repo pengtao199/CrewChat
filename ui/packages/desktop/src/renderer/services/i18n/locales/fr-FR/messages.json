@@ -42,7 +42,7 @@
   "export.typeLabel": "Type",
   "export.noMessages": "Aucun message",
   "export.userLabel": "Utilisateur",
-  "export.assistantLabel": "Assistant",
+  "export.agentLabel": "Agent",
   "export.systemLabel": "Système",
   "export.menuTitle": "Exporter la conversation",
   "export.menuHint": "Choisir comment exporter la conversation actuelle",

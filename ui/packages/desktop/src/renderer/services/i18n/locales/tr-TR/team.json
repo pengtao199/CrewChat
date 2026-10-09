@@ -63,17 +63,17 @@
     "currentLeader": "Current Leader",
     "setAsLeader": "Set as Leader",
     "teammate": "Teammate",
-    "selectAtLeastOneMember": "Select at least one assistant as the Team Leader.",
+    "selectAtLeastOneMember": "Select at least one agent as the Team Leader.",
     "selectOneLeader": "Select one Team Leader",
-    "subtitle": "Let multiple AI assistants team up and collaborate. We suggest one team focuses on a single goal — create separate teams for different tasks.",
+    "subtitle": "Let multiple AI agents team up and collaborate. We suggest one team focuses on a single goal — create separate teams for different tasks.",
     "nameLabel": "Team name",
     "workspaceLabel": "Workspace",
-    "allAssistantsWithCount": "All assistants ({{count}})",
+    "allAgentsWithCount": "All agents ({{count}})",
     "selectedMembersWithCount": "Selected members {{count}} · ⚑ = Leader",
     "selectedMembersTitleWithCount": "Selected members {{count}}",
     "leaderLegend": "= Leader",
-    "membersHelper": "Choose team members and assign one Leader. The same assistant can be selected multiple times.",
-    "memberHint": "No suitable assistant as a member? After creation, let the Leader create temporary team members in chat."
+    "membersHelper": "Choose team members and assign one Leader. The same agent can be selected multiple times.",
+    "memberHint": "No suitable agent as a member? After creation, let the Leader create temporary team members in chat."
   },
   "removeAgent": {
     "confirmTitle": "Takım Üyesini Kaldır",
@@ -93,8 +93,8 @@
   },
   "addMember": {
     "title": "Add member",
-    "subtitle": "The same assistant can be added repeatedly",
-    "searchAssistants": "Search assistants...",
+    "subtitle": "The same agent can be added repeatedly",
+    "searchAgents": "Search agents...",
     "addFailed": "Failed to add member",
     "noSearchResults": "No results found",
     "tellLeaderHint": "Not a good fit? You can also ask the Leader to arrange it.",

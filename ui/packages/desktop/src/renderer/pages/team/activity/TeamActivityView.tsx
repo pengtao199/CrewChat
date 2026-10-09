@@ -36,8 +36,8 @@ type Props = {
  */
 const TeamActivityView: React.FC<Props> = ({ team }) => {
   const { t } = useTranslation();
-  const { assistants, colorOf } = useTeamTabs();
-  const validLaneIds = useMemo(() => assistants.map((a) => a.slot_id), [assistants]);
+  const { agents, colorOf } = useTeamTabs();
+  const validLaneIds = useMemo(() => agents.map((a) => a.slot_id), [agents]);
   const [controls, setControls] = useTeamActivityControls(team.id, validLaneIds);
 
   // Content filter uses plural UI values; the feed/backend `kind` is singular.
@@ -50,15 +50,15 @@ const TeamActivityView: React.FC<Props> = ({ team }) => {
     feedKind
   );
 
-  const knownSlots = useMemo(() => new Set(assistants.map((a) => a.slot_id)), [assistants]);
+  const knownSlots = useMemo(() => new Set(agents.map((a) => a.slot_id)), [agents]);
 
   const identity = useMemo<ActivityIdentityResolver>(() => {
-    const nameBySlot = new Map(assistants.map((a) => [a.slot_id, a.assistant_name] as const));
+    const nameBySlot = new Map(agents.map((a) => [a.slot_id, a.agent_name] as const));
     return {
       nameOf: (slotId) => (slotId ? (nameBySlot.get(slotId) ?? slotId) : ''),
       colorOf: (slotId) => colorOf(slotId),
     };
-  }, [assistants, colorOf]);
+  }, [agents, colorOf]);
 
   const allItems = useMemo(
     () => buildActivityItems(messages, tasks, knownSlots, controls.sortDirection),
@@ -81,14 +81,14 @@ const TeamActivityView: React.FC<Props> = ({ team }) => {
 
   const lanes = useMemo<ActivityLane[]>(() => {
     const selected = new Set(controls.selectedMembers);
-    const memberLanes: ActivityLane[] = assistants
+    const memberLanes: ActivityLane[] = agents
       .filter((a) => selected.size === 0 || selected.has(a.slot_id))
       .map((a) => ({
         slotId: a.slot_id,
-        name: a.assistant_name,
+        name: a.agent_name,
         color: colorOf(a.slot_id),
         isFallback: false,
-        backend: a.assistant_backend,
+        backend: a.agent_backend,
         icon: a.icon,
         conversationId: a.conversation_id,
       }));
@@ -104,11 +104,11 @@ const TeamActivityView: React.FC<Props> = ({ team }) => {
       });
     }
     return memberLanes;
-  }, [assistants, colorOf, controls.selectedMembers, filteredItems, t]);
+  }, [agents, colorOf, controls.selectedMembers, filteredItems, t]);
 
   const memberOptions = useMemo(
-    () => assistants.map((a) => ({ slotId: a.slot_id, name: a.assistant_name })),
-    [assistants]
+    () => agents.map((a) => ({ slotId: a.slot_id, name: a.agent_name })),
+    [agents]
   );
 
   const resolve = useBlockerTaskResolver(team.id, tasks);

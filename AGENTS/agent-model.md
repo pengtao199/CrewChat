@@ -52,16 +52,16 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 **Agent 只引用资源，不定义资源。** 新增一个引擎/工具/技能不该改任何 Agent 文件。
 
-## 三、助手 Assistant
+## 三、内置 Agent（原「助手」）
 
-**助手不是第四种概念，它是预置的 Agent。**
+**「助手」不是第四种概念，它是预置的 Agent；本仓库已把 `assistant` 命名统一为 `agent`。**
 
 - 引擎：应用内置（操作本应用）
 - 工具：应用内置（诊断、读写 Agent、列技能…）
 - 技能：应用内置
 - 存在形式：编排页的一个模板；用户创建后就是普通 Agent 文件，可改可删
 
-因此代码里没有 "Assistant" 类型。上游契约里的 `assistant` 是他们的叫法，对应我们的 Agent，只在 `api/assistants_api.py` 内做翻译。
+代码里没有独立的 `Assistant` 类型：`api/agent_catalog_api.py` 负责把 Agent 投影成上游契约需要的形状，其余一律叫 Agent。
 
 ## 四、原则
 
@@ -84,8 +84,8 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 | 概念 | 代码 | 用户可见 | 禁止叫法 |
 | --- | --- | --- | --- |
 | 引擎 | `body` / `Executor` | 引擎 | backend（上游用语，仅限契约层）、agent、runner |
-| Agent | `AgentSpec` | Agent | assistant（上游用语，仅限契约层）、worker、bot |
-| 助手 | 预置 Agent 模板 + `builtin` 引擎 | 助手 | Assistant 类型（不存在） |
+| Agent | `AgentSpec` | Agent | assistant、worker、bot |
+| 内置 Agent | 预置 Agent 模板 + `builtin` 引擎 | Agent | 独立 Assistant 类型 |
 | 大脑 | `brain` / `Provider` | 模型端点 | model（那是大脑的一部分）、api |
 | 技能 | `skills` | 技能 | capability、plugin（plugin 是安装包） |
 | 工具 | `mcps` / 应用内置工具 | 工具 | — |
@@ -95,7 +95,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 - 不在 Agent 定义里内联引擎/工具/技能的具体实现；只写引用。
 - 不新增与「引擎」平行的概念（例如 `BackendKind`、`Runtime`）。
 - 不为「助手」单开类型、单开存储或单开接口；它就是 Agent。
-- 不让界面暴露上游的 `assistant` / `backend` / `acp` 用语给用户。
+- 不让界面暴露上游的 `backend` / `acp` 用语给用户。
 - 不把「内置」理解成「用户装不了」：内置只是随包提供，用户可删可改（技能除外，技能是只读资源）。
 
 ## 八、检查

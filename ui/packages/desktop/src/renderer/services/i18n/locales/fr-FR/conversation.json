@@ -104,7 +104,7 @@
   },
   "dropdown": {
     "cliAgents": "Agents CLI",
-    "presetAssistants": "Assistants prédéfinis"
+    "presetAgents": "Agents prédéfinis"
   },
   "noAgentsAvailable": "Aucun agent disponible",
   "noModelConfigured": "Aucun modèle configuré. Veuillez configurer dans les paramètres.",
@@ -114,9 +114,9 @@
       "WORKSPACE_PATH_UNAVAILABLE": "Le chemin de l'espace de travail sélectionné n'est pas disponible. Assurez-vous que le chemin de l'espace de travail « {{workspacePath}} » existe et est accessible."
     },
     "codes": {
-      "TEAM_ASSISTANT_ID_REQUIRED": "Veuillez sélectionner un assistant avant de créer l'équipe.",
-      "TEAM_ASSISTANT_NOT_FOUND": "L'assistant {{assistantId}} n'est plus disponible. Actualisez la liste des assistants et choisissez-en une autre.",
-      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Utilisez assistant_id au lieu de {{field}}."
+      "TEAM_ASSISTANT_ID_REQUIRED": "Veuillez sélectionner un agent avant de créer l'équipe.",
+      "TEAM_ASSISTANT_NOT_FOUND": "L'agent {{agentId}} n'est plus disponible. Actualisez la liste des agents et choisissez-en une autre.",
+      "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Utilisez agent_id au lieu de {{field}}."
     }
   },
   "agentError": {
@@ -318,36 +318,36 @@
         "body": "L'application a reçu une erreur en amont, mais n'a pas pu déterminer si elle provenait de l'agent, du fournisseur, du réseau ou de l'environnement local."
       },
       "MCP_HTTP_RESPONSE_READ_FAILED": {
-        "title": "Échec de la lecture de la réponse de l'assistant de l'équipe",
-        "body": "AionUi n'a pas pu lire la réponse de l'assistant de l'équipe locale. Réessayez une fois et si cela continue, redémarrez l'application."
+        "title": "Échec de la lecture de la réponse de l'agent de l'équipe",
+        "body": "AionUi n'a pas pu lire la réponse de l'agent de l'équipe locale. Réessayez une fois et si cela continue, redémarrez l'application."
       },
       "MCP_TOOL_REMOTE_ERROR": {
-        "title": "L'assistant de l'équipe locale a rejeté la demande",
-        "body": "L'assistant de l'équipe locale a renvoyé une erreur lors du traitement de cette demande. Passez en revue les détails ci-dessous et réessayez après avoir ajusté l’action de l’équipe."
+        "title": "L'agent de l'équipe locale a rejeté la demande",
+        "body": "L'agent de l'équipe locale a renvoyé une erreur lors du traitement de cette demande. Passez en revue les détails ci-dessous et réessayez après avoir ajusté l’action de l’équipe."
       },
       "MCP_TOOL_RESPONSE_UNEXPECTED": {
-        "title": "L'assistant de l'équipe a renvoyé une réponse inattendue",
-        "body": "AionUi a reçu une réponse inattendue de la part de l'assistant de l'équipe locale. Réessayez une fois et signalez-le si le problème persiste."
+        "title": "L'agent de l'équipe a renvoyé une réponse inattendue",
+        "body": "AionUi a reçu une réponse inattendue de la part de l'agent de l'équipe locale. Réessayez une fois et signalez-le si le problème persiste."
       },
       "MCP_TCP_READ_FAILED": {
-        "title": "Échec de la lecture de l'assistant de l'équipe locale",
-        "body": "AionUi n'a pas pu lire la réponse TCP de l'assistant de l'équipe locale. Réessayez une fois et redémarrez l'application si elle continue d'échouer."
+        "title": "Échec de la lecture de l'agent de l'équipe locale",
+        "body": "AionUi n'a pas pu lire la réponse TCP de l'agent de l'équipe locale. Réessayez une fois et redémarrez l'application si elle continue d'échouer."
       },
       "TEAM_SERVICE_UNAVAILABLE": {
         "title": "Le service d'équipe n'est pas encore prêt",
         "body": "La session de l'équipe locale démarre toujours ou a été interrompue. Attendez un moment et réessayez."
       },
       "TEAM_ASSISTANT_ID_REQUIRED": {
-        "title": "Un assistant coéquipier doit être sélectionné",
-        "body": "Choisissez un véritable assistant dans le catalogue d'assistants disponible avant de créer ou de générer un coéquipier."
+        "title": "Un agent coéquipier doit être sélectionné",
+        "body": "Choisissez un véritable agent dans le catalogue d'agents disponible avant de créer ou de générer un coéquipier."
       },
       "TEAM_ASSISTANT_NOT_FOUND": {
-        "title": "L'assistant sélectionné n'est plus disponible",
-        "body": "Actualisez le catalogue des assistants, puis choisissez un autre assistant pour ce coéquipier."
+        "title": "L'agent sélectionné n'est plus disponible",
+        "body": "Actualisez le catalogue des agents, puis choisissez un autre agent pour ce coéquipier."
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "La demande utilisait un ancien champ d'identité d'équipe",
-        "body": "Cette action d'équipe doit utiliser assistant_id au lieu des anciens champs backend ou agent."
+        "body": "Cette action d'équipe doit utiliser agent_id au lieu des anciens champs backend ou agent."
       }
     }
   },

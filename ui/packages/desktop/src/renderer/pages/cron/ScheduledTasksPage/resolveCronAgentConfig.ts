@@ -5,8 +5,8 @@
  */
 
 import type { ICronAgentConfigWrite } from '@/common/adapter/ipcBridge';
-import { isAionrsAssistant, type Assistant } from '@/common/types/agent/assistantTypes';
-import { resolveAssistantName } from '@renderer/utils/model/assistantDisplay';
+import { isAionrsAgent, type Agent } from '@/common/types/agent/agentTypes';
+import { resolveAgentName } from '@renderer/utils/model/agentDisplay';
 
 type SelectedAionrsProvider = {
   id?: string;
@@ -15,13 +15,13 @@ type SelectedAionrsProvider = {
 
 type ResolveCronAgentConfigInput = {
   agentValue: string;
-  presetAssistants: Assistant[];
+  presetAgents: Agent[];
   selectedAionrsProvider?: SelectedAionrsProvider;
   model_id?: string;
   config_options?: Record<string, string>;
   workspace?: string;
   localeKey?: string;
-  getMode: (assistant: Assistant) => string | undefined;
+  getMode: (agent: Agent) => string | undefined;
   aionrsModelRequiredMessage: string;
 };
 
@@ -32,7 +32,7 @@ type ResolveCronAgentConfigResult = {
 export function resolveCronAgentConfig(input: ResolveCronAgentConfigInput): ResolveCronAgentConfigResult {
   const {
     agentValue,
-    presetAssistants,
+    presetAgents,
     selectedAionrsProvider,
     model_id,
     config_options,
@@ -44,24 +44,24 @@ export function resolveCronAgentConfig(input: ResolveCronAgentConfigInput): Reso
 
   const colonIdx = agentValue.indexOf(':');
   const prefixedId = colonIdx >= 0 ? agentValue.substring(colonIdx + 1) : agentValue;
-  const assistantSelection = presetAssistants.find((item) => item.id === prefixedId || item.id === agentValue);
-  if (!assistantSelection) {
-    throw new Error('assistant_id is required');
+  const agentSelection = presetAgents.find((item) => item.id === prefixedId || item.id === agentValue);
+  if (!agentSelection) {
+    throw new Error('agent_id is required');
   }
 
   let agent_config: ICronAgentConfigWrite | undefined;
 
-  const assistant = assistantSelection;
-  const assistantName = resolveAssistantName(assistant, localeKey, assistant.name);
-  const mode = getMode(assistant);
+  const agent = agentSelection;
+  const agentName = resolveAgentName(agent, localeKey, agent.name);
+  const mode = getMode(agent);
 
-  if (isAionrsAssistant(assistant)) {
+  if (isAionrsAgent(agent)) {
     if (!selectedAionrsProvider?.id || !model_id) {
       throw new Error(aionrsModelRequiredMessage);
     }
     agent_config = {
-      name: assistantName,
-      assistant_id: assistant.id,
+      name: agentName,
+      agent_id: agent.id,
       mode,
       model_id,
       model: {
@@ -73,8 +73,8 @@ export function resolveCronAgentConfig(input: ResolveCronAgentConfigInput): Reso
     };
   } else {
     agent_config = {
-      name: assistantName,
-      assistant_id: assistant.id,
+      name: agentName,
+      agent_id: agent.id,
       mode,
       model_id,
       config_options,

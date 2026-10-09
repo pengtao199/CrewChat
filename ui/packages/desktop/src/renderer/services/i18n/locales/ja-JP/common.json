@@ -111,7 +111,7 @@
     },
     "localDataRepair": {
       "title": "Local data repair failed",
-      "description": "AionUi は開きましたが、AionCore は assistant またはエージェントのレコードなどのローカル起動データを準備中に停止しました。AionUi を再インストールしても解決しない可能性があります。ローカルデータベースを確認できるよう、診断レポートを送信するかサポートに連絡してください。",
+      "description": "AionUi は開きましたが、AionCore は agent またはエージェントのレコードなどのローカル起動データを準備中に停止しました。AionUi を再インストールしても解決しない可能性があります。ローカルデータベースを確認できるよう、診断レポートを送信するかサポートに連絡してください。",
       "sendDiagnostics": "Send diagnostics",
       "diagnosticsSent": "Diagnostics sent",
       "diagnosticsReportSuccess": "Diagnostics report sent",
@@ -202,5 +202,5 @@
   },
   "selectedCount": "選択済み {{count}}",
   "selectedSkills": "選択済みスキル",
-  "aiAssistant": "AI アシスタント"
+  "aiAgent": "AI アシスタント"
 }

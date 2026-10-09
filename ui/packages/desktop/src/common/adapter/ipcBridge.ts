@@ -26,14 +26,14 @@ import type {
   TProviderWithModel,
 } from '../config/storage';
 import type {
-  Assistant,
-  AssistantDetail,
-  CreateAssistantRequest,
-  ImportAssistantsRequest,
-  ImportAssistantsResult,
-  SetAssistantStateRequest,
-  UpdateAssistantRequest,
-} from '../types/agent/assistantTypes';
+  Agent,
+  AgentDetail,
+  CreateAgentRequest,
+  ImportAgentsRequest,
+  ImportAgentsResult,
+  SetAgentStateRequest,
+  UpdateAgentRequest,
+} from '../types/agent/agentTypes';
 import type {
   EnsureConversationRuntimeResponse,
   GetConfigOptionsResponse,
@@ -82,7 +82,7 @@ import type {
   ITeamTeammateMessageEvent,
   ITeamInterruptAgentResponse,
   TTeam,
-  TeamAssistant,
+  TeamAgent,
   TeamContextResetResponse,
 } from '../types/team/teamTypes';
 import type {
@@ -121,13 +121,13 @@ import {
 } from './httpBridge';
 import { fromApiSearchResult, type ApiMessageSearchItem } from './searchMapper';
 import { fromApiSidebar, fromApiSidebarItems } from './sidebarMapper';
-import type { IAddTeamAssistantParams, ICreateTeamParams } from './teamMapper';
+import type { IAddTeamAgentParams, ICreateTeamParams } from './teamMapper';
 import {
-  fromBackendAssistant,
+  fromBackendAgent,
   fromBackendTeam,
   fromBackendTeamList,
   fromBackendTeamOptional,
-  toBackendAssistant,
+  toBackendAgent,
 } from './teamMapper';
 import {
   absoluteToRelativePath,
@@ -165,26 +165,26 @@ export const shell = {
 };
 
 // ---------------------------------------------------------------------------
-// Assistants — routed to /api/assistants/*
+// Agents — routed to /api/agents/*
 // ---------------------------------------------------------------------------
 
-export const assistants = {
-  list: httpGet<Assistant[], void>('/api/assistants'),
-  get: httpGet<AssistantDetail, { id: string; locale?: string }>(
+export const agents = {
+  list: httpGet<Agent[], void>('/api/agents'),
+  get: httpGet<AgentDetail, { id: string; locale?: string }>(
     ({ id, locale }) =>
-      `/api/assistants/${encodeURIComponent(id)}${locale ? `?locale=${encodeURIComponent(locale)}` : ''}`
+      `/api/agents/${encodeURIComponent(id)}${locale ? `?locale=${encodeURIComponent(locale)}` : ''}`
   ),
-  create: httpPost<Assistant, CreateAssistantRequest>('/api/assistants'),
-  update: httpPut<Assistant, UpdateAssistantRequest>((p) => `/api/assistants/${p.id}`),
-  delete: httpDelete<void, { id: string }>((p) => `/api/assistants/${p.id}`),
-  setState: httpPatch<Assistant, SetAssistantStateRequest>(
-    (p) => `/api/assistants/${p.id}/state`,
+  create: httpPost<Agent, CreateAgentRequest>('/api/agents'),
+  update: httpPut<Agent, UpdateAgentRequest>((p) => `/api/agents/${p.id}`),
+  delete: httpDelete<void, { id: string }>((p) => `/api/agents/${p.id}`),
+  setState: httpPatch<Agent, SetAgentStateRequest>(
+    (p) => `/api/agents/${p.id}/state`,
     (p) => {
       const { id: _id, ...body } = p;
       return body;
     }
   ),
-  import: httpPost<ImportAssistantsResult, ImportAssistantsRequest>('/api/assistants/import'),
+  import: httpPost<ImportAgentsResult, ImportAgentsRequest>('/api/agents/import'),
 };
 
 // ---------------------------------------------------------------------------
@@ -923,12 +923,12 @@ export const fs = {
   >('/api/fs/copy'),
   readBuiltinRule: httpPost<string, { file_name: string }>('/api/skills/builtin-rule'),
   readBuiltinSkill: httpPost<string, { file_name: string }>('/api/skills/builtin-skill'),
-  readAssistantRule: httpPost<string, { assistant_id: string; locale?: string }>('/api/skills/assistant-rule/read'),
-  writeAssistantRule: httpPost<boolean, { assistant_id: string; content: string; locale?: string }>(
-    '/api/skills/assistant-rule/write'
+  readAgentRule: httpPost<string, { agent_id: string; locale?: string }>('/api/skills/agent-rule/read'),
+  writeAgentRule: httpPost<boolean, { agent_id: string; content: string; locale?: string }>(
+    '/api/skills/agent-rule/write'
   ),
-  deleteAssistantRule: httpDelete<boolean, { assistant_id: string }>(
-    (p) => `/api/skills/assistant-rule/${p.assistant_id}`
+  deleteAgentRule: httpDelete<boolean, { agent_id: string }>(
+    (p) => `/api/skills/agent-rule/${p.agent_id}`
   ),
   listAvailableSkills: httpGet<
     Array<{
@@ -1767,8 +1767,8 @@ export interface ICronAgentConfigRead {
   name: string;
   cli_path?: string;
   is_preset?: boolean;
-  assistant_id?: string;
-  /** @deprecated Legacy assistant identity kept for read compatibility only. */
+  agent_id?: string;
+  /** @deprecated Legacy agent identity kept for read compatibility only. */
   custom_agent_id?: string;
   mode?: string;
   model_id?: string;
@@ -1785,7 +1785,7 @@ export interface ICronProviderModel {
 
 export interface ICronAgentConfigWrite {
   name: string;
-  assistant_id?: string;
+  agent_id?: string;
   mode?: string;
   model_id?: string;
   model?: ICronProviderModel;
@@ -1871,7 +1871,7 @@ export interface ICreateConversationParams {
   id?: string;
   name?: string;
   model?: TProviderWithModel;
-  assistant?: {
+  agent?: {
     id: string;
     locale?: string;
     conversation_overrides?: {
@@ -2141,7 +2141,6 @@ export interface IExtensionAgentActivitySnapshot {
 export const extensions = {
   getThemes: httpGet<ICssTheme[], void>('/api/extensions/themes'),
   getLoadedExtensions: httpGet<IExtensionInfo[], void>('/api/extensions'),
-  getAssistants: httpGet<Record<string, unknown>[], void>('/api/extensions/assistants'),
   getAgents: httpGet<Record<string, unknown>[], void>('/api/extensions/agents'),
   getAcpAdapters: httpGet<Record<string, unknown>[], void>('/api/extensions/acp-adapters'),
   getMcpServers: httpGet<Record<string, unknown>[], void>('/api/extensions/mcp-servers'),
@@ -2162,7 +2161,7 @@ export const extensions = {
 // ---------------------------------------------------------------------------
 
 import type {
-  IChannelAssistantBindingWrite,
+  IChannelAgentBindingWrite,
   IChannelDefaultModelSetting,
   IChannelPairingRequest,
   IChannelPlatformSettings,
@@ -2252,9 +2251,9 @@ export const channel = {
   getPlatformSettings: httpGet<IChannelPlatformSettings, { platform: string }>(
     (p) => `/api/channel/settings/${encodeURIComponent(p.platform)}`
   ),
-  setAssistantSetting: httpPut<void, { platform: string; assistant: IChannelAssistantBindingWrite }>(
-    (p) => `/api/channel/settings/${encodeURIComponent(p.platform)}/assistant`,
-    (p) => p.assistant
+  setAgentSetting: httpPut<void, { platform: string; agent: IChannelAgentBindingWrite }>(
+    (p) => `/api/channel/settings/${encodeURIComponent(p.platform)}/agent`,
+    (p) => p.agent
   ),
   setDefaultModelSetting: httpPut<void, { platform: string; default_model: IChannelDefaultModelSetting }>(
     (p) => `/api/channel/settings/${encodeURIComponent(p.platform)}/default-model`,
@@ -2296,7 +2295,7 @@ export const hub = {
 // Team Mode API — routed to /api/teams/*
 // ---------------------------------------------------------------------------
 
-export type { IAddTeamAssistantParams, ICreateTeamParams } from './teamMapper';
+export type { IAddTeamAgentParams, ICreateTeamParams } from './teamMapper';
 
 export type IRealtimeReconnectedEvent = {
   timestamp: number;
@@ -2310,7 +2309,7 @@ export const team = {
   create: withResponseMap(
     httpPost<TTeam, ICreateTeamParams>('/api/teams', (p) => ({
       name: p.name,
-      agents: p.agents.map(toBackendAssistant),
+      agents: p.agents.map(toBackendAgent),
       ...(p.workspace ? { workspace: p.workspace } : {}),
     })),
     fromBackendTeam
@@ -2325,11 +2324,11 @@ export const team = {
   ),
   remove: httpDelete<void, { id: string }>((p) => `/api/teams/${p.id}`),
   addAgent: withResponseMap(
-    httpPost<TeamAssistant, IAddTeamAssistantParams>(
+    httpPost<TeamAgent, IAddTeamAgentParams>(
       (p) => `/api/teams/${p.team_id}/agents`,
-      (p) => ({ assistant: toBackendAssistant(p.assistant) })
+      (p) => ({ agent: toBackendAgent(p.agent) })
     ),
-    fromBackendAssistant
+    fromBackendAgent
   ),
   removeAgent: httpDelete<void, { team_id: string; slot_id: string }>(
     (p) => `/api/teams/${p.team_id}/agents/${p.slot_id}`

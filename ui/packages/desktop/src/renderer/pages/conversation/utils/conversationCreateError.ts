@@ -9,12 +9,12 @@ import { parseError } from '@/common/utils';
 import type { TFunction } from 'i18next';
 
 export type WorkspacePathErrorCode = 'WORKSPACE_PATH_UNAVAILABLE' | 'WORKSPACE_PATH_RUNTIME_UNAVAILABLE';
-export type TeamAssistantCreateErrorCode =
+export type TeamAgentCreateErrorCode =
   | 'TEAM_ASSISTANT_ID_REQUIRED'
   | 'TEAM_ASSISTANT_NOT_FOUND'
   | 'TEAM_ASSISTANT_FIELD_UNSUPPORTED';
 
-export type ConversationCreateErrorCode = 'WORKSPACE_PATH_UNAVAILABLE' | TeamAssistantCreateErrorCode;
+export type ConversationCreateErrorCode = 'WORKSPACE_PATH_UNAVAILABLE' | TeamAgentCreateErrorCode;
 export type ConversationRuntimeWorkspaceErrorCode = 'WORKSPACE_PATH_RUNTIME_UNAVAILABLE';
 
 const BACKEND_ERROR_CODE_MAP: Record<string, WorkspacePathErrorCode> = {
@@ -25,7 +25,7 @@ const BACKEND_ERROR_CODE_MAP: Record<string, WorkspacePathErrorCode> = {
   WORKSPACE_TRAILING_WHITESPACE_UNSUPPORTED: 'WORKSPACE_PATH_UNAVAILABLE',
 };
 
-const TEAM_BACKEND_ERROR_CODE_MAP: Record<string, TeamAssistantCreateErrorCode> = {
+const TEAM_BACKEND_ERROR_CODE_MAP: Record<string, TeamAgentCreateErrorCode> = {
   TEAM_ASSISTANT_ID_REQUIRED: 'TEAM_ASSISTANT_ID_REQUIRED',
   TEAM_ASSISTANT_NOT_FOUND: 'TEAM_ASSISTANT_NOT_FOUND',
   TEAM_ASSISTANT_FIELD_UNSUPPORTED: 'TEAM_ASSISTANT_FIELD_UNSUPPORTED',
@@ -59,8 +59,8 @@ type WorkspacePathErrorDetails = {
   workspace_path?: string;
 };
 
-type TeamAssistantErrorDetails = {
-  assistant_id?: string;
+type TeamAgentErrorDetails = {
+  agent_id?: string;
   field?: string;
 };
 
@@ -176,7 +176,7 @@ export const getConversationCreateErrorMessage = (error: unknown, t: TFunction):
 
   const details =
     payload?.details && typeof payload.details === 'object' && !Array.isArray(payload.details)
-      ? (payload.details as TeamAssistantErrorDetails)
+      ? (payload.details as TeamAgentErrorDetails)
       : undefined;
   if (normalizedCode === 'TEAM_ASSISTANT_ID_REQUIRED') {
     return t('conversation.createError.codes.TEAM_ASSISTANT_ID_REQUIRED', {
@@ -185,7 +185,7 @@ export const getConversationCreateErrorMessage = (error: unknown, t: TFunction):
   }
   if (normalizedCode === 'TEAM_ASSISTANT_NOT_FOUND') {
     return t('conversation.createError.codes.TEAM_ASSISTANT_NOT_FOUND', {
-      assistantId: details?.assistant_id,
+      agentId: details?.agent_id,
       defaultValue: rawMessage,
     });
   }

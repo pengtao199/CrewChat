@@ -1,4 +1,4 @@
-import type { Assistant } from '@/common/types/agent/assistantTypes';
+import type { Agent } from '@/common/types/agent/agentTypes';
 import type { IMcpServer } from '@/common/config/storage';
 
 // Skill info type
@@ -35,7 +35,7 @@ export type BuiltinAutoSkill = {
   description: string;
 };
 
-export type AssistantListItem = Assistant;
+export type AgentListItem = Agent;
 
 export type BuiltinAvatarOption = {
   id: string;
@@ -61,7 +61,7 @@ export type AvailableBackend = {
   modelOptions: AvailableBackendModelOption[];
 };
 
-export type AssistantEditorViewModel = {
+export type AgentEditorViewModel = {
   isCreating: boolean;
   profile: {
     name: string;
@@ -134,6 +134,6 @@ export type AssistantEditorViewModel = {
   actions: {
     save: () => void;
     requestDelete: () => void;
-    duplicate: (assistant: AssistantListItem) => void;
+    duplicate: (agent: AgentListItem) => void;
   };
 };

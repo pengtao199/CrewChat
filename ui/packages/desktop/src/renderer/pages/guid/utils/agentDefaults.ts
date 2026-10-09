@@ -1,6 +1,6 @@
-import type { AssistantDetail } from '@/common/types/agent/assistantTypes';
+import type { AgentDetail } from '@/common/types/agent/agentTypes';
 
-export type ResolvedGuidAssistantDefaults = {
+export type ResolvedGuidAgentDefaults = {
   modelId?: string;
   permissionMode?: string;
   thoughtLevel?: string;
@@ -9,9 +9,9 @@ export type ResolvedGuidAssistantDefaults = {
   mcpIds: string[];
 };
 
-export const resolveGuidAssistantDefaults = (
-  detail: AssistantDetail | null | undefined
-): ResolvedGuidAssistantDefaults => {
+export const resolveGuidAgentDefaults = (
+  detail: AgentDetail | null | undefined
+): ResolvedGuidAgentDefaults => {
   if (!detail) {
     return {
       modelId: undefined,

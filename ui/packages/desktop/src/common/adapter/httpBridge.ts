@@ -30,7 +30,7 @@ declare global {
  * - Main process: `window` is undefined. `src/index.ts` writes the port to
  *   `globalThis.__backendPort` immediately after `backendManager.start()`
  *   resolves, so any main-process ipcBridge caller (e.g. the one-shot
- *   assistant migration hook) hits the correct port.
+ *   agent migration hook) hits the correct port.
  * - Fallback `13400` only applies when neither is initialized — the request
  *   will still fail cleanly with ECONNREFUSED rather than masking the bug.
  */

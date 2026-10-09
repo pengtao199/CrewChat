@@ -5,7 +5,7 @@
     "cleanup": "幫我找出這個資料夾裡重複和沒用的檔案，列出來讓我確認",
     "create": "幫我做一個精美的個人主頁網頁，做好後直接打開給我看"
   },
-  "selectAssistantHint": "選擇一位助手開始任務",
+  "selectAgentHint": "選擇一位助手開始任務",
   "workspace": {
     "workInProject": "在專案中工作",
     "optional": "可選",

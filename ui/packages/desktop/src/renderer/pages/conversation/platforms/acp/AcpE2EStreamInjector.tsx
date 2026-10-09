@@ -66,14 +66,14 @@ const createSeedMessages = (conversationId: string, historyPairs: number): TMess
     });
 
     messages.push({
-      id: `e2e-seed-assistant-${index}`,
-      msg_id: `e2e-seed-assistant-${index}`,
+      id: `e2e-seed-agent-${index}`,
+      msg_id: `e2e-seed-agent-${index}`,
       conversation_id: conversationId,
       type: 'text',
       position: 'left',
       created_at: baseCreatedAt + index * 2 + 1,
       content: {
-        content: `Assistant seed reply ${index + 1}: this is stable history used to create a realistic scroll range.`,
+        content: `Agent seed reply ${index + 1}: this is stable history used to create a realistic scroll range.`,
       },
     });
   }
@@ -97,7 +97,7 @@ const createStreamChunks = (lines: number): string[] => {
   return Array.from(
     { length: lines },
     (_, index) =>
-      `${index + 1}. Streamed line ${index + 1} keeps extending the assistant reply to stress-test bottom-follow scrolling.\n`
+      `${index + 1}. Streamed line ${index + 1} keeps extending the agent reply to stress-test bottom-follow scrolling.\n`
   );
 };
 
@@ -333,7 +333,7 @@ const AcpE2EStreamInjector: React.FC<{ conversationId: string }> = ({ conversati
       },
       emitFollowUpExchange: async () => {
         const userMsgId = `e2e-follow-up-user-${Date.now()}`;
-        const assistantMsgId = `e2e-follow-up-assistant-${Date.now()}`;
+        const agentMsgId = `e2e-follow-up-agent-${Date.now()}`;
 
         addOrUpdateMessage(
           {
@@ -357,8 +357,8 @@ const AcpE2EStreamInjector: React.FC<{ conversationId: string }> = ({ conversati
 
         addOrUpdateMessage(
           {
-            id: assistantMsgId,
-            msg_id: assistantMsgId,
+            id: agentMsgId,
+            msg_id: agentMsgId,
             conversation_id: conversationId,
             type: 'text',
             position: 'left',

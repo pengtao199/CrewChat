@@ -5,42 +5,42 @@
  */
 
 import { ipcBridge } from '@/common';
-import type { Assistant } from '@/common/types/agent/assistantTypes';
+import type { Agent } from '@/common/types/agent/agentTypes';
 import { useEffect } from 'react';
 import useSWR, { mutate as swrMutate } from 'swr';
 
 type UseCustomAgentsLoaderResult = {
   /**
-   * Preset assistant catalog returned by the backend — merged builtin + user +
+   * Preset agent catalog returned by the backend — merged builtin + user +
    * extension, already sorted. This is the list the Guid pill bar and the
    * Settings list render.
    */
-  assistants: Assistant[];
+  agents: Agent[];
 };
 
 /**
- * Loads the assistant catalog consumed by Guid. Phase 2 removes `/api/agents`
+ * Loads the agent catalog consumed by Guid. Phase 2 removes `/api/agents`
  * as a user-facing candidate source, so this hook intentionally exposes only
- * the assistant list shared with settings/conversation flows.
+ * the agent list shared with settings/conversation flows.
  */
 export const useCustomAgentsLoader = (): UseCustomAgentsLoaderResult => {
-  // Preset assistants share their own cache so settings / guid / conversation
+  // Preset agents share their own cache so settings / guid / conversation
   // all see the same list without duplicate HTTP calls.
-  const { data: assistantList } = useSWR('assistants.list', async () => {
+  const { data: agentList } = useSWR('agents.list', async () => {
     try {
-      return await ipcBridge.assistants.list.invoke();
+      return await ipcBridge.agents.list.invoke();
     } catch (error) {
-      console.error('Failed to load assistants:', error);
-      return [] as Assistant[];
+      console.error('Failed to load agents:', error);
+      return [] as Agent[];
     }
   });
-  const assistants = assistantList ?? [];
+  const agents = agentList ?? [];
 
   useEffect(() => {
-    void swrMutate('assistants.list');
+    void swrMutate('agents.list');
   }, []);
 
   return {
-    assistants,
+    agents,
   };
 };

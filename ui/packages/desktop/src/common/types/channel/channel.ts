@@ -65,13 +65,13 @@ export interface IChannelSession {
 }
 
 /**
- * Channel assistant binding shape returned by existing backend/config records.
+ * Channel agent binding shape returned by existing backend/config records.
  * Legacy rows may still carry `custom_agent_id`, `backend`, or `agent_type`;
- * new writes must use {@link IChannelAssistantBindingWrite} instead.
+ * new writes must use {@link IChannelAgentBindingWrite} instead.
  */
-export interface IChannelAssistantBindingRead {
-  assistant_id?: string;
-  /** @deprecated Legacy assistant identity written before assistant-first migration. */
+export interface IChannelAgentBindingRead {
+  agent_id?: string;
+  /** @deprecated Legacy agent identity written before agent-first migration. */
   custom_agent_id?: string;
   /** @deprecated Legacy backend-only binding kept for read compatibility. */
   backend?: string;
@@ -80,8 +80,8 @@ export interface IChannelAssistantBindingRead {
   name?: string;
 }
 
-export interface IChannelAssistantBindingWrite {
-  assistant_id: string;
+export interface IChannelAgentBindingWrite {
+  agent_id: string;
 }
 
 export interface IChannelDefaultModelSetting {
@@ -91,6 +91,6 @@ export interface IChannelDefaultModelSetting {
 
 export interface IChannelPlatformSettings {
   platform: string;
-  assistant: IChannelAssistantBindingRead | null;
+  agent: IChannelAgentBindingRead | null;
   default_model: IChannelDefaultModelSetting | null;
 }
