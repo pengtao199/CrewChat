@@ -102,5 +102,10 @@
     "action": "重新生成",
     "agent": "讓 {{name}} 重答",
     "failed": "重試失敗：{{error}}"
+  },
+  "edit": {
+    "action": "編輯並重發",
+    "resend": "重新傳送",
+    "failed": "編輯失敗：{{error}}"
   }
 }

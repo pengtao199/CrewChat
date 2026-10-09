@@ -12,7 +12,7 @@ import { useConversationContextSafe } from '@/renderer/hooks/context/Conversatio
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
 import { useLocalFilePreview } from '@/renderer/pages/conversation/Preview/hooks/useLocalFilePreview';
 import { iconColors } from '@/renderer/styles/colors';
-import { Alert, Message, Tooltip } from '@arco-design/web-react';
+import { Alert, Button, Message, Tooltip } from '@arco-design/web-react';
 import { Copy } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useMemo, useState } from 'react';
@@ -28,9 +28,10 @@ import { stripSkillSuggest, hasSkillSuggest } from '@renderer/utils/chat/skillSu
 import { isForkEnabled } from '@/common/chat/forkConversation';
 import { useForkConversation } from '@/renderer/hooks/chat/useForkConversation';
 import { useRetryMessage } from '@/renderer/hooks/chat/useRetryMessage';
+import { useEditResend } from '@/renderer/hooks/chat/useEditResend';
 import ForkBranchIcon from '@renderer/components/base/ForkBranchIcon';
 import MessageUsageFooter from './MessageUsageFooter';
-import { Refresh } from '@icon-park/react';
+import { Edit, Refresh } from '@icon-park/react';
 
 /**
  * Format a timestamp for message display.
@@ -230,13 +231,59 @@ const MessageText: React.FC<{
     </Tooltip>
   ) : null;
 
+  // Edit-and-resend: rewrite a sent question and ask again. Scoped to user
+  // messages — an assistant reply is the agent's own words.
+  const { edit: editAndResend, setEditing: setEditing } = useEditResend({
+    conversationId: conversationContext?.conversation_id ?? '',
+    onResend: () => retryLatestTurn(),
+  });
+  const [draft, setDraft] = useState<string | null>(null);
+  const editButton = isUserMessage && !!conversationContext?.conversation_id && !isPendingDelivery ? (
+    <Tooltip content={t('messages.edit.action', { defaultValue: 'Edit and resend' })}>
+      <div
+        className='p-4px rd-4px cursor-pointer hover:bg-3 transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto'
+        onClick={() => setDraft(message.content.content)}
+        style={{ lineHeight: 0 }}
+        data-testid='message-edit-button'
+      >
+        <Edit theme='outline' size='16' fill={iconColors.secondary} />
+      </div>
+    </Tooltip>
+  ) : null;
+
+  const editor = draft !== null ? (
+    <div className='w-full flex flex-col gap-8px' data-testid='message-editor'>
+      <textarea
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        className='w-full min-h-72px rd-8px p-8px text-14px bg-2 text-t-primary border border-solid border-[var(--border-primary)] outline-none focus:border-[rgb(var(--primary-6))]'
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            void editAndResend(message.msg_id ?? message.id, draft);
+          }
+          if (e.key === 'Escape') setDraft(null);
+        }}
+      />
+      <div className='flex items-center gap-8px'>
+        <Button size='small' type='primary' onClick={() => void editAndResend(message.msg_id ?? message.id, draft)}>
+          {t('messages.edit.resend', { defaultValue: 'Resend' })}
+        </Button>
+        <Button size='small' onClick={() => setDraft(null)}>
+          {t('common.cancel', { defaultValue: 'Cancel' })}
+        </Button>
+      </div>
+    </div>
+  ) : null;
+
   // Per-agent retry: re-ask just the agent that wrote this bubble, instead of
   // replaying the whole turn and re-running every speaker. Backend-only rows
   // (history) carry the agent id in metadata; live rows fall back to senderName.
   const usage = message.content.usage;
   const retryAgentId = message.metadata?.agent_id;
   const canRetry = !isUserMessage && !!conversationContext?.conversation_id && !isPendingDelivery;
-  const { retry: retryMessage, retrying: retrying } = useRetryMessage({
+  const { retry: retryMessage, retryLatestTurn, retrying: retrying } = useRetryMessage({
     conversationId: conversationContext?.conversation_id ?? '',
     agentId: retryAgentId,
     agentName: senderName,
@@ -344,6 +391,7 @@ const MessageText: React.FC<{
             )}
           </div>
         )}
+        {editor ?? (
         <div
           className={classNames('min-w-0 [&>p:first-child]:mt-0px [&>p:last-child]:mb-0px', {
             'bg-aou-2 p-6px md:p-8px': isUserMessage || cronMeta,
@@ -383,6 +431,7 @@ const MessageText: React.FC<{
             </div>
           )}
         </div>
+        )}
         {isPendingDelivery && (
           <div className='text-12px text-t-secondary mt-4px select-none' data-testid='message-status-badge'>
             {t('messages.delivery.pending', { defaultValue: 'Unread' })}
@@ -395,7 +444,7 @@ const MessageText: React.FC<{
             so we drop the row entirely — system-level long-press still copies.
             For AI replies split across several text messages, only the last text
             of the turn shows this row (showCopyRow); user messages always do. */}
-        {!isMobile && (showCopyRow || retryButton) && (
+        {!isMobile && (showCopyRow || retryButton || editButton) && (
           <div
             className={classNames('h-32px flex items-center mt-4px gap-8px', {
               'flex-row-reverse': isUserMessage,
@@ -410,6 +459,7 @@ const MessageText: React.FC<{
             {/* Retry is per agent, so it stays on every bubble — unlike copy/fork,
                 which act on the whole turn and belong on its last message only. */}
             {retryButton}
+            {editButton}
             {showCopyRow && message.created_at && (
               <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
                 {formatMessageTime(message.created_at)}

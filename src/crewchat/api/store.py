@@ -173,6 +173,22 @@ class Store:
             )
             conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conv_id))
 
+    def update_message_content(self, msg_id: str, conv_id: str, content: str) -> None:
+        """Rewrite a message's text without touching when it was said.
+
+        Editing must not reorder the conversation: history is ordered by
+        `created_at`, so re-stamping it would move the edited message to the end
+        and make the thread read out of order. `updated_at` on the conversation
+        still moves, since the thread genuinely changed.
+        """
+        with self._lock, self._connect() as conn:
+            now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            conn.execute(
+                "UPDATE messages SET content = ? WHERE id = ? AND conversation_id = ?",
+                (content, msg_id, conv_id),
+            )
+            conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conv_id))
+
     def list_messages(self, conv_id: str) -> list[dict[str, Any]]:
         with self._lock, self._connect() as conn:
             rows = conn.execute(

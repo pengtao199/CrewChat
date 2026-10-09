@@ -188,6 +188,30 @@ async def latest_message(conversation_id: str, type: str | None = None) -> Any:
     return None
 
 
+@router.patch("/api/conversations/{conversation_id}/messages/{message_id}")
+async def update_message(conversation_id: str, message_id: str, request: Request) -> Any:
+    """Edit a user message in place, for edit-and-resend.
+
+    Only user messages are editable: an assistant reply is the agent's output, and
+    silently rewriting it would make history disagree with what was actually said.
+    """
+    body = await request.json()
+    content = str(body.get("content") or "").strip()
+    if not content:
+        return JSONResponse({"error": "empty_message"}, status_code=400)
+
+    from .store import store
+
+    row = next((m for m in store().list_messages(conversation_id) if m["id"] == message_id), None)
+    if row is None:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    if row.get("role") != "user":
+        return JSONResponse({"error": "only_user_messages_are_editable"}, status_code=400)
+
+    store().update_message_content(message_id, conversation_id, content)
+    return {"id": message_id, "content": content}
+
+
 @router.get("/api/conversations/{conversation_id}/messages/{message_id}")
 async def get_message(conversation_id: str, message_id: str) -> Any:
     for message in store().list_messages(conversation_id):

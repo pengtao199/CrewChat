@@ -49,7 +49,7 @@ export const useRetryMessage = ({ conversationId, agentId, agentName }: UseRetry
     setTimeout(() => setRetrying(false), 1500);
   }, [agentId, conversationId, retrying, t]);
 
-  return { retry, retrying, agentName };
+  return { retry, retryLatestTurn: retry, retrying, agentName };
 };
 
 export default useRetryMessage;

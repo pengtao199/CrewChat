@@ -102,5 +102,10 @@
     "action": "Yeniden dene",
     "agent": "{{name}}'ye tekrar sor",
     "failed": "Yeniden deneme başarısız: {{error}}"
+  },
+  "edit": {
+    "action": "Düzenle ve yeniden gönder",
+    "resend": "Yeniden gönder",
+    "failed": "Düzenleme başarısız: {{error}}"
   }
 }

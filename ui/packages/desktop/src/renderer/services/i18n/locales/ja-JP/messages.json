@@ -102,5 +102,10 @@
     "action": "再試行",
     "agent": "{{name}} に再回答を依頼",
     "failed": "再試行に失敗しました: {{error}}"
+  },
+  "edit": {
+    "action": "編集して再送信",
+    "resend": "再送信",
+    "failed": "編集に失敗しました: {{error}}"
   }
 }

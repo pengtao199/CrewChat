@@ -372,6 +372,13 @@ export const conversation = {
     { turn_id: string; runtime: TConversationRuntimeSummary },
     { conversation_id: string; agent_id?: string }
   >((p) => `/api/conversations/${p.conversation_id}/retry`, (p) => ({ agent_id: p.agent_id })),
+  /** Edit a user message in place (edit-and-resend). */
+  updateMessage: httpPatch<
+    { id: string; content: string },
+    { conversation_id: string; message_id: string; content: string }
+  >((p) => `/api/conversations/${p.conversation_id}/messages/${encodeURIComponent(p.message_id)}`, (p) => ({
+    content: p.content,
+  })),
   activeCount: httpGet<{ count: number }>('/api/conversations/active-count'),
   sendMessage: httpPost<ISendMessageResult, ISendMessageParams>(
     (p) => `/api/conversations/${p.conversation_id}/messages`,

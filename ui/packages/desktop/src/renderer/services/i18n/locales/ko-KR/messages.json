@@ -102,5 +102,10 @@
     "action": "다시 시도",
     "agent": "{{name}}에게 다시 요청",
     "failed": "재시도 실패: {{error}}"
+  },
+  "edit": {
+    "action": "수정 후 다시 보내기",
+    "resend": "다시 보내기",
+    "failed": "수정 실패: {{error}}"
   }
 }

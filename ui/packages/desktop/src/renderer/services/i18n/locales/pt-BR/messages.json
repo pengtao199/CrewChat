@@ -102,5 +102,10 @@
     "action": "Tentar novamente",
     "agent": "Perguntar a {{name}} de novo",
     "failed": "Falha ao tentar novamente: {{error}}"
+  },
+  "edit": {
+    "action": "Editar e reenviar",
+    "resend": "Reenviar",
+    "failed": "Falha ao editar: {{error}}"
   }
 }

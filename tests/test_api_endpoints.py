@@ -458,3 +458,33 @@ def test_retry_targets_one_agent(client, monkeypatch) -> None:  # type: ignore[n
     r = c.post(f"{PREFIX}/conversations/conv-r/retry", json={"agent_id": "b"})
     assert r.status_code == 200
     assert r.json()["runtime"]["speaking"] == specs[1].display
+
+
+def test_edit_user_message_keeps_order_and_rejects_assistant(client) -> None:  # type: ignore[no-untyped-def]
+    """Editing rewrites a question in place — it must not reorder the thread.
+
+    History is ordered by created_at, so an edit that re-stamps the timestamp
+    would move the message to the end and make the conversation read backwards.
+    """
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-e", "name": "edit"})
+
+    from crewchat.api.store import store
+
+    st = store()
+    st.add_message("m1", "conv-e", "user", "Q1", "you", "2026-01-01T00:00:00Z")
+    st.add_message("m2", "conv-e", "assistant", "A1", "bot", "2026-01-01T00:00:01Z")
+    st.add_message("m3", "conv-e", "user", "Q2", "you", "2026-01-01T00:00:02Z")
+
+    r = c.patch(f"{PREFIX}/conversations/conv-e/messages/m1", json={"content": "Q1 edited"})
+    assert r.status_code == 200
+
+    items = c.get(f"{PREFIX}/conversations/conv-e/messages").json()["items"]
+    assert [i["id"] for i in items] == ["m1", "m2", "m3"]
+    assert items[0]["content"]["content"] == "Q1 edited"
+
+    # An assistant reply is the agent's own words — rewriting it would make
+    # history disagree with what was actually said.
+    assert c.patch(f"{PREFIX}/conversations/conv-e/messages/m2", json={"content": "nope"}).status_code == 400
+    assert c.patch(f"{PREFIX}/conversations/conv-e/messages/m1", json={"content": "  "}).status_code == 400
+    assert c.patch(f"{PREFIX}/conversations/conv-e/messages/zzz", json={"content": "x"}).status_code == 404
