@@ -102,6 +102,10 @@ class Executor(ABC):
     has_builtin_brain: ClassVar[bool]
     # 引擎类别：本地 CLI（用户装）/ 远程 API（配模型即可）/ 应用内置（随包）
     kind: ClassVar[EngineKind] = "cli"
+    #: 该身体是否要靠网关（反代）注入大脑。True 的身体读全局客户端配置（无法逐次覆盖），
+    #: 必须由 `Gateway.activate` 挂到反代并按 provider 逐请求路由；False 的身体自己按次
+    #: 注入端点（opencode 用 env+`--model`，llm 直连），不碰全局配置，天然可多开。
+    needs_gateway: ClassVar[bool] = False
 
     @classmethod
     def available(cls) -> bool:

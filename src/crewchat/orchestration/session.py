@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -39,22 +40,24 @@ class Session:
     def provider_for(self, spec: AgentSpec) -> Provider | None:
         return resolve_brain(self.settings, spec)
 
-    def _route_to_gateway(self, spec: AgentSpec, provider: Provider | None) -> None:
-        """CLI 身体若配了大脑，就让网关把它指向本地反代（cc-switch 官方 enter）。
+    def _gateway_model(self, spec: AgentSpec, provider: Provider | None, needs_gateway: bool) -> str | None:
+        """需要网关的身体经反代用上它的 (身体, provider, model)，返回该用的模型 id。
 
-        网关会把该 CLI 的客户端配置改写到反代；之后 CLI 的请求按 provider 转发，
-        不再依赖 CLI 自己的登录。没配大脑（brain 里没有 `/`）时不动，保留 CLI 自身登录。
-        同一 (身体, provider) 只挂一次。
+        claude/codex 返回带供应商前缀的 Stack 发布 id，代理据此**逐请求**路由，因此
+        同一个 CLI 可同时用多个 provider/模型（「一引擎多模型」）。不需要网关的身体
+        （opencode 自己注入端点、llm 直连）返回 None，不碰全局配置 —— 多开天然安全。
+        没配大脑时也不动，保留 CLI 自身登录。同一 (身体, provider, model) 只挂一次。
         """
-        if provider is None or not spec.is_cli_backed:
-            return
-        key = (spec.body, provider.id)
+        if provider is None or not needs_gateway:
+            return None
+        key = (spec.body, provider.id, provider.model)
         if key in _ROUTED:
-            return
+            return _ROUTED[key]
         from ..core.gateway import get_gateway
 
-        get_gateway(self.settings).activate(spec.body, provider)
-        _ROUTED.add(key)
+        model_id = get_gateway(self.settings).activate(spec.body, provider)
+        _ROUTED[key] = model_id
+        return model_id
 
     async def stream_ask(
         self,
@@ -74,8 +77,12 @@ class Session:
         async def drive() -> RunOutcome:
             provider = self.provider_for(spec)
             try:
-                # CLI 身体配了大脑就挂到反代上，否则它用自己的登录。
-                self._route_to_gateway(spec, provider)
+                # 需要网关的身体配了大脑就挂到反代上，否则它用自己的登录。
+                model_id = self._gateway_model(spec, provider, executor.needs_gateway)
+                effective = provider
+                if model_id and provider is not None:
+                    effective = copy.copy(provider)
+                    effective.model = model_id
                 result = await executor.run(
                     ExecRequest(
                         prompt=prompt,
@@ -84,7 +91,7 @@ class Session:
                         session=memory_key,
                         on_event=on_event,
                     ),
-                    provider,
+                    effective,
                 )
             except Exception as exc:
                 outcome = RunOutcome()
@@ -130,8 +137,8 @@ class Session:
 
 _sessions: dict[str, Session] = {}
 
-#: (身体, provider id) 已经挂到反代上的组合，避免每回合重复 enter（enter 会改 CLI 配置）。
-_ROUTED: set[tuple[str, str]] = set()
+#: (身体, provider id, model) → 该用的模型 id；挂过一次就复用，避免每回合重复 enter。
+_ROUTED: dict[tuple[str, str, str], str | None] = {}
 
 
 def session_for(session_key: str, project_id: str | None = None) -> Session:

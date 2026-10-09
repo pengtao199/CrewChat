@@ -36,8 +36,13 @@ class ModelGateway(Protocol):
         """停止网关。"""
         ...
 
-    def activate(self, app: str, provider: Provider) -> None:
-        """让 CLI `app` 经网关使用 `provider`。"""
+    def activate(self, app: str, provider: Provider) -> str | None:
+        """让 CLI `app` 经网关使用 `provider`；返回该 CLI 应使用的模型 id。
+
+        支持「逐请求路由」的实现（如 cc-switch 的 Stack）返回那个模型 id，调用方用它
+        替换 provider.model，从而**同一 CLI 可同时用多个 provider/模型**；不支持时返回
+        `None`，调用方沿用 provider.model（该 CLI 只有一条当前通道）。
+        """
         ...
 
     def deactivate(self, app: str) -> None:

@@ -245,16 +245,31 @@ class CcSwitchGateway:
             "channels": self.channels(),
         }
 
-    def activate(self, app: str, provider: Provider) -> None:
+    STACK_APPS = ("claude", "codex")
+
+    def activate(self, app: str, provider: Provider) -> str | None:
+        """把通用 provider 投影给该 CLI，并让请求经反代用上它。
+
+        claude/codex 走 cc-switch 的 **Stack**：返回带供应商前缀的发布模型 id
+        （`ccs-…`），代理据此**逐请求**路由 —— 同一个 CLI 可同时用多个 provider/模型。
+        其余（opencode 等）回退到 route 模式，返回 None。
+        """
         if not self.ensure_running():
             raise RuntimeError("网关未就绪")
         route = Store(self.settings).project_provider(app, provider)
         import httpx
 
-        resp = httpx.post(
-            f"{self.control}/enter", json={"app": app, "route": route}, timeout=30
-        )
+        if app in self.STACK_APPS:
+            resp = httpx.post(
+                f"{self.control}/stack/route",
+                json={"app": app, "provider_id": route, "model": provider.model},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            return resp.json().get("model_id")
+        resp = httpx.post(f"{self.control}/enter", json={"app": app, "route": route}, timeout=30)
         resp.raise_for_status()
+        return None
 
     def deactivate(self, app: str) -> None:
         import httpx
