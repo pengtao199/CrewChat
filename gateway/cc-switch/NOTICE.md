@@ -16,9 +16,14 @@
 | --- | --- | --- |
 | `src-tauri/src/config.rs` | `get_app_config_dir()` 支持 `CC_SWITCH_HOME` 环境变量 | headless 下把核心的 home 指到我们的目录，不碰用户 `~/.cc-switch/` |
 | `src-tauri/src/commands/misc.rs` | `VALID_TOOLS` 改为 `pub` | 我们的 bin 需要它作为扫描范围 |
+| `src-tauri/src/lib.rs` | `mod services` / `mod model_capabilities` / `mod database` 改为 `pub mod` | 让 bin 能复用模型拉取、能力判定、价格目录，无需重写 |
+| `src-tauri/src/model_capabilities.rs` | `ImageInputCapability` 与 `resolve_image_input_capability` 由 `pub(crate)` 改为 `pub` | 同上（仅可见性，未改判定逻辑） |
+| `src-tauri/src/services/model_pricing.rs` | 新增 `list_model_pricing(&Database)` | 与 `commands::usage::get_model_pricing` 同源，但接受 `&Database` 而非 Tauri `State`，供无 Tauri 上下文的 bin 复用 |
 | `src-tauri/Cargo.toml` | 新增 `[[bin]] ccsw-proxy` | 独立的 headless 入口 |
-| `src-tauri/src/bin/ccsw-proxy.rs` | 新增文件 | 复用 `ProxyService` + `mode::controller` + 工具层，暴露本地控制口 |
+| `src-tauri/src/bin/ccsw-proxy.rs` | 新增文件 | 复用 `ProxyService` + `mode::controller` + 工具层 + 模型元数据层，暴露本地控制口 |
 | `src-tauri/` 之外的 `dist/index.html` | 占位 | 让 `tauri::generate_context!()` 能编译（我们不打包其 UI） |
+
+模型元数据相关的三个控制口（`/models/fetch`、`/models/capabilities`、`/models/catalog`）全部是**对既有能力的暴露**，判定逻辑与抓取逻辑均未改动，只增加了可见性与路由。
 
 ## 构建
 
@@ -32,6 +37,6 @@ cargo build --release --bin ccsw-proxy --manifest-path gateway/cc-switch/src-tau
 ## 升级上游
 
 1. 记下新的 upstream commit；
-2. 用 `git diff` 对照本目录与上游同文件，重放上表 5 处改动（`rg '\[crewchat\]'` 定位）；
+2. 用 `git diff` 对照本目录与上游同文件，重放上表各处改动（`rg '\[crewchat\]'` 定位）；
 3. 更新本文件的 Vendored commit；
 4. 重新构建并跑 `scripts/` 的检查。

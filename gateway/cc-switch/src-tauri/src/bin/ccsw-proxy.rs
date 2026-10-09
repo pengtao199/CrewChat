@@ -12,6 +12,7 @@
 //! Everything stateful lives in `~/.cc-switch/`, so the GUI, this process and
 //! our app all agree on the same providers, routes and history.
 
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -113,6 +114,80 @@ async fn tools_lifecycle(Json(body): Json<LifecycleBody>) -> Result<Json<serde_j
     Ok(Json(serde_json::json!({ "ok": true })))
 }
 
+// ----- 模型能力 -------------------------------------------------------------
+//
+// 复用 cc-switch 已有的模型元数据层，不在 Python 侧重写：
+// - `services::model_fetch`：成熟的 /v1/models 客户端（版本段阶梯 + 按协议鉴权）
+// - `model_capabilities`：视觉能力判定（精确名称登记表 + 显式声明优先）
+// - `services::model_pricing`：models.dev 价格目录
+
+#[derive(serde::Deserialize)]
+struct FetchModelsBody {
+    base_url: String,
+    #[serde(default)]
+    api_key: String,
+    #[serde(default)]
+    is_full_url: bool,
+    #[serde(default)]
+    models_url_override: Option<String>,
+    #[serde(default)]
+    api_format: Option<String>,
+    #[serde(default)]
+    request_headers: Option<BTreeMap<String, String>>,
+}
+
+/// 从供应商端点拉取可用模型列表。手动添加模型时的辅助（不是主路径）。
+async fn models_fetch(Json(body): Json<FetchModelsBody>) -> Result<Json<serde_json::Value>, String> {
+    let user_agent = axum::http::HeaderValue::from_static("ccsw-proxy/1.0");
+    let models = cc_switch_lib::services::model_fetch::fetch_models(
+        &body.base_url,
+        &body.api_key,
+        body.is_full_url,
+        body.models_url_override.as_deref(),
+        Some(user_agent),
+        body.api_format.as_deref(),
+        body.request_headers.as_ref(),
+    )
+    .await?;
+    serde_json::to_value(models).map(Json).map_err(|e| e.to_string())
+}
+
+#[derive(serde::Deserialize)]
+struct CapabilitiesBody {
+    models: Vec<String>,
+}
+
+/// 判定一批模型的图像输入能力。`unknown` 表示登记表里没有结论，调用方应按
+/// fail-open 处理（不要据此禁用）。
+async fn models_capabilities(
+    Json(body): Json<CapabilitiesBody>,
+) -> Result<Json<serde_json::Value>, String> {
+    use cc_switch_lib::model_capabilities::{resolve_image_input_capability, ImageInputCapability};
+
+    let out: Vec<serde_json::Value> = body
+        .models
+        .iter()
+        .map(|id| {
+            let capability = resolve_image_input_capability(id, None, true);
+            let vision = match capability {
+                ImageInputCapability::Supported => Some(true),
+                ImageInputCapability::Unsupported => Some(false),
+                ImageInputCapability::Unknown => None,
+            };
+            serde_json::json!({ "model": id, "vision": vision })
+        })
+        .collect();
+    Ok(Json(serde_json::json!({ "models": out })))
+}
+
+/// 本地 models.dev 价格目录（每百万 token 成本），供模型列表展示成本。
+async fn models_catalog(State(core): State<Arc<Core>>) -> Result<Json<serde_json::Value>, String> {
+    let pricing =
+        cc_switch_lib::services::model_pricing::list_model_pricing(&core.state.db)
+            .map_err(|e| e.to_string())?;
+    serde_json::to_value(pricing).map(Json).map_err(|e| e.to_string())
+}
+
 async fn run_control(core: Arc<Core>, port: u16) -> anyhow::Result<()> {
     let router = Router::new()
         .route("/enter", post(enter))
@@ -122,6 +197,9 @@ async fn run_control(core: Arc<Core>, port: u16) -> anyhow::Result<()> {
         .route("/tools", get(tools))
         .route("/tools/versions", get(tool_versions))
         .route("/tools/lifecycle", post(tools_lifecycle))
+        .route("/models/fetch", post(models_fetch))
+        .route("/models/capabilities", post(models_capabilities))
+        .route("/models/catalog", get(models_catalog))
         .with_state(core);
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr).await?;

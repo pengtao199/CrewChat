@@ -8,7 +8,7 @@ use serde_json::Value;
 /// The Codex catalog treats unknown models as image-capable (fail open), while
 /// the media rectifier leaves their request bodies untouched.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ImageInputCapability {
+pub enum ImageInputCapability {
     Supported,
     Unsupported,
     Unknown,
@@ -16,7 +16,7 @@ pub(crate) enum ImageInputCapability {
 
 /// Resolve image-input capability from an explicit declaration first, then the
 /// confirmed text-only model registry when the caller enables registry lookup.
-pub(crate) fn resolve_image_input_capability(
+pub fn resolve_image_input_capability(
     model: &str,
     declared_support: Option<bool>,
     use_confirmed_registry: bool,

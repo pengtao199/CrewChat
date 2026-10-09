@@ -432,6 +432,52 @@ pub fn update_model_pricing(db: &Database, entry: ModelPricingInfo) -> Result<us
     update_model_pricing_batch_inner(db, vec![entry], false)
 }
 
+/// 读取全部本地模型定价（models.dev 目录）。
+///
+/// 与 `commands::usage::get_model_pricing` 同一份数据，但接受 `&Database` 而非
+/// Tauri `State`，供 headless 的 `ccsw-proxy` 控制口复用（它没有 Tauri 上下文）。
+pub fn list_model_pricing(db: &Database) -> Result<Vec<ModelPricingInfo>, AppError> {
+    db.ensure_model_pricing_seeded()?;
+    sync_local_model_pricing(db)?;
+
+    let conn = crate::database::lock_conn!(db.conn);
+
+    let table_exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='model_pricing'",
+            [],
+            |row| row.get::<_, i64>(0).map(|count| count > 0),
+        )
+        .unwrap_or(false);
+    if !table_exists {
+        return Ok(Vec::new());
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT model_id, display_name, input_cost_per_million, output_cost_per_million,
+                cache_read_cost_per_million, cache_creation_cost_per_million
+         FROM model_pricing
+         ORDER BY display_name",
+    )?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok(ModelPricingInfo {
+            model_id: row.get(0)?,
+            display_name: row.get(1)?,
+            input_cost_per_million: row.get(2)?,
+            output_cost_per_million: row.get(3)?,
+            cache_read_cost_per_million: row.get(4)?,
+            cache_creation_cost_per_million: row.get(5)?,
+        })
+    })?;
+
+    let mut pricing = Vec::new();
+    for row in rows {
+        pricing.push(row?);
+    }
+    Ok(pricing)
+}
+
 pub fn update_model_pricing_batch(
     db: &Database,
     entries: Vec<ModelPricingInfo>,
