@@ -1482,5 +1482,28 @@
     "cli": "Local CLI",
     "api": "Remote API",
     "builtin": "Built-in"
+  },
+  "engines": {
+    "title": "Engines",
+    "description": "Execution engines available on this machine. Local CLIs can be probed for install/version and installed or updated; an engine with a configured endpoint lets every CLI reuse the same model.",
+    "refresh": "Refresh",
+    "scanning": "Scanning…",
+    "install": "Install",
+    "update": "Update",
+    "installDone": "Installing {{name}}",
+    "updateDone": "Updating {{name}}",
+    "viaGateway": "Via gateway",
+    "provider": "Endpoint",
+    "notInstalledHint": "Not installed",
+    "conflictHint": "{{count}} installations found; they may conflict",
+    "refCount": "Used by {{count}} agents",
+    "empty": "No engines detected.",
+    "dataPath": ".data/gateway/",
+    "status": {
+      "ready": "Ready",
+      "notInstalled": "Not installed",
+      "notRunnable": "Not runnable",
+      "conflict": "Multiple installs"
+    }
   }
 }

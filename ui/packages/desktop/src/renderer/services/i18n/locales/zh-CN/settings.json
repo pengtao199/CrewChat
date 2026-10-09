@@ -1483,5 +1483,28 @@
     "cli": "本地 CLI",
     "api": "远程 API",
     "builtin": "应用内置"
+  },
+  "engines": {
+    "title": "引擎",
+    "description": "本机可用的执行引擎。本地 CLI 可探测安装与版本、安装或更新；配好端点的引擎可让所有 CLI 复用同一个模型。",
+    "refresh": "刷新",
+    "scanning": "正在扫描…",
+    "install": "安装",
+    "update": "更新",
+    "installDone": "已开始安装 {{name}}",
+    "updateDone": "已开始更新 {{name}}",
+    "viaGateway": "走网关",
+    "provider": "模型端点",
+    "notInstalledHint": "未安装",
+    "conflictHint": "检测到 {{count}} 处安装，可能存在冲突",
+    "refCount": "被 {{count}} 个 Agent 引用",
+    "empty": "未检测到任何引擎。",
+    "dataPath": ".data/gateway/",
+    "status": {
+      "ready": "可用",
+      "notInstalled": "未安装",
+      "notRunnable": "无法运行",
+      "conflict": "多处安装"
+    }
   }
 }
