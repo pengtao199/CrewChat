@@ -27,7 +27,28 @@ const TAG_COLOR: Record<ModelTag, string> = {
   embedding: 'pink',
 };
 
-export const tagLabel = (tag: ModelTag, t: (k: string) => string): string => t(`settings.models.${tag}`);
+/**
+ * 标签 → i18n key 的显式映射。
+ * 不能用 `settings.models.${tag}` 拼：多词标签在 JSON 里是 camelCase（toolUse），
+ * 而 tag id 是 snake_case（tool_use），直接拼会查不到而显示成原始 key。
+ */
+const TAG_I18N_KEY: Record<ModelTag, string> = {
+  text: 'text',
+  vision: 'vision',
+  reasoning: 'reasoning',
+  tool_use: 'toolUse',
+  long_context: 'longContext',
+  fast: 'fast',
+  free: 'free',
+  embedding: 'embedding',
+};
+
+export const tagLabel = (tag: ModelTag, t: (k: string) => string): string => {
+  const value = t(`settings.models.${TAG_I18N_KEY[tag]}`);
+  // i18n 缺词条时 react-i18next 会原样返回 key；此时退回标签 id，绝不给用户看原始 key。
+  const key = `settings.models.${TAG_I18N_KEY[tag]}`;
+  return value === key ? tag : value;
+};
 export const tagColor = (tag: ModelTag): string => TAG_COLOR[tag] ?? 'gray';
 
 /** 紧凑展示：上下文长度 + 每百万 token 成本。 */

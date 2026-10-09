@@ -222,14 +222,14 @@ const ModelModalContent: React.FC = () => {
               <div className='mt-4px text-12px opacity-70'>{t('settings.models.noProvidersHint')}</div>
             </EmptyState>
           ) : (
-            <SettingsCardList className='flex flex-col gap-10px'>
+            <SettingsCardList className='gap-0'>
               {providers.map((provider) => {
                 const expanded = collapsed[provider.id] ?? true;
                 const shown = filterModels(provider);
                 const enabledCount = provider.models.filter((m) => m.enabled).length;
 
                 return (
-                  <div key={provider.id} className='rounded-12px border border-solid border-border-1 bg-base'>
+                  <div key={provider.id} className='border-t border-solid border-border-2 first:border-t-0'>
                     {/* 供应商头：模型数与 Key 数常显 */}
                     <div className='flex items-center justify-between gap-12px px-14px py-10px'>
                       {/* 折叠区只包住箭头+名称，不要 flex-1 —— 否则整行会被拉成一条色块 */}
@@ -305,7 +305,7 @@ const ModelModalContent: React.FC = () => {
                     </div>
 
                     {expanded && (
-                      <div className='border-t border-solid border-border-1 px-8px pb-8px'>
+                      <div className='pb-8px'>
                         {shown.length === 0 ? (
                           <div className='py-16px text-center text-12px text-t-tertiary'>
                             {provider.models.length === 0
@@ -313,7 +313,7 @@ const ModelModalContent: React.FC = () => {
                               : t('settings.models.filterAll')}
                           </div>
                         ) : (
-                          <SettingsCardList className='flex flex-col gap-0'>
+                          <div className='flex flex-col'>
                             {shown.map((model) => (
                               <SettingsCardRow
                                 key={model.id}
@@ -374,7 +374,7 @@ const ModelModalContent: React.FC = () => {
                                 }
                               />
                             ))}
-                          </SettingsCardList>
+                          </div>
                         )}
                       </div>
                     )}
