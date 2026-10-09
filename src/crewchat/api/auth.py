@@ -1,7 +1,11 @@
-"""Auth endpoints the forked UI expects: /api/auth/user, /login, /logout, /api/auth/refresh.
+"""Auth endpoints the forked UI expects: /api/v1/auth/user, /api/v1/login,
+/api/v1/logout, /api/v1/auth/refresh.
 
 Single local user, shared password — the app only listens on 127.0.0.1, so this
 is a gate, not a security boundary.
+
+Routes register under the unversioned ``/api``; ``ApiVersionMiddleware`` puts the
+version root (``/api/v1``) in front of every one of them.
 """
 
 from __future__ import annotations
@@ -15,6 +19,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from ..core.version import api_prefix
 from .store import local_password, user_payload
 
 ACCESS_COOKIE = "access_token"
@@ -40,10 +45,10 @@ def _issue(response: Response, remember: bool) -> None:
     response.set_cookie(
         REFRESH_COOKIE,
         token,
-        max_age=REFRESH_TTL if remember else ACCESS_TTL,
+        max_age=(REFRESH_TTL if remember else ACCESS_TTL),
         httponly=True,
         samesite="lax",
-        path="/api/auth/refresh",
+        path=f"{api_prefix()}/auth/refresh",
     )
 
 
@@ -74,7 +79,7 @@ async def auth_user(request: Request) -> JSONResponse:
     return JSONResponse({"success": True, "user": user})
 
 
-@router.post("/login")
+@router.post("/api/login")
 async def login(body: LoginBody) -> JSONResponse:
     if (body.password or "") != local_password():
         return JSONResponse({"success": False, "message": "用户名或密码不正确"}, status_code=401)
@@ -83,14 +88,14 @@ async def login(body: LoginBody) -> JSONResponse:
     return response
 
 
-@router.post("/logout")
+@router.post("/api/logout")
 async def logout(request: Request) -> JSONResponse:
     token = _token(request)
     if token:
         _sessions.pop(token, None)
     response = JSONResponse({"success": True})
     response.delete_cookie(ACCESS_COOKIE)
-    response.delete_cookie(REFRESH_COOKIE, path="/api/auth/refresh")
+    response.delete_cookie(REFRESH_COOKIE, path=f"{api_prefix()}/auth/refresh")
     return response
 
 

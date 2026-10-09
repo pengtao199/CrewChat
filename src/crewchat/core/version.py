@@ -39,6 +39,15 @@ def frontend_version() -> str:
     return _FRONTEND_VERSION
 
 
+def api_prefix() -> str:
+    """返回对外暴露的 API 版本根，形如 ``/api/v1``。
+
+    这是唯一允许硬编码进请求路径的版本来源：中间件据此判断请求带没带版本，
+    并把带版本的路径重写到内部注册的 ``/api`` 路由上。
+    """
+    return f"/api/{backend_version()}"
+
+
 def is_valid_backend_version(value: str) -> bool:
     """校验字符串是否为合法的后端版本号（``v`` + 正整数）。"""
     match = _VERSION_RE.match(value)
@@ -46,13 +55,14 @@ def is_valid_backend_version(value: str) -> bool:
 
 
 def version_info() -> dict[str, Any]:
-    """聚合版本信息，供 ``/api/crewchat/version`` 使用。"""
+    """聚合版本信息，供 ``/api/v1/crewchat/version`` 使用。"""
     backend = backend_version()
     return {
         "backend": {
             "version": backend,
             "number": _BACKEND_VERSION,
             "scheme": "increment",
+            "api_root": api_prefix(),
         },
         "frontend": {
             "version": _FRONTEND_VERSION,

@@ -4,6 +4,12 @@ Endpoints are grouped the same way the UI's bridge groups them, so a missing
 feature is a missing router rather than a misplaced one. Unimplemented paths
 return a structured 501 so the UI logs something actionable instead of a bare
 404 while we fill them in.
+
+Every HTTP call must carry the API version root (``/api/v1``, see
+``core.version.api_prefix``). Routes stay registered under the unversioned
+``/api`` and ``ApiVersionMiddleware`` enforces the version at the ASGI
+boundary, so a new router is exposed under the version root without edits and
+requests that skip the version segment are rejected instead of silently served.
 """
 
 from __future__ import annotations
@@ -16,8 +22,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-from ..core.version import backend_version, version_info
+from ..core.version import api_prefix, backend_version, version_info
 from . import (
     agents_api,
     crewchat_agents,
@@ -35,15 +42,78 @@ from .store import store
 
 UI_DIST = Path(__file__).resolve().parents[3] / "ui" / "dist"
 
+# 路由内部注册的根（未版本化）。版本段只存在于对外请求路径上。
+_INTERNAL_API_ROOT = "/api"
+
+
+class ApiVersionMiddleware:
+    """在 ASGI 边界强制 API 版本根。
+
+    带版本的 ``/api/v1/...`` 去掉版本段后交给已注册的 ``/api/...`` 路由；不带
+    版本的 ``/api/...`` 以及已迁进版本根的旧入口（``/login``、``/logout``）
+    直接返回 404 与期望的版本根，不做兼容转发。WebSocket、静态资源与前端
+    路由不在版本管辖内，原样透传。
+    """
+
+    def __init__(
+        self,
+        app: ASGIApp,
+        prefix: str,
+        internal_root: str,
+        legacy_paths: tuple[str, ...] = (),
+    ) -> None:
+        self.app = app
+        self.prefix = prefix
+        self.internal_root = internal_root
+        self.legacy_paths = legacy_paths
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path: str = scope.get("path", "")
+        if path == self.prefix or path.startswith(self.prefix + "/"):
+            rewritten = self.internal_root + path[len(self.prefix) :]
+            scope = {**scope, "path": rewritten, "raw_path": rewritten.encode()}
+            # 501 兜底要报出调用方真正请求的带版本路径，便于定位。
+            scope["crewchat_requested_path"] = path
+            await self.app(scope, receive, send)
+            return
+
+        unversioned = path == self.internal_root or path.startswith(self.internal_root + "/")
+        if unversioned or path.lstrip("/") in self.legacy_paths:
+            response = JSONResponse(
+                {
+                    "error": "api_version_required",
+                    "path": path,
+                    "expected_prefix": self.prefix,
+                    "backend": "crewchat",
+                },
+                status_code=404,
+            )
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
 
 class ClientPrefsBody(BaseModel):
-    """PUT /api/settings/client accepts a partial map of config keys."""
+    """PUT /api/v1/settings/client accepts a partial map of config keys."""
 
     model_config = {"extra": "allow"}
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="CrewChat", docs_url=None, redoc_url=None)
+    # 版本中间件先注册（位于内层），CORS 后注册（最外层），
+    # 这样版本根拒绝的 404 响应也带 CORS 头。
+    app.add_middleware(
+        ApiVersionMiddleware,
+        prefix=api_prefix(),
+        internal_root=_INTERNAL_API_ROOT,
+        legacy_paths=("login", "logout"),
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -136,9 +206,10 @@ def create_app() -> FastAPI:
         methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         include_in_schema=False,
     )
-    async def not_implemented(path: str) -> JSONResponse:
+    async def not_implemented(request: Request, path: str) -> JSONResponse:
+        requested = request.scope.get("crewchat_requested_path") or f"/api/{path}"
         return JSONResponse(
-            {"error": "not_implemented", "path": f"/api/{path}", "backend": "crewchat"},
+            {"error": "not_implemented", "path": requested, "backend": "crewchat"},
             status_code=501,
         )
 

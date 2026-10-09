@@ -74,9 +74,9 @@ src/crewchat/
     ├── providers_api.py        上游契约：模型端点
     ├── skills_api.py           上游契约：技能
     ├── mcp_api.py              上游契约：MCP 服务
-    ├── crewchat_agents.py      自研命名空间 /api/crewchat/agents
-    ├── crewchat_gateway.py     自研命名空间 /api/crewchat/gateway（网关状态与控制）
-    └── crewchat_engines.py     自研命名空间 /api/crewchat/engines（引擎扫描/安装/更新）
+    ├── crewchat_agents.py      自研命名空间 /api/v1/crewchat/agents
+    ├── crewchat_gateway.py     自研命名空间 /api/v1/crewchat/gateway（网关状态与控制）
+    └── crewchat_engines.py     自研命名空间 /api/v1/crewchat/engines（引擎扫描/安装/更新）
 ```
 
 ## crewai 的定位
@@ -94,7 +94,7 @@ src/crewchat/
 ### 归属判定
 
 - **聚合视图归契约层**：每个端点需要什么形状就自己算（`agents_api` 按身体聚合、`assistants_api` 按 Agent 聚合）。它们的上游契约本来就不同，不硬抽公共"健康"层。
-- **契约层文件名**：对接上游 `/api/*` 的用 `<domain>_api.py`；自研 `/api/crewchat/*` 的用 `crewchat_<domain>.py`；其余（app/auth/chat/conversations/hub/store）是自研实现。
+- **契约层文件名**：对接上游 `/api/*` 的用 `<domain>_api.py`；自研 `/api/v1/crewchat/*` 的用 `crewchat_<domain>.py`；其余（app/auth/chat/conversations/hub/store）是自研实现。
 - **新的跨层需求先问**：能否下移到更低层？下移不了再考虑放 L3。
 
 
@@ -108,7 +108,7 @@ src/crewchat/
 ## 具体规则
 
 - 新增能力先问「属于哪一层」，再问「有没有现成的」。跨层直接调用（前端 → 执行器）一律禁止。
-- 前端通过 `/api/*` 与 `/ws` 访问后端；后端不感知前端路由。
+- 前端通过 `/api/v1/*` 与 `/ws` 访问后端；后端不感知前端路由。
 - `api/` 中出现的上游用语（`assistant`、`backend`）必须集中在一个文件里翻译，不扩散到 `orchestrator` 或 `executors`。
 - 新增执行器只需在 `executors/` 加一个文件并 `register`，不改编排层。
 - 配置读取统一走 `config.get_settings()`；禁止模块级直接读环境变量。
@@ -117,7 +117,7 @@ src/crewchat/
 
 ```
 UI 发送
-  └─ POST /api/conversations/{id}/messages
+  └─ POST /api/v1/conversations/{id}/messages
        └─ api/chat.py 建后台任务，立即返回 {msg_id, turn_id, runtime}
             └─ orchestrator.Session.stream_ask（单 Agent）或 group_turn（群聊）
                  └─ executors/<body>.run → CLI 或网关
