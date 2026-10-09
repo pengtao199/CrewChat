@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from ..core.config import get_settings
-from ..core.model_catalog import enrich_models, fetch_provider_models
+from ..core.model_catalog import enrich_models, fetch_provider_models, infer_tags, known_context_limit
 from ..core.providers import (
     MODEL_TAGS,
     Model,
@@ -34,26 +34,37 @@ def _masked(p: Provider) -> str:
     return _KEY_MASK if p.has_key() else ""
 
 
-def model_to_api(m: Model) -> dict[str, Any]:
+def model_to_api(m: Model, enriched: dict[str, Any] | None = None) -> dict[str, Any]:
+    """模型对外形状。
+
+    标签是**自动推导**的（cc-switch 能力判定 + models.dev 价格 + 命名约定），
+    用户手工打的标签合并进来。推导结果不落盘 —— 真相源只存用户显式设过的标签，
+    这样换价格源或升级 cc-switch 时标签会自动跟着变，不会留下陈旧数据。
+    """
+    enriched = enriched or {}
+    auto = infer_tags(m, enriched)
+    merged = [t for t in MODEL_TAGS if t in set(auto) | set(m.tags)]
     return {
         "id": m.id,
         "display_name": m.display_name,
         "label": m.label,
-        "tags": m.tags,
-        "context_limit": m.context_limit,
+        "tags": merged,
+        "auto_tags": [t for t in auto if t not in m.tags],
+        "context_limit": m.context_limit or enriched.get("context_limit") or known_context_limit(m.id),
         "enabled": m.enabled,
         "protocol": m.protocol,
-        "capabilities": m.capabilities,
-        "price": m.price,
+        "capabilities": m.capabilities or enriched.get("capabilities", {}),
+        "price": m.price or enriched.get("price", {}),
     }
 
 
-def to_api(p: Provider) -> dict[str, Any]:
+def to_api(p: Provider, enriched: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """供应商的对外形状。
 
-    这里必须**完整**：页面上能写进去的字段（模型标签、能力、上下文、启停…）都要能
-    存回来，否则前端写完就丢。`api_key` 只给掩码与"是否有 key"，明文在需要时单取。
+    这里必须**完整**：页面上能写进去的字段都要能存回来，否则前端写完就丢。
+    `api_key` 只给掩码与"是否有 key"，明文在需要时单取。
     """
+    enriched = enriched or {}
     return {
         "id": p.id,
         "platform": "openai",
@@ -63,7 +74,7 @@ def to_api(p: Provider) -> dict[str, Any]:
         "has_key": p.has_key(),
         "key_count": p.key_count(),
         "model": p.model,
-        "models": [model_to_api(m) for m in p.models],
+        "models": [model_to_api(m, enriched.get(m.id)) for m in p.models],
         "model_count": len(p.models),
         "api_format": p.api_format,
         "temperature": p.temperature,
@@ -73,6 +84,17 @@ def to_api(p: Provider) -> dict[str, Any]:
         "is_full_url": p.is_full_url,
         "models_url_override": p.models_url_override,
     }
+
+
+def enrich_all(settings: Settings, providers: list[Provider]) -> dict[str, dict[str, Any]]:
+    """对所有供应商的模型批量补全 cc-switch 元数据（供列表接口使用）。"""
+    ids = [m.id for p in providers for m in p.models]
+    if not ids:
+        return {}
+    try:
+        return enrich_models(settings, ids)
+    except Exception:  # noqa: BLE001 - 元数据是锦上添花，取不到就用已存的
+        return {}
 
 
 def _merge_provider_fields(target: Provider, body: dict[str, Any]) -> None:
@@ -112,7 +134,10 @@ def _model_from_body(body: dict[str, Any]) -> Model:
 
 @router.get("/api/providers")
 async def list_providers() -> list[dict[str, Any]]:
-    return [to_api(p) for p in load_providers(get_settings())]
+    settings = get_settings()
+    providers = load_providers(settings)
+    enriched = enrich_all(settings, providers)
+    return [to_api(p, enriched) for p in providers]
 
 
 @router.post("/api/providers")
@@ -200,11 +225,16 @@ async def add_model(provider_id: str, request: Request) -> Any:
     if not model.display_name and enriched.get("suggested_display_name"):
         model.display_name = str(enriched["suggested_display_name"])
 
+    # 标签以推导为主；用户显式勾选的合并进来。
+    auto = infer_tags(model, enriched)
+    merged = [t for t in MODEL_TAGS if t in set(auto) | set(model.tags)]
+    model.tags = merged
+
     upsert_model(target, model)
     if not target.model:
         target.model = model.id
     save_providers(settings, providers)
-    return {"success": True, "model": model_to_api(model), "provider": to_api(target)}
+    return {"success": True, "model": model_to_api(model, enriched), "provider": to_api(target)}
 
 
 @router.delete("/api/providers/{provider_id}/models/{model_id}")

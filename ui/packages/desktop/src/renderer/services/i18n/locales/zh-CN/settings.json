@@ -1558,6 +1558,9 @@
     "noKey": "未设置密钥",
     "revealKey": "查看密钥",
     "hideKey": "隐藏密钥",
-    "saveTo": "保存到"
+    "saveTo": "保存到",
+    "embedding": "向量",
+    "disabled": "已停用",
+    "autoTags": "自动识别"
   }
 }

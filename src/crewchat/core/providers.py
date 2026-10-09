@@ -23,6 +23,7 @@ MODEL_TAGS: tuple[str, ...] = (
     "long_context",
     "fast",
     "free",
+    "embedding",
 )
 
 

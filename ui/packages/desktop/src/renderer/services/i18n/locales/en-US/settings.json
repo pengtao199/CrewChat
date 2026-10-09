@@ -1557,6 +1557,9 @@
     "noKey": "No key set",
     "revealKey": "Reveal key",
     "hideKey": "Hide key",
-    "saveTo": "Saved to"
+    "saveTo": "Saved to",
+    "embedding": "Embedding",
+    "disabled": "Disabled",
+    "autoTags": "Auto-detected"
   }
 }

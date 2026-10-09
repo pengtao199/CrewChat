@@ -12,7 +12,7 @@
  */
 
 /** Fixed tag vocabulary. The backend validates against this same list. */
-export type ModelTag = 'text' | 'vision' | 'reasoning' | 'tool_use' | 'long_context' | 'fast' | 'free';
+export type ModelTag = 'text' | 'vision' | 'reasoning' | 'tool_use' | 'long_context' | 'fast' | 'free' | 'embedding';
 
 /** Per-million-token costs, sourced from the cc-switch models.dev catalog. */
 export interface IModelPrice {
@@ -38,7 +38,10 @@ export interface IModelView {
   display_name: string;
   /** Resolved display label: `display_name || id`. */
   label: string;
+  /** 自动推导 ∪ 用户手工补充 */
   tags: ModelTag[];
+  /** 其中由后端推导得出（前端用来区分展示，用户不能取消这些） */
+  auto_tags?: ModelTag[];
   context_limit?: number | null;
   enabled: boolean;
   protocol?: string | null;

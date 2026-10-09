@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 /** Tag vocabulary mirroring the backend's `MODEL_TAGS`. Order drives display order. */
-const TAGS: ModelTag[] = ['text', 'vision', 'reasoning', 'tool_use', 'long_context', 'fast', 'free'];
+const TAGS: ModelTag[] = ['text', 'vision', 'reasoning', 'tool_use', 'long_context', 'fast', 'free', 'embedding'];
 
 /** 标签 → Arco Tag 颜色。只用语义色板，不自造色值。 */
 const TAG_COLOR: Record<ModelTag, string> = {
@@ -24,6 +24,7 @@ const TAG_COLOR: Record<ModelTag, string> = {
   long_context: 'arcoblue',
   fast: 'cyan',
   free: 'green',
+  embedding: 'pink',
 };
 
 export const tagLabel = (tag: ModelTag, t: (k: string) => string): string => t(`settings.models.${tag}`);
@@ -102,6 +103,8 @@ const ModelEditorModal: React.FC<{
   }, [target]);
 
   const existingIds = useMemo(() => new Set((provider?.models ?? []).map((m) => m.id)), [provider]);
+  /** 后端推导出的标签：新建时还没有，编辑时从已存模型取。 */
+  const autoTags = target?.model?.auto_tags ?? [];
 
   const onFetch = useCallback(async () => {
     if (!provider) return;
@@ -204,8 +207,19 @@ const ModelEditorModal: React.FC<{
             />
           </div>
 
+          {/* 标签默认由后端自动推导（能力判定 + 价格 + 模型名），这里只做补充。 */}
           <div className='flex flex-col gap-6px'>
             <span className='text-13px text-t-primary'>{t('settings.models.tags')}</span>
+            {autoTags.length > 0 && (
+              <div className='flex flex-wrap items-center gap-4px'>
+                <span className='text-12px text-t-tertiary'>{t('settings.models.autoTags')}</span>
+                {autoTags.map((tag) => (
+                  <Tag key={tag} size='small' color={tagColor(tag)} className='mr-0'>
+                    {tagLabel(tag, t)}
+                  </Tag>
+                ))}
+              </div>
+            )}
             <Select
               mode='multiple'
               value={form.tags}

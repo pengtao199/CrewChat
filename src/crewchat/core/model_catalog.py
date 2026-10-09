@@ -17,6 +17,7 @@ import httpx
 
 from .config import Settings
 from .gateway import get_gateway
+from .providers import MODEL_TAGS, Model
 
 # 价格目录变化很慢（models.dev 按天更新），缓存久一点。
 _CATALOG_TTL = 12 * 3600.0
@@ -152,8 +153,8 @@ def fetch_provider_models(settings: Settings, provider: Any) -> list[dict[str, A
 def enrich_models(settings: Settings, model_ids: list[str]) -> dict[str, dict[str, Any]]:
     """用 cc-switch 的能力判定与价格目录补全模型元数据。
 
-    返回 `{model_id: {"capabilities": {...}, "price": {...}, "display_name": ...}}`，
-    只包含确实拿到的字段，不覆盖用户已有的标签。
+    返回 `{model_id: {"capabilities": {...}, "price": {...}, "display_name": ...,
+    "context_limit": ..., "tags": [...]}}`，只包含确实拿到的字段。
     """
     if not model_ids:
         return {}
@@ -178,3 +179,125 @@ def enrich_models(settings: Settings, model_ids: list[str]) -> dict[str, dict[st
         if entry:
             out[model_id] = entry
     return out
+
+
+# ---------------------------------------------------------------------------
+# 自动打标签
+# ---------------------------------------------------------------------------
+#
+# 用户不该手工给每个模型贴标签 —— 能力、价格、上下文都能从已有数据源推出来。
+# 判定顺序（先命中先用，越靠前越可靠）：
+#   1. cc-switch 视觉能力登记表 → vision
+#   2. models.dev 价格目录     → free（两端都为 0）
+#   3. 模型 id 命名约定        → 其余标签
+# 命名约定只作为**兜底**：cc-switch 判定与价格目录优先，避免和真实数据打架。
+
+# 取模型 id 的末段：`nvidia/xxx:free` → `xxx:free`
+def _tail(model_id: str) -> str:
+    return model_id.rsplit("/", 1)[-1].strip().lower()
+
+
+def _has(model_id: str, *needles: str) -> bool:
+    tail = _tail(model_id)
+    return any(n in tail for n in needles)
+
+
+#: 命名约定 → 标签。命中即打标签。
+_NAME_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("embedding", ("embed", "bge-", "gte-", "e5-", "jina-", "nomic-embed", "minilm")),
+    ("vision", ("vision", "-vl", "vl-", "image", "multimodal", "gpt-4o", "gemini-1.5", "gemini-2", "pixtral", "llava", "qwen-vl", "qwen2-vl", "internvl")),
+    ("reasoning", ("o1", "o3", "o4", "-r1", "reason", "thinking", "qwq", "deepseek-r1", "magistral-medium", "gpt-5")),
+    ("tool_use", ("gpt-4", "gpt-5", "o1", "o3", "o4", "claude", "sonnet", "haiku", "opus", "gemini", "qwen", "deepseek", "mistral", "command-r", "firefunction", "nemotron", "agnes")),
+    ("fast", ("flash", "mini", "haiku", "nano", "turbo", "small", "lightning", "lite", "-8b", "-7b", "instant", "-fast", "faster")),
+    ("long_context", ("gpt-4.1", "gemini-1.5-pro", "megatron", "128k", "200k", "1m")),
+)
+
+#: 常见模型的上下文窗口。命名约定判断不出上下文长度时用它兜底。
+#: key 用末段模型名匹配，值是窗口大小（token）。
+_KNOWN_CONTEXT: tuple[tuple[str, int], ...] = (
+    ("gpt-4.1", 1_047_576),
+    ("gpt-4o", 128_000),
+    ("gpt-4-turbo", 128_000),
+    ("gpt-4", 8_192),
+    ("o1", 200_000),
+    ("o3", 200_000),
+    ("o4", 200_000),
+    ("gpt-5", 400_000),
+    ("claude-3", 200_000),
+    ("claude-sonnet-4", 1_000_000),
+    ("claude-opus-4", 200_000),
+    ("claude-haiku-4", 200_000),
+    ("gemini-1.5-pro", 2_097_152),
+    ("gemini-2", 1_048_576),
+    ("gemini-2.5", 1_048_576),
+    ("deepseek-chat", 128_000),
+    ("deepseek-reasoner", 128_000),
+    ("qwen3", 131_072),
+    ("mistral-large", 131_072),
+    ("command-r-plus", 128_000),
+    ("llama-3.1", 131_072),
+    ("llama-3.3", 131_072),
+    ("nemotron", 131_072),
+    ("agnes", 131_072),
+)
+
+
+def known_context_limit(model_id: str) -> int | None:
+    """从已知的模型族推断上下文窗口。"""
+    tail = _tail(model_id)
+    for name, limit in _KNOWN_CONTEXT:
+        if name in tail:
+            return limit
+    return None
+
+
+def infer_tags(model: Any, enriched: dict[str, Any] | None = None) -> list[str]:
+    """给一个模型推导标签。
+
+    `enriched` 是 cc-switch 补全的结果（capabilities / price），有它就优先采信真实
+    数据源；没有则退回命名约定。用户手工打的标签由调用方合并进来，不在这里覆盖。
+    """
+    enriched = enriched or {}
+    tags: list[str] = []
+
+    # 0. 向量模型单独归类：它既不是文本生成，也不支持对话/工具
+    if _has(model.id, "embed", "bge-", "gte-", "e5-", "jina-", "nomic-embed", "minilm"):
+        return ["embedding"]
+
+    # 1. 视觉：cc-switch 的登记表结论优先于命名
+    vision = (enriched.get("capabilities") or {}).get("vision")
+    if vision is None:
+        vision = (model.capabilities or {}).get("vision")
+    if vision is True:
+        tags.append("vision")
+
+    # 2. 免费：models.dev 目录里两端都是 0（`:free` 后缀也算）
+    price = enriched.get("price") or model.price or {}
+    input_cost, output_cost = price.get("input"), price.get("output")
+    if _tail(model.id).endswith(":free"):
+        tags.append("free")
+    elif input_cost == 0 and output_cost == 0:
+        tags.append("free")
+
+    # 3. 其余按命名约定
+    for tag, needles in _NAME_RULES:
+        if tag == "vision" and vision is True:
+            continue  # 已在第 1 步加过
+        if tag == "embedding":
+            continue  # 已在第 0 步返回
+        if _has(model.id, *needles):
+            tags.append(tag)
+
+    # 4. 上下文长度兜底：200k 以上才算长上下文（128k 已是主流，标满就没有区分度）
+    context_limit = enriched.get("context_limit") or model.context_limit or known_context_limit(model.id)
+    if context_limit and context_limit >= 200_000 and "long_context" not in tags:
+        tags.append("long_context")
+
+    # 5. 文本是所有模型的基础能力；只有具备其它能力时才补，避免满屏同质标签
+    if len(tags) == 1 and tags[0] == "vision":
+        tags.append("text")
+    elif not tags:
+        tags.append("text")
+
+    # 固定顺序输出，保证 UI 稳定
+    return [t for t in MODEL_TAGS if t in tags]

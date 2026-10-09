@@ -229,17 +229,25 @@ const ModelModalContent: React.FC = () => {
                 const enabledCount = provider.models.filter((m) => m.enabled).length;
 
                 return (
-                  <div key={provider.id} className='rounded-12px bg-[var(--color-bg-2)]'>
+                  <div key={provider.id} className='rounded-12px border border-solid border-border-1 bg-base'>
                     {/* 供应商头：模型数与 Key 数常显 */}
                     <div className='flex items-center justify-between gap-12px px-14px py-10px'>
-                      <button
-                        type='button'
-                        className='flex min-w-0 flex-1 cursor-pointer items-center gap-8px text-left'
+                      {/* 折叠区只包住箭头+名称，不要 flex-1 —— 否则整行会被拉成一条色块 */}
+                      <div
+                        role='button'
+                        tabIndex={0}
+                        className='flex min-w-0 cursor-pointer items-center gap-6px rounded-6px px-6px py-2px hover:bg-fill-2'
                         onClick={() => setCollapsed((prev) => ({ ...prev, [provider.id]: !expanded }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setCollapsed((prev) => ({ ...prev, [provider.id]: !expanded }));
+                          }
+                        }}
                       >
                         <Down size='14' className={`shrink-0 text-t-tertiary transition-transform ${expanded ? '' : '-rotate-90'}`} />
                         <span className='truncate text-14px font-medium text-t-primary'>{provider.name}</span>
-                      </button>
+                      </div>
 
                       <div className='flex flex-shrink-0 items-center gap-10px'>
                         <span className='hidden items-center gap-8px text-12px text-t-secondary md:flex'>
@@ -297,7 +305,7 @@ const ModelModalContent: React.FC = () => {
                     </div>
 
                     {expanded && (
-                      <div className='px-8px pb-8px'>
+                      <div className='border-t border-solid border-border-1 px-8px pb-8px'>
                         {shown.length === 0 ? (
                           <div className='py-16px text-center text-12px text-t-tertiary'>
                             {provider.models.length === 0
@@ -305,29 +313,30 @@ const ModelModalContent: React.FC = () => {
                               : t('settings.models.filterAll')}
                           </div>
                         ) : (
-                          <SettingsCardList className='flex flex-col gap-2px'>
+                          <SettingsCardList className='flex flex-col gap-0'>
                             {shown.map((model) => (
                               <SettingsCardRow
                                 key={model.id}
                                 title={
                                   <span className='flex min-w-0 items-center gap-6px'>
                                     <span className='truncate'>{model.label}</span>
+                                    {/* 自动标签用浅色，视觉上与手工标签区分 */}
                                     {model.tags.map((tag) => (
-                                      <Tag key={tag} size='small' color={tagColor(tag)} className='shrink-0'>
+                                      <Tag
+                                        key={tag}
+                                        size='small'
+                                        color={tagColor(tag)}
+                                        className='shrink-0'
+                                      >
                                         {tagLabel(tag, t)}
                                       </Tag>
                                     ))}
-                                    {model.capabilities?.vision === true && (
-                                      <Tag size='small' color='purple' className='shrink-0'>
-                                        {tagLabel('vision', t)}
-                                      </Tag>
-                                    )}
                                   </span>
                                 }
                                 subtitle={<ModelMeta model={model} />}
                                 badges={
                                   !model.enabled ? (
-                                    <StatusBadge tone='neutral' label={t('settings.models.enabled')} />
+                                    <StatusBadge tone='neutral' label={t('settings.models.disabled')} />
                                   ) : undefined
                                 }
                                 actions={
