@@ -20,10 +20,14 @@
 | `src-tauri/src/model_capabilities.rs` | `ImageInputCapability` 与 `resolve_image_input_capability` 由 `pub(crate)` 改为 `pub` | 同上（仅可见性，未改判定逻辑） |
 | `src-tauri/src/services/model_pricing.rs` | 新增 `list_model_pricing(&Database)` | 与 `commands::usage::get_model_pricing` 同源，但接受 `&Database` 而非 Tauri `State`，供无 Tauri 上下文的 bin 复用 |
 | `src-tauri/Cargo.toml` | 新增 `[[bin]] ccsw-proxy` | 独立的 headless 入口 |
-| `src-tauri/src/bin/ccsw-proxy.rs` | 新增文件 | 复用 `ProxyService` + `mode::controller` + 工具层 + 模型元数据层，暴露本地控制口 |
+| `src-tauri/src/bin/ccsw-proxy.rs` | 新增文件 | 复用 `ProxyService` + `mode::controller` + 工具层 + 模型元数据层 + Stack（`mode::stack/state`），暴露本地控制口 |
 | `src-tauri/` 之外的 `dist/index.html` | 占位 | 让 `tauri::generate_context!()` 能编译（我们不打包其 UI） |
 
 模型元数据相关的三个控制口（`/models/fetch`、`/models/capabilities`、`/models/catalog`）全部是**对既有能力的暴露**，判定逻辑与抓取逻辑均未改动，只增加了可见性与路由。
+
+聚合（Stack）控制口 `/stack/route`（`{app, provider_id, model}` → `{model_id}`）同样是**对既有能力的暴露**：
+它按需 `controller::enter_with_route(stack=true)` + `controller::set_stack_member` 后，用
+`mode::state::stack` + `mode::stack::encode` 计算发布 id。路由判定（`decode`/`resolve`）与发布逻辑均未改动。
 
 ## 构建
 

@@ -15,6 +15,7 @@ class Executor(ABC):
     id: ClassVar[str]                  # 身体标识，与 AgentSpec.body 一致
     label: ClassVar[str]               # 界面展示名
     has_builtin_brain: ClassVar[bool]  # 是否自带大脑
+    needs_gateway: ClassVar[bool]      # 大脑须经反代注入（读全局客户端配置的身体），见 gateway.md
 
     @classmethod
     def available(cls) -> bool: ...     # 本机是否可用
@@ -45,12 +46,15 @@ class Executor(ABC):
 
 ## 现有身体
 
-| id | 实现方式 | 自带大脑 | 记忆 |
-| --- | --- | --- | --- |
-| `llm` | `openai` SDK 直连端点 | 否（必须配大脑） | 由会话上下文提供 |
-| `codex` | `openai-codex-sdk`（经网关） | 是 | SDK thread |
-| `claude` | `claude-agent-sdk` | 是 | SDK session |
-| `opencode` | 官方 `opencode run` CLI | 是 | `--session` |
+| id | 实现方式 | 自带大脑 | 经网关 | 记忆 |
+| --- | --- | --- | --- | --- |
+| `llm` | `openai` SDK 直连端点 | 否（必须配大脑） | 否（直连） | 由会话上下文提供 |
+| `codex` | `openai-codex-sdk` | 是 | **是**（Stack） | SDK thread |
+| `claude` | `claude-agent-sdk` | 是 | **是**（Stack） | SDK session |
+| `opencode` | 官方 `opencode run` CLI | 是 | 否（env + `--model` 自注入） | `--session` |
+
+「经网关」的身体读全局客户端配置（无法逐次覆盖），由 `Gateway.activate` 挂到反代并用返回的
+**Stack 模型 id** 逐请求路由；「否」的身体每次自己注入端点，不碰全局配置，天然可多开。
 
 ## 禁止项
 

@@ -52,8 +52,17 @@
     上游原生支持 Responses 扩展 → `openai_responses`；仅 chat/completions → `openai_chat`；原生 Anthropic → `anthropic`。
   - 判据不是"能不能连上"，而是"上游能否接受该 CLI 发出的完整工具声明"。
 - **一份通用 provider，所有 CLI 复用**：不为每个 CLI 各存一份；投影把它编译成各 CLI 的格式，核心负责反代与协议转换。
-- 让某 CLI 走代理要经 `Gateway.enter(app, route)`（走 cc-switch 官方 `mode::controller`），
-  它会重写该 CLI 的客户端配置；不手改 `~/.codex/config.toml` 这类文件。
+- 让某 CLI 走代理经端口 `Gateway.activate(app, provider)`（走 cc-switch 官方 `mode::controller`），
+  它会重写该 CLI 的客户端配置；不手改 `~/.codex/config.toml` 这类文件。返回值是该 CLI
+  **本次应使用的模型 id**（Stack 模式带供应商前缀；非 Stack 返回 `None`）。
+- **一引擎多模型靠 Stack，不靠「当前路由」**：cc-switch 的默认 route 模式每个 CLI 只有**一条**
+  当前 provider，两个同 CLI 的 agent 用不同 provider 会互相顶掉。Stack 模式把每家的模型以
+  保留前缀 id 发布（claude `ccs-claude-<key>--<model>`、codex `ccs-<key>/<model>`），代理按 id
+  **逐请求**路由，因此同一个 CLI 可同时用多个 provider/模型 —— 这是多 agent 协作的前提。
+  `activate` 对 claude/codex 走 `POST /stack/route`；`supports_stack` 之外的身体这样处理不了。
+- **哪些身体走网关由 `Executor.needs_gateway` 决定**：`claude` / `codex` 读全局客户端配置，
+  必须经网关（`needs_gateway=True`）；`opencode` 每次用 env + `--model` 自己注入端点、
+  `llm` 直连，`needs_gateway=False`，**不碰全局配置**，多开天然安全。
 - 身体的模型指定仍通过大脑池（`Provider.model`）传递；`codex` 的 provider 名放
   `settings.codex_provider`，不硬编码在身体里。
 - 密钥的落点见 `AGENTS/truth-sources.md`；不得把密钥写进代码、日志或前端。
