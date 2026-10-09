@@ -220,6 +220,38 @@ async def archived() -> dict[str, Any]:
     return {"items": items, "total": len(items)}
 
 
+@router.post("/api/sidebar/{item_type}/{item_id}/archive")
+async def archive_item(item_type: str, item_id: str) -> Any:
+    if item_type != "conversation" or store().get_conversation(item_id) is None:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    store().set_archived(item_id, True)
+    return {"success": True}
+
+
+@router.post("/api/sidebar/{item_type}/{item_id}/unarchive")
+async def unarchive_item(item_type: str, item_id: str) -> Any:
+    if item_type != "conversation":
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    store().set_archived(item_id, False)
+    return {"success": True}
+
+
+@router.delete("/api/sidebar/archived")
+async def delete_archived() -> dict[str, int]:
+    rows = [r for r in store().list_conversations(include_archived=True) if r.get("archived")]
+    for row in rows:
+        store().delete_conversation(row["id"])
+    return {"teams_deleted": 0, "conversations_deleted": len(rows)}
+
+
+@router.delete("/api/sidebar/archived/{item_type}/{item_id}")
+async def delete_archived_item(item_type: str, item_id: str) -> Any:
+    if item_type != "conversation":
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    store().delete_conversation(item_id)
+    return {"success": True}
+
+
 def persist_turn(conv_id: str, role: str, content: str, author: str | None = None) -> str:
     """Called by the chat layer to record a message."""
     msg_id = uuid.uuid4().hex
