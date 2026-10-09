@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,11 @@ _HOME_AGENTS = Path.home() / ".agents"
 
 
 class Provider:
-    """一个可复用的模型端点。大脑池里的一个条目，agent 通过 id 引用。"""
+    """一个可复用的**通用**模型端点（大脑池条目）。Agent 通过 id 引用，不拥有它。
+
+    这是唯一真相源，存 `.data/providers.jsonc`。网关（cc-switch 核心）里的按 CLI
+    分的那几份 provider，是由这里**投影**出来的派生物，见 `core/gateway.py`。
+    """
 
     def __init__(
         self,
@@ -24,6 +29,7 @@ class Provider:
         model: str,
         api_key: str = "",
         models: list[str] | None = None,
+        api_format: str = "openai_chat",
         temperature: float | None = None,
         max_tokens: int | None = None,
         extra_headers: dict[str, str] | None = None,
@@ -34,12 +40,14 @@ class Provider:
         self.model = model
         self.api_key = api_key
         self.models = models or []
+        self.api_format = api_format
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_headers = extra_headers or {}
+
     def env_key(self) -> str:
         """opencode 的 `{env:XXX}` 约定里用到的变量名。"""
-        return f"{self.id.upper()}_API_KEY"
+        return f"{re.sub(r'[^0-9A-Za-z]', '_', self.id).upper()}_API_KEY"
 
     def has_key(self) -> bool:
         return bool(self.api_key)
@@ -51,6 +59,7 @@ class Provider:
             "base_url": self.base_url,
             "model": self.model,
             "models": self.models,
+            "api_format": self.api_format,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
             "api_key": self.api_key if reveal else ("*" * 0 + ("已设置" if self.has_key() else "")),
@@ -65,6 +74,7 @@ class Provider:
             model=str(raw.get("model") or ""),
             api_key=str(raw.get("api_key") or ""),
             models=list(raw.get("models") or []),
+            api_format=str(raw.get("api_format") or "openai_chat"),
             temperature=raw.get("temperature"),
             max_tokens=raw.get("max_tokens"),
             extra_headers=raw.get("extra_headers") or {},
@@ -146,6 +156,7 @@ def available_plugins() -> list[str]:
     if not plugins.is_dir():
         return []
     return sorted(p.name for p in plugins.iterdir() if p.is_dir())
+
 
 def resolve_brain(settings: Settings, spec: Any) -> Provider | None:
     """Agent 的大脑：CLI 身体自带大脑，只有显式写成 `provider/model` 才覆盖。"""
