@@ -1,5 +1,19 @@
 import { useMemo } from 'react';
 import { useProvidersQuery } from './useModelProviderList';
+import type { IModelView } from '@/common/types/provider/providerApi';
+
+/** 构造一个最小的模型条目，用于补齐平台默认必需的图像模型。 */
+const imageModel = (id: string): IModelView => ({
+  id,
+  display_name: '',
+  label: id,
+  tags: ['vision'],
+  context_limit: null,
+  enabled: true,
+  protocol: null,
+  capabilities: {},
+  price: {},
+});
 
 const useConfigModelListWithImage = () => {
   const { data } = useProvidersQuery();
@@ -12,7 +26,7 @@ const useConfigModelListWithImage = () => {
       };
       const platformLower = platform.platform?.toLowerCase() || '';
       const hasImageModel = nextPlatform.models.some((m) => {
-        const name = m.toLowerCase();
+        const name = m.id.toLowerCase();
         return name.includes('image') || name.includes('imagine');
       });
 
@@ -20,10 +34,10 @@ const useConfigModelListWithImage = () => {
       if (nextPlatform.platform === 'gemini' && (!nextPlatform.base_url || nextPlatform.base_url.trim() === '')) {
         // 原生 Google Gemini 平台（base_url 为空）至少要有 gemini-2.5-flash-image-preview
         const hasGeminiImage = nextPlatform.models.some(
-          (m) => m.includes('gemini') && (m.includes('image') || m.includes('imagine'))
+          (m) => m.id.includes('gemini') && (m.id.includes('image') || m.id.includes('imagine'))
         );
         if (!hasGeminiImage) {
-          nextPlatform.models = nextPlatform.models.concat(['gemini-2.5-flash-image-preview']);
+          nextPlatform.models = nextPlatform.models.concat(imageModel('gemini-2.5-flash-image-preview'));
         }
       } else if (
         nextPlatform.platform === 'OpenRouter' &&
@@ -31,14 +45,16 @@ const useConfigModelListWithImage = () => {
         nextPlatform.base_url.includes('openrouter.ai')
       ) {
         // 官方 OpenRouter 平台（base_url 包含 openrouter.ai）至少要有免费图像模型
-        const hasOpenRouterImage = nextPlatform.models.some((m) => m.includes('image') || m.includes('imagine'));
+        const hasOpenRouterImage = nextPlatform.models.some(
+          (m) => m.id.includes('image') || m.id.includes('imagine')
+        );
         if (!hasOpenRouterImage) {
-          nextPlatform.models = nextPlatform.models.concat(['google/gemini-2.5-flash-image-preview']);
+          nextPlatform.models = nextPlatform.models.concat(imageModel('google/gemini-2.5-flash-image-preview'));
         }
       } else if (platformLower.includes('antigravity') && !hasImageModel) {
         // AntigravityTools 平台：添加常用图像模型
         // AntigravityTools platform: add common image models
-        nextPlatform.models = nextPlatform.models.concat(['gemini-3-pro-image-1x1']);
+        nextPlatform.models = nextPlatform.models.concat(imageModel('gemini-3-pro-image-1x1'));
       }
 
       return nextPlatform;

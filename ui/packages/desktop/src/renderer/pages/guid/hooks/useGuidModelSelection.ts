@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { firstModelId } from '@/common/types/provider/providerApi';
 import type { IProvider, TProviderWithModel } from '@/common/config/storage';
 import { useGoogleAuthModels } from '@/renderer/hooks/agent/useGoogleAuthModels';
 import { useProvidersQuery } from '@/renderer/hooks/agent/useModelProviderList';
@@ -25,7 +26,7 @@ const isModelKeyAvailable = (key: string | null, providers?: IProvider[]) => {
   if (!key || !providers || providers.length === 0) return false;
   return providers.some((provider) => {
     if (!provider.id || !provider.models?.length) return false;
-    return provider.models.some((modelName) => buildModelKey(provider.id, modelName) === key);
+    return provider.models.some((model) => buildModelKey(provider.id, model.id) === key);
   });
 };
 
@@ -81,7 +82,7 @@ export const useGuidModelSelection = (agentKey: ProviderAgentKey = 'aionrs'): Gu
       selectedModelKeyRef.current = null;
 
       const defaultModel = modelList[0];
-      const resolvedUseModel = defaultModel?.models[0] ?? '';
+      const resolvedUseModel = firstModelId(defaultModel) ?? '';
 
       if (!defaultModel || !resolvedUseModel) return;
 

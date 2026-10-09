@@ -5,687 +5,388 @@
  */
 
 import { ipcBridge } from '@/common';
-import type { IProvider } from '@/common/config/storage';
-import { supportsOpenAiApiMode } from '@/common/utils/modelCapabilities';
-import { Button, Divider, Message, Popconfirm, Collapse, Tag, Switch, Tooltip } from '@arco-design/web-react';
-import {
-  DeleteFour,
-  Heartbeat,
-  Info,
-  Minus,
-  Plus,
-  PreviewClose,
-  PreviewOpen,
-  SettingTwo,
-  Write,
-} from '@icon-park/react';
-import React, { useEffect, useState } from 'react';
+import type { IModelView, IProvider, ModelTag } from '@/common/types/provider/providerApi';
+import { modelIds } from '@/common/types/provider/providerApi';
+import { Button, Dropdown, Input, Menu, Message, Popconfirm, Switch, Tag, Tooltip } from '@arco-design/web-react';
+import { Delete, Down, Edit, More, Plus } from '@icon-park/react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDateTime } from '@/renderer/services/i18n/format';
-import AddModelModal from '@/renderer/pages/settings/components/AddModelModal';
-import AddPlatformModal from '@/renderer/pages/settings/components/AddPlatformModal';
-import { isNewApiPlatform, NEW_API_PROTOCOL_OPTIONS } from '@/renderer/utils/model/modelPlatforms';
-import EditModeModal from '@/renderer/pages/settings/components/EditModeModal';
 import AionScrollArea from '@/renderer/components/base/AionScrollArea';
-import TalkToButlerButton from '@/renderer/components/base/TalkToButlerButton';
-import { useProvidersQuery } from '@/renderer/hooks/agent/useModelProviderList';
-import { useSettingsViewMode } from '../settingsViewContext';
+import EmptyState from '@/renderer/components/base/EmptyState';
+import SettingsCardList from '@/renderer/components/base/SettingsCardList';
+import SettingsCardRow from '@/renderer/components/base/SettingsCardRow';
+import StatusBadge from '@/renderer/components/base/StatusBadge';
+import DataLocationNote from '@/renderer/components/settings/DataLocationNote';
 import SettingsPageHeader from '@/renderer/pages/settings/components/SettingsPageHeader';
+import ModelEditorModal, { ModelMeta, tagColor, tagLabel } from '@/renderer/pages/settings/components/ModelEditorModal';
+import type { ModelEditorTarget } from '@/renderer/pages/settings/components/ModelEditorModal';
+import AddPlatformModal from '@/renderer/pages/settings/components/AddPlatformModal';
+import EditModeModal from '@/renderer/pages/settings/components/EditModeModal';
+import { useProvidersQuery } from '@/renderer/hooks/agent/useModelProviderList';
 import { consumePendingDeepLink } from '@/renderer/hooks/system/useDeepLink';
-import '../model-provider.css';
+import { useSettingsViewMode } from '../settingsViewContext';
 
 /**
- * 获取协议显示标签颜色
- * Get protocol badge color
+ * Settings → 模型.
+ *
+ * Provider 是「大脑池」条目，模型挂在它下面。模型 id 由服务商接口决定，没有可靠的
+ * 自动发现方式，所以**手动添加是主路径**；「从端点获取」只是不确定 id 时的辅助。
+ * 标签由用户打，视觉能力与价格来自 cc-switch（见 `core/model_catalog.py`）。
  */
-const getProtocolColor = (protocol: string): string => {
-  switch (protocol) {
-    case 'gemini':
-      return 'blue';
-    case 'anthropic':
-      return 'orange';
-    case 'openai':
-    default:
-      return 'green';
-  }
-};
-
-/**
- * 获取协议显示名称
- * Get protocol display name
- */
-const getProtocolLabel = (protocol: string): string => {
-  return NEW_API_PROTOCOL_OPTIONS.find((p) => p.value === protocol)?.label || 'OpenAI';
-};
-
-/**
- * 获取下一个协议（循环切换）
- * Get next protocol (cycle through options)
- */
-const getNextProtocol = (current: string): string => {
-  const idx = NEW_API_PROTOCOL_OPTIONS.findIndex((p) => p.value === current);
-  const nextIdx = (idx + 1) % NEW_API_PROTOCOL_OPTIONS.length;
-  return NEW_API_PROTOCOL_OPTIONS[nextIdx].value;
-};
-
-// Calculate API Key count
-const getApiKeyCount = (api_key: string): number => {
-  if (!api_key) return 0;
-  return api_key.split(/[,\n]/).filter((k) => k.trim().length > 0).length;
-};
-
-/**
- * 获取供应商的启用状态（全选/半选/全不选）
- * Get provider enable state (all/partial/none)
- */
-const getProviderState = (platform: IProvider): { checked: boolean; indeterminate: boolean } => {
-  if (!platform.model_enabled) {
-    // 没有 model_enabled 记录，默认全部启用
-    return { checked: true, indeterminate: false };
-  }
-
-  const models = platform.models ?? [];
-  const enabledCount = models.filter((model) => platform.model_enabled?.[model] !== false).length;
-  const totalCount = models.length;
-
-  if (enabledCount === 0) {
-    return { checked: false, indeterminate: false }; // 全不选
-  } else if (enabledCount === totalCount) {
-    return { checked: true, indeterminate: false }; // 全选
-  } else {
-    return { checked: true, indeterminate: true }; // 半选（有模型开启，显示为开启状态）
-  }
-};
-
-/**
- * 检查模型是否启用
- * Check if model is enabled
- */
-const isModelEnabled = (platform: IProvider, model: string): boolean => {
-  if (!platform.model_enabled) return true; // 默认启用
-  return platform.model_enabled[model] !== false;
-};
-
 const ModelModalContent: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const viewMode = useSettingsViewMode();
   const isPageMode = viewMode === 'page';
-  const [collapseKey, setCollapseKey] = useState<Record<string, boolean>>({});
-  const [healthCheckLoading, setHealthCheckLoading] = useState<Record<string, boolean>>({});
-  const { data, mutate } = useProvidersQuery();
   const [message, messageContext] = Message.useMessage();
+  const { data, mutate } = useProvidersQuery();
 
-  /**
-   * Create when the provider id is new, update otherwise.
-   * The caller is expected to have mutated the id-bearing record already.
-   */
-  const persistPlatform = async (platform: IProvider): Promise<void> => {
-    const existing = (data || []).some((item) => item.id === platform.id);
-    if (existing) {
-      const { id, ...body } = platform;
-      await ipcBridge.mode.updateProvider.invoke({ id, ...body });
-    } else {
-      await ipcBridge.mode.createProvider.invoke(platform);
-    }
-  };
-
-  const updatePlatform = (platform: IProvider, success: () => void) => {
-    const existing = (data || []).find((item) => item.id === platform.id);
-    const nextArray = existing
-      ? (data || []).map((item) => (item.id === platform.id ? { ...item, ...platform } : item))
-      : [...(data || []), platform];
-
-    // Optimistic update
-    void mutate(nextArray, false);
-
-    persistPlatform(platform)
-      .then(() => {
-        void mutate();
-        success();
-      })
-      .catch((error) => {
-        void mutate();
-        console.error('Failed to save provider:', error);
-        // 409 Conflict — duplicate id (rare pre-launch); different toast
-        const msg = error instanceof Error ? error.message : String(error);
-        if (msg.includes('409')) {
-          message.error(t('settings.providerIdConflict', { defaultValue: 'Provider id already exists, retry.' }));
-        } else {
-          message.error(t('settings.saveModelConfigFailed'));
+  const [search, setSearch] = useState('');
+  const [tagFilter, setTagFilter] = useState<ModelTag | 'all'>('all');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [modelEditor, setModelEditor] = useState<ModelEditorTarget | null>(null);
+  const [addPlatformCtrl, addPlatformModal] = AddPlatformModal.useModal({
+    onSubmit: (platform: IProvider) => {
+      // 弹窗只组装，持久化在这里做（新增走 create，已存在走 update）。
+      void (async () => {
+        try {
+          if (providers.some((p) => p.id === platform.id)) {
+            await ipcBridge.mode.updateProvider.invoke({ id: platform.id, ...platform });
+          } else {
+            await ipcBridge.mode.createProvider.invoke(platform);
+          }
+          refresh();
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : String(err));
         }
-      });
-  };
+      })();
+    },
+  });
+  const [editProviderCtrl, editProviderModal] = EditModeModal.useModal({
+    onChange: () => refresh(),
+  });
 
-  const removePlatform = (id: string) => {
-    const nextArray = (data ?? []).filter((item: IProvider) => item.id !== id);
-    void mutate(nextArray, false);
-    ipcBridge.mode.deleteProvider
-      .invoke({ id })
-      .then(() => {
-        void mutate();
-      })
-      .catch((error) => {
-        void mutate();
-        console.error('Failed to delete provider:', error);
-        message.error(t('settings.saveModelConfigFailed'));
-      });
-  };
+  // 深链（如从文档页跳转）会自动打开「添加服务商」。
+  const pendingDeepLink = consumePendingDeepLink();
 
-  // 切换供应商启用状态（全选 ↔ 全不选）
-  const toggleProviderEnabled = (platform: IProvider) => {
-    const { checked } = getProviderState(platform);
-    const newState = !checked; // 切换状态
+  const providers = data ?? [];
 
-    // 批量更新所有模型状态
-    const model_enabled: Record<string, boolean> = {};
-    (platform.models ?? []).forEach((model) => {
-      model_enabled[model] = newState;
-    });
+  const refresh = useCallback(() => {
+    void mutate();
+  }, [mutate]);
 
-    const updated = {
-      ...platform,
-      model_enabled,
-    };
-    updatePlatform(updated, () => {});
-  };
-
-  // 切换模型启用状态
-  const toggleModelEnabled = (platform: IProvider, model: string, enabled: boolean) => {
-    const model_enabled = { ...platform.model_enabled };
-    model_enabled[model] = enabled;
-
-    const updated = {
-      ...platform,
-      model_enabled,
-    };
-
-    updatePlatform(updated, () => {});
-  };
-
-  // Execute provider/model health check without creating a conversation.
-  const performHealthCheck = async (platform: IProvider, modelName: string) => {
-    const loadingKey = `${platform.id}-${modelName}`;
-    setHealthCheckLoading((prev) => ({ ...prev, [loadingKey]: true }));
-
-    const startTime = Date.now();
-
-    try {
-      const result = await ipcBridge.acpConversation.checkProviderHealth.invoke({
-        provider_id: platform.id,
-        model: modelName,
-      });
-      const latency = result.elapsed_ms || Date.now() - startTime;
-      const success = result.status === 'healthy';
-      const errorMessage = result.message || t('common.unknownError');
-
+  const onToggleModel = useCallback(
+    async (provider: IProvider, model: IModelView, enabled: boolean) => {
       try {
-        // 先获取最新的数据，确保不会覆盖其他并发的更新
-        const latestData = await ipcBridge.mode.listProviders.invoke();
-        const latestPlatform = (latestData || []).find((item) => item.id === platform.id);
-        const model_health = { ...latestPlatform?.model_health };
-        model_health[modelName] = {
-          status: success ? 'healthy' : 'unhealthy',
-          last_check: Date.now(),
-          latency,
-          error: success ? undefined : errorMessage,
-        };
-
-        await ipcBridge.mode.updateProvider.invoke({ id: platform.id, model_health });
-        await mutate();
-        if (success) {
-          Message.success({
-            content: `${platform.name} - ${modelName}: ${t('common.success')} (${latency}ms)`,
-            duration: 3000,
-          });
-        } else {
-          Message.error({
-            content: `${platform.name} - ${modelName}: ${t('common.failed')} - ${errorMessage}`,
-            duration: 5000,
-          });
-        }
-      } catch (saveError) {
-        console.error('Failed to save health check result:', saveError);
-        Message.error({
-          content: t('settings.saveModelConfigFailed'),
-          duration: 3000,
+        await ipcBridge.mode.upsertModel.invoke({
+          provider_id: provider.id,
+          id: model.id,
+          display_name: model.display_name,
+          tags: model.tags,
+          context_limit: model.context_limit ?? null,
+          enabled,
+          protocol: model.protocol ?? null,
         });
+        refresh();
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : String(err));
       }
-    } catch (error: unknown) {
-      const latency = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      Message.error({
-        content: `${platform.name} - ${modelName}: ${t('common.failed')} - ${errorMessage}`,
-        duration: 5000,
-      });
-
-      try {
-        // 先获取最新的数据，确保不会覆盖其他并发的更新
-        const latestData = await ipcBridge.mode.listProviders.invoke();
-        const latestPlatform = (latestData || []).find((item) => item.id === platform.id);
-        const model_health = { ...latestPlatform?.model_health };
-        model_health[modelName] = {
-          status: 'unhealthy',
-          last_check: Date.now(),
-          latency,
-          error: errorMessage,
-        };
-
-        await ipcBridge.mode.updateProvider.invoke({ id: platform.id, model_health });
-        await mutate();
-      } catch (saveError) {
-        console.error('Failed to save health check result:', saveError);
-      }
-    } finally {
-      setHealthCheckLoading((prev) => ({ ...prev, [loadingKey]: false }));
-    }
-  };
-
-  const clearAllHealthData = () => {
-    if (!data) return;
-    const nextArray: IProvider[] = data.map((platform: IProvider) => ({
-      ...platform,
-      model_health: undefined as IProvider['model_health'],
-    }));
-    void mutate(nextArray, false);
-
-    Promise.all(
-      (data || []).map((platform) => ipcBridge.mode.updateProvider.invoke({ id: platform.id, model_health: {} }))
-    )
-      .then(() => {
-        void mutate();
-        Message.success({
-          content: t('settings.healthStatusCleared'),
-          duration: 2000,
-        });
-      })
-      .catch((error) => {
-        void mutate();
-        console.error('Failed to clear health status:', error);
-        message.error(t('settings.saveModelConfigFailed'));
-      });
-  };
-
-  const [addPlatformModalCtrl, addPlatformModalContext] = AddPlatformModal.useModal({
-    onSubmit(platform) {
-      updatePlatform(platform, () => {
-        setCollapseKey((prev) => ({ ...prev, [platform.id]: true }));
-        addPlatformModalCtrl.close();
-      });
     },
-  });
-
-  // Consume pending deep-link data on mount (set by useDeepLink hook before navigation)
-  useEffect(() => {
-    const pending = consumePendingDeepLink();
-    if (pending) {
-      addPlatformModalCtrl.open({ deepLinkData: pending });
-    }
-  }, [addPlatformModalCtrl]);
-
-  const [addModelModalCtrl, addModelModalContext] = AddModelModal.useModal({
-    onSubmit(platform) {
-      updatePlatform(platform, () => {
-        setCollapseKey((prev) => ({ ...prev, [platform.id]: true }));
-        addModelModalCtrl.close();
-      });
-    },
-  });
-
-  const [editModalCtrl, editModalContext] = EditModeModal.useModal({
-    onChange(platform) {
-      updatePlatform(platform, () => editModalCtrl.close());
-    },
-  });
-
-  const headerActions = (
-    <>
-      <Button type='text' size='small' onClick={clearAllHealthData} className='!text-t-secondary hover:!text-t-primary'>
-        {t('settings.clearStatus')}
-      </Button>
-      <TalkToButlerButton
-        label={t('settings.addModel')}
-        chatLabel={t('settings.talkToButler.addViaChat', { defaultValue: 'Add via chat' })}
-        onManual={() => addPlatformModalCtrl.open()}
-        manualLabel={t('settings.talkToButler.addManually', { defaultValue: 'Add manually' })}
-        prompt={t('settings.talkToButler.prompt.addModel', {
-          defaultValue: 'Help me add a new LLM provider and API key, then set it as the default model.',
-        })}
-      />
-    </>
+    [refresh, message]
   );
 
-  const supportNote = (
-    <div
-      className='rd-8px px-12px py-8px text-12px leading-5 border border-solid'
-      style={{
-        borderColor: 'rgba(var(--primary-6),0.32)',
-        backgroundColor: 'rgba(var(--primary-6),0.08)',
-        color: 'rgb(var(--primary-6))',
-      }}
-    >
-      {t('settings.customModelSupportNote')}
-    </div>
+  const onToggleProvider = useCallback(
+    async (provider: IProvider, enabled: boolean) => {
+      // 供应商开关 = 该供应商下所有模型一起启停。
+      try {
+        await Promise.all(
+          provider.models.map((m) =>
+            ipcBridge.mode.upsertModel.invoke({
+              provider_id: provider.id,
+              id: m.id,
+              display_name: m.display_name,
+              tags: m.tags,
+              context_limit: m.context_limit ?? null,
+              enabled,
+              protocol: m.protocol ?? null,
+            })
+          )
+        );
+        refresh();
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [refresh, message]
   );
+
+  const onDeleteModel = useCallback(
+    async (provider: IProvider, model: IModelView) => {
+      try {
+        await ipcBridge.mode.deleteModel.invoke({ provider_id: provider.id, model_id: model.id });
+        message.success(t('settings.models.deleted'));
+        refresh();
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [refresh, message, t]
+  );
+
+  const onDeleteProvider = useCallback(
+    async (provider: IProvider) => {
+      try {
+        await ipcBridge.mode.deleteProvider.invoke({ id: provider.id });
+        message.success(t('settings.models.deleted'));
+        refresh();
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [refresh, message, t]
+  );
+
+  const filterModels = useCallback(
+    (provider: IProvider): IModelView[] => {
+      const keyword = search.trim().toLowerCase();
+      return provider.models.filter((m) => {
+        if (tagFilter !== 'all' && !m.tags.includes(tagFilter)) return false;
+        if (!keyword) return true;
+        return m.id.toLowerCase().includes(keyword) || m.display_name.toLowerCase().includes(keyword);
+      });
+    },
+    [search, tagFilter]
+  );
+
+  // 页面上出现过的标签，供筛选条使用（而不是硬编码全部标签）。
+  const availableTags = useMemo(() => {
+    const set = new Set<ModelTag>();
+    providers.forEach((p) => p.models.forEach((m) => m.tags.forEach((tag) => set.add(tag))));
+    return Array.from(set);
+  }, [providers]);
+
+  const anyProvider = providers.some((p) => p.models.length > 0);
 
   return (
-    <div
-      className={
-        isPageMode
-          ? 'flex flex-col gap-16px'
-          : 'flex flex-col bg-2 rd-16px px-16px md:px-24px lg:px-28px py-16px md:py-18px'
-      }
-    >
+    <div className='flex h-full flex-col'>
       {messageContext}
-      {addPlatformModalContext}
-      {editModalContext}
-      {addModelModalContext}
+      <SettingsPageHeader
+        title={t('settings.models.title')}
+        description={t('settings.models.description')}
+        actions={
+          <Button type='primary' onClick={() => addPlatformCtrl.open()}>
+            {t('settings.models.add')}
+          </Button>
+        }
+      />
 
-      {isPageMode ? (
-        <SettingsPageHeader
-          data-testid='model-header'
-          title={t('settings.model')}
-          description={t('settings.modelDescription', {
-            defaultValue: 'Configure LLM providers and API keys for use across all assistants.',
-          })}
-          actions={headerActions}
-        />
-      ) : (
-        /* Modal mode keeps its compact self-contained header. */
-        <div className='flex-shrink-0 border-b border-[var(--color-border-2)] pb-12px mb-14px flex flex-col gap-10px'>
-          <div className='flex items-center justify-between gap-8px flex-wrap'>
-            <div className='text-20px font-600 text-t-primary leading-34px'>{t('settings.model')}</div>
-            <div className='flex items-center gap-8px flex-wrap'>{headerActions}</div>
+      {/* 搜索与标签筛选 */}
+      {anyProvider && (
+        <div className='flex flex-wrap items-center gap-8px px-16px pb-10px'>
+          <Input
+            className='max-w-260px'
+            size='small'
+            allowClear
+            value={search}
+            placeholder={t('settings.models.searchPlaceholder')}
+            onChange={setSearch}
+          />
+          <div className='flex flex-wrap items-center gap-6px'>
+            <Tag
+              size='small'
+              color={tagFilter === 'all' ? 'arcoblue' : 'gray'}
+              className='cursor-pointer'
+              onClick={() => setTagFilter('all')}
+            >
+              {t('settings.models.filterAll')}
+            </Tag>
+            {availableTags.map((tag) => (
+              <Tag
+                key={tag}
+                size='small'
+                color={tagFilter === tag ? 'arcoblue' : tagColor(tag)}
+                className='cursor-pointer'
+                onClick={() => setTagFilter(tagFilter === tag ? 'all' : tag)}
+              >
+                {tagLabel(tag, t)}
+              </Tag>
+            ))}
           </div>
-          {supportNote}
         </div>
       )}
 
-      {/* Content Area */}
       <AionScrollArea className='flex-1 min-h-0' disableOverflow={isPageMode}>
-        {!data || data.length === 0 ? (
-          <div className='flex flex-col items-center justify-center py-40px'>
-            <Info theme='outline' size='48' className='text-t-secondary mb-16px' />
-            <h3 className='text-16px font-500 text-t-primary mb-8px'>{t('settings.noConfiguredModels')}</h3>
-            <p className='text-14px text-t-secondary text-center max-w-400px'>
-              {t('settings.needHelpConfigGuide')}
-              <a
-                href='https://github.com/iOfficeAI/AionUi/wiki/LLM-Configuration'
-                target='_blank'
-                rel='noopener noreferrer'
-                className='text-[rgb(var(--primary-6))] hover:text-[rgb(var(--primary-5))] underline ms-4px'
-              >
-                {t('settings.configGuide')}
-              </a>
-              {t('settings.configGuideSuffix')}
-            </p>
-          </div>
-        ) : (
-          <div className='space-y-16px'>
-            {(data || []).map((platform: IProvider) => {
-              const key = platform.id;
-              const isExpanded = collapseKey[platform.id] ?? false;
-              return (
-                <Collapse
-                  activeKey={isExpanded ? ['image-generation'] : []}
-                  onChange={(_, activeKeys) => {
-                    const expanded = activeKeys.includes('image-generation');
-                    setCollapseKey((prev) => ({ ...prev, [platform.id]: expanded }));
-                  }}
-                  key={key}
-                  bordered
-                  expandIconPosition='left'
-                  className={`[&_.arco-collapse-item]:!border-0 [&_.arco-collapse-item]:!rounded-12px [&_.arco-collapse-item]:!overflow-hidden [&_.arco-collapse-item]:!bg-[var(--color-bg-2)] [&_.arco-collapse-item-header]:!bg-[var(--fill-0)] [&_.arco-collapse-item-header]:!ps-36px [&_.arco-collapse-item-header]:!pe-12px [&_.arco-collapse-item-header]:!py-8px [&_.arco-collapse-item-header]:transition-colors [&_.arco-collapse-item-header]:hover:!bg-[var(--color-bg-2)] [&_.arco-collapse-item-header]:!gap-8px [&_.arco-collapse-item-header-title]:!min-w-0 [&_.arco-collapse-item-header-icon]:!text-2 [&_.arco-collapse-item-header:hover_.arco-collapse-item-header-icon]:!text-1 [&_.arco-collapse-item-content]:!bg-fill-1 [&_.arco-collapse-item-content-box]:!px-10px [&_.arco-collapse-item-content-box]:!py-8px [&_.arco-collapse-item-content]:!border-t [&_.arco-collapse-item-content]:!border-[var(--color-border-2)] ${
-                    isExpanded
-                      ? '[&_.arco-collapse-item-header]:!rounded-t-12px [&_.arco-collapse-item-header]:!rounded-b-0 [&_.arco-collapse-item-content]:!rounded-b-12px'
-                      : '[&_.arco-collapse-item-header]:!rounded-12px'
-                  }`}
-                >
-                  <Collapse.Item
-                    name='image-generation'
-                    className='[&_.arco-collapse-item-header-title]:flex-1 group'
-                    header={
-                      <div className='group flex items-center justify-between w-full min-h-32px gap-8px min-w-0'>
-                        <span
-                          className={`text-14px font-500 truncate min-w-0 transition-colors ${isExpanded ? 'text-t-primary' : 'text-2 group-hover:text-1'}`}
-                        >
-                          {platform.name}
+        <div className='px-16px pb-16px'>
+          {providers.length === 0 ? (
+            <EmptyState>
+              <div>{t('settings.models.noProviders')}</div>
+              <div className='mt-4px text-12px opacity-70'>{t('settings.models.noProvidersHint')}</div>
+            </EmptyState>
+          ) : (
+            <SettingsCardList className='flex flex-col gap-10px'>
+              {providers.map((provider) => {
+                const expanded = collapsed[provider.id] ?? true;
+                const shown = filterModels(provider);
+                const enabledCount = provider.models.filter((m) => m.enabled).length;
+
+                return (
+                  <div key={provider.id} className='rounded-12px bg-[var(--color-bg-2)]'>
+                    {/* 供应商头：模型数与 Key 数常显 */}
+                    <div className='flex items-center justify-between gap-12px px-14px py-10px'>
+                      <button
+                        type='button'
+                        className='flex min-w-0 flex-1 cursor-pointer items-center gap-8px text-left'
+                        onClick={() => setCollapsed((prev) => ({ ...prev, [provider.id]: !expanded }))}
+                      >
+                        <Down size='14' className={`shrink-0 text-t-tertiary transition-transform ${expanded ? '' : '-rotate-90'}`} />
+                        <span className='truncate text-14px font-medium text-t-primary'>{provider.name}</span>
+                      </button>
+
+                      <div className='flex flex-shrink-0 items-center gap-10px'>
+                        <span className='hidden items-center gap-8px text-12px text-t-secondary md:flex'>
+                          <span>
+                            {t('settings.models.modelCount')} ({provider.model_count})
+                          </span>
+                          <span className='text-t-tertiary'>|</span>
+                          <span>
+                            {t('settings.models.keyCount')} ({provider.key_count})
+                          </span>
                         </span>
-                        <div
-                          className='flex items-center gap-8px shrink-0'
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                          }}
+                        <span className='text-12px text-t-secondary md:hidden'>
+                          {provider.model_count} / {provider.key_count}
+                        </span>
+
+                        {!provider.has_key && (
+                          <StatusBadge tone='warning' label={t('settings.models.noKey')} />
+                        )}
+
+                        <Tooltip
+                          content={
+                            <span>
+                              {t('settings.models.keyCount')} ({provider.key_count})
+                              <br />
+                              {provider.base_url}
+                            </span>
+                          }
                         >
-                          <span className='text-12px text-t-secondary whitespace-nowrap hidden md:inline-flex items-center overflow-hidden max-w-0 opacity-0 group-hover:max-w-320px group-hover:opacity-100 transition-all duration-180'>
-                            <span
-                              className='cursor-pointer hover:text-t-primary transition-colors'
-                              onClick={() => setCollapseKey((prev) => ({ ...prev, [platform.id]: !isExpanded }))}
-                            >
-                              {t('settings.modelCount')}（{(platform.models ?? []).length}）
-                            </span>
-                            <span className='mx-6px'>|</span>
-                            <span
-                              className='cursor-pointer hover:text-t-primary transition-colors'
-                              onClick={() => editModalCtrl.open({ data: platform })}
-                            >
-                              {t('settings.apiKeyCount')}（{getApiKeyCount(platform.api_key)}）
-                            </span>
-                          </span>
-                          <span className='text-12px text-t-secondary whitespace-nowrap md:hidden'>
-                            {(platform.models ?? []).length} / {getApiKeyCount(platform.api_key)}
-                          </span>
-                          {/* 供应商启用开关 / Provider enable switch */}
                           <Switch
                             size='small'
-                            checked={getProviderState(platform).checked}
-                            onChange={() => toggleProviderEnabled(platform)}
+                            checked={enabledCount > 0}
+                            onChange={(checked) => onToggleProvider(provider, checked)}
                           />
-                          <div className='flex items-center gap-4px'>
-                            <Button
-                              size='mini'
-                              className='model-provider-action-btn !w-28px !h-28px !min-w-28px text-t-secondary hover:text-t-primary'
-                              icon={<Plus size='14' />}
-                              onClick={() => addModelModalCtrl.open({ data: platform })}
-                            />
-                            <Popconfirm
-                              title={t('settings.deleteAllModelConfirm')}
-                              onOk={() => removePlatform(platform.id)}
-                            >
-                              <Button
-                                size='mini'
-                                className='model-provider-action-btn !w-28px !h-28px !min-w-28px text-t-secondary hover:text-t-primary'
-                                icon={<Minus size='14' />}
-                              />
-                            </Popconfirm>
-                            <Button
-                              size='mini'
-                              className='model-provider-action-btn !w-28px !h-28px !min-w-28px text-t-secondary hover:text-t-primary'
-                              icon={<Write size='14' />}
-                              onClick={() => editModalCtrl.open({ data: platform })}
-                            />
-                          </div>
-                        </div>
+                        </Tooltip>
+
+                        <Button
+                          size='mini'
+                          className='!w-28px !h-28px !min-w-28px'
+                          icon={<Plus size='14' />}
+                          onClick={() => setModelEditor({ provider })}
+                        />
+                        <Button
+                          size='mini'
+                          className='!w-28px !h-28px !min-w-28px'
+                          icon={<Edit size='14' />}
+                          onClick={() => editProviderCtrl.open({ data: provider })}
+                        />
+                        <Popconfirm
+                          title={t('settings.models.confirmDeleteProvider', { name: provider.name })}
+                          onOk={() => onDeleteProvider(provider)}
+                        >
+                          <Button size='mini' className='!w-28px !h-28px !min-w-28px' icon={<Delete size='14' />} />
+                        </Popconfirm>
                       </div>
-                    }
-                  >
-                    {(platform.models ?? []).map((model: string, index: number, arr: string[]) => {
-                      const isNewApiProvider = isNewApiPlatform(platform.platform);
-                      const modelProtocol = platform.model_protocols?.[model] || 'openai';
-                      const modelSettings = platform.model_settings?.[model];
-                      const imageInput = modelSettings?.image_input ?? 'auto';
-                      const showOpenAiApiMode = supportsOpenAiApiMode(platform.platform, modelProtocol);
-                      const model_health = platform.model_health?.[model];
-                      const healthStatus = model_health?.status || 'unknown';
+                    </div>
 
-                      return (
-                        <div key={model}>
-                          <div className='flex items-center justify-between gap-8px px-8px py-12px transition-colors hover:bg-[var(--fill-0)]'>
-                            <div className='flex min-w-0 flex-1 items-center gap-8px'>
-                              {/* 健康状态指示器 / Health status indicator */}
-                              {healthStatus !== 'unknown' && (
-                                <Tooltip
-                                  content={
-                                    <div>
-                                      <div className='flex items-center gap-4px'>
-                                        <span>{healthStatus === 'healthy' ? '✅' : '❌'}</span>
-                                        <span>
-                                          {healthStatus === 'healthy' ? t('common.success') : t('common.failed')}
-                                        </span>
-                                      </div>
-                                      {model_health?.latency && (
-                                        <div className='text-12px mt-4px'>
-                                          {t('settings.latency')}: {model_health.latency}ms
-                                        </div>
-                                      )}
-                                      {model_health?.error && (
-                                        <div className='text-12px mt-4px'>{model_health.error}</div>
-                                      )}
-                                      {model_health?.last_check && (
-                                        <div className='text-12px mt-4px'>
-                                          {t('mcp.lastCheck')}: {formatDateTime(model_health.last_check, i18n.language)}
-                                        </div>
-                                      )}
-                                    </div>
-                                  }
-                                >
-                                  <div
-                                    className={`h-8px w-8px shrink-0 rounded-full ${healthStatus === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}
-                                  />
-                                </Tooltip>
-                              )}
-
-                              <span className='min-w-0 flex-1 truncate text-14px text-t-primary'>{model}</span>
-
-                              {/* New API 协议标签（点击循环切换）/ New API protocol badge (click to cycle) */}
-                              {isNewApiProvider && (
-                                <Tag
-                                  size='small'
-                                  color={getProtocolColor(modelProtocol)}
-                                  className='shrink-0 cursor-pointer select-none'
-                                  onClick={() => {
-                                    const nextProtocol = getNextProtocol(modelProtocol);
-                                    const newProtocols = { ...platform.model_protocols };
-                                    newProtocols[model] = nextProtocol;
-                                    updatePlatform({ ...platform, model_protocols: newProtocols }, () => {});
-                                  }}
-                                >
-                                  {getProtocolLabel(modelProtocol)}
-                                </Tag>
-                              )}
-
-                              <Tooltip
-                                content={
-                                  imageInput === 'supported'
-                                    ? t('settings.imageInputSupported')
-                                    : imageInput === 'unsupported'
-                                      ? t('settings.imageInputUnsupported')
-                                      : t('settings.imageInputAuto')
-                                }
-                              >
-                                <span
-                                  className={`inline-flex h-20px w-20px shrink-0 items-center justify-center ${
-                                    imageInput === 'supported' ? 'text-success-6' : 'text-t-secondary'
-                                  }`}
-                                >
-                                  {imageInput !== 'unsupported' ? (
-                                    <PreviewOpen theme='outline' size='15' />
-                                  ) : (
-                                    <PreviewClose theme='outline' size='15' />
-                                  )}
-                                </span>
-                              </Tooltip>
-
-                              {showOpenAiApiMode && (
-                                <Tag size='small' className='hidden shrink-0 md:inline-flex'>
-                                  {modelSettings?.openai_api_mode === 'responses'
-                                    ? t('settings.openAiApiModeResponses')
-                                    : modelSettings?.openai_api_mode === 'chat_completions'
-                                      ? t('settings.openAiApiModeChatCompletions')
-                                      : t('settings.openAiApiModeAuto')}
-                                </Tag>
-                              )}
-
-                              {/* 模型启用开关 / Model enable switch */}
-                              <Switch
-                                className='shrink-0'
-                                size='small'
-                                checked={isModelEnabled(platform, model)}
-                                onChange={(checked) => toggleModelEnabled(platform, model, checked)}
-                              />
-                            </div>
-
-                            <div className='flex items-center gap-6px shrink-0'>
-                              <Tooltip content={t('settings.configureModel')}>
-                                <Button
-                                  size='mini'
-                                  className='!w-28px !h-28px !min-w-28px !bg-[var(--color-bg-1)] text-t-secondary hover:text-t-primary hover:!bg-[var(--fill-0)]'
-                                  icon={<SettingTwo theme='outline' size='16' />}
-                                  onClick={() => addModelModalCtrl.open({ data: platform, model })}
-                                />
-                              </Tooltip>
-
-                              {/* 心跳检测按钮 / Health check button */}
-                              <Tooltip content={t('settings.healthCheck')}>
-                                <Button
-                                  size='mini'
-                                  className='!w-28px !h-28px !min-w-28px !bg-[var(--color-bg-1)] text-t-secondary hover:text-t-primary hover:!bg-[var(--fill-0)]'
-                                  icon={<Heartbeat theme='outline' size='16' />}
-                                  loading={healthCheckLoading[`${platform.id}-${model}`]}
-                                  onClick={() => performHealthCheck(platform, model)}
-                                />
-                              </Tooltip>
-
-                              <Popconfirm
-                                title={t('settings.deleteModelConfirm')}
-                                onOk={() => {
-                                  const newModels = platform.models.filter((item: string) => item !== model);
-                                  // 同时清理模型相关状态，避免删除后重加模型时复用脏状态
-                                  // Clean all per-model state to avoid stale state on re-add.
-                                  const newProtocols = { ...platform.model_protocols };
-                                  const newModelEnabled = { ...platform.model_enabled };
-                                  const newModelHealth = { ...platform.model_health };
-                                  const newModelSettings = { ...platform.model_settings };
-                                  delete newProtocols[model];
-                                  delete newModelEnabled[model];
-                                  delete newModelHealth[model];
-                                  delete newModelSettings[model];
-
-                                  updatePlatform(
-                                    {
-                                      ...platform,
-                                      models: newModels,
-                                      model_protocols: Object.keys(newProtocols).length > 0 ? newProtocols : undefined,
-                                      model_enabled:
-                                        Object.keys(newModelEnabled).length > 0 ? newModelEnabled : undefined,
-                                      model_health: Object.keys(newModelHealth).length > 0 ? newModelHealth : undefined,
-                                      model_settings: newModelSettings,
-                                    },
-                                    () => {}
-                                  );
-                                }}
-                              >
-                                <Button
-                                  size='mini'
-                                  className='!w-28px !h-28px !min-w-28px !bg-[var(--color-bg-1)] text-t-secondary hover:text-t-primary hover:!bg-[var(--fill-0)]'
-                                  icon={<DeleteFour theme='outline' size='18' strokeWidth={2} />}
-                                />
-                              </Popconfirm>
-                            </div>
+                    {expanded && (
+                      <div className='px-8px pb-8px'>
+                        {shown.length === 0 ? (
+                          <div className='py-16px text-center text-12px text-t-tertiary'>
+                            {provider.models.length === 0
+                              ? t('settings.models.noModels')
+                              : t('settings.models.filterAll')}
                           </div>
-                          {index < arr.length - 1 && <Divider className='!my-0 !border-[var(--color-border-2)]/70' />}
-                        </div>
-                      );
-                    })}
-                  </Collapse.Item>
-                </Collapse>
-              );
-            })}
-          </div>
-        )}
+                        ) : (
+                          <SettingsCardList className='flex flex-col gap-2px'>
+                            {shown.map((model) => (
+                              <SettingsCardRow
+                                key={model.id}
+                                title={
+                                  <span className='flex min-w-0 items-center gap-6px'>
+                                    <span className='truncate'>{model.label}</span>
+                                    {model.tags.map((tag) => (
+                                      <Tag key={tag} size='small' color={tagColor(tag)} className='shrink-0'>
+                                        {tagLabel(tag, t)}
+                                      </Tag>
+                                    ))}
+                                    {model.capabilities?.vision === true && (
+                                      <Tag size='small' color='purple' className='shrink-0'>
+                                        {tagLabel('vision', t)}
+                                      </Tag>
+                                    )}
+                                  </span>
+                                }
+                                subtitle={<ModelMeta model={model} />}
+                                badges={
+                                  !model.enabled ? (
+                                    <StatusBadge tone='neutral' label={t('settings.models.enabled')} />
+                                  ) : undefined
+                                }
+                                actions={
+                                  <>
+                                    <Switch
+                                      size='small'
+                                      checked={model.enabled}
+                                      onChange={(checked) => onToggleModel(provider, model, checked)}
+                                    />
+                                    <Dropdown
+                                      droplist={
+                                        <Menu>
+                                          <Menu.Item
+                                            key='edit'
+                                            onClick={() => setModelEditor({ provider, model })}
+                                          >
+                                            {t('settings.models.editModel')}
+                                          </Menu.Item>
+                                          <Menu.Item key='copy' onClick={() => void navigator.clipboard?.writeText(model.id)}>
+                                            {t('common.copy')}
+                                          </Menu.Item>
+                                          <Menu.Item
+                                            key='delete'
+                                            className='!text-t-error'
+                                            onClick={() => onDeleteModel(provider, model)}
+                                          >
+                                            {t('common.delete')}
+                                          </Menu.Item>
+                                        </Menu>
+                                      }
+                                    >
+                                      <Button size='mini' className='!w-28px !h-28px !min-w-28px' icon={<More size='14' />} />
+                                    </Dropdown>
+                                  </>
+                                }
+                              />
+                            ))}
+                          </SettingsCardList>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </SettingsCardList>
+          )}
+
+          <DataLocationNote path='.data/providers.jsonc' shared />
+        </div>
       </AionScrollArea>
+
+      <ModelEditorModal
+        target={modelEditor}
+        onClose={() => setModelEditor(null)}
+        onSaved={refresh}
+      />
+
+      {addPlatformModal}
+      {editProviderModal}
     </div>
   );
 };

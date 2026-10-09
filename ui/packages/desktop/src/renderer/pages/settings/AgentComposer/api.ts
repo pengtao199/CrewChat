@@ -1,3 +1,4 @@
+import type { IDiscoveredModel } from '@/common/types/provider/providerApi';
 /**
  * @license
  * Copyright 2025 AionUi (aionui.com)
@@ -33,7 +34,7 @@ export const removeAgent = (id: string) =>
   request<{ success: boolean }>(`/api/crewchat/agents/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 export const fetchModels = (providerId: string) =>
-  request<{ models: string[]; success: boolean; message?: string }>('/api/providers/fetch-models', {
+  request<{ models: IDiscoveredModel[]; success: boolean; message?: string }>('/api/providers/fetch-models', {
     method: 'POST',
     body: JSON.stringify({ provider_id: providerId }),
   });

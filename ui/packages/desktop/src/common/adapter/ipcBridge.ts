@@ -20,7 +20,6 @@ import type { OpenDialogOptions } from 'electron';
 import type {
   ICssTheme,
   IMcpServer,
-  IProvider,
   ISessionMcpServer,
   TChatConversation,
   TConversationRuntimeSummary,
@@ -45,9 +44,11 @@ import type {
   CreateProviderRequest,
   FetchModelsAnonymousRequest,
   FetchModelsResponse,
-  ProviderHealthCheckRequest,
-  ProviderHealthCheckResponse,
+  IModelView,
+  IProvider,
+  ModelTag,
   UpdateProviderRequest,
+  UpsertModelRequest,
 } from '../types/provider/providerApi';
 import type {
   ITeamAgentRemovedEvent,
@@ -1101,10 +1102,24 @@ export const mode = {
     }
   ),
   deleteProvider: httpDelete<void, { id: string }>((p) => `/api/providers/${p.id}`),
-  fetchProviderModels: httpPost<FetchModelsResponse, { id: string; try_fix?: boolean }>(
-    (p) => `/api/providers/${p.id}/models`,
-    (p) => ({ try_fix: p.try_fix })
+  /**
+   * Reveal the stored key on demand. The list endpoint only ever returns a mask.
+   */
+  revealProviderKey: httpGet<{ api_key: string }, { id: string }>((p) => `/api/providers/${p.id}/secret`),
+  /**
+   * Add or update one model on a provider (POST with a matching `id` overwrites).
+   */
+  upsertModel: httpPost<
+    { success: boolean; model: IModelView; provider: IProvider },
+    { provider_id: string } & UpsertModelRequest
+  >((p) => `/api/providers/${p.provider_id}/models`, (p) => {
+    const { provider_id: _id, ...body } = p;
+    return body;
+  }),
+  deleteModel: httpDelete<{ success: boolean; provider: IProvider }, { provider_id: string; model_id: string }>(
+    (p) => `/api/providers/${p.provider_id}/models/${p.model_id}`
   ),
+  listModelTags: httpGet<{ tags: ModelTag[] }, void>('/api/model-tags'),
   /**
    * Pre-create form preview — anonymous fetch-models (T1b).
    * Takes credentials in the body, no provider row required. Used by
@@ -1187,9 +1202,6 @@ export const acpConversation = {
   checkManagedAgentHealthById: httpPost<import('@/renderer/utils/model/agentTypes').ManagedAgent, { id: string }>(
     (p) => `/api/agents/${p.id}/health-check`,
     () => undefined
-  ),
-  checkProviderHealth: httpPost<ProviderHealthCheckResponse, ProviderHealthCheckRequest>(
-    '/api/agents/provider-health-check'
   ),
   setConfigOption: httpPut<SetConfigOptionResponse, { conversation_id: string; option_id: string; value: string }>(
     (p) => `/api/conversations/${p.conversation_id}/config-options/${encodeURIComponent(p.option_id)}`,

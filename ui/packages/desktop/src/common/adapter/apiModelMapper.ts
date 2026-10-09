@@ -76,6 +76,15 @@ export function fromApiModel(raw: ApiProviderWithModel): TProviderWithModel {
     name: '',
     base_url: '',
     api_key: '',
+    model_count: 0,
+    key_count: 0,
+    has_key: false,
+    model: '',
+    api_format: 'openai_chat',
+    extra_headers: {},
+    enabled: true,
+    is_full_url: false,
+    models_url_override: '',
     use_model: raw.use_model ?? raw.model,
   };
 }

@@ -7,107 +7,121 @@
 /**
  * Wire-contract types for `/api/providers/*`.
  *
- * Direct mirror of the Rust types in
- * `crates/aionui-api-types/src/provider.rs`. Keep in sync with the
- * backend spec.
+ * Mirrors the backend `core/providers.py` (`Model` / `Provider`) and the
+ * cc-switch-backed enrichment in `core/model_catalog.py`.
  */
 
-import type { IProvider, ModelCapability } from '@/common/config/storage';
+/** Fixed tag vocabulary. The backend validates against this same list. */
+export type ModelTag = 'text' | 'vision' | 'reasoning' | 'tool_use' | 'long_context' | 'fast' | 'free';
 
-export interface CreateProviderRequest {
-  /**
-   * Optional caller-supplied id. When omitted, the server generates one.
-   * Validated leniently (any non-empty string) to accept the frontend's
-   * 8-char `uuid()` helper output.
-   */
-  id?: string;
+/** Per-million-token costs, sourced from the cc-switch models.dev catalog. */
+export interface IModelPrice {
+  display_name?: string;
+  input?: number;
+  output?: number;
+  cache_read?: number;
+  cache_write?: number;
+}
+
+/**
+ * Model capabilities. `vision` is only present when cc-switch reached a
+ * conclusion — an unknown capability is omitted (fail-open), never `false`.
+ */
+export interface IModelCapabilities {
+  vision?: boolean;
+}
+
+/** One model under a provider. */
+export interface IModelView {
+  id: string;
+  /** User-supplied display name; empty means "fall back to id". */
+  display_name: string;
+  /** Resolved display label: `display_name || id`. */
+  label: string;
+  tags: ModelTag[];
+  context_limit?: number | null;
+  enabled: boolean;
+  protocol?: string | null;
+  capabilities: IModelCapabilities;
+  price: IModelPrice;
+}
+
+/** A provider (brain-pool entry). `api_key` is always masked on the wire. */
+export interface IProvider {
+  id: string;
   platform: string;
   name: string;
   base_url: string;
+  /** Masked placeholder when a key is set; empty string when not. */
   api_key: string;
-  models?: string[];
-  enabled?: boolean;
-  capabilities?: ModelCapability[];
-  context_limit?: number;
-  model_protocols?: Record<string, string>;
-  model_enabled?: Record<string, boolean>;
-  model_health?: IProvider['model_health'];
-  model_settings?: IProvider['model_settings'];
-  bedrock_config?: IProvider['bedrock_config'];
-  is_full_url?: boolean;
+  has_key: boolean;
+  /** Number of usable keys (multi-key is newline/comma separated). */
+  key_count: number;
+  model: string;
+  models: IModelView[];
+  model_count: number;
+  api_format: string;
+  temperature?: number | null;
+  max_tokens?: number | null;
+  extra_headers: Record<string, string>;
+  enabled: boolean;
+  is_full_url: boolean;
+  models_url_override: string;
 }
 
-/**
- * Partial-update shape for `PUT /api/providers/:id`.
- * Every field is optional — only fields sent are updated.
- */
-export interface UpdateProviderRequest {
-  platform?: string;
-  name?: string;
-  base_url?: string;
-  api_key?: string;
-  models?: string[];
+/** Model ids of a provider, for pickers and selectors that work with ids. */
+export const modelIds = (provider?: IProvider | null): string[] => (provider?.models ?? []).map((m) => m.id);
+
+/** First model id of a provider, or undefined when it has none. */
+export const firstModelId = (provider?: IProvider | null): string | undefined => modelIds(provider)[0];
+
+/** Body for adding/updating one model. */
+export interface UpsertModelRequest {
+  id: string;
+  display_name?: string;
+  tags?: ModelTag[];
+  context_limit?: number | null;
   enabled?: boolean;
-  capabilities?: ModelCapability[];
-  context_limit?: number;
-  model_protocols?: Record<string, string>;
-  model_enabled?: Record<string, boolean>;
-  model_health?: IProvider['model_health'];
-  model_settings?: IProvider['model_settings'];
-  bedrock_config?: IProvider['bedrock_config'];
-  is_full_url?: boolean;
+  protocol?: string | null;
 }
 
-/**
- * Response for `POST /api/providers/:id/models` and
- * `POST /api/providers/fetch-models`.
- */
+/** A model discovered from the provider's own endpoint. */
+export interface IDiscoveredModel {
+  id: string;
+  owned_by?: string;
+  price?: IModelPrice;
+}
+
+export interface CreateProviderRequest {
+  /** Optional caller-supplied id; the server generates one when omitted. */
+  id?: string;
+  name: string;
+  base_url: string;
+  api_key: string;
+  api_format?: string;
+  enabled?: boolean;
+  is_full_url?: boolean;
+  models_url_override?: string;
+  /** Full model objects, used by the legacy config migration. */
+  models?: IModelView[];
+}
+
+/** Partial update for `PUT /api/providers/:id`; only sent fields are applied. */
+export interface UpdateProviderRequest extends Partial<CreateProviderRequest> {}
+
+/** Response for `POST /api/providers/fetch-models`. */
 export interface FetchModelsResponse {
-  /** Mixed-shape array: bare id strings or `{ id, name }` pairs. */
-  models: Array<string | { id: string; name: string }>;
-  /** Present when backend auto-corrected the provider's base_url. */
-  fixed_base_url?: string;
+  models: IDiscoveredModel[];
+  success: boolean;
+  message?: string;
 }
 
-/**
- * Anonymous fetch-models request used by the pre-create form flow.
- * No provider row needs to exist yet — credentials travel in the body.
- */
+/** Anonymous fetch-models request used by the pre-create form flow. */
 export interface FetchModelsAnonymousRequest {
-  platform: string;
   base_url?: string;
   api_key: string;
-  bedrock_config?: IProvider['bedrock_config'];
-  try_fix?: boolean;
-}
-
-export type ProviderHealthCheckErrorKind =
-  | 'timeout'
-  | 'invalid_authorization_header'
-  | 'unauthorized'
-  | 'forbidden'
-  | 'not_found'
-  | 'insufficient_quota'
-  | 'aws_credentials'
-  | 'invalid_request'
-  | 'rate_limited'
-  | 'connection_error'
-  | 'api_error'
-  | 'unknown';
-
-export interface ProviderHealthCheckRequest {
-  provider_id: string;
-  model: string;
-}
-
-export interface ProviderHealthCheckResponse {
-  provider_id: string;
-  platform: string;
-  model: string;
-  status: 'unknown' | 'healthy' | 'unhealthy';
-  elapsed_ms: number;
-  message?: string;
-  error_kind?: ProviderHealthCheckErrorKind;
-  http_status?: number;
-  timeout_stage?: string;
+  api_format?: string;
+  is_full_url?: boolean;
+  extra_headers?: Record<string, string>;
+  provider_id?: string;
 }

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { modelIds } from '@/common/types/provider/providerApi';
 import { ipcBridge } from '@/common';
 import { buildGuidSlashCommands } from '@/common/chat/slash/guidSlashCommands';
 import type { SlashCommandItem } from '@/common/chat/slash/types';
@@ -403,7 +404,7 @@ const GuidPage: React.FC = () => {
       if (shouldApplyDefaultModel && effectiveBackend === 'aionrs') {
         if (resolvedDefaults.modelId) {
           const matchedProvider = modelSelection.modelList.find((provider) =>
-            provider.models.includes(resolvedDefaults.modelId!)
+            modelIds(provider).includes(resolvedDefaults.modelId!)
           );
           if (matchedProvider) {
             await modelSelection.setCurrentModel(

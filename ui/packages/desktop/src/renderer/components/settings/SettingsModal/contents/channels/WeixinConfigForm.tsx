@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { firstModelId } from '@/common/types/provider/providerApi';
 import type { IChannelPairingRequest, IChannelPluginStatus, IChannelUser } from '@/common/types/channel/channel';
 import { assistants, channel } from '@/common/adapter/ipcBridge';
 import { isAionrsAssistant, type Assistant } from '@/common/types/agent/assistantTypes';
@@ -424,8 +425,8 @@ const WeixinConfigForm: React.FC<WeixinConfigFormProps> = ({ pluginStatus, model
                           providers.some((p) => p.id === modelSelection.current_model?.id);
                         if (!savedProviderExists && providers.length > 0) {
                           const firstProvider = providers[0];
-                          if (firstProvider.id && firstProvider.models?.[0]) {
-                            void modelSelection.handleSelectModel(firstProvider, firstProvider.models[0]);
+                          if (firstProvider.id && firstModelId(firstProvider)) {
+                            void modelSelection.handleSelectModel(firstProvider, firstModelId(firstProvider));
                           }
                         }
                       }

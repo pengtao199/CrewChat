@@ -1,6 +1,6 @@
 import { ipcBridge } from '@/common';
 import { GOOGLE_AUTH_PROVIDER_ID } from '@/common/config/constants';
-import type { IProvider } from '@/common/config/storage';
+import type { IProvider } from '@/common/types/provider/providerApi';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import useSWR, { type SWRConfiguration } from 'swr';
 import { useGoogleAuthModels } from './useGoogleAuthModels';
@@ -48,23 +48,22 @@ export const useModelProviderList = (): ModelProviderListResult => {
   }, [modelConfig]);
 
   const getAvailableModels = useCallback((provider: IProvider): string[] => {
-    // 包含 model_enabled 状态到缓存 key 中
-    const model_enabledKey = provider.model_enabled ? JSON.stringify(provider.model_enabled) : 'all-enabled';
-    const cacheKey = `${provider.id}-${(provider.models || []).join(',')}-${model_enabledKey}`;
+    // 启停状态现在挂在模型自身，缓存 key 用模型 id + 启用位。
+    const cacheKey = `${provider.id}-${(provider.models || [])
+      .map((m) => `${m.id}:${m.enabled ? 1 : 0}`)
+      .join(',')}`;
     const cache = available_modelsCacheRef.current;
     if (cache.has(cacheKey)) {
       return cache.get(cacheKey)!;
     }
     const result: string[] = [];
-    for (const modelName of provider.models || []) {
-      // 检查模型是否被禁用（默认为启用）
-      const isModelEnabled = provider.model_enabled?.[modelName] !== false;
-      if (!isModelEnabled) continue;
+    for (const model of provider.models || []) {
+      if (!model.enabled) continue;
 
-      const functionCalling = hasSpecificModelCapability(provider, modelName, 'function_calling');
-      const excluded = hasSpecificModelCapability(provider, modelName, 'excludeFromPrimary');
+      const functionCalling = hasSpecificModelCapability(provider, model.id, 'function_calling');
+      const excluded = hasSpecificModelCapability(provider, model.id, 'excludeFromPrimary');
       if ((functionCalling === true || functionCalling === undefined) && excluded !== true) {
-        result.push(modelName);
+        result.push(model.id);
       }
     }
     cache.set(cacheKey, result);

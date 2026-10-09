@@ -1,9 +1,9 @@
 import type { IProvider } from '@/common/config/storage';
+import type { CreateProviderRequest, IModelView } from '@/common/types/provider/providerApi';
 import {
   type ModelImageInputChoice,
   type ModelOpenAiApiModeChoice,
   supportsOpenAiApiMode,
-  updateModelSettings,
 } from '@/common/utils/modelCapabilities';
 import type { ProtocolDetectionResponse, ProtocolType } from '@/common/utils/protocolDetector';
 import { ipcBridge } from '@/common';
@@ -202,7 +202,7 @@ const renderPlatformOption = (platform: PlatformConfig, t?: (key: string) => str
 };
 
 const AddPlatformModal = ModalHOC<{
-  onSubmit: (platform: IProvider) => void;
+  onSubmit: (platform: CreateProviderRequest) => void;
   deepLinkData?: DeepLinkAddProviderDetail;
 }>(({ modalProps, onSubmit, modalCtrl, deepLinkData }) => {
   const [message, messageContext] = Message.useMessage();
@@ -346,52 +346,38 @@ const AddPlatformModal = ModalHOC<{
         const name = selectedPlatform?.i18nKey
           ? t(selectedPlatform.i18nKey)
           : (selectedPlatform?.name ?? values.platform);
-        const provider: IProvider = {
+        // 这里只组装新增所需的字段，其余由后端补全。
+        const provider: CreateProviderRequest = {
           id: uuid(),
-          platform: selectedPlatform?.platform ?? 'custom',
           name,
           // 优先使用用户输入的 base_url，否则使用平台预设值
           // Prefer user input base_url, fallback to platform preset
           base_url: isBedrock ? '' : values.base_url || selectedPlatform?.base_url || '',
           api_key: isBedrock ? '' : values.api_key,
-          // The model Select is multi-select: values.model is a string[], but
-          // keep the single-value fallback for safety.
-          models: Array.isArray(values.model) ? values.model : [values.model],
           is_full_url: isFullUrl,
         };
 
-        // Add Bedrock configuration if platform is Bedrock
-        if (isBedrock) {
-          provider.bedrock_config = {
-            auth_method: values.bedrockAuthMethod,
-            region: values.bedrockRegion,
-            ...(values.bedrockAuthMethod === 'accessKey'
-              ? {
-                  access_key_id: values.bedrockAccessKeyId,
-                  secret_access_key: values.bedrockSecretAccessKey,
-                }
-              : {
-                  profile: values.bedrockProfile,
-                }),
-          };
-        }
-
-        // new-api 平台：保存每模型协议配置 / new-api platform: save per-model protocol config
-        // Multi-select: apply the chosen protocol to every selected model so we
-        // never produce a comma-joined ("a,b") dirty key. Per-model fine-tuning
-        // still lives on the platform list tag switcher.
-        if (isNewApi && values.model) {
-          const selectedModels: string[] = Array.isArray(values.model) ? values.model : [values.model];
-          provider.model_protocols = Object.fromEntries(selectedModels.filter(Boolean).map((m) => [m, modelProtocol]));
-        }
-
-        const selectedModels: string[] = Array.isArray(values.model) ? values.model : [values.model];
-        provider.model_settings = updateModelSettings(
-          undefined,
-          selectedModels.filter(Boolean),
-          imageInput,
-          showOpenAiApiMode ? openAiApiMode : 'auto'
+        // The model Select is multi-select: values.model is a string[], but
+        // keep the single-value fallback for safety.
+        const selectedModelIds: string[] = (Array.isArray(values.model) ? values.model : [values.model]).filter(
+          Boolean
         );
+
+        // 选中模型 → 模型对象。标签与上下文在模型编辑器里逐个设置。
+        // 「图像输入」选择器落到每个模型的 capabilities.vision 上（显式声明优先于
+        // cc-switch 的登记表）；'auto' 表示不声明，交给 cc-switch 判定。
+        const declaredVision = imageInput === 'supported' ? true : imageInput === 'unsupported' ? false : undefined;
+        provider.models = selectedModelIds.map((id) => ({
+          id,
+          display_name: '',
+          label: id,
+          tags: (declaredVision === true ? ['vision'] : []) as IModelView['tags'],
+          context_limit: null as number | null,
+          enabled: true,
+          protocol: isNewApi ? modelProtocol : null,
+          capabilities: declaredVision === undefined ? {} : { vision: declaredVision },
+          price: {},
+        }));
 
         onSubmit(provider);
         modalCtrl.close();
@@ -680,18 +666,11 @@ const AddPlatformModal = ModalHOC<{
                         };
                         try {
                           const res = await ipcBridge.mode.fetchModelList.invoke({
-                            platform,
-                            api_key: '',
-                            bedrock_config,
+                            base_url: values.base_url,
+                            api_key: values.api_key ?? '',
+                            is_full_url: isFullUrl,
                           });
-                          const models =
-                            res.models.map((v) => {
-                              if (typeof v === 'string') {
-                                return { label: v, value: v };
-                              } else {
-                                return { label: v.name, value: v.id };
-                              }
-                            }) || [];
+                          const models = (res.models ?? []).map((v) => ({ label: v.id, value: v.id })) || [];
                           // Update the model list state manually
                           void modelListState.mutate({ models }, false);
                         } catch (error: any) {

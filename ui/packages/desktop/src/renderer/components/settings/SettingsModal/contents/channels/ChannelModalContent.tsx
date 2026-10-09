@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { modelIds } from '@/common/types/provider/providerApi';
 import type { IChannelPluginStatus } from '@/common/types/channel/channel';
 import type { IProvider, TProviderWithModel } from '@/common/config/storage';
 import { channel, webui, type IWebUIStatus } from '@/common/adapter/ipcBridge';
@@ -96,7 +97,7 @@ const useChannelModelSelection = (platform: ChannelSettingsPlatform): GoogleMode
         // ('auto', 'auto-gemini-2.5', 'manual'), but sub-model values like
         // 'gemini-2.5-flash' are also valid — skip strict membership check.
         const isGoogleAuth = provider.platform?.toLowerCase().includes('gemini-with-google-auth');
-        if (isGoogleAuth || provider.models?.includes(saved.use_model)) {
+        if (isGoogleAuth || modelIds(provider).includes(saved.use_model)) {
           setResolvedInitialModel({
             ...provider,
             use_model: saved.use_model,

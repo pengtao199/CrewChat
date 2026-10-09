@@ -1,7 +1,7 @@
 import { ipcBridge } from '@/common';
 import { httpRequest } from '@/common/adapter/httpBridge';
 import { assistantRuntimeKey, type AssistantAgent } from '@/common/types/agent/assistantTypes';
-import type { CreateProviderRequest } from '@/common/types/provider/providerApi';
+import type { CreateProviderRequest, ModelTag } from '@/common/types/provider/providerApi';
 
 import type { ConfigKey } from './configKeys';
 import type { ILegacyConfigStorageRefer, IMcpServer } from './storage';
@@ -327,7 +327,13 @@ type LegacyProvider = {
   apiKey: string;
   model: string[];
   enabled?: boolean;
-  capabilities?: CreateProviderRequest['capabilities'];
+  /**
+   * 以下字段在新的 provider 模型里已不存在，迁移时按下面的规则翻译或丢弃：
+   * - capabilities/contextLimit → 每个模型的 tags / context_limit
+   * - modelEnabled → 每个模型的 enabled
+   * - modelHealth / modelProtocols / bedrockConfig → 后端不存储，直接丢弃
+   */
+  capabilities?: string[];
   contextLimit?: number;
   modelProtocols?: Record<string, string>;
   modelEnabled?: Record<string, boolean>;
@@ -335,18 +341,20 @@ type LegacyProvider = {
   bedrockConfig?: LegacyBedrockConfig;
 };
 
-function transformModelHealth(health: LegacyModelHealth): CreateProviderRequest['model_health'] {
-  const result: NonNullable<CreateProviderRequest['model_health']> = {};
-  for (const [key, value] of Object.entries(health)) {
-    result[key] = {
-      status: value.status,
-      last_check: value.lastCheck,
-      latency: value.latency,
-      error: value.error,
-    };
-  }
-  return result;
-}
+/** 旧的 `capabilities` 是能力词表，新模型里对应的是模型标签。 */
+const LEGACY_CAPABILITY_TO_TAG: Record<string, ModelTag> = {
+  vision: 'vision',
+  image: 'vision',
+  'image-input': 'vision',
+  reasoning: 'reasoning',
+  thinking: 'reasoning',
+  tool_use: 'tool_use',
+  tools: 'tool_use',
+  long_context: 'long_context',
+  fast: 'fast',
+  free: 'free',
+  text: 'text',
+};
 
 /**
  * Local config file key that records "the legacy → backend provider migration
@@ -419,26 +427,24 @@ export async function migrateProviders(configFile: ConfigFile): Promise<void> {
     legacy,
     req: {
       id: legacy.id,
-      platform: legacy.platform,
       name: legacy.name,
       base_url: legacy.baseUrl,
       api_key: legacy.apiKey,
-      models: legacy.model,
+      // 旧的裸字符串模型列表 → 新的模型对象：把供应商级的能力词表翻译成标签，
+      // 把供应商级的 context_limit 与启停状态摊到每个模型上。
+      models: legacy.model.map((id) => ({
+        id,
+        display_name: '',
+        label: id,
+        tags: (legacy.capabilities ?? []).map((c) => LEGACY_CAPABILITY_TO_TAG[c]).filter((x): x is ModelTag => Boolean(x)),
+        context_limit: legacy.contextLimit ?? null,
+        enabled: legacy.modelEnabled?.[id] !== false,
+        protocol: null as string | null,
+        capabilities: {},
+        price: {},
+      })),
       enabled: legacy.enabled ?? true,
-      capabilities: legacy.capabilities,
-      context_limit: legacy.contextLimit,
-      model_protocols: legacy.modelProtocols,
-      model_enabled: legacy.modelEnabled,
-      model_health: legacy.modelHealth ? transformModelHealth(legacy.modelHealth) : undefined,
-      bedrock_config: legacy.bedrockConfig
-        ? {
-            auth_method: legacy.bedrockConfig.authMethod,
-            region: legacy.bedrockConfig.region,
-            access_key_id: legacy.bedrockConfig.accessKeyId,
-            secret_access_key: legacy.bedrockConfig.secretAccessKey,
-            profile: legacy.bedrockConfig.profile,
-          }
-        : undefined,
+      is_full_url: false,
     } satisfies CreateProviderRequest,
   }));
 

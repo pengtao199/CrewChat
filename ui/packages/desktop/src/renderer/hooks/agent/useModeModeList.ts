@@ -57,30 +57,13 @@ const useModeModeList = (
         const res = await ipcBridge.mode.fetchModelList.invoke({
           base_url,
           api_key: api_key ?? '',
-          try_fix,
-          platform,
-          bedrock_config,
+          is_full_url: false,
         });
-        let modelList = res.models.map((v) => {
-          // Handle both string and object formats (Bedrock returns objects with id and name)
-          if (typeof v === 'string') {
-            return { label: v, value: v };
-          } else {
-            return { label: v.name, value: v.id };
-          }
-        });
+        let modelList = res.models.map((v) => ({ label: v.id, value: v.id }));
 
         // 如果是 Gemini 平台，优化排序
         if (platform?.includes('gemini')) {
           modelList = sortGeminiModels(modelList);
-        }
-
-        // 如果返回了修复的 base_url，将其添加到结果中
-        if (res.fixed_base_url) {
-          return {
-            models: modelList,
-            fix_base_url: res.fixed_base_url,
-          };
         }
 
         return { models: modelList };

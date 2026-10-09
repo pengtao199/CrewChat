@@ -1,3 +1,5 @@
+import type { IProvider } from '@/common/types/provider/providerApi';
+
 /**
  * @license
  * Copyright 2025 AionUi (aionui.com)
@@ -24,7 +26,7 @@ export type AgentSpec = {
 };
 
 export type ComposerOptions = {
-  providers: Array<{ id: string; name: string; model: string; models: string[]; has_key: boolean }>;
+  providers: IProvider[];
   bodies: Array<{ id: string; label: string; available: boolean; has_builtin_brain: boolean }>;
   skills: string[];
   mcps: string[];

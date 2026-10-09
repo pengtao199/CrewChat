@@ -80,12 +80,9 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
         const res = await ipcBridge.mode.fetchModelList.invoke({
           base_url: nextBaseUrl,
           api_key: apiKey,
-          try_fix: true,
-          platform: data?.platform || 'gemini',
+          is_full_url: false,
         });
-        const models = res.models.map((v) =>
-          typeof v === 'string' ? { label: v, value: v } : { label: v.name, value: v.id }
-        );
+        const models = (res.models ?? []).map((v) => ({ label: v.id, value: v.id }));
         // Refresh the dropdown candidates only — selection is untouched.
         void modelListState.mutate({ models }, false);
 
@@ -120,11 +117,6 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
                 ? data.models[0]
                 : data.models
               : undefined,
-          bedrockAuthMethod: data.bedrock_config?.auth_method || 'accessKey',
-          bedrockRegion: data.bedrock_config?.region || 'us-east-1',
-          bedrockAccessKeyId: data.bedrock_config?.access_key_id || '',
-          bedrockSecretAccessKey: data.bedrock_config?.secret_access_key || '',
-          bedrockProfile: data.bedrock_config?.profile || '',
         });
       }
     }, [data, form]);
@@ -142,25 +134,21 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
             const updatedProvider: IProvider = {
               ...data,
               ...values,
-              // Ensure models is always an array
-              models: Array.isArray(values.model) ? values.model : [values.model],
+              // Ensure models is always an array of model objects
+              models: (Array.isArray(values.model) ? values.model : [values.model]).filter(Boolean).map((id: string) => ({
+                ...(data.models.find((m) => m.id === id) ?? {
+                  display_name: '',
+                  tags: [],
+                  context_limit: null,
+                  enabled: true,
+                  protocol: null,
+                  capabilities: {},
+                  price: {},
+                }),
+                id,
+                label: id,
+              })),
             };
-
-            // Add Bedrock configuration if platform is Bedrock
-            if (isBedrock) {
-              updatedProvider.bedrock_config = {
-                auth_method: values.bedrockAuthMethod,
-                region: values.bedrockRegion,
-                ...(values.bedrockAuthMethod === 'accessKey'
-                  ? {
-                      access_key_id: values.bedrockAccessKeyId,
-                      secret_access_key: values.bedrockSecretAccessKey,
-                    }
-                  : {
-                      profile: values.bedrockProfile,
-                    }),
-              };
-            }
 
             props.onChange(updatedProvider);
             modalCtrl.close();
@@ -349,18 +337,11 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
                     };
                     try {
                       const res = await ipcBridge.mode.fetchModelList.invoke({
-                        platform: data?.platform || 'bedrock',
+                        base_url: data?.base_url,
                         api_key: '',
-                        bedrock_config,
+                        is_full_url: false,
                       });
-                      const models =
-                        res.models.map((v) => {
-                          if (typeof v === 'string') {
-                            return { label: v, value: v };
-                          } else {
-                            return { label: v.name, value: v.id };
-                          }
-                        }) || [];
+                      const models = (res.models ?? []).map((v) => ({ label: v.id, value: v.id })) || [];
                       // Update the model list state manually
                       void modelListState.mutate({ models }, false);
                     } catch (error: any) {

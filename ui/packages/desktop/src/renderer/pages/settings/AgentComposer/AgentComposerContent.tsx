@@ -144,7 +144,7 @@ const AgentComposerContent: React.FC = () => {
       setModelsLoading(true);
       try {
         const result = await fetchModels(id);
-        setModels(result.models);
+        setModels(result.models.map((m) => m.id));
         if (!result.success) {
           Message.warning(t('settings.agentComposer.loadModelsFailed', { message: result.message ?? '' }));
         }

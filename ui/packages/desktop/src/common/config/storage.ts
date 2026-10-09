@@ -518,72 +518,16 @@ export type ModelSettings = {
   openai_api_mode?: ModelOpenAiApiMode;
 };
 
-export interface IProvider {
-  id: string;
-  platform: string;
-  name: string;
-  base_url: string;
-  api_key: string;
-  models: string[];
-  /**
-   * 模型能力标签列表。打了标签就是支持，没打就是不支持
-   */
-  capabilities?: ModelCapability[];
-  /**
-   * 上下文token限制，可选字段，只在明确知道时填写
-   */
-  context_limit?: number;
-  /**
-   * 每个模型的协议覆盖配置。映射模型名称到协议字符串。
-   * 仅在 platform 为 'new-api' 时使用。
-   * Per-model protocol overrides. Maps model name to protocol string.
-   * Only used when platform is 'new-api'.
-   * e.g. { "gemini-2.5-pro": "gemini", "claude-sonnet-4": "anthropic", "gpt-4o": "openai" }
-   */
-  model_protocols?: Record<string, string>;
-  /**
-   * AWS Bedrock specific configuration
-   * Only used when platform is 'bedrock'
-   */
-  bedrock_config?: {
-    auth_method: 'accessKey' | 'profile';
-    region: string;
-    // For access key method
-    access_key_id?: string;
-    secret_access_key?: string;
-    // For profile method
-    profile?: string;
-  };
-  /**
-   * 供应商启用状态，默认为 true
-   * Provider enabled state, defaults to true
-   */
-  enabled?: boolean;
-  /**
-   * 各个模型的启用状态，默认全部为 true
-   * Individual model enabled states, defaults to all true
-   */
-  model_enabled?: Record<string, boolean>;
-  /**
-   * 各个模型的健康检测结果（仅用于 UI 显示，不影响启用状态）
-   * Model health check results (for UI display only, does not affect enabled state)
-   */
-  model_health?: Record<
-    string,
-    {
-      status: 'unknown' | 'healthy' | 'unhealthy';
-      last_check?: number; // 时间戳 / timestamp
-      latency?: number; // 延迟时间（毫秒）/ latency in milliseconds
-      error?: string; // 错误信息 / error message
-    }
-  >;
-  /**
-   * Explicit per-model overrides. Missing entries retain automatic image-input
-   * capability and OpenAI API mode resolution.
-   */
-  model_settings?: Record<string, ModelSettings>;
-  is_full_url?: boolean;
-}
+/**
+ * 供应商（大脑池条目）与模型的**唯一**类型定义在 `types/provider/providerApi.ts`
+ * ——那里对应后端 `core/providers.py` 与 cc-switch 的元数据补全。
+ * 这里只做转出，历史引用方（`from '@/common/config/storage'`）不必改 import。
+ */
+import type { IProvider } from '@/common/types/provider/providerApi';
+import { firstModelId, modelIds } from '@/common/types/provider/providerApi';
+
+export type { IProvider, IModelView, IModelPrice, ModelTag } from '@/common/types/provider/providerApi';
+export { modelIds, firstModelId };
 
 export type TProviderWithModel = Omit<IProvider, 'models'> & {
   use_model: string;

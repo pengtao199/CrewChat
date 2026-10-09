@@ -5,6 +5,7 @@
  */
 
 import type { ImageGenerationModelSetting } from './clientSettings';
+import { modelIds } from '@/common/types/provider/providerApi';
 import type { IProvider } from './storage';
 
 export const IMAGE_GEN_ENV_KEYS = {
@@ -56,7 +57,7 @@ function getLegacyField(
 }
 
 function providerHasModel(provider: IProvider, model: string): boolean {
-  return Array.isArray(provider.models) && provider.models.includes(model);
+  return modelIds(provider).includes(model);
 }
 
 function buildEnv(provider: IProvider, model: string): Record<string, string> {

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { modelIds } from '@/common/types/provider/providerApi';
 import type { ImageGenerationModelSetting } from '@/common/config/clientSettings';
 import { removeImageGenerationEnvKeys, resolveImageGenerationMcpEnv } from '@/common/config/imageGenerationMcpEnv';
 import { mcpService } from '@/common/adapter/ipcBridge';
@@ -284,7 +285,7 @@ const ToolsModalContent: React.FC = () => {
     return (data || [])
       .map((provider) => ({
         ...provider,
-        models: provider.models.filter((modelName) => isImageGenSupported(provider, modelName)),
+        models: modelIds(provider).filter((modelName) => isImageGenSupported(provider, modelName)),
       }))
       .filter((provider) => provider.models.length > 0);
   }, [data]);
