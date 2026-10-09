@@ -185,6 +185,8 @@ async def _run_turn(
                             event.status,
                             turn_id,
                             event.call_id,
+                            event.args,
+                            event.result,
                         ),
                     )
                 elif event.kind == "error" and event.text:

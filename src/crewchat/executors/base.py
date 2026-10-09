@@ -20,6 +20,10 @@ class ExecEvent:
     # 厂商自己的调用 id：界面按它合并同一工具的状态更新，缺了就丢弃这一帧
     call_id: str = ""
     meta: dict[str, Any] = field(default_factory=dict)
+    # 工具的入参/出参。入参让用户看到"用什么调的"（命令、文件路径），出参让
+    # 卡片可以展开看结果。原本一个都没带，卡片只剩个名字光秃秃的。
+    args: dict[str, Any] | None = None
+    result: str | None = None
 
 
 @dataclass(slots=True)

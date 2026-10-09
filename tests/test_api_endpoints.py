@@ -631,3 +631,31 @@ def test_tool_result_marks_the_card_done(monkeypatch) -> None:  # type: ignore[n
     # Exactly one tool, renamed Bash, that ends, not starts, on its result:
     assert tools[0] == {"kind": "tool", "tool": "Bash", "status": "running", "call_id": "call_1"}
     assert tools[1] == {"kind": "tool", "tool": "Bash", "status": "completed", "call_id": "call_1"}
+
+
+def test_tool_frame_carries_input_and_output() -> None:  # type: ignore[no-untyped-def]
+    """The card's label must describe the call, not just name it.
+
+    The renderer shows `${name} · ${description}` and expands args/output. Frames
+    that omitted args/output left every card saying only "Bash" or "Read" — no
+    command, no file, and no result behind it.
+    """
+    from crewchat.api.hub import tool_frame
+
+    frame = tool_frame("c", "m", "Bash", "running", "t", "call_1", {"command": "ls -la"})
+    data = frame["data"]
+    assert data["name"] == "Bash"
+    assert data["status"] == "running"
+    assert data["args"] == {"command": "ls -la"}
+    assert data["description"] == "ls -la"
+
+    # A terminal frame without args must leave the running frame's values alone —
+    # the renderer shallow-merges by call_id, so sending empty args would blank them.
+    frame = tool_frame("c", "m", "Bash", "completed", "t", "call_1", result="hello\n")
+    data = frame["data"]
+    assert data["status"] == "completed"
+    assert data["output"] == "hello\n"
+    assert "args" not in data and "description" not in data
+
+    # A frame with no details at all must not describe nothing.
+    assert "description" not in tool_frame("c", "m", "Bash", "running")["data"]

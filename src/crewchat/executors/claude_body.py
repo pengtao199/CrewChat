@@ -94,20 +94,28 @@ class ClaudeBody(Executor):
         def _emit_tool_block(block: Any) -> None:
             """Route one tool block from the SDK stream to a tool frame.
 
-            ToolUseBlock starts a card (running). ToolResultBlock — carried on a
-            user message, keyed by the original tool_use_id — ends it (completed or
-            error). A missing result frame is exactly why every card used to spin
-            forever.
+            ToolUseBlock starts a card (running), with its input so the card says
+            what is being done. ToolResultBlock — carried on a user message, keyed
+            by the original tool_use_id — ends it (completed or error) and carries
+            the output. A missing result frame is exactly why every card used to
+            spin forever, and a missing input is why each card showed a bare name.
             """
             if isinstance(block, ToolUseBlock):
                 tool_names[block.id] = block.name
-                req.emit("tool", tool=block.name, status="running", call_id=block.id)
+                req.emit(
+                    "tool",
+                    tool=block.name,
+                    status="running",
+                    call_id=block.id,
+                    args=block.input if isinstance(block.input, dict) else None,
+                )
             elif isinstance(block, ToolResultBlock):
                 req.emit(
                     "tool",
                     tool=tool_names.get(block.tool_use_id, "tool"),
                     status="error" if block.is_error else "completed",
                     call_id=block.tool_use_id,
+                    result=_tool_result_text(block.content),
                 )
 
         async def consume(client: ClaudeSDKClient) -> None:
@@ -203,6 +211,21 @@ def _stream_text(msg: StreamEvent) -> str:
         return ""
     delta = event.get("delta") or {}
     return delta.get("text") or "" if delta.get("type") == "text_delta" else ""
+
+
+def _tool_result_text(content: str | list[dict[str, Any]] | None) -> str:
+    """Tool results arrive as a string or a list of typed blocks; flatten to text."""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        return content
+    parts: list[str] = []
+    for item in content:
+        if isinstance(item, dict) and item.get("type") == "text":
+            parts.append(str(item.get("text") or ""))
+        elif isinstance(item, dict):
+            parts.append(str(item))
+    return "\n".join(part for part in parts if part)
 
 
 def _result_error(result: ResultMessage) -> str:

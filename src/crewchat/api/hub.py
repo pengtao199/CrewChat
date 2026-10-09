@@ -191,6 +191,18 @@ _TOOL_STATUS = {
 }
 
 
+# The renderer's ToolItem shows `${name} · ${description}`. Pick the one argument
+# that describes what the call is doing, so "Bash" reads as "Bash · echo hello".
+def _describe_tool_call(name: str, args: dict[str, Any]) -> str:
+    if not args:
+        return ""
+    for key in ("command", "file_path", "path", "pattern", "query", "url", "file_name"):
+        value = args.get(key)
+        if isinstance(value, str) and value:
+            return value[:80]
+    return ""
+
+
 def tool_frame(
     conversation_id: str,
     msg_id: str,
@@ -198,21 +210,38 @@ def tool_frame(
     status: str,
     turn_id: str | None = None,
     call_id: str = "",
+    args: dict[str, Any] | None = None,
+    result: str | None = None,
 ) -> dict[str, Any]:
     """One tool invocation.
 
     The renderer keys tool cards by `call_id` and drops frames without one, so a
     missing vendor id is filled in here; later frames with the same id update the
     same card.
+
+    `args` and `result` are the card's substance. They started empty — the card
+    showed just a name ("Bash", "Read") with nothing behind it. The input lets the
+    label read meaningfully ("Bash · echo hello"); the output fills the expandable
+    detail panel.
     """
+    data: dict[str, Any] = {
+        "call_id": call_id or f"{name}-{msg_id}",
+        "name": name,
+        "status": _TOOL_STATUS.get(status, "running"),
+    }
+    description = _describe_tool_call(name, args or {}) if args else ""
+    # Only send args/description when they carry something. A terminal frame with
+    # no input would otherwise overwrite the running frame's real values in the
+    # renderer's shallow merge, leaving a finished card strangely blank.
+    if args:
+        data["args"] = dict(args)
+        if description:
+            data["description"] = description
+    if result is not None:
+        data["output"] = result
     frame: dict[str, Any] = {
         "type": "tool_call",
-        "data": {
-            "call_id": call_id or f"{name}-{msg_id}",
-            "name": name,
-            "args": {},
-            "status": _TOOL_STATUS.get(status, "running"),
-        },
+        "data": data,
         "msg_id": msg_id,
         "conversation_id": conversation_id,
         "created_at": int(time.time() * 1000),
