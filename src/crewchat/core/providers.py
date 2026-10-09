@@ -261,6 +261,29 @@ def shared_mcp_servers() -> dict[str, Any]:
         return {}
 
 
+def save_shared_mcp_servers(servers: dict[str, Any]) -> None:
+    """写回 `~/.agents/mcp.json`；保留其它顶层键，只替换 `mcpServers`。"""
+    path = _HOME_AGENTS / "mcp.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data: dict[str, Any] = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
+        except (OSError, ValueError):
+            data = {}
+    data["mcpServers"] = servers
+    handle, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
 def available_skills() -> list[dict[str, str]]:
     """扫描 ~/.agents/skills 与 ~/.agents/plugins/*/skills。"""
     found: dict[str, str] = {}
