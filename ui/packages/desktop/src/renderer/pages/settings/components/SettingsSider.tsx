@@ -5,6 +5,7 @@ import { useExtI18n } from '@/renderer/hooks/system/useExtI18n';
 import { useExtensionSettingsTabs } from '@/renderer/hooks/system/useExtensionSettingsTabs';
 import {
   Cat,
+  ChartLine,
   Communication,
   Computer,
   Earth,
@@ -32,6 +33,7 @@ export const BUILTIN_TAB_IDS = [
   'model',
   'skills',
   'tools',
+  'usage',
   'appearance',
   'webui',
   'pet',
@@ -112,6 +114,13 @@ const SettingsSider: React.FC<{ collapsed?: boolean; tooltipEnabled?: boolean }>
         label: t('settings.tools', { defaultValue: 'Tools' }),
         icon: <Toolkit />,
         path: 'tools',
+      },
+      // [crewchat] 用量：只统计经本 app 发起的 CLI 身体消耗
+      usage: {
+        id: 'usage',
+        label: t('settings.usageNav', { defaultValue: '用量' }),
+        icon: <ChartLine />,
+        path: 'usage',
       },
       appearance: { id: 'appearance', label: t('settings.appearancePanel'), icon: <Computer />, path: 'appearance' },
       webui: {

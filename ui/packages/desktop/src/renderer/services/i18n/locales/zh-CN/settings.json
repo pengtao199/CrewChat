@@ -1511,6 +1511,26 @@
       "conflict": "多处安装"
     }
   },
+  "usageNav": "用量",
+  "usage": {
+    "title": "用量",
+    "description": "由 CrewChat 自己发起的 CLI 身体所消耗的 token 与成本；你在终端里裸跑 CLI 的用量不计入。",
+    "days": "最近 {days} 天",
+    "refresh": "刷新",
+    "requests": "运行次数",
+    "input": "输入",
+    "output": "输出",
+    "cache": "缓存读取",
+    "cost": "成本",
+    "body": "身体",
+    "model": "模型",
+    "date": "日期",
+    "byBody": "按 CLI 身体",
+    "byModel": "按模型",
+    "byDay": "按天",
+    "empty": "暂无用量记录",
+    "emptyHint": "当 Agent 经 CLI 身体跑过之后，用量会显示在这里。"
+  },
   "models": {
     "title": "模型",
     "description": "配置大模型服务商的端点、密钥与模型。模型供所有 Agent 的「大脑」选用。",

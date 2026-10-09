@@ -10,6 +10,7 @@ import { type IExtensionSettingsTab } from '@/common/adapter/ipcBridge';
 import { useExtensionSettingsTabs } from '@/renderer/hooks/system/useExtensionSettingsTabs';
 import {
   Cat,
+  ChartLine,
   Communication,
   Computer,
   Earth,
@@ -72,6 +73,13 @@ export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): 
       label: t('settings.tools', { defaultValue: 'Tools' }),
       icon: <Toolkit theme='outline' size='16' />,
       path: 'tools',
+    },
+    // [crewchat] 用量：只统计经本 app 发起的 CLI 身体消耗
+    usage: {
+      id: 'usage',
+      label: t('settings.usageNav', { defaultValue: '用量' }),
+      icon: <ChartLine theme='outline' size='16' />,
+      path: 'usage',
     },
     appearance: {
       id: 'appearance',

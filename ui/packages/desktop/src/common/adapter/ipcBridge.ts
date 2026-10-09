@@ -50,6 +50,7 @@ import type {
   UpdateProviderRequest,
   UpsertModelRequest,
 } from '../types/provider/providerApi';
+import type { UsageSummary } from '../types/usage/usageApi';
 import type {
   ITeamAgentRemovedEvent,
   ITeamAgentRenamedEvent,
@@ -1142,6 +1143,15 @@ export const mode = {
    */
   fetchModelList: httpPost<FetchModelsResponse, FetchModelsAnonymousRequest>('/api/providers/fetch-models'),
   detectProtocol: httpPost<ProtocolDetectionResponse, ProtocolDetectionRequest>('/api/providers/detect-protocol'),
+};
+
+// ---------------------------------------------------------------------------
+// Usage — 经我们 app 发起的 CLI 身体消耗（自研 /api/crewchat/usage）
+// ---------------------------------------------------------------------------
+
+export const usage = {
+  // 对外路径带版本根（后端在 ASGI 边界强制 /api/v1，见 core.version.api_prefix）。
+  summary: httpGet<UsageSummary, { days?: number }>((p) => `/api/v1/crewchat/usage?days=${p?.days ?? 30}`),
 };
 
 // ---------------------------------------------------------------------------

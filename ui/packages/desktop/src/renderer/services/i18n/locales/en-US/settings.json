@@ -1510,6 +1510,26 @@
       "conflict": "Multiple installs"
     }
   },
+  "usageNav": "Usage",
+  "usage": {
+    "title": "Usage",
+    "description": "Token and cost consumed by the CLI bodies CrewChat itself ran. Usage from your own terminal is excluded.",
+    "days": "Last {days}d",
+    "refresh": "Refresh",
+    "requests": "Runs",
+    "input": "Input",
+    "output": "Output",
+    "cache": "Cache read",
+    "cost": "Cost",
+    "body": "Body",
+    "model": "Model",
+    "date": "Date",
+    "byBody": "By CLI body",
+    "byModel": "By model",
+    "byDay": "By day",
+    "empty": "No usage recorded yet",
+    "emptyHint": "Usage appears here after an Agent runs through a CLI body."
+  },
   "models": {
     "title": "Models",
     "description": "Configure model providers, keys and models. Models are available as brains to every Agent.",
