@@ -17,14 +17,16 @@ wheels/
 *.db
 chainlit.md
 .DS_Store
+backend.log
 
 # UI fork
 ui/node_modules/
 ui/dist/
-backend.log
-
-# Reference
-Reference/
 
 # 第三方参考资料（只读，不属于本仓库代码）
 Reference/
+
+# 固化进仓库的 cc-switch 核心：构建产物不入库，但保留 dist 占位（构建需要）
+gateway/cc-switch/src-tauri/target/
+!gateway/cc-switch/dist/
+!gateway/cc-switch/dist/**
