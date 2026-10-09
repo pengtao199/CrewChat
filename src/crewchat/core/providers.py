@@ -13,6 +13,96 @@ from .config import Settings
 
 _HOME_AGENTS = Path.home() / ".agents"
 
+# 模型标签的合法取值。固定枚举而非自由字符串，这样页面才能按标签筛选/统计。
+# 键是存储用的稳定 id，值是 i18n key（由前端负责翻译）。
+MODEL_TAGS: tuple[str, ...] = (
+    "text",
+    "vision",
+    "reasoning",
+    "tool_use",
+    "long_context",
+    "fast",
+    "free",
+)
+
+
+class Model:
+    """供应商下的一个模型。
+
+    历史上 `Provider.models` 是 `list[str]`（裸模型 id）。现在升级为对象，
+    承载标签 / 能力 / 上下文窗口 / 启停等，**同时向后兼容**旧的字符串写法
+    （见 `Model.from_raw`），因此旧的 `providers.jsonc` 无需迁移即可读。
+    """
+
+    def __init__(
+        self,
+        id: str,
+        display_name: str = "",
+        tags: list[str] | None = None,
+        context_limit: int | None = None,
+        enabled: bool = True,
+        protocol: str | None = None,
+        capabilities: dict[str, Any] | None = None,
+        price: dict[str, Any] | None = None,
+    ) -> None:
+        self.id = id
+        self.display_name = display_name
+        self.tags = [t for t in (tags or []) if t in MODEL_TAGS]
+        self.context_limit = context_limit
+        self.enabled = enabled
+        self.protocol = protocol
+        self.capabilities = capabilities or {}
+        self.price = price or {}
+
+    @property
+    def label(self) -> str:
+        """展示用名称：优先自定义名，否则退回模型 id。"""
+        return self.display_name or self.id
+
+    def has_tag(self, tag: str) -> bool:
+        return tag in self.tags
+
+    def as_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "id": self.id,
+            "enabled": self.enabled,
+            "tags": self.tags,
+        }
+        if self.display_name:
+            data["display_name"] = self.display_name
+        if self.context_limit is not None:
+            data["context_limit"] = self.context_limit
+        if self.protocol:
+            data["protocol"] = self.protocol
+        if self.capabilities:
+            data["capabilities"] = self.capabilities
+        if self.price:
+            data["price"] = self.price
+        return data
+
+    @classmethod
+    def from_raw(cls, raw: Any) -> Model | None:
+        """兼容两种写法：裸字符串 id，或模型对象。"""
+        if isinstance(raw, str):
+            text = raw.strip()
+            return cls(id=text) if text else None
+        if isinstance(raw, dict):
+            model_id = str(raw.get("id") or "").strip()
+            if not model_id:
+                return None
+            context_limit = raw.get("context_limit")
+            return cls(
+                id=model_id,
+                display_name=str(raw.get("display_name") or ""),
+                tags=list(raw.get("tags") or []),
+                context_limit=int(context_limit) if isinstance(context_limit, (int, float)) else None,
+                enabled=bool(raw.get("enabled", True)),
+                protocol=str(raw["protocol"]) if raw.get("protocol") else None,
+                capabilities=dict(raw.get("capabilities") or {}),
+                price=dict(raw.get("price") or {}),
+            )
+        return None
+
 
 class Provider:
     """一个可复用的**通用**模型端点（大脑池条目）。Agent 通过 id 引用，不拥有它。
@@ -28,22 +118,28 @@ class Provider:
         base_url: str,
         model: str,
         api_key: str = "",
-        models: list[str] | None = None,
+        models: list[Model | str] | None = None,
         api_format: str = "openai_chat",
         temperature: float | None = None,
         max_tokens: int | None = None,
         extra_headers: dict[str, str] | None = None,
+        enabled: bool = True,
+        is_full_url: bool = False,
+        models_url_override: str = "",
     ) -> None:
         self.id = id
         self.name = name
         self.base_url = base_url
         self.model = model
         self.api_key = api_key
-        self.models = models or []
+        self.models = [m for m in (Model.from_raw(raw) for raw in (models or [])) if m]
         self.api_format = api_format
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.extra_headers = extra_headers or {}
+        self.enabled = enabled
+        self.is_full_url = is_full_url
+        self.models_url_override = models_url_override
 
     def env_key(self) -> str:
         """opencode 的 `{env:XXX}` 约定里用到的变量名。"""
@@ -52,17 +148,31 @@ class Provider:
     def has_key(self) -> bool:
         return bool(self.api_key)
 
+    def key_count(self) -> int:
+        """有效 API Key 个数（多 Key 以换行/逗号分隔）。"""
+        return len([k for k in re.split(r"[,\n]", self.api_key or "") if k.strip()])
+
+    def get_model(self, model_id: str) -> Model | None:
+        return next((m for m in self.models if m.id == model_id), None)
+
+    def model_ids(self) -> list[str]:
+        return [m.id for m in self.models]
+
     def as_dict(self, reveal: bool = False) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
             "base_url": self.base_url,
             "model": self.model,
-            "models": self.models,
+            "models": [m.as_dict() for m in self.models],
             "api_format": self.api_format,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
-            "api_key": self.api_key if reveal else ("*" * 0 + ("已设置" if self.has_key() else "")),
+            "extra_headers": self.extra_headers,
+            "enabled": self.enabled,
+            "is_full_url": self.is_full_url,
+            "models_url_override": self.models_url_override,
+            "api_key": self.api_key if reveal else ("已设置" if self.has_key() else ""),
         }
 
     @classmethod
@@ -77,7 +187,10 @@ class Provider:
             api_format=str(raw.get("api_format") or "openai_chat"),
             temperature=raw.get("temperature"),
             max_tokens=raw.get("max_tokens"),
-            extra_headers=raw.get("extra_headers") or {},
+            extra_headers=dict(raw.get("extra_headers") or {}),
+            enabled=bool(raw.get("enabled", True)),
+            is_full_url=bool(raw.get("is_full_url", False)),
+            models_url_override=str(raw.get("models_url_override") or ""),
         )
 
 
@@ -105,6 +218,22 @@ def get_provider(settings: Settings, provider_id: str | None) -> Provider | None
             if provider.id == provider_id:
                 return provider
     return next((p for p in providers if p.has_key()), None)
+
+
+def upsert_model(provider: Provider, model: Model) -> None:
+    """新增或按 id 覆盖供应商下的模型。"""
+    for index, existing in enumerate(provider.models):
+        if existing.id == model.id:
+            provider.models[index] = model
+            return
+    provider.models.append(model)
+
+
+def remove_model(provider: Provider, model_id: str) -> bool:
+    """移除模型；返回是否真的删掉了。"""
+    before = len(provider.models)
+    provider.models = [m for m in provider.models if m.id != model_id]
+    return len(provider.models) != before
 
 
 def save_providers(settings: Settings, providers: list[Provider]) -> None:

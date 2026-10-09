@@ -21,6 +21,9 @@ from .providers import Provider
 class ModelGateway(Protocol):
     """本地模型网关。所有方法都应是"当前实现无关"的语义。"""
 
+    control: str
+    """本地控制口基地址（如 `http://127.0.0.1:15722`），供复用核心能力的适配器调用。"""
+
     def status(self) -> dict[str, Any]:
         """供界面展示：`{available, alive, running, channels}`。"""
         ...
