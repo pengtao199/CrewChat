@@ -49,16 +49,17 @@ def projects_path(settings: Settings) -> Path:
 
 
 def load_projects(settings: Settings) -> list[Project]:
+    """项目列表。默认**没有**项目（不是自动拿 cwd 当默认项目）。"""
     path = projects_path(settings)
     if path.exists():
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
             items = raw.get("projects") if isinstance(raw, dict) else raw
-            if isinstance(items, list) and items:
+            if isinstance(items, list):
                 return [Project.from_dict(p) for p in items if isinstance(p, dict)]
         except (OSError, ValueError):
             pass
-    return [Project(id="default", name=Path.cwd().name, path=str(Path.cwd()))]
+    return []
 def save_projects(settings: Settings, projects: list[Project]) -> None:
     """原子写回 `.data/projects.json`。"""
     path = projects_path(settings)
@@ -138,10 +139,10 @@ def _migrate_legacy_agents(settings: Settings, target: Path) -> None:
     marker.write_text("1", encoding="utf-8")
 
 
-def get_project(settings: Settings, project_id: str | None) -> Project:
-    projects = load_projects(settings)
-    if project_id:
-        for project in projects:
-            if project.id == project_id:
-                return project
-    return projects[0]
+def get_project(settings: Settings, project_id: str | None) -> Project | None:
+    if not project_id:
+        return None
+    for project in load_projects(settings):
+        if project.id == project_id:
+            return project
+    return None

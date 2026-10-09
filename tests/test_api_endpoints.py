@@ -166,7 +166,7 @@ def test_shipped_page_endpoint_is_implemented(client, path: str) -> None:  # typ
 
 def test_projects_crud(client, tmp_path) -> None:  # type: ignore[no-untyped-def]
     c, _ = client
-    assert len(c.get(f"{PREFIX}/crewchat/projects").json()) >= 1  # default exists
+    assert c.get(f"{PREFIX}/crewchat/projects").json() == []  # no projects by default
 
     workspace = tmp_path / "ws"
     workspace.mkdir()

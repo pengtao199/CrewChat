@@ -100,7 +100,8 @@ def _project_path(project_id: str | None) -> str:
         from ..core.config import get_settings
         from ..core.projects import get_project
 
-        return str(get_project(get_settings(), project_id).path)
+        project = get_project(get_settings(), project_id)
+        return str(project.path) if project else ""
     except Exception:
         return ""
 
