@@ -19,7 +19,27 @@ from claude_agent_sdk import (
 
 from ..core.config import Settings
 from ..core.providers import Provider
-from .base import ExecRequest, ExecResult, Executor, register
+from .base import ExecRequest, ExecResult, Executor, TokenUsage, _int, register
+
+
+def _pick(obj: Any, key: str) -> Any:
+    return obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+
+
+def _usage_from_result(result: ResultMessage) -> TokenUsage:
+    """claude 的 per-model 用量优先（camelCase + costUSD）；退化到聚合 usage（snake）。"""
+    usage = TokenUsage()
+    for entry in (result.model_usage or {}).values():
+        usage.input_tokens += _int(_pick(entry, "inputTokens"))
+        usage.output_tokens += _int(_pick(entry, "outputTokens"))
+        usage.cache_read_tokens += _int(_pick(entry, "cacheReadInputTokens"))
+        usage.cache_creation_tokens += _int(_pick(entry, "cacheCreationInputTokens"))
+    if usage.is_empty() and result.usage:
+        usage.input_tokens = _int(result.usage.get("input_tokens"))
+        usage.output_tokens = _int(result.usage.get("output_tokens"))
+        usage.cache_read_tokens = _int(result.usage.get("cache_read_input_tokens"))
+        usage.cache_creation_tokens = _int(result.usage.get("cache_creation_input_tokens"))
+    return usage
 
 
 @register
@@ -121,12 +141,14 @@ class ClaudeBody(Executor):
         elif not text and errors:
             error = "; ".join(errors)
 
+        usage = _usage_from_result(result) if result is not None else TokenUsage()
         return ExecResult(
             text=text,
             duration_ms=int((time.monotonic() - started) * 1000),
             session=result.session_id if result is not None else req.session,
             cost_usd=result.total_cost_usd if result is not None else None,
             num_turns=result.num_turns if result is not None else None,
+            usage=None if usage.is_empty() else usage,
             error=error,
             meta={"body": self.id, "model": opts.model or "claude-default"},
         )

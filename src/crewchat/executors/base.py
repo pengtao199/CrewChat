@@ -37,6 +37,50 @@ class ExecRequest:
 
 
 @dataclass(slots=True)
+class TokenUsage:
+    """一次身体运行的 token 消耗，作为跨身体的统一形状。
+
+    各身体来源不同（claude 的 model_usage、codex 的 TurnCompletedEvent.usage、
+    opencode 的 step-finish、llm 的 OpenAI usage），这里归一到同一组计数字段。
+    只统计**经我们 app 发起的**运行——不读网关日志、不掺用户裸跑 CLI 的消耗。
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_creation_tokens: int = 0
+    reasoning_tokens: int = 0
+
+    def is_empty(self) -> bool:
+        return not any(
+            (
+                self.input_tokens,
+                self.output_tokens,
+                self.cache_read_tokens,
+                self.cache_creation_tokens,
+                self.reasoning_tokens,
+            )
+        )
+
+    def to_dict(self) -> dict[str, int]:
+        return {
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cache_read_tokens": self.cache_read_tokens,
+            "cache_creation_tokens": self.cache_creation_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
+        }
+
+
+def _int(value: Any) -> int:
+    """把 SDK 给的各种数字形状（int / float / str / None）安全转成非负 int。"""
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return 0
+
+
+@dataclass(slots=True)
 class ExecResult:
     text: str = ""
     exit_code: int = 0
@@ -44,6 +88,7 @@ class ExecResult:
     session: str | None = None
     cost_usd: float | None = None
     num_turns: int | None = None
+    usage: TokenUsage | None = None
     error: str | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 

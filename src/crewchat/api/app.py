@@ -30,6 +30,7 @@ from . import (
     crewchat_agents,
     crewchat_engines,
     crewchat_gateway,
+    crewchat_usage,
     chat,
     assistants_api,
     auth,
@@ -131,6 +132,7 @@ def create_app() -> FastAPI:
         crewchat_agents,
         crewchat_engines,
         crewchat_gateway,
+        crewchat_usage,
         skills_api,
         mcp_api,
     ):

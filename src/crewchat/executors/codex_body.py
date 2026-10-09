@@ -24,7 +24,7 @@ from openai_codex_sdk import (
 
 from ..core.config import Settings
 from ..core.providers import Provider
-from .base import ExecRequest, ExecResult, Executor, register
+from .base import ExecRequest, ExecResult, Executor, TokenUsage, _int, register
 
 
 @functools.cache
@@ -106,6 +106,7 @@ class CodexBody(Executor):
                 self._threads[req.session] = thread
 
         text_parts: list[str] = []
+        usage = TokenUsage()
         error: str | None = None
         last_error: str | None = None
 
@@ -118,8 +119,11 @@ class CodexBody(Executor):
                         if isinstance(event.item, AgentMessageItem) and event.item.text:
                             text_parts.append(event.item.text)
                             req.emit("delta", text=event.item.text)
-                    case TurnCompletedEvent():
-                        pass
+                    case TurnCompletedEvent() as completed:
+                        if completed.usage is not None:
+                            usage.input_tokens += _int(completed.usage.input_tokens)
+                            usage.output_tokens += _int(completed.usage.output_tokens)
+                            usage.cache_read_tokens += _int(completed.usage.cached_input_tokens)
                     case TurnFailedEvent() as failed:
                         error = getattr(failed.error, "message", None) or str(failed.error)
                     case ThreadErrorEvent() as thread_error:
@@ -139,6 +143,7 @@ class CodexBody(Executor):
             text=text,
             duration_ms=int((time.monotonic() - started) * 1000),
             session=thread.id,
+            usage=None if usage.is_empty() else usage,
             error=error,
             meta={"body": self.id, "model": opts.get("model", "codex-default")},
         )

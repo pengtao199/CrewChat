@@ -78,6 +78,7 @@ class Session:
                 "duration_ms": result.duration_ms,
                 "cost_usd": result.cost_usd,
                 "num_turns": result.num_turns,
+                "usage": result.usage.to_dict() if result.usage else None,
             }
             if result.error:
                 queue.put_nowait(ExecEvent(kind="error", text=result.error))
@@ -94,6 +95,8 @@ class Session:
             while True:
                 event = await queue.get()
                 if event is None:
+                    if outcome_box is not None:
+                        yield ExecEvent(kind="done", meta=outcome_box.meta)
                     break
                 yield event
         finally:

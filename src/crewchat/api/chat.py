@@ -122,6 +122,20 @@ async def _run_turn(
                     await hub.broadcast(
                         "message.stream", error_frame(conversation_id, reply_msg_id, event.text)
                     )
+                elif event.kind == "done" and (event.meta or {}).get("usage"):
+                    from .store import store
+
+                    meta = event.meta
+                    store().record_usage(
+                        conversation_id=conversation_id,
+                        turn_id=turn_id,
+                        agent_id=spec.id,
+                        body=str(meta.get("body") or spec.body),
+                        model=str(meta.get("model") or ""),
+                        usage=meta["usage"],
+                        cost_usd=meta.get("cost_usd"),
+                        duration_ms=meta.get("duration_ms"),
+                    )
 
             if group:
                 buffer.append("\n\n")

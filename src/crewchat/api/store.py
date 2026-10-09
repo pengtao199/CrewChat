@@ -11,6 +11,7 @@ import json
 import os
 import sqlite3
 import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,24 @@ class Store:
                     metadata        TEXT DEFAULT '{}'
                 );
                 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages (conversation_id, created_at);
+                CREATE TABLE IF NOT EXISTS usage_events (
+                    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+                    conversation_id        TEXT,
+                    turn_id                TEXT,
+                    agent_id               TEXT,
+                    body                   TEXT NOT NULL,
+                    model                  TEXT,
+                    input_tokens           INTEGER NOT NULL DEFAULT 0,
+                    output_tokens          INTEGER NOT NULL DEFAULT 0,
+                    cache_read_tokens      INTEGER NOT NULL DEFAULT 0,
+                    cache_creation_tokens  INTEGER NOT NULL DEFAULT 0,
+                    reasoning_tokens       INTEGER NOT NULL DEFAULT 0,
+                    cost_usd               REAL,
+                    duration_ms            INTEGER,
+                    created_at             TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_usage_created ON usage_events (created_at);
+                CREATE INDEX IF NOT EXISTS idx_usage_body ON usage_events (body);
                 """
             )
             if not conn.execute("SELECT 1 FROM client_prefs LIMIT 1").fetchone():
@@ -170,6 +189,86 @@ class Store:
                 item["metadata"] = {}
             out.append(item)
         return out
+
+    # ----- usage -------------------------------------------------------------
+
+    #: 聚合列片段：总量、按身体、按模型、按天共用，保证口径一致。
+    _USAGE_AGG = (
+        "COUNT(*) AS requests, "
+        "COALESCE(SUM(input_tokens), 0) AS input_tokens, "
+        "COALESCE(SUM(output_tokens), 0) AS output_tokens, "
+        "COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens, "
+        "COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens, "
+        "COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens, "
+        "COALESCE(SUM(cost_usd), 0) AS cost_usd"
+    )
+
+    def record_usage(
+        self,
+        *,
+        conversation_id: str,
+        turn_id: str,
+        agent_id: str,
+        body: str,
+        model: str,
+        usage: dict[str, Any],
+        cost_usd: float | None,
+        duration_ms: int | None,
+    ) -> None:
+        """记一条**经我们 app 发起**的 CLI 身体运行消耗。不读网关日志。"""
+        with self._lock, self._connect() as conn:
+            conn.execute(
+                "INSERT INTO usage_events "
+                "(conversation_id, turn_id, agent_id, body, model, input_tokens, "
+                " output_tokens, cache_read_tokens, cache_creation_tokens, reasoning_tokens, "
+                " cost_usd, duration_ms, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    conversation_id,
+                    turn_id,
+                    agent_id,
+                    body,
+                    model,
+                    int(usage.get("input_tokens") or 0),
+                    int(usage.get("output_tokens") or 0),
+                    int(usage.get("cache_read_tokens") or 0),
+                    int(usage.get("cache_creation_tokens") or 0),
+                    int(usage.get("reasoning_tokens") or 0),
+                    cost_usd,
+                    duration_ms,
+                    datetime.now(timezone.utc).isoformat(),
+                ),
+            )
+
+    def usage_summary(self, days: int = 30) -> dict[str, Any]:
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        agg = self._USAGE_AGG
+        with self._lock, self._connect() as conn:
+            totals = conn.execute(
+                f"SELECT {agg} FROM usage_events WHERE created_at >= ?", (since,)
+            ).fetchone()
+            by_body = conn.execute(
+                f"SELECT body, {agg} FROM usage_events WHERE created_at >= ? "
+                "GROUP BY body ORDER BY requests DESC",
+                (since,),
+            ).fetchall()
+            by_model = conn.execute(
+                f"SELECT model, body, {agg} FROM usage_events WHERE created_at >= ? "
+                "GROUP BY model, body ORDER BY requests DESC",
+                (since,),
+            ).fetchall()
+            by_day = conn.execute(
+                f"SELECT substr(created_at, 1, 10) AS date, {agg} "
+                "FROM usage_events WHERE created_at >= ? GROUP BY date ORDER BY date DESC",
+                (since,),
+            ).fetchall()
+        return {
+            "days": days,
+            "totals": dict(totals) if totals else {},
+            "by_body": [dict(row) for row in by_body],
+            "by_model": [dict(row) for row in by_model],
+            "by_day": [dict(row) for row in by_day],
+        }
 
     @staticmethod
     def _conv_row(row: sqlite3.Row) -> dict[str, Any]:

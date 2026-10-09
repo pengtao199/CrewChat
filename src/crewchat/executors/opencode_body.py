@@ -10,7 +10,7 @@ from typing import Any
 
 from ..core.config import Settings
 from ..core.providers import Provider
-from .base import ExecRequest, ExecResult, Executor, register
+from .base import ExecRequest, ExecResult, Executor, TokenUsage, _int, register
 
 
 def _opencode_model(provider: Provider | None, raw: str | None) -> str:
@@ -74,6 +74,8 @@ class OpencodeBody(Executor):
 
         text_parts: list[str] = []
         tools: list[str] = []
+        usage = TokenUsage()
+        cost_usd: float | None = None
         error: str | None = None
         session_id = req.session
 
@@ -93,6 +95,10 @@ class OpencodeBody(Executor):
                 elif kind == "tool" and payload:
                     tools.append(payload)
                     req.emit("tool", tool=payload, status="completed", call_id=call_id)
+                elif kind == "usage" and isinstance(payload, dict):
+                    _accumulate_usage(usage, payload)
+                    if payload.get("cost") is not None:
+                        cost_usd = (cost_usd or 0.0) + float(payload["cost"] or 0.0)
                 elif kind == "session" and payload:
                     session_id = payload
                     if req.session:
@@ -111,12 +117,25 @@ class OpencodeBody(Executor):
             exit_code=0 if not error else 1,
             duration_ms=int((time.monotonic() - started) * 1000),
             session=session_id,
+            cost_usd=cost_usd,
+            usage=None if usage.is_empty() else usage,
             error=error,
             meta={"body": self.id, "model": model or "opencode-default", "tools": str(len(tools))},
         )
 
 
-def _parse(line: str) -> tuple[str, str, str] | None:
+def _accumulate_usage(usage: TokenUsage, payload: dict[str, Any]) -> None:
+    """opencode 的 `step-finish` 分步上报，一次运行可能多步，累加。"""
+    tokens = payload.get("tokens") or {}
+    cache = tokens.get("cache") or {}
+    usage.input_tokens += _int(tokens.get("input"))
+    usage.output_tokens += _int(tokens.get("output"))
+    usage.reasoning_tokens += _int(tokens.get("reasoning"))
+    usage.cache_read_tokens += _int(cache.get("read"))
+    usage.cache_creation_tokens += _int(cache.get("write"))
+
+
+def _parse(line: str) -> tuple[str, Any, str] | None:
     line = line.strip()
     if not line.startswith("{"):
         return None
@@ -132,6 +151,8 @@ def _parse(line: str) -> tuple[str, str, str] | None:
 
     part_id = str(part.get("id") or "")
 
+    if ptype in {"step-finish", "step_finish"} or data.get("type") == "step_finish":
+        return "usage", {"cost": part.get("cost"), "tokens": part.get("tokens") or {}}, ""
     if ptype == "text":
         return "text", str(part.get("text") or ""), ""
     if ptype in {"tool", "tool-invocation", "tool-use"}:

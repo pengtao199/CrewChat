@@ -18,6 +18,7 @@
 | 项目列表 | `.data/projects.jsonc` | JSON | 否 | 否 |
 | 界面偏好 | `.data/crewchat.db` | SQLite | 否 | 否 |
 | 会话与消息 | `.data/crewchat.db` | SQLite | 否 | 否 |
+| 用量统计（经本 app 的 CLI 身体） | `.data/crewchat.db`（`usage_events`） | SQLite | 否 | 否 |
 | 技能 | `~/.agents/skills/*/SKILL.md` | Markdown | **是** | — |
 | MCP 服务 | `~/.agents/mcp.json` | JSON | **是** | — |
 | 插件 | `~/.agents/plugins/*` | 目录 | **是** | — |
@@ -32,6 +33,7 @@
 - **网关库是派生物**：网关里按 CLI 分的那几份 provider 由通用 provider **投影**而来（`core/gateway.py` 的 `Store.project_provider()`），删了能重建。改通用 provider 是唯一的写入方式，不改网关库里的单条。
 - **核心复用、数据归我们**：网关复用 cc-switch 的核心（`ccsw-proxy`），但它的 home 由 `Settings.gateway_dir` 指定（默认 `.data/gateway/`，经 `CC_SWITCH_HOME` 注入），**绝不写用户本机的 `~/.cc-switch/`**。
 - **界面必须标注位置**：任何会写入文件的操作，界面要显示「保存到 → 路径」。
+- **用量统计归我们、且只算我们发起的**：用量由身体运行时上报（`ExecResult.usage`）、`api/chat.py` 落进 `.data/crewchat.db` 的 `usage_events`。**不读 cc-switch 的库**——它的用量掺了用户在终端里裸跑 CLI 的消耗。`llm` 是内置 API 客户端、不是 CLI 身体，不计入；只有 CLI 身体（codex / claude / opencode）产生了用量才落库。
 
 ## 具体规则
 

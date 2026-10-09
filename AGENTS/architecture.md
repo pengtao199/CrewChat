@@ -76,7 +76,8 @@ src/crewchat/
     ├── mcp_api.py              上游契约：MCP 服务
     ├── crewchat_agents.py      自研命名空间 /api/v1/crewchat/agents
     ├── crewchat_gateway.py     自研命名空间 /api/v1/crewchat/gateway（网关状态与控制）
-    └── crewchat_engines.py     自研命名空间 /api/v1/crewchat/engines（引擎扫描/安装/更新）
+    ├── crewchat_engines.py     自研命名空间 /api/v1/crewchat/engines（引擎扫描/安装/更新）
+    └── crewchat_usage.py       自研命名空间 /api/v1/crewchat/usage（身体用量聚合）
 ```
 
 ## crewai 的定位
