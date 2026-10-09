@@ -5,11 +5,11 @@
  */
 
 import React from 'react';
-import LocalAgents from '@/renderer/pages/settings/AgentSettings/LocalAgents';
+import LocalAgents from '@/renderer/pages/settings/EngineSettings/LocalAgents';
 import AionScrollArea from '@/renderer/components/base/AionScrollArea';
 import { useSettingsViewMode } from '../settingsViewContext';
 
-const AgentModalContent: React.FC = () => {
+const EngineModalContent: React.FC = () => {
   const viewMode = useSettingsViewMode();
   const isPageMode = viewMode === 'page';
 
@@ -22,4 +22,4 @@ const AgentModalContent: React.FC = () => {
   );
 };
 
-export default AgentModalContent;
+export default EngineModalContent;

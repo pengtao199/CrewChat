@@ -29,7 +29,7 @@ const AgentRepairPage: React.FC = () => {
 
   useEffect(() => {
     if (!isRefreshing && !agent) {
-      navigate('/settings/agent', { replace: true });
+      navigate('/settings/engines', { replace: true });
     }
   }, [isRefreshing, agent, navigate]);
 
@@ -91,7 +91,7 @@ const AgentRepairPage: React.FC = () => {
   }
 
   const handleBack = () => {
-    navigate('/settings/agent');
+    navigate('/settings/engines');
   };
 
   const handleSaved = () => {

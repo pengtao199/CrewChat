@@ -5,15 +5,15 @@
  */
 
 import React from 'react';
-import AgentModalContent from '@/renderer/components/settings/SettingsModal/contents/AgentModalContent';
+import EngineModalContent from '@/renderer/components/settings/SettingsModal/contents/EngineModalContent';
 import SettingsPageWrapper from '../components/SettingsPageWrapper';
 
-const AgentSettings: React.FC = () => {
+const EngineSettings: React.FC = () => {
   return (
     <SettingsPageWrapper>
-      <AgentModalContent />
+      <EngineModalContent />
     </SettingsPageWrapper>
   );
 };
 
-export default AgentSettings;
+export default EngineSettings;

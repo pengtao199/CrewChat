@@ -17,7 +17,7 @@ import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AboutModalContent from './contents/AboutModalContent';
-import AgentModalContent from './contents/AgentModalContent';
+import EngineModalContent from './contents/EngineModalContent';
 import ExtensionSettingsTabContent from './contents/ExtensionSettingsTabContent';
 import ModelModalContent from './contents/ModelModalContent';
 import SystemModalContent from './contents/SystemModalContent';
@@ -309,7 +309,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
       case 'model':
         return <ModelModalContent />;
       case 'agent':
-        return <AgentModalContent />;
+        return <EngineModalContent />;
       case 'tools':
         return <ToolsModalContent />;
       case 'usage':

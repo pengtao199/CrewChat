@@ -101,7 +101,7 @@ const SettingsSider: React.FC<{ collapsed?: boolean; tooltipEnabled?: boolean }>
         id: 'cli',
         label: t('settings.enginesNavLabel', { defaultValue: '引擎' }),
         icon: <Terminal />,
-        path: 'agent',
+        path: 'engines',
       },
       skills: {
         id: 'skills',

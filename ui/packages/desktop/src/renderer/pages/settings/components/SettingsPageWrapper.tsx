@@ -60,7 +60,7 @@ export function getBuiltinSettingsNavItems(isDesktop: boolean, t: TranslateFn): 
       id: 'cli',
       label: t('settings.enginesNavLabel', { defaultValue: '引擎' }),
       icon: <Terminal theme='outline' size='16' />,
-      path: 'agent',
+      path: 'engines',
     },
     skills: {
       id: 'skills',

@@ -7,10 +7,10 @@ import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { TEAM_MODE_ENABLED } from '@/common/config/constants';
 const Conversation = React.lazy(() => import('@renderer/pages/conversation'));
 const Guid = React.lazy(() => import('@renderer/pages/guid'));
-const AgentSettings = React.lazy(() => import('@renderer/pages/settings/AgentSettings'));
+const EngineSettings = React.lazy(() => import('@renderer/pages/settings/EngineSettings'));
 // [crewchat] 独立于上游的 Agent 编排页
 const AgentComposer = React.lazy(() => import('@renderer/pages/settings/AgentComposer'));
-const AgentRepairPage = React.lazy(() => import('@renderer/pages/settings/AgentSettings/AgentRepairPage'));
+const AgentRepairPage = React.lazy(() => import('@renderer/pages/settings/EngineSettings/AgentRepairPage'));
 const SkillsSettings = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillsHubSettings'));
 const SkillDetailPage = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillDetailPage'));
 const ToolsSettings = React.lazy(() => import('@renderer/pages/settings/ToolsSettings'));
@@ -67,13 +67,13 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
             element={TEAM_MODE_ENABLED ? withRouteFallback(TeamIndex) : <Navigate to='/guid' replace />}
           />
           <Route path='/settings/model' element={withRouteFallback(ModeSettings)} />
-          {/* Agents live only under Settings now; old agent entries redirect there. */}
+          {/* Agents live only under Settings now; old entries redirect there. */}
           <Route path='/agents' element={<Navigate to='/settings/agents' replace />} />
-          <Route path='/settings/agents' element={<Navigate to='/settings/agents' replace />} />
-          {/* [crewchat] Agent 编排页优先于上游的 CLI 清单页 */}
+          {/* [crewchat] Agent 编排页 */}
           <Route path='/settings/agents' element={withRouteFallback(AgentComposer)} />
-          <Route path='/settings/agent' element={withRouteFallback(AgentSettings)} />
-          <Route path='/settings/agent/:id/repair' element={withRouteFallback(AgentRepairPage)} />
+          {/* 引擎（CLI 身体） */}
+          <Route path='/settings/engines' element={withRouteFallback(EngineSettings)} />
+          <Route path='/settings/engines/:id/repair' element={withRouteFallback(AgentRepairPage)} />
           {/* Skills and Tools are top-level settings entries. */}
           <Route path='/settings/skills' element={withRouteFallback(SkillsSettings)} />
           <Route path='/settings/skills/import-history' element={withRouteFallback(SkillsSettings)} />
