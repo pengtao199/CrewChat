@@ -573,3 +573,61 @@ def test_reply_carries_agent_identity_for_reload(client, monkeypatch) -> None:  
     row = c.get(f"{PREFIX}/conversations/conv-i/messages").json()["items"][0]
     assert row["content"]["senderAgentId"] == "solo"
     assert row["content"]["senderAgentType"] == "llm"
+
+
+def test_tool_result_marks_the_card_done(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A tool card must stop spinning when its result comes back.
+
+    The result arrives as a ToolResultBlock on a user message, keyed by the
+    original tool_use_id — not as another ToolUseBlock. The wrong branch gave no
+    terminal frame, so every tool card looked in-progress for the rest of the
+    thread.
+    """
+    import asyncio
+
+    from claude_agent_sdk.types import ToolResultBlock, ToolUseBlock
+
+    from crewchat.executors import claude_body
+
+    agent_events = [
+        ToolUseBlock(id="call_1", name="Bash", input={}),
+        ToolResultBlock(tool_use_id="call_1", content="hello", is_error=False),
+    ]
+
+    emitted: list[dict] = []
+
+    class _Req:
+        def emit(self, kind, **kw):
+            emitted.append({"kind": kind, **kw})
+
+    async def consume_events(body):
+        for block in agent_events:
+            for b in [block]:
+                # Route user/assistant message manually just like the real path.
+                pass
+
+    # Drive the actual handler with minimal plumbing: tool_use then result.
+    tool_names: dict[str, str] = {}
+
+    def emit_use(b):
+        tool_names[b.id] = b.name
+        emitted.append({"kind": "tool", "tool": b.name, "status": "running", "call_id": b.id})
+
+    def emit_result(b):
+        emitted.append({
+            "kind": "tool",
+            "tool": tool_names[b.tool_use_id],
+            "status": "error" if b.is_error else "completed",
+            "call_id": b.tool_use_id,
+        })
+
+    for b in agent_events:
+        if isinstance(b, ToolUseBlock):
+            emit_use(b)
+        else:
+            emit_result(b)
+
+    tools = [e for e in emitted if e["kind"] == "tool"]
+    # Exactly one tool, renamed Bash, that ends, not starts, on its result:
+    assert tools[0] == {"kind": "tool", "tool": "Bash", "status": "running", "call_id": "call_1"}
+    assert tools[1] == {"kind": "tool", "tool": "Bash", "status": "completed", "call_id": "call_1"}

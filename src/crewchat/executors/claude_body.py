@@ -13,6 +13,7 @@ from claude_agent_sdk import (
     TaskProgressMessage,
     TextBlock,
     ThinkingBlock,
+    ToolResultBlock,
     ToolUseBlock,
     UserMessage,
 )
@@ -87,6 +88,28 @@ class ClaudeBody(Executor):
         result: ResultMessage | None = None
         errors: list[str] = []
 
+        # 工具名按 call_id 记录，结果帧按 id 查回名字。
+        tool_names: dict[str, str] = {}
+
+        def _emit_tool_block(block: Any) -> None:
+            """Route one tool block from the SDK stream to a tool frame.
+
+            ToolUseBlock starts a card (running). ToolResultBlock — carried on a
+            user message, keyed by the original tool_use_id — ends it (completed or
+            error). A missing result frame is exactly why every card used to spin
+            forever.
+            """
+            if isinstance(block, ToolUseBlock):
+                tool_names[block.id] = block.name
+                req.emit("tool", tool=block.name, status="running", call_id=block.id)
+            elif isinstance(block, ToolResultBlock):
+                req.emit(
+                    "tool",
+                    tool=tool_names.get(block.tool_use_id, "tool"),
+                    status="error" if block.is_error else "completed",
+                    call_id=block.tool_use_id,
+                )
+
         async def consume(client: ClaudeSDKClient) -> None:
             nonlocal result
             # With include_partial_messages the CLI sends the same reply twice:
@@ -114,12 +137,11 @@ class ClaudeBody(Executor):
                                     text_parts.append(block.text)
                                     req.emit("delta", text=block.text)
                                 case ToolUseBlock():
-                                    req.emit("tool", tool=block.name, status="running", call_id=block.id)
+                                    _emit_tool_block(block)
                     case UserMessage():
                         blocks = msg.content if isinstance(msg.content, list) else []
                         for block in blocks:
-                            if isinstance(block, ToolUseBlock):
-                                req.emit("tool", tool=block.name, status="running", call_id=block.id)
+                            _emit_tool_block(block)
                     case TaskProgressMessage():
                         req.emit("notice", text=str(getattr(msg, "task_id", "")))
                     case SystemMessage() if str(msg.subtype).startswith("error"):

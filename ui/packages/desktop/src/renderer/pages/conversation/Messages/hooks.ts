@@ -8,6 +8,7 @@ import { ipcBridge } from '@/common';
 import type { AgentStreamErrorInfo, IMessageText, IMessageTips, TMessage } from '@/common/chat/chatLib';
 import {
   composeMessage,
+  isTextContentReplacement,
   mergeAcpToolCallContent,
   mergeTextMessageContent,
   normalizeAgentStreamError,
@@ -297,6 +298,19 @@ export function composeMessageWithIndex(
     if (existingIdx !== undefined && existingIdx < list.length) {
       const existingMsg = list[existingIdx];
       if (existingMsg.type === 'text') {
+        const isReplacement = isTextContentReplacement(message.content);
+        if (isReplacement) {
+          // Rewrite that row in place. Tool / thinking cards may sit between two
+          // frames of the same reply, so `last` is a card, not this bubble —
+          // keying on `last` alone would append a duplicate full text.
+          const newList = list.slice();
+          newList[existingIdx] = {
+            ...existingMsg,
+            ...message,
+            content: mergeTextMessageContent(existingMsg.content, message.content),
+          };
+          return newList;
+        }
         // User messages (right position) are complete — skip if already exists to prevent duplicates
         if (message.position === 'right') {
           return list;
