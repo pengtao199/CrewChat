@@ -216,17 +216,18 @@ def test_system_info_exposes_work_dir(client) -> None:  # type: ignore[no-untype
 # ---- sidebar archive flow (button on the conversation list) ------------------
 
 
-def test_route_to_gateway_activates_once(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_gateway_model_routes_cli_body(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     from types import SimpleNamespace
 
     from crewchat.core.models import AgentSpec
     from crewchat.orchestration import session as session_mod
 
-    calls: list[tuple[str, str]] = []
+    calls: list[tuple[str, str, str]] = []
 
     class _FakeGateway:
-        def activate(self, app: str, provider) -> None:  # type: ignore[no-untyped-def]
-            calls.append((app, provider.id))
+        def activate(self, app: str, provider) -> str:  # type: ignore[no-untyped-def]
+            calls.append((app, provider.id, provider.model))
+            return f"ccs-claude-{provider.id}--{provider.model}"
 
     monkeypatch.setattr("crewchat.core.gateway.get_gateway", lambda *a, **k: _FakeGateway())
     session_mod._ROUTED.clear()
@@ -234,19 +235,17 @@ def test_route_to_gateway_activates_once(monkeypatch) -> None:  # type: ignore[n
     session = session_mod.Session.__new__(session_mod.Session)
     session.settings = None  # type: ignore[assignment]
     spec = AgentSpec(id="a", body="claude", brain="p/m")
-    provider = SimpleNamespace(id="p")
+    provider = SimpleNamespace(id="p", model="m")
 
-    session._route_to_gateway(spec, provider)
-    session._route_to_gateway(spec, provider)  # cached
-    assert calls == [("claude", "p")]
+    assert session._gateway_model(spec, provider, True) == "ccs-claude-p--m"
+    assert session._gateway_model(spec, provider, True) == "ccs-claude-p--m"  # cached
+    assert calls == [("claude", "p", "m")]
 
-    # llm is not a CLI body — never routed.
-    session._route_to_gateway(AgentSpec(id="b", body="llm", brain="p/m"), provider)
-    assert calls == [("claude", "p")]
-
+    # A body that self-configures per run (opencode/llm) is never routed globally.
+    assert session._gateway_model(AgentSpec(id="b", body="opencode", brain="p/m"), provider, False) is None
     # no brain → leave the CLI's own login alone.
-    session._route_to_gateway(spec, None)
-    assert calls == [("claude", "p")]
+    assert session._gateway_model(spec, None, True) is None
+    assert calls == [("claude", "p", "m")]
 
 
 def test_sidebar_archive_flow(client) -> None:  # type: ignore[no-untyped-def]
