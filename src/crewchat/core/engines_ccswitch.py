@@ -30,6 +30,14 @@ class CcSwitchEngineTools:
         resp.raise_for_status()
         return list(resp.json())
 
+    def versions(self) -> list[dict[str, Any]]:
+        import httpx
+
+        # 会拉 npm/github 的最新版本，网络请求，给足超时。
+        resp = httpx.get(f"{self._ready()}/tools/versions", timeout=60)
+        resp.raise_for_status()
+        return list(resp.json())
+
     def install(self, tools: list[str]) -> None:
         self._lifecycle(tools, "install")
 

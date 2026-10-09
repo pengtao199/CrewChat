@@ -19,6 +19,10 @@ class EngineTools(Protocol):
         """每个受支持 CLI 的安装分布：path/version/runnable/source/冲突/升级命令。"""
         ...
 
+    def versions(self) -> list[dict[str, Any]]:
+        """每个 CLI 的当前版本与远程最新版本（含网络请求）：判定有没有新版。"""
+        ...
+
     def install(self, tools: list[str]) -> None:
         """安装指定的 CLI（**会真正执行系统命令**）。"""
         ...
