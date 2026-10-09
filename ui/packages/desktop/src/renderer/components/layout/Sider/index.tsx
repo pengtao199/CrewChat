@@ -9,7 +9,6 @@ import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
 import { SiderToolbar, SiderSearchEntry, SiderScheduledEntry, SiderAssistantEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
-import TeamSiderSection from './TeamSiderSection';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { getCurrentWorkspace } from '@renderer/hooks/workspace/useWorkspaces';
 import siderStyles from './Sider.module.css';
@@ -237,17 +236,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
               <Suspense fallback={<div className='min-h-200px' />}>
                 <WorkspaceGroupedHistory
                   {...workspaceHistoryProps}
-                  afterPinnedContent={
-                    <>
-                      <WorkspaceSwitcher collapsed={collapsed} />
-                      <TeamSiderSection
-                        collapsed={collapsed}
-                        pathname={pathname}
-                        siderTooltipProps={siderTooltipProps}
-                        onSessionClick={onSessionClick}
-                      />
-                    </>
-                  }
+                  afterPinnedContent={<WorkspaceSwitcher collapsed={collapsed} />}
                 />
               </Suspense>
             </div>
