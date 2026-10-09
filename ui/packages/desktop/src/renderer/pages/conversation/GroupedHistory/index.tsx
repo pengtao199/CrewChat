@@ -4,14 +4,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { ipcBridge } from '@/common';
 import type { TChatConversation } from '@/common/config/storage';
 import AionModal from '@/renderer/components/base/AionModal';
 import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
+import { useWorkspaces } from '@/renderer/hooks/workspace/useWorkspaces';
 import { useCronJobsMap } from '@/renderer/pages/cron';
+import { getActivityTime } from '@/renderer/utils/chat/timeline';
 import { restrictToVerticalAxis } from '@/renderer/utils/ui/dndModifiers';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Button, Dropdown, Empty, Input, Menu, Modal, Tooltip } from '@arco-design/web-react';
+import { Button, Dropdown, Empty, Input, Menu, Message, Modal, Tooltip } from '@arco-design/web-react';
 import { FolderClose, MoreOne, Plus, Right } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo } from 'react';
@@ -41,6 +44,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   const layout = useLayoutContext();
   const isMobile = layout?.isMobile ?? false;
   const { getJobStatus, markAsRead, setActiveConversation } = useCronJobsMap();
+  const { workspaces, create: createWorkspace } = useWorkspaces();
 
   const {
     conversations,
@@ -218,25 +222,172 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   // Collect all sortable IDs for the pinned section
   const pinnedIds = useMemo(() => pinnedConversations.map((c) => c.id), [pinnedConversations]);
 
-  // Codex-style split: project folders (workspaces) on top, free conversations below.
-  // Projects section: collect all workspace groups across timeline sections, ordered by recency.
+  // Projects are explicit (from /api/crewchat/projects), not inferred from folders,
+  // so an empty project still shows and can start its first session. A project's
+  // sessions are those bound by project_id (falling back to matching workspace path).
   const projectGroups = useMemo(() => {
-    const seen = new Set<string>();
-    const groups: Array<{ workspace: string; displayName: string; conversations: TChatConversation[] }> = [];
-    for (const section of timelineSections) {
-      for (const item of section.items) {
-        if (item.type === 'workspace' && item.workspaceGroup && !seen.has(item.workspaceGroup.workspace)) {
-          seen.add(item.workspaceGroup.workspace);
-          groups.push({
-            workspace: item.workspaceGroup.workspace,
-            displayName: item.workspaceGroup.display_name,
-            conversations: item.workspaceGroup.conversations,
-          });
-        }
-      }
+    return workspaces.map((workspace) => {
+      const members = conversations.filter(
+        (conversation) =>
+          conversation.project_id === workspace.id ||
+          (!!workspace.path && (conversation.extra as { workspace?: string } | undefined)?.workspace === workspace.path)
+      );
+      return {
+        projectId: workspace.id,
+        workspace: workspace.path,
+        displayName: workspace.name,
+        conversations: [...members].toSorted((a, b) => getActivityTime(b) - getActivityTime(a)),
+      };
+    });
+  }, [workspaces, conversations]);
+
+  const addProject = useCallback(async () => {
+    try {
+      const paths = await ipcBridge.dialog.showOpen.invoke({ properties: ['openDirectory', 'createDirectory'] });
+      const path = paths?.[0];
+      if (!path) return;
+      const name = path.split('/').filter(Boolean).pop() || path;
+      await createWorkspace(name, path);
+    } catch (error) {
+      Message.error((error as Error).message);
     }
-    return groups;
-  }, [timelineSections]);
+  }, [createWorkspace]);
+
+  const projectsSection = (
+    <div className='min-w-0'>
+      <SectionLabel
+        sectionKey='projects'
+        label={t('conversation.history.projectsSection')}
+        trailing={
+          <Tooltip content={t('conversation.history.addProject')} position='top'>
+            <span
+              role='button'
+              tabIndex={0}
+              aria-label={t('conversation.history.addProject')}
+              className='flex-center cursor-pointer transition-colors text-t-secondary hover:text-t-primary size-20px rd-4px sider-action-btn'
+              onClick={(e) => {
+                e.stopPropagation();
+                void addProject();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void addProject();
+                }
+              }}
+            >
+              <Plus theme='outline' size='14' fill='currentColor' className='block leading-none' />
+            </span>
+          </Tooltip>
+        }
+      />
+      {!collapsedSections.has('projects') &&
+        (projectGroups.length > 0
+          ? projectGroups.map((group) => {
+              const projectMenu = (
+                <Menu
+                  onClickMenuItem={(key) => {
+                    if (key === 'archive') {
+                      handleArchiveProject(group.displayName, group.conversations);
+                    }
+                  }}
+                >
+                  <Menu.Item key='archive'>
+                    <span className='flex items-center gap-8px'>
+                      <FolderClose theme='outline' size='14' />
+                      {t('conversation.history.archiveProject')}
+                    </span>
+                  </Menu.Item>
+                </Menu>
+              );
+              return (
+                <div key={group.projectId} className='min-w-0'>
+                  <WorkspaceCollapse
+                    expanded={expandedWorkspaces.includes(group.workspace)}
+                    onToggle={() => handleToggleWorkspace(group.workspace)}
+                    siderCollapsed={collapsed}
+                    stickyHeader
+                    stickyTop={28}
+                    header={
+                      <span className='text-14px font-[500] truncate flex-1 text-t-primary min-w-0'>
+                        {group.displayName}
+                      </span>
+                    }
+                    trailing={
+                      <span className='flex items-center gap-6px'>
+                        <Tooltip content={t('conversation.history.newConversationInProject')} position='top'>
+                          <span
+                            role='button'
+                            tabIndex={0}
+                            aria-label={t('conversation.history.newConversationInProject')}
+                            className={classNames(
+                              'flex-center cursor-pointer transition-colors text-t-secondary hover:text-t-primary size-20px rd-4px sider-action-btn',
+                              isMobile ? 'flex' : 'hidden group-hover:flex'
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void navigate('/guid', { state: { workspace: group.workspace } });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                void navigate('/guid', { state: { workspace: group.workspace } });
+                              }
+                            }}
+                          >
+                            <Plus theme='outline' size='14' fill='currentColor' className='block leading-none' />
+                          </span>
+                        </Tooltip>
+                        <Dropdown
+                          droplist={projectMenu}
+                          trigger='click'
+                          position='br'
+                          getPopupContainer={() => document.body}
+                          unmountOnExit={false}
+                        >
+                          <span
+                            aria-label='Project actions'
+                            className={classNames(
+                              'flex-center cursor-pointer transition-colors text-t-secondary hover:text-t-primary size-20px rd-4px sider-action-btn',
+                              isMobile ? 'flex' : 'hidden group-hover:flex'
+                            )}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreOne theme='outline' size='14' fill='currentColor' className='block leading-none' />
+                          </span>
+                        </Dropdown>
+                      </span>
+                    }
+                  >
+                    <div className={classNames('flex flex-col min-w-0', { 'mt-1px': !collapsed })}>
+                      {group.conversations.map((conversation) => renderConversation(conversation, true))}
+                    </div>
+                  </WorkspaceCollapse>
+                </div>
+              );
+            })
+          : !collapsed && (
+              <div
+                role='button'
+                tabIndex={0}
+                aria-label={t('conversation.history.addProject')}
+                className='flex items-center gap-8px px-12px h-34px cursor-pointer text-t-secondary hover:bg-fill-2 hover:text-t-primary transition-colors'
+                onClick={() => void addProject()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    void addProject();
+                  }
+                }}
+              >
+                <Plus theme='outline' size='14' className='shrink-0' />
+                <span className='text-13px'>{t('conversation.history.addProject')}</span>
+              </div>
+            ))}
+    </div>
+  );
 
   // Conversations section: keep timeline grouping (today/yesterday/...) but only show non-workspace conversations.
   const conversationOnlySections = useMemo(
@@ -250,10 +401,11 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     [timelineSections]
   );
 
-  if (timelineSections.length === 0 && pinnedConversations.length === 0) {
+  if (timelineSections.length === 0 && pinnedConversations.length === 0 && projectGroups.length === 0) {
     return (
       <>
         {afterPinnedContent}
+        {projectsSection}
         <div className='py-48px flex-center'>
           <Empty description={t('conversation.history.noHistory')} />
         </div>
@@ -413,97 +565,8 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         {/* Slot 由父级（Sider）填入：例如 Team / CronJob sections，位于「置顶」之后、「项目」之前 */}
         {afterPinnedContent}
 
-        {/* L1: Projects section — workspace folders, peer to conversations */}
-        {projectGroups.length > 0 && (
-          <div className='min-w-0'>
-            {!collapsed && <SectionLabel sectionKey='projects' label={t('conversation.history.projectsSection')} />}
-            {!collapsedSections.has('projects') &&
-              projectGroups.map((group) => {
-                const projectMenu = (
-                  <Menu
-                    onClickMenuItem={(key) => {
-                      if (key === 'archive') {
-                        handleArchiveProject(group.displayName, group.conversations);
-                      }
-                    }}
-                  >
-                    <Menu.Item key='archive'>
-                      <span className='flex items-center gap-8px'>
-                        <FolderClose theme='outline' size='14' />
-                        {t('conversation.history.archiveProject')}
-                      </span>
-                    </Menu.Item>
-                  </Menu>
-                );
-                return (
-                  <div key={group.workspace} className='min-w-0'>
-                    <WorkspaceCollapse
-                      expanded={expandedWorkspaces.includes(group.workspace)}
-                      onToggle={() => handleToggleWorkspace(group.workspace)}
-                      siderCollapsed={collapsed}
-                      stickyHeader
-                      stickyTop={28}
-                      header={
-                        <span className='text-14px font-[500] truncate flex-1 text-t-primary min-w-0'>
-                          {group.displayName}
-                        </span>
-                      }
-                      trailing={
-                        <span className='flex items-center gap-6px'>
-                          <Tooltip content={t('conversation.history.newConversationInProject')} position='top'>
-                            <span
-                              role='button'
-                              tabIndex={0}
-                              aria-label={t('conversation.history.newConversationInProject')}
-                              className={classNames(
-                                'flex-center cursor-pointer transition-colors text-t-secondary hover:text-t-primary size-20px rd-4px sider-action-btn',
-                                isMobile ? 'flex' : 'hidden group-hover:flex'
-                              )}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void navigate('/guid', { state: { workspace: group.workspace } });
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  void navigate('/guid', { state: { workspace: group.workspace } });
-                                }
-                              }}
-                            >
-                              <Plus theme='outline' size='14' fill='currentColor' className='block leading-none' />
-                            </span>
-                          </Tooltip>
-                          <Dropdown
-                            droplist={projectMenu}
-                            trigger='click'
-                            position='br'
-                            getPopupContainer={() => document.body}
-                            unmountOnExit={false}
-                          >
-                            <span
-                              aria-label='Project actions'
-                              className={classNames(
-                                'flex-center cursor-pointer transition-colors text-t-secondary hover:text-t-primary size-20px rd-4px sider-action-btn',
-                                isMobile ? 'flex' : 'hidden group-hover:flex'
-                              )}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreOne theme='outline' size='14' fill='currentColor' className='block leading-none' />
-                            </span>
-                          </Dropdown>
-                        </span>
-                      }
-                    >
-                      <div className={classNames('flex flex-col min-w-0', { 'mt-1px': !collapsed })}>
-                        {group.conversations.map((conversation) => renderConversation(conversation, true))}
-                      </div>
-                    </WorkspaceCollapse>
-                  </div>
-                );
-              })}
-          </div>
-        )}
+        {/* L1: Projects — explicit projects (may be empty), peer to sessions */}
+        {projectsSection}
 
         {/* L1: Conversations section — peer to projects, internally split by timeline */}
         {conversationOnlySections.length > 0 && (

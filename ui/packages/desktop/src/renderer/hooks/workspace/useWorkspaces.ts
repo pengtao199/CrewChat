@@ -12,29 +12,7 @@ import type { Workspace } from '@/common/adapter/ipcBridge';
 import { useCallback } from 'react';
 import useSWR from 'swr';
 
-const CURRENT_KEY = 'crewchat.currentWorkspace';
-
 export const WORKSPACES_SWR_KEY = 'crewchat.workspaces';
-
-export type CurrentWorkspace = { id: string; name: string; path: string };
-
-export function getCurrentWorkspace(): CurrentWorkspace | null {
-  try {
-    const raw = localStorage.getItem(CURRENT_KEY);
-    return raw ? (JSON.parse(raw) as CurrentWorkspace) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function setCurrentWorkspace(workspace: CurrentWorkspace | null): void {
-  try {
-    if (workspace) localStorage.setItem(CURRENT_KEY, JSON.stringify(workspace));
-    else localStorage.removeItem(CURRENT_KEY);
-  } catch {
-    /* storage unavailable — non-fatal */
-  }
-}
 
 const fetchWorkspaces = async (): Promise<Workspace[]> => (await ipcBridge.workspaces.list.invoke()) ?? [];
 
