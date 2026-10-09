@@ -84,15 +84,24 @@ src/crewchat/
 
 ## crewai 的定位
 
-**单聊不走 crewai 的执行模型；群聊用 crewai 原生会话图。**
+**只借它的数据模型，不用它的执行引擎。**
 
 | 场景 | 实现 | 理由 |
 | --- | --- | --- |
-| 单 Agent 对话 | `orchestrator.stream_ask` 直连执行器 | 外层 LLM 对「把活交给 codex」是纯开销：身体自带大脑，再包一层 crewai Agent 只会多一次调用、多一层延迟 |
-| 多 Agent 协作 | `crewai.flow.conversational`（router 选发言者 + 流式事件 + human feedback） | 这正是 crewai 擅长的地方：发言路由、多 agent 状态、中途问人 |
+| Agent / Task 形状 | `core/models.py` 复用 crewai 的字段命名（role/goal/backstory、Task/context） | 同一份 agent 文件既能被 `crewai run` 读，也能被我们读；加字段不用教两套 schema |
+| 多 Agent 协作 | **自建** `orchestration/group.py`（共享上下文 + 路由 + 委派 + 确定性循环） | 见下 |
 | 配置解析 | `crewai.project.json_loader.load_jsonc_file` | JSONC 带注释与尾逗号，标准库不支持 |
 
-因此 `crewai` 出现在依赖里是**有意为之**，但只在上述两处使用。新增对 crewai 其他能力的使用前，先确认它不能被更直接的实现替代。
+**为什么协作不用 crewai 的执行引擎**（实测，见 `docs/plans/multi-agent-collaboration.md`）：
+
+- `crewai.LLM(model='claude')` 不报错但**静默落到 OpenAI**（401）—— 它只能驱动 chat-completions
+  provider，驱动不了我们的 CLI 身体。
+- `crewai.flow.conversational` 一次只路由到**一个**响应者，与「多个 Agent 各出一份产出」不符。
+- crewai 自带执行循环，会与 CLI 自身的工具循环叠加；而数据分辨率（delta / 工具入参出参 / usage）
+  只存在于**我们自己的循环**里。
+
+因此 `crewai` 出现在依赖里是**有意为之**，但只用于数据模型与 JSONC 解析。新增对 crewai 其他能力的
+使用前，先确认它不能被更直接的实现替代。
 
 ### 归属判定
 

@@ -20,7 +20,10 @@ chainlit.md
 backend.log
 
 # UI fork
-ui/node_modules/
+# Any node_modules at any depth (the fork has nested ones under
+# packages/desktop/src/renderer); a path-qualified rule only covers one level
+# and lets a nested vite cache slip in.
+node_modules/
 ui/dist/
 
 # 第三方参考资料（只读，不属于本仓库代码）
@@ -30,6 +33,3 @@ Reference/
 gateway/cc-switch/src-tauri/target/
 !gateway/cc-switch/dist/
 !gateway/cc-switch/dist/**
-
-# Vitest cache inside vendored deps
-node_modules/.vite/
