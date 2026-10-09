@@ -234,6 +234,8 @@ def _message_payload(row: dict[str, Any]) -> dict[str, Any]:
         author = row.get("author")
         if author:
             content["senderName"] = author
+        if metadata.get("agent_id"):
+            content["senderAgentId"] = metadata["agent_id"]
         if metadata.get("body"):
             content["senderAgentType"] = metadata["body"]
         if metadata.get("teammate"):

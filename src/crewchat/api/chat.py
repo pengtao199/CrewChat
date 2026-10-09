@@ -18,7 +18,15 @@ from fastapi.responses import JSONResponse
 from ..core.models import AgentSpec
 from ..orchestration import session_for
 from .conversations import ensure_conversation, persist_turn
-from .hub import error_frame, finish_frame, hub, text_frame, tool_frame
+from .hub import (
+    error_frame,
+    finish_frame,
+    hub,
+    text_frame,
+    tool_frame,
+    turn_completed_frame,
+    user_created_frame,
+)
 
 router = APIRouter()
 
@@ -92,18 +100,18 @@ def _prompt_for(specs: list[AgentSpec], content: str, group: bool) -> list[str]:
     return prompts
 
 
-def _sender(spec: AgentSpec, group: bool) -> dict[str, Any] | None:
+def _sender(spec: AgentSpec, group: bool) -> dict[str, Any]:
     """Identity block for one agent's reply.
 
-    Only sent for group turns: a 1:1 reply needs no name tag, but in a group the
-    renderer draws a separate bubble per agent and must know who is speaking.
+    Always sent: every reply is attributable, and a 1:1 conversation should still
+    show who is answering. `teammateMessage` stays group-only — it drives the
+    teammate colour/border treatment meant for multi-agent threads.
     """
-    if not group:
-        return None
     return {
-        "teammateMessage": True,
         "senderName": spec.display,
         "senderAgentType": spec.body,
+        "senderAgentId": spec.id,
+        "teammateMessage": group,
     }
 
 
@@ -237,7 +245,12 @@ async def _run_turn(
         )
     finally:
         _running.pop(conversation_id, None)
-        _broadcast_speaker(conversation_id, turn_id, "", [])
+        _speaker_state.pop(conversation_id, None)
+        # Authoritative end-of-turn: releases the runtime store back to idle and
+        # lets the sidebar refresh. Per-agent finish frames only close bubbles.
+        await hub.broadcast(
+            "turn.completed", turn_completed_frame(conversation_id, turn_id, _idle_runtime())
+        )
         await hub.broadcast(
             "conversation.listChanged",
             {"conversation_id": conversation_id, "reason": "turn_finished"},
@@ -261,6 +274,13 @@ async def send_message(conversation_id: str, request: Request) -> Any:
         ensure_conversation(conversation_id, content[:40] or "新会话", [s.id for s in specs])
 
     user_msg_id = persist_turn(conversation_id, "user", content, "you")
+    # Show the user's own message immediately. The renderer inserts the row from
+    # this event; without it the bubble only appears after a history refetch,
+    # which reads as a failed send.
+    await hub.broadcast(
+        "message.userCreated",
+        user_created_frame(conversation_id, user_msg_id, content),
+    )
     turn_id = uuid.uuid4().hex
 
     task = asyncio.create_task(_run_turn(conversation_id, specs, content, turn_id))

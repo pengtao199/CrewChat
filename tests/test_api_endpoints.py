@@ -488,3 +488,88 @@ def test_edit_user_message_keeps_order_and_rejects_assistant(client) -> None:  #
     assert c.patch(f"{PREFIX}/conversations/conv-e/messages/m2", json={"content": "nope"}).status_code == 400
     assert c.patch(f"{PREFIX}/conversations/conv-e/messages/m1", json={"content": "  "}).status_code == 400
     assert c.patch(f"{PREFIX}/conversations/conv-e/messages/zzz", json={"content": "x"}).status_code == 404
+
+
+def test_send_broadcasts_user_message_and_turn_completion(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A send must echo the user's row and close the turn on the socket.
+
+    The renderer inserts the user bubble from `message.userCreated` and releases
+    its running state from `turn.completed`. Without either, the message only
+    appears after a history refetch and the conversation stays stuck "running".
+    """
+    import asyncio
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-s", "name": "send"})
+
+    specs = [AgentSpec(id="a", body="llm", brain="p/m")]
+    sent: list[tuple[str, dict]] = []
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            sent.append((name, data))
+
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    monkeypatch.setattr(
+        chat_mod, "_for_conversation", lambda _cid: (_fake_session(specs, {"a": [_event("delta", text="hi")]}), specs)
+    )
+    chat_mod._running.clear()
+    chat_mod._speaker_state.clear()
+
+    r = c.post(f"{PREFIX}/conversations/conv-s/messages", json={"content": "hello"})
+    assert r.status_code == 200
+    names = [n for n, _ in sent]
+    assert "message.userCreated" in names
+    assert "turn.completed" in names
+    # The echoed row must be the one persisted, and land before the turn closes.
+    created = dict(sent)["message.userCreated"]
+    assert created["msg_id"] == r.json()["msg_id"]
+    assert created["position"] == "right"
+    assert created["content"] == "hello"
+    assert names.index("message.userCreated") < names.index("turn.completed")
+
+    completed = dict(sent)["turn.completed"]
+    assert completed["session_id"] == "conv-s"
+    assert completed["runtime"]["state"] == "idle"
+    assert completed["runtime"]["can_send_message"] is True
+
+
+def test_reply_carries_agent_identity_for_reload(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Every reply names its agent, so a reloaded thread still shows who spoke."""
+    import asyncio
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-i", "name": "id"})
+
+    specs = [AgentSpec(id="solo", body="llm", brain="p/m")]
+    sent: list[dict] = []
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            sent.append(data)
+
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    monkeypatch.setattr(
+        chat_mod, "_for_conversation", lambda _cid: (_fake_session(specs, {"solo": [_event("delta", text="yo")]}), specs)
+    )
+    chat_mod._running.clear()
+    chat_mod._speaker_state.clear()
+
+    asyncio.run(chat_mod._run_turn("conv-i", specs, "hi", "t1"))
+
+    texts = [f for f in sent if f.get("type") == "text"]
+    assert texts and texts[0]["data"]["senderName"] == specs[0].display
+    assert texts[0]["data"]["senderAgentId"] == "solo"
+    assert texts[0]["data"]["senderAgentType"] == "llm"
+    # A 1:1 reply is not a teammate reply.
+    assert texts[0]["data"]["teammateMessage"] is False
+
+    row = c.get(f"{PREFIX}/conversations/conv-i/messages").json()["items"][0]
+    assert row["content"]["senderAgentId"] == "solo"
+    assert row["content"]["senderAgentType"] == "llm"

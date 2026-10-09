@@ -155,6 +155,8 @@ export type IMessageText = IMessage<
     teammateMessage?: boolean;
     senderName?: string;
     senderAgentType?: string;
+    /** Engine id of the agent that wrote this reply (our agent catalog key). */
+    senderAgentId?: string;
     /** Sender teammate's conversation id — lets the renderer resolve preset avatars via their conversation extras. */
     senderConversationId?: string;
     /** Per-agent model/token/cost/duration, stamped on the reply footer. */
@@ -491,6 +493,8 @@ type RawTextMessageContent = {
   sender_name?: unknown;
   from_name?: unknown;
   senderAgentType?: unknown;
+  senderAgentId?: unknown;
+  sender_agent_id?: unknown;
   sender_backend?: unknown;
   senderBackend?: unknown;
   senderConversationId?: unknown;
@@ -553,6 +557,7 @@ const normalizeTextMessageContentObject = (
   const content = typeof data.content === 'string' ? data.content : String(data.content ?? '');
   const senderName = firstStringField(data, ['senderName', 'sender_name', 'from_name']);
   const senderAgentType = firstStringField(data, ['senderAgentType', 'sender_backend', 'senderBackend']);
+  const senderAgentId = firstStringField(data, ['senderAgentId', 'sender_agent_id']);
   const senderConversationId = firstStringField(data, [
     'senderConversationId',
     'sender_conversation_id',
@@ -570,6 +575,7 @@ const normalizeTextMessageContentObject = (
     ...(teammateMessage ? { teammateMessage: true } : {}),
     ...(senderName ? { senderName } : {}),
     ...(senderAgentType ? { senderAgentType } : {}),
+    ...(senderAgentId ? { senderAgentId } : {}),
     ...(senderConversationId ? { senderConversationId } : {}),
     ...(usage ? { usage } : {}),
   };

@@ -83,6 +83,57 @@ def text_frame(
     return frame
 
 
+def user_created_frame(
+    conversation_id: str,
+    msg_id: str,
+    content: str,
+    *,
+    status: str = "finish",
+    position: str = "right",
+    hidden: bool = False,
+) -> dict[str, Any]:
+    """A message the user just sent.
+
+    Broadcast immediately after persisting so the bubble appears the moment the
+    request is accepted. Without it the renderer has no row to show until the
+    history is refetched, which reads as "my message did not send".
+    """
+    return {
+        "conversation_id": conversation_id,
+        "msg_id": msg_id,
+        "content": content,
+        "position": position,
+        "status": status,
+        "hidden": hidden,
+        "created_at": int(time.time() * 1000),
+    }
+
+
+def turn_completed_frame(
+    conversation_id: str,
+    turn_id: str,
+    runtime: dict[str, Any],
+    *,
+    last_message: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """The turn is over.
+
+    The runtime store treats this as the authoritative "back to idle" signal; the
+    per-agent `finish` stream frames only close individual bubbles, so without
+    this the conversation stays stuck in its running state after the last reply.
+    """
+    return {
+        "session_id": conversation_id,
+        "turn_id": turn_id,
+        "status": "finished",
+        "state": "ai_waiting_input",
+        "detail": "",
+        "can_send_message": True,
+        "runtime": runtime,
+        "last_message": last_message or {"content": None, "created_at": int(time.time() * 1000)},
+    }
+
+
 def finish_frame(
     conversation_id: str,
     msg_id: str,

@@ -58,6 +58,7 @@ export const formatMessageTime = (timestamp: number): string => {
 import MessageCronBadge from './MessageCronBadge';
 import { resolveAgentLogo, useAgentLogos } from '@/renderer/utils/model/agentLogo';
 import TeammateMessageAvatar from './TeammateMessageAvatar';
+import AgentReplyIdentity from './AgentReplyIdentity';
 import { useTeammateColor } from '@/renderer/pages/team/identity/TeamIdentityContext';
 
 const CODE_STYLE = { marginTop: 4, marginBlock: 4 };
@@ -137,6 +138,7 @@ const MessageText: React.FC<{
   const isTeammateMessage = message.position === 'left' && message.content.teammateMessage === true;
   const senderName = message.content.senderName;
   const senderAgentType = message.content.senderAgentType;
+  const senderAgentId = message.content.senderAgentId;
   const senderConversationId = message.content.senderConversationId;
   const { text, files } = useMemo(
     () => parseFileMarker(contentToRender, isUserMessage),
@@ -331,11 +333,20 @@ const MessageText: React.FC<{
             />
             <span
               className='text-12px'
-              style={teammateColor ? { color: teammateColor } : { color: 'var(--text-secondary)' }}
+              style={{ color: teammateColor || 'var(--text-secondary)' }}
             >
               {displaySenderName}
             </span>
           </div>
+        )}
+        {/* 1:1 replies name their speaker too. Only the avatar treatment above is
+            teammate-specific, so a solo agent would otherwise answer anonymously. */}
+        {!isUserMessage && !isTeammateMessage && displaySenderName && (
+          <AgentReplyIdentity
+            name={displaySenderName}
+            agentId={senderAgentId ?? message.metadata?.agent_id}
+            engine={senderAgentType}
+          />
         )}
         {deliverySource && (
           <div
