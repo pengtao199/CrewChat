@@ -159,3 +159,23 @@ def test_shipped_page_endpoint_is_implemented(client, path: str) -> None:  # typ
     status = c.get(f"{PREFIX}{path}").status_code
     assert status != 501, f"{path} is not implemented (501) but backs a shipped page"
     assert status < 500, f"{path} returned {status}"
+
+
+# ---- sidebar archive flow (button on the conversation list) ------------------
+
+
+def test_sidebar_archive_flow(client) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    assert c.post(f"{PREFIX}/conversations", json={"id": "conv-1", "name": "x"}).status_code == 200
+
+    assert c.post(f"{PREFIX}/sidebar/conversation/conv-1/archive").status_code == 200
+    archived = c.get(f"{PREFIX}/sidebar/archived").json()
+    assert {i["id"] for i in archived["items"]} == {"conv-1"}
+
+    assert c.post(f"{PREFIX}/sidebar/conversation/conv-1/unarchive").status_code == 200
+    assert c.get(f"{PREFIX}/sidebar/archived").json()["items"] == []
+
+    c.post(f"{PREFIX}/sidebar/conversation/conv-1/archive")
+    assert c.delete(f"{PREFIX}/sidebar/archived").json() == {"teams_deleted": 0, "conversations_deleted": 1}
+
+    assert c.post(f"{PREFIX}/sidebar/team/t1/archive").status_code == 404
