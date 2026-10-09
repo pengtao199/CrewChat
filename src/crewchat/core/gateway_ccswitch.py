@@ -18,6 +18,7 @@ import shutil
 import sqlite3
 import subprocess
 import time
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -68,7 +69,7 @@ def _build_settings_config(app_type: str, provider: Provider) -> tuple[dict[str,
             env["ANTHROPIC_API_KEY"] = api_key
         return ({"env": env}, {"apiFormat": provider.api_format})
     if app_type == "opencode":
-        models = provider.models or ([model] if model else [])
+        models = provider.model_ids() or ([model] if model else [])
         return (
             {
                 "npm": "@ai-sdk/openai-compatible",
@@ -100,7 +101,7 @@ class Store:
         if not self.enabled():
             return []
         try:
-            with self._connect() as conn:
+            with closing(self._connect()) as conn:
                 return [dict(row) for row in conn.execute(sql, params)]
         except sqlite3.Error:
             return []
@@ -130,7 +131,7 @@ class Store:
             raise RuntimeError(f"网关库不存在：{self.path}（先启动网关）")
         settings_config, meta = _build_settings_config(app_type, provider)
         provider_id = f"crewchat-{app_type}-{provider.id}"
-        with self._connect(readonly=False) as conn:
+        with closing(self._connect(readonly=False)) as conn:
             conn.execute(
                 """
                 INSERT INTO providers
@@ -151,6 +152,7 @@ class Store:
                     int(time.time()),
                 ),
             )
+            conn.commit()
         return provider_id
 
     def usage_daily(self, days: int = 30) -> list[dict[str, Any]]:
