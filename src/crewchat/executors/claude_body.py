@@ -52,7 +52,6 @@ class ClaudeBody(Executor):
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
-        self._sessions: dict[str, ClaudeSDKClient] = {}
 
     @classmethod
     def available(cls) -> bool:
@@ -73,8 +72,11 @@ class ClaudeBody(Executor):
         if model:
             opts["model"] = model
         if req.session:
+            # Resume by id only. Adding `continue_conversation` here makes the
+            # CLI emit `--continue` alongside `--resume`, and `--continue` wins:
+            # the run silently attaches to the most recent session instead of
+            # this conversation's, so every conversation would share one thread.
             opts["resume"] = req.session
-            opts["continue_conversation"] = True
         return ClaudeAgentOptions(**opts)
 
     async def run(self, req: ExecRequest, provider: Provider | None) -> ExecResult:
@@ -87,17 +89,28 @@ class ClaudeBody(Executor):
 
         async def consume(client: ClaudeSDKClient) -> None:
             nonlocal result
+            # With include_partial_messages the CLI sends the same reply twice:
+            # incremental StreamEvents and then the assembled AssistantMessage.
+            # Emitting both repeats every token, so text comes from exactly one
+            # source — partials when they arrive, otherwise the final message.
+            streamed_text = False
             await client.query(req.prompt)
             async for msg in client.receive_response():
                 match msg:
                     case StreamEvent():
-                        req.emit("delta", text=_stream_text(msg))
+                        delta = _stream_text(msg)
+                        if delta:
+                            streamed_text = True
+                            text_parts.append(delta)
+                            req.emit("delta", text=delta)
                     case AssistantMessage():
                         for block in msg.content:
                             match block:
                                 case ThinkingBlock():
                                     req.emit("thinking", text=block.thinking)
                                 case TextBlock() if block.text:
+                                    if streamed_text:
+                                        continue
                                     text_parts.append(block.text)
                                     req.emit("delta", text=block.text)
                                 case ToolUseBlock():
@@ -116,14 +129,11 @@ class ClaudeBody(Executor):
                     case _:
                         pass
 
-        client = self._sessions.get(req.session or "")
+        # One client per run. A cached client cannot work here: it would have to
+        # outlive the `async with` that closes it, and executors are constructed
+        # per turn anyway, so the cache could only ever hand back a closed client.
         try:
-            if client is None:
-                async with ClaudeSDKClient(options=opts) as fresh:
-                    if req.session:
-                        self._sessions[req.session] = fresh
-                    await consume(fresh)
-            else:
+            async with ClaudeSDKClient(options=opts) as client:
                 await consume(client)
         except Exception as exc:
             errors.append(f"{type(exc).__name__}: {exc}")
@@ -155,20 +165,22 @@ class ClaudeBody(Executor):
         )
 
     async def close(self) -> None:
-        for client in self._sessions.values():
-            try:
-                await client.disconnect()
-            except Exception:
-                pass
-        self._sessions.clear()
+        """No long-lived clients: each run opens and closes its own."""
+        return None
 
 
 def _stream_text(msg: StreamEvent) -> str:
+    """Visible text only.
+
+    Thinking arrives as thinking_delta on the same channel; it is deliberately
+    dropped here so it cannot leak into the reply text (it is emitted separately
+    from ThinkingBlock).
+    """
     event = msg.event if isinstance(msg.event, dict) else {}
     if event.get("type") != "content_block_delta":
         return ""
     delta = event.get("delta") or {}
-    return delta.get("text") if delta.get("type") == "text_delta" else ""
+    return delta.get("text") or "" if delta.get("type") == "text_delta" else ""
 
 
 def _result_error(result: ResultMessage) -> str:

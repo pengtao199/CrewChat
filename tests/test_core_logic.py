@@ -196,3 +196,64 @@ def test_resolve_brain_splits_provider_and_overrides_model(monkeypatch) -> None:
     # llm body resolves even without a model part.
     llm = P.resolve_brain(object(), AgentSpec(id="c", body="llm", brain="1fd10b59"))
     assert llm is not None and llm.id == "1fd10b59"
+
+
+def test_only_real_session_ids_are_resumed(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    """A session id must come from the CLI, never be invented.
+
+    Resuming a made-up id makes the CLI exit 1 (`--resume` on an unknown session
+    is an error, not a create request), which is why every fresh conversation
+    used to fail on its very first turn.
+    """
+    import asyncio
+
+    from crewchat.core.models import AgentSpec
+    from crewchat.orchestration import session as session_mod
+
+    spec = AgentSpec(id="a1", body="llm", brain="p/m")
+
+    class _Executor:
+        needs_gateway = False
+        seen: list[str | None] = []
+
+        async def run(self, req, provider):  # noqa: ANN001
+            _Executor.seen.append(req.session)
+            from crewchat.executors.base import ExecResult
+
+            # The CLI mints a real id and hands it back on the result.
+            return ExecResult(text="ok", session="real-cli-session-id")
+
+    monkeypatch.setattr(session_mod, "get_executor", lambda _body: _Executor())
+
+    from crewchat.core.config import get_settings
+
+    session = session_mod.Session.__new__(session_mod.Session)
+    session.workspace_dir = tmp_path
+    session.settings = get_settings()
+    session.specs = {"a1": spec}
+    session.sessions = {}
+    session.last_meta = {}
+    session.project = None
+
+    async def drain():
+        out = []
+        async for ev in session.stream_ask(spec, "hi", "conv:abc"):
+            out.append(ev.kind)
+        return out
+
+    # First turn: nothing to resume yet.
+    asyncio.run(drain())
+    assert _Executor.seen == [None], "an invented session id was passed to the executor"
+    # The CLI's real id is remembered for this conversation+agent.
+    assert session.sessions["conv:abc:a1"] == "real-cli-session-id"
+
+    # Second turn resumes it, and a different conversation does not reuse it.
+    asyncio.run(drain())
+    assert _Executor.seen[-1] == "real-cli-session-id"
+    asyncio.run(_drain_other(session, spec))
+    assert _Executor.seen[-1] is None
+
+
+async def _drain_other(session, spec) -> None:  # type: ignore[no-untyped-def]
+    async for _ in session.stream_ask(spec, "hi", "conv:other"):
+        pass

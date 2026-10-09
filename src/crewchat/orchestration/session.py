@@ -75,7 +75,14 @@ class Session:
         """跑一次 agent 回合，边跑边产出事件。"""
         executor = get_executor(spec.body)
         apply_brain_env(self.settings, spec)
-        memory_key = self.sessions.setdefault(spec.id, f"{session_key}:{spec.id}")
+        # Key sessions per (conversation, agent): agents are global, but each
+        # conversation needs its own memory. A stable key so the mapping below
+        # survives across turns.
+        session_slot = f"{session_key}:{spec.id}"
+        # Only a session id the CLI actually gave us may be resumed. Inventing
+        # one (`conv:<id>:<agent>`) makes the CLI abort with exit 1, because
+        # `--resume` on an unknown session is an error, not a "create" request.
+        known_session = self.sessions.get(session_slot)
         queue: asyncio.Queue[ExecEvent | None] = asyncio.Queue()
 
         def on_event(event: ExecEvent) -> None:
@@ -95,7 +102,7 @@ class Session:
                         prompt=prompt,
                         cwd=spec.resolve_cwd(self.workspace),
                         timeout=self.settings.executor_timeout,
-                        session=memory_key,
+                        session=known_session,
                         on_event=on_event,
                     ),
                     effective,
@@ -108,6 +115,10 @@ class Session:
             outcome = RunOutcome()
             outcome.text = result.text
             outcome.error = result.error
+            # Remember the session id the CLI minted, so the next turn in this
+            # conversation resumes the same thread instead of starting over.
+            if result.session:
+                self.sessions[session_slot] = result.session
             outcome.meta = {
                 **result.meta,
                 "duration_ms": result.duration_ms,

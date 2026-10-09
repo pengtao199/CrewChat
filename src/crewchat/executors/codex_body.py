@@ -110,6 +110,10 @@ class CodexBody(Executor):
         usage = TokenUsage()
         error: str | None = None
         last_error: str | None = None
+        # ItemUpdatedEvent re-fires as an item grows, so its text is cumulative.
+        # Track what was already emitted per item and send only the new suffix,
+        # otherwise the reply accumulates every intermediate snapshot.
+        emitted: dict[str, int] = {}
 
         try:
             stream = await thread.runStreamed(req.prompt)
@@ -118,8 +122,14 @@ class CodexBody(Executor):
                     case ItemUpdatedEvent() | ItemCompletedEvent():
                         self._handle_item(req, event.item)
                         if isinstance(event.item, AgentMessageItem) and event.item.text:
-                            text_parts.append(event.item.text)
-                            req.emit("delta", text=event.item.text)
+                            item_id = str(getattr(event.item, "id", "") or id(event.item))
+                            already = emitted.get(item_id, 0)
+                            text = event.item.text
+                            if len(text) > already:
+                                req.emit("delta", text=text[already:])
+                                emitted[item_id] = len(text)
+                            if isinstance(event, ItemCompletedEvent):
+                                text_parts.append(text)
                     case TurnCompletedEvent() as completed:
                         if completed.usage is not None:
                             usage.input_tokens += _int(completed.usage.input_tokens)
