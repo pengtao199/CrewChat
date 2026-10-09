@@ -35,6 +35,7 @@ from . import (
     assistants_api,
     auth,
     conversations,
+    fs_api,
     mcp_api,
     providers_api,
     skills_api,
@@ -133,6 +134,7 @@ def create_app() -> FastAPI:
         crewchat_engines,
         crewchat_gateway,
         crewchat_usage,
+        fs_api,
         skills_api,
         mcp_api,
     ):
@@ -164,11 +166,18 @@ def create_app() -> FastAPI:
     async def system_info() -> dict[str, Any]:
         import platform
 
+        from ..core.config import get_settings
+
+        settings = get_settings()
         return {
             "platform": platform.system().lower(),
             "arch": platform.machine(),
             "version": backend_version(),
             "backend": "crewchat",
+            # 文件选择器用它作为默认起始目录（见 ui workspaceMapper / systemInfo）。
+            "work_dir": str(Path.home()),
+            "cache_dir": str(settings.data_dir),
+            "log_dir": str(settings.data_dir),
         }
 
     @app.get("/api/crewchat/version")
