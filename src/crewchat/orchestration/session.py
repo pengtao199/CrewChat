@@ -38,6 +38,24 @@ class Session:
         self.specs = {s.id: s for s in load_specs(self.project.agents_path())}
     def provider_for(self, spec: AgentSpec) -> Provider | None:
         return resolve_brain(self.settings, spec)
+
+    def _route_to_gateway(self, spec: AgentSpec, provider: Provider | None) -> None:
+        """CLI 身体若配了大脑，就让网关把它指向本地反代（cc-switch 官方 enter）。
+
+        网关会把该 CLI 的客户端配置改写到反代；之后 CLI 的请求按 provider 转发，
+        不再依赖 CLI 自己的登录。没配大脑（brain 里没有 `/`）时不动，保留 CLI 自身登录。
+        同一 (身体, provider) 只挂一次。
+        """
+        if provider is None or not spec.is_cli_backed:
+            return
+        key = (spec.body, provider.id)
+        if key in _ROUTED:
+            return
+        from ..core.gateway import get_gateway
+
+        get_gateway(self.settings).activate(spec.body, provider)
+        _ROUTED.add(key)
+
     async def stream_ask(
         self,
         spec: AgentSpec,
@@ -54,7 +72,10 @@ class Session:
             queue.put_nowait(event)
 
         async def drive() -> RunOutcome:
+            provider = self.provider_for(spec)
             try:
+                # CLI 身体配了大脑就挂到反代上，否则它用自己的登录。
+                self._route_to_gateway(spec, provider)
                 result = await executor.run(
                     ExecRequest(
                         prompt=prompt,
@@ -63,7 +84,7 @@ class Session:
                         session=memory_key,
                         on_event=on_event,
                     ),
-                    self.provider_for(spec),
+                    provider,
                 )
             except Exception as exc:
                 outcome = RunOutcome()
@@ -105,7 +126,12 @@ class Session:
             await asyncio.gather(task, return_exceptions=True)
             if outcome_box is not None:
                 self.last_meta[spec.id] = outcome_box.meta
+
+
 _sessions: dict[str, Session] = {}
+
+#: (身体, provider id) 已经挂到反代上的组合，避免每回合重复 enter（enter 会改 CLI 配置）。
+_ROUTED: set[tuple[str, str]] = set()
 
 
 def session_for(session_key: str, project_id: str | None = None) -> Session:
