@@ -30,3 +30,6 @@ Reference/
 gateway/cc-switch/src-tauri/target/
 !gateway/cc-switch/dist/
 !gateway/cc-switch/dist/**
+
+# Vitest cache inside vendored deps
+node_modules/.vite/
