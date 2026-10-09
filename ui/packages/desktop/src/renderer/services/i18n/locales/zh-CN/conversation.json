@@ -106,7 +106,7 @@
   },
   "dropdown": {
     "cliAgents": "CLI Agents",
-    "presetAssistants": "预设助手"
+    "presetAssistants": "预设智能体"
   },
   "noAgentsAvailable": "没有可用的 Agent",
   "noModelConfigured": "未配置模型，请前往设置页面配置。",
@@ -116,8 +116,8 @@
       "WORKSPACE_PATH_UNAVAILABLE": "所选工作区路径不可用。请确保工作区路径“{{workspacePath}}”真实存在且可访问。"
     },
     "codes": {
-      "TEAM_ASSISTANT_ID_REQUIRED": "创建团队前请先选择助手。",
-      "TEAM_ASSISTANT_NOT_FOUND": "助手 {{assistantId}} 已不可用。请刷新助手列表后重新选择。",
+      "TEAM_ASSISTANT_ID_REQUIRED": "创建团队前请先选择智能体。",
+      "TEAM_ASSISTANT_NOT_FOUND": "智能体 {{assistantId}} 已不可用。请刷新智能体列表后重新选择。",
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "请使用 assistant_id，不要再传 {{field}}。"
     }
   },
@@ -340,12 +340,12 @@
         "body": "本地团队会话仍在启动中，或刚刚被中断。请稍等片刻后重试。"
       },
       "TEAM_ASSISTANT_ID_REQUIRED": {
-        "title": "必须先选择队友助手",
-        "body": "创建或拉起队友前，请先从可用助手目录中选择一个真实的 assistant。"
+        "title": "必须先选择队友智能体",
+        "body": "创建或拉起队友前，请先从可用智能体目录中选择一个真实的 assistant。"
       },
       "TEAM_ASSISTANT_NOT_FOUND": {
-        "title": "所选助手已不可用",
-        "body": "请刷新助手目录，然后为这个队友重新选择一个助手。"
+        "title": "所选智能体已不可用",
+        "body": "请刷新智能体目录，然后为这个队友重新选择一个智能体。"
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "请求仍在使用旧的团队身份字段",
@@ -555,7 +555,7 @@
     "type_skill": "技能（Python）",
     "type_rule": "规则（JSON/Markdown）",
     "name_label": "智能体名称：",
-    "name_placeholder": "例如：Excel 翻译助手",
+    "name_placeholder": "例如：Excel 翻译智能体",
     "menu_generate": "根据历史生成",
     "menu_load": "加载规则/技能",
     "load_title": "加载 Rule/Skill",

@@ -20,31 +20,31 @@
     "archiveSuccess": "Team archived",
     "archiveFailed": "Failed to archive team"
   },
-  "newAgent": "New Assistant",
+  "newAgent": "New Agent",
   "noMessages": "No messages yet.",
-  "agentNotConfigured": "Assistant not configured yet.",
-  "stopAgentFailed": "Failed to stop this assistant. Please try again.",
+  "agentNotConfigured": "Agent not configured yet.",
+  "stopAgentFailed": "Failed to stop this agent. Please try again.",
   "work": {
     "processingWithQueued": "Processing… {{count}} queued",
     "queued": "{{count}} queued",
-    "runtimeStarting": "Waiting for this assistant to start…",
-    "runtimeFailed": "This assistant failed to start.",
-    "removing": "Removing this assistant…",
+    "runtimeStarting": "Waiting for this agent to start…",
+    "runtimeFailed": "This agent failed to start.",
+    "removing": "Removing this agent…",
     "sessionStopped": "The team session has stopped.",
     "retryStart": "Retry start"
   },
   "sendBox": {
-    "placeholder": "Message the team leader assistant..."
+    "placeholder": "Message the team leader agent..."
   },
   "create": {
     "title": "New Team",
     "namePlaceholder": "Team name",
-    "dispatchAgentPlaceholder": "Select team leader assistant",
-    "subAgentsPlaceholder": "Select teammate assistants",
+    "dispatchAgentPlaceholder": "Select team leader agent",
+    "subAgentsPlaceholder": "Select teammate agents",
     "confirm": "Confirm Create",
-    "noSupportedAgents": "No supported assistants available",
-    "supportedAgentsHint": "Currently supports Claude and Aion CLI assistants. More assistants coming soon.",
-    "leaderDesc": "Understands your goals and coordinates assistants to complete tasks",
+    "noSupportedAgents": "No supported agents available",
+    "supportedAgentsHint": "Currently supports Claude and Aion CLI agents. More agents coming soon.",
+    "leaderDesc": "Understands your goals and coordinates agents to complete tasks",
     "searchPlaceholder": "Search",
     "noSearchResults": "No results found",
     "step": {
@@ -63,17 +63,17 @@
     "currentLeader": "Current Leader",
     "setAsLeader": "Set as Leader",
     "teammate": "Teammate",
-    "selectAtLeastOneMember": "Select at least one assistant as the Team Leader.",
+    "selectAtLeastOneMember": "Select at least one agent as the Team Leader.",
     "selectOneLeader": "Select one Team Leader",
-    "subtitle": "Let multiple AI assistants team up and collaborate. We suggest one team focuses on a single goal — create separate teams for different tasks.",
+    "subtitle": "Let multiple AI agents team up and collaborate. We suggest one team focuses on a single goal — create separate teams for different tasks.",
     "nameLabel": "Team name",
     "workspaceLabel": "Workspace",
-    "allAssistantsWithCount": "All assistants ({{count}})",
+    "allAssistantsWithCount": "All agents ({{count}})",
     "selectedMembersWithCount": "Selected members {{count}} · ⚑ = Leader",
     "selectedMembersTitleWithCount": "Selected members {{count}}",
     "leaderLegend": "= Leader",
-    "membersHelper": "Choose team members and assign one Leader. The same assistant can be selected multiple times.",
-    "memberHint": "No suitable assistant as a member? After creation, let the Leader create temporary team members in chat."
+    "membersHelper": "Choose team members and assign one Leader. The same agent can be selected multiple times.",
+    "memberHint": "No suitable agent as a member? After creation, let the Leader create temporary team members in chat."
   },
   "removeAgent": {
     "confirmTitle": "Remove Team Member",
@@ -83,8 +83,8 @@
   "emptyState": {
     "subtitle": "Describe your goal and I'll get the team working on it",
     "suggestions": {
-      "debate": "Organize a debate with assistants taking different sides",
-      "interview": "Plan an in-depth interview between assistants",
+      "debate": "Organize a debate with agents taking different sides",
+      "interview": "Plan an in-depth interview between agents",
       "expert_review": "Have multiple experts analyze the same problem",
       "add_member": "Help me add a member good at ___ to the team"
     },
@@ -93,8 +93,8 @@
   },
   "addMember": {
     "title": "Add member",
-    "subtitle": "The same assistant can be added repeatedly",
-    "searchAssistants": "Search assistants...",
+    "subtitle": "The same agent can be added repeatedly",
+    "searchAssistants": "Search agents...",
     "addFailed": "Failed to add member",
     "noSearchResults": "No results found",
     "tellLeaderHint": "Not a good fit? You can also ask the Leader to arrange it.",

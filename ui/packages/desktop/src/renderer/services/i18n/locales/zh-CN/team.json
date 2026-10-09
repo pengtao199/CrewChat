@@ -20,9 +20,9 @@
     "archiveSuccess": "已归档团队",
     "archiveFailed": "归档团队失败"
   },
-  "newAgent": "新助手",
+  "newAgent": "新智能体",
   "noMessages": "暂无消息。",
-  "agentNotConfigured": "助手尚未配置。",
+  "agentNotConfigured": "智能体尚未配置。",
   "stopAgentFailed": "停止该成员失败，请稍后重试",
   "work": {
     "processingWithQueued": "正在处理中……已排队 {{count}} 条",
@@ -34,17 +34,17 @@
     "retryStart": "重试启动"
   },
   "sendBox": {
-    "placeholder": "向团队 Leader 助手发消息..."
+    "placeholder": "向团队 Leader 智能体发消息..."
   },
   "create": {
     "title": "新建团队",
     "namePlaceholder": "团队名称",
-    "dispatchAgentPlaceholder": "选择团队 Leader 助手",
-    "subAgentsPlaceholder": "选择协作助手",
+    "dispatchAgentPlaceholder": "选择团队 Leader 智能体",
+    "subAgentsPlaceholder": "选择协作智能体",
     "confirm": "确认创建",
-    "noSupportedAgents": "未检测到可用的助手",
-    "supportedAgentsHint": "目前支持 Claude 和 Aion CLI 助手，更多助手适配中",
-    "leaderDesc": "接收你的指令，拆解任务并分配给团队中的助手",
+    "noSupportedAgents": "未检测到可用的智能体",
+    "supportedAgentsHint": "目前支持 Claude 和 Aion CLI 智能体，更多智能体适配中",
+    "leaderDesc": "接收你的指令，拆解任务并分配给团队中的智能体",
     "searchPlaceholder": "搜索",
     "noSearchResults": "未找到结果",
     "step": {
@@ -63,17 +63,17 @@
     "currentLeader": "当前 Leader",
     "setAsLeader": "设为 Leader",
     "teammate": "队员",
-    "selectAtLeastOneMember": "请至少选择一个助手当团队 Leader。",
+    "selectAtLeastOneMember": "请至少选择一个智能体当团队 Leader。",
     "selectOneLeader": "请选择一个 Team Leader",
-    "subtitle": "让多个 AI 助手组队协作。建议一个团队只专注一个目标，不同任务分开建。",
+    "subtitle": "让多个 AI 智能体组队协作。建议一个团队只专注一个目标，不同任务分开建。",
     "nameLabel": "团队名",
     "workspaceLabel": "工作空间",
-    "allAssistantsWithCount": "所有助手 ({{count}})",
+    "allAssistantsWithCount": "所有智能体 ({{count}})",
     "selectedMembersWithCount": "已选成员 {{count}} · ⚑ = Leader",
     "selectedMembersTitleWithCount": "已选成员 {{count}}",
     "leaderLegend": "= Leader",
-    "membersHelper": "选择团队成员并指定一个 Leader。同一个助手可被多次选择。",
-    "memberHint": "没有合适的助手当队员？创建后可让 Leader 在对话中创建临时队员。"
+    "membersHelper": "选择团队成员并指定一个 Leader。同一个智能体可被多次选择。",
+    "memberHint": "没有合适的智能体当队员？创建后可让 Leader 在对话中创建临时队员。"
   },
   "removeAgent": {
     "confirmTitle": "移除团队成员",
@@ -83,7 +83,7 @@
   "emptyState": {
     "subtitle": "描述你的目标，我来协调团队搞定它",
     "suggestions": {
-      "debate": "组织一场辩论赛，让不同助手各持立场",
+      "debate": "组织一场辩论赛，让不同智能体各持立场",
       "interview": "策划一场深度访谈",
       "expert_review": "多位专家会诊同一个问题",
       "add_member": "帮我在团队里加一个擅长 ___ 的成员"
@@ -93,8 +93,8 @@
   },
   "addMember": {
     "title": "添加成员",
-    "subtitle": "同一助手可被反复添加",
-    "searchAssistants": "搜索助手...",
+    "subtitle": "同一智能体可被反复添加",
+    "searchAssistants": "搜索智能体...",
     "addFailed": "添加成员失败",
     "noSearchResults": "未找到结果",
     "tellLeaderHint": "没有合适的？也可以直接让 Leader 帮你安排。",

@@ -106,7 +106,7 @@
   },
   "dropdown": {
     "cliAgents": "CLI Agents",
-    "presetAssistants": "Preset Assistants"
+    "presetAssistants": "Preset Agents"
   },
   "noAgentsAvailable": "No agents available",
   "noModelConfigured": "No model configured. Please configure in settings.",
@@ -116,8 +116,8 @@
       "WORKSPACE_PATH_UNAVAILABLE": "The selected workspace path is unavailable. Make sure the workspace path \"{{workspacePath}}\" exists and is accessible."
     },
     "codes": {
-      "TEAM_ASSISTANT_ID_REQUIRED": "Please select an assistant before creating the team.",
-      "TEAM_ASSISTANT_NOT_FOUND": "Assistant {{assistantId}} is no longer available. Refresh the assistant list and choose another one.",
+      "TEAM_ASSISTANT_ID_REQUIRED": "Please select an agent before creating the team.",
+      "TEAM_ASSISTANT_NOT_FOUND": "Agent {{assistantId}} is no longer available. Refresh the agent list and choose another one.",
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": "Use assistant_id instead of {{field}}."
     }
   },
@@ -340,12 +340,12 @@
         "body": "The local team session is still starting or has been interrupted. Wait a moment and retry."
       },
       "TEAM_ASSISTANT_ID_REQUIRED": {
-        "title": "A teammate assistant must be selected",
-        "body": "Choose a real assistant from the available assistant catalog before creating or spawning a teammate."
+        "title": "A teammate agent must be selected",
+        "body": "Choose a real agent from the available agent catalog before creating or spawning a teammate."
       },
       "TEAM_ASSISTANT_NOT_FOUND": {
-        "title": "The selected assistant is no longer available",
-        "body": "Refresh the assistant catalog, then choose another assistant for this teammate."
+        "title": "The selected agent is no longer available",
+        "body": "Refresh the agent catalog, then choose another agent for this teammate."
       },
       "TEAM_ASSISTANT_FIELD_UNSUPPORTED": {
         "title": "The request used a legacy team identity field",
