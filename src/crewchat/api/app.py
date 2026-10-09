@@ -26,7 +26,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ..core.version import api_prefix, backend_version, version_info
 from . import (
-    agents_api,
+    engines_api,
     crewchat_agents,
     crewchat_engines,
     crewchat_gateway,
@@ -128,7 +128,7 @@ def create_app() -> FastAPI:
         chat,
         conversations,
         providers_api,
-        agents_api,
+        engines_api,
         agent_catalog_api,
         crewchat_agents,
         crewchat_engines,

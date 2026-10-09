@@ -26,7 +26,7 @@ export async function refreshManagedAgentCatalogAndAgents(): Promise<ManagedAgen
 
 /**
  * Hook for the Agent settings management surface only. Reads the dedicated
- * `/api/agents/management` diagnostics view (`MANAGED_AGENTS_SWR_KEY`) so
+ * `/api/engines/management` diagnostics view (`MANAGED_AGENTS_SWR_KEY`) so
  * user-disabled or missing agents stay listed with working test-connection
  * and re-enable actions.
  *
@@ -61,7 +61,7 @@ export const useManagedAgents = (): UseManagedAgentsResult => {
 
 /**
  * Lightweight runtime catalog read model for agent-bound agent rows.
- * Uses the same `/api/agents/management` payload because that endpoint is
+ * Uses the same `/api/engines/management` payload because that endpoint is
  * backed by `agent_metadata`, where ACP catalog snapshots are persisted.
  */
 export const useManagedAgentRuntimeCatalog = (): ManagedAgent[] => {

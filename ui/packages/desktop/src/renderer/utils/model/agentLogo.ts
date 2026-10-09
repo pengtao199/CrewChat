@@ -6,13 +6,13 @@
  * 统一的 Agent Logo 工具
  * Unified Agent Logo utility
  *
- * Logo 真值由后端 `/api/agents/management` 提供（投影自 agent_metadata.icon/avatar）。
+ * Logo 真值由后端 `/api/engines/management` 提供（投影自 agent_metadata.icon/avatar）。
  * 前端不再维护任何 backend -> 资源路径的硬编码映射。
  *
  * 使用方式：组件用 {@link useAgentLogos} 取得 `backend -> url` 映射，再用纯函数
  * {@link resolveAgentLogo} 解析。非组件的工具函数应把映射作为参数传入。
  *
- * Logo truth lives in the backend (`/api/agents/management`, projected from
+ * Logo truth lives in the backend (`/api/engines/management`, projected from
  * `agent_metadata.icon/avatar`); the frontend owns no path map. Components read the
  * `backend -> url` map via {@link useAgentLogos} and resolve with the pure
  * {@link resolveAgentLogo}; non-React utilities receive the map as an argument.

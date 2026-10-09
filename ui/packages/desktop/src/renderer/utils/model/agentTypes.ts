@@ -8,7 +8,7 @@ import { ipcBridge } from '@/common';
 import type { TFunction } from 'i18next';
 
 /**
- * SWR key for the Agent settings management view (`/api/agents/management`).
+ * SWR key for the Agent settings management view (`/api/engines/management`).
  *
  * Phase 2 removed the renderer-side detected-agent candidate cache; business
  * surfaces now consume agents only. The management view keeps its own
@@ -142,7 +142,7 @@ export type AgentMetadata = {
 };
 
 /**
- * Agent Settings diagnostics row returned by `/api/agents/management`.
+ * Agent Settings diagnostics row returned by `/api/engines/management`.
  *
  * This is intentionally separate from `AgentMetadata`: the management surface
  * needs disabled/missing rows plus health-check snapshots, while business
@@ -162,7 +162,7 @@ export type ManagedAgent = Omit<AgentMetadata, 'available' | 'handshake'> & {
 
 /**
  * Fetcher for MANAGED_AGENTS_SWR_KEY — the Agent settings management view.
- * Hits `/api/agents/management` so user-disabled and missing rows remain
+ * Hits `/api/engines/management` so user-disabled and missing rows remain
  * visible for diagnostics and re-enable/test-connection actions. Engine
  * selectors also use this catalog so `online` / `unchecked` / `missing` /
  * `offline` semantics stay consistent with the Agent settings page.

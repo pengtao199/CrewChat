@@ -33,7 +33,7 @@ async def check_tool_installed(request: Request) -> bool:
     return shutil.which(binary) is not None
 
 
-@router.get("/api/agents/management")
+@router.get("/api/engines/management")
 async def managed_agents() -> list[dict[str, Any]]:
     settings = get_settings()
     settings.ensure_dirs()
@@ -71,13 +71,13 @@ async def managed_agents() -> list[dict[str, Any]]:
     return out
 
 
-@router.post("/api/agents/refresh")
+@router.post("/api/engines/refresh")
 async def refresh_agents() -> dict[str, Any]:
     session_for("__agents__").reload()
     return {"success": True}
 
 
-@router.get("/api/agents/custom")
+@router.get("/api/engines/custom")
 async def custom_agents() -> list[dict[str, Any]]:
     return []
 

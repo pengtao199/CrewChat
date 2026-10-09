@@ -1176,30 +1176,30 @@ export const usage = {
 };
 
 // ---------------------------------------------------------------------------
-// ACP Conversation — routed to /api/agents/* + conversation routes
+// ACP Conversation — routed to /api/engines/* + conversation routes
 // ---------------------------------------------------------------------------
 
 export const acpConversation = {
   sendMessage: conversation.sendMessage,
   responseStream: conversation.responseStream,
   /** Management view used by Agent settings. */
-  getManagedAgents: httpGet<import('@/renderer/utils/model/agentTypes').ManagedAgent[], void>('/api/agents/management'),
+  getManagedAgents: httpGet<import('@/renderer/utils/model/agentTypes').ManagedAgent[], void>('/api/engines/management'),
   getAgentOverrides: httpGet<
     { command_override?: string; env_override: { name: string; value: string }[] },
     { id: string }
-  >((p) => `/api/agents/${encodeURIComponent(p.id)}/overrides`),
+  >((p) => `/api/engines/${encodeURIComponent(p.id)}/overrides`),
   setAgentOverrides: httpPut<
     import('@/renderer/utils/model/agentTypes').ManagedAgent,
     { id: string; command_override?: string | null; env_override?: { name: string; value: string }[] }
   >(
-    (p) => `/api/agents/${encodeURIComponent(p.id)}/overrides`,
+    (p) => `/api/engines/${encodeURIComponent(p.id)}/overrides`,
     (p) => ({ command_override: p.command_override, env_override: p.env_override })
   ),
-  refreshCustomAgents: httpPost<void, void>('/api/agents/refresh'),
+  refreshCustomAgents: httpPost<void, void>('/api/engines/refresh'),
   testCustomAgent: httpPost<
     { step: 'success' } | { step: 'fail_cli'; error: string } | { step: 'fail_acp'; error: string },
     { command: string; acp_args?: string[]; env?: Record<string, string>; runtime_scope_id?: string }
-  >('/api/agents/custom/try-connect'),
+  >('/api/engines/custom/try-connect'),
   createCustomAgent: httpPost<
     AgentMetadata,
     {
@@ -1215,7 +1215,7 @@ export const acpConversation = {
         description?: string;
       };
     }
-  >('/api/agents/custom'),
+  >('/api/engines/custom'),
   updateCustomAgent: httpPut<
     AgentMetadata,
     {
@@ -1233,19 +1233,19 @@ export const acpConversation = {
       };
     }
   >(
-    (p) => `/api/agents/custom/${p.id}`,
+    (p) => `/api/engines/custom/${p.id}`,
     (p) => {
       const { id: _id, ...rest } = p;
       return rest;
     }
   ),
-  deleteCustomAgent: httpDelete<{ deleted: boolean }, { id: string }>((p) => `/api/agents/custom/${p.id}`),
+  deleteCustomAgent: httpDelete<{ deleted: boolean }, { id: string }>((p) => `/api/engines/custom/${p.id}`),
   setAgentEnabled: httpPatch<AgentMetadata, { id: string; enabled: boolean }>(
-    (p) => `/api/agents/${p.id}/enabled`,
+    (p) => `/api/engines/${p.id}/enabled`,
     (p) => ({ enabled: p.enabled })
   ),
   checkManagedAgentHealthById: httpPost<import('@/renderer/utils/model/agentTypes').ManagedAgent, { id: string }>(
-    (p) => `/api/agents/${p.id}/health-check`,
+    (p) => `/api/engines/${p.id}/health-check`,
     () => undefined
   ),
   setConfigOption: httpPut<SetConfigOptionResponse, { conversation_id: string; option_id: string; value: string }>(
