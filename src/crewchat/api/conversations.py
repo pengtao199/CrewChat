@@ -219,7 +219,8 @@ async def create_conversation(request: Request) -> Any:
     name = str(body.get("name") or "新会话")
     extra = body.get("extra") or {}
     agent_ids = extra.get("team_agent_ids") or []
-    project_id = extra.get("project_id")
+    # 项目是一等公民：会话必须归属一个工作区。客户端可能在顶层或 extra 里带。
+    project_id = body.get("project_id") or extra.get("project_id")
     now = _iso(int(time.time() * 1000))
     store().create_conversation(conv_id, name, project_id, list(agent_ids), now)
     row = store().get_conversation(conv_id) or {

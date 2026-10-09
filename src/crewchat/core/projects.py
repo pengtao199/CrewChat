@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +58,69 @@ def load_projects(settings: Settings) -> list[Project]:
         except (OSError, ValueError):
             pass
     return [Project(id="default", name=Path.cwd().name, path=str(Path.cwd()))]
+def save_projects(settings: Settings, projects: list[Project]) -> None:
+    """原子写回 `.data/projects.json`。"""
+    path = projects_path(settings)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"projects": [p.as_dict() for p in projects]}, fh, ensure_ascii=False, indent=2
+            )
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
+def create_project(
+    settings: Settings, name: str, path: str, agents_dir: str = ""
+) -> Project:
+    """新建项目（工作区 = `path` 指向的文件夹）。"""
+    root = Path(path).expanduser()
+    if not root.is_dir():
+        raise ValueError(f"工作区不存在或不是文件夹：{root}")
+    projects = load_projects(settings)
+    project = Project(
+        id=uuid.uuid4().hex[:8],
+        name=name.strip() or root.name,
+        path=str(root.resolve()),
+        agents_dir=agents_dir or "config/agents",
+    )
+    projects.append(project)
+    save_projects(settings, projects)
+    return project
+
+
+def update_project(settings: Settings, project_id: str, **fields: Any) -> Project | None:
+    projects = load_projects(settings)
+    for project in projects:
+        if project.id != project_id:
+            continue
+        if name := str(fields.get("name") or "").strip():
+            project.name = name
+        if path := str(fields.get("path") or "").strip():
+            root = Path(path).expanduser()
+            if not root.is_dir():
+                raise ValueError(f"工作区不存在或不是文件夹：{root}")
+            project.path = str(root.resolve())
+        if fields.get("agents_dir") is not None:
+            project.agents_dir = str(fields["agents_dir"]) or "config/agents"
+        save_projects(settings, projects)
+        return project
+    return None
+
+
+def delete_project(settings: Settings, project_id: str) -> bool:
+    projects = load_projects(settings)
+    remaining = [p for p in projects if p.id != project_id]
+    if len(remaining) == len(projects):
+        return False
+    save_projects(settings, remaining)
+    return True
+
+
 def agents_dir_for(settings: Settings, project_id: str | None = None) -> Path:
     """Agent 定义的唯一访问入口。
 

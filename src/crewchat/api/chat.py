@@ -54,7 +54,8 @@ def _for_conversation(conversation_id: str):  # type: ignore[no-untyped-def]
     from .store import store
 
     row = store().get_conversation(conversation_id)
-    session = session_for(f"conv:{conversation_id}")
+    # 按会话所属项目建 Session：项目决定工作目录(cwd)与 agent 集。
+    session = session_for(f"conv:{conversation_id}", (row or {}).get("project_id"))
     agent_ids = (row or {}).get("agent_ids") or []
     specs = [session.specs[a] for a in agent_ids if a in session.specs]
     if not specs:
