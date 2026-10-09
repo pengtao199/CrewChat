@@ -2,295 +2,256 @@
  * @license
  * Copyright 2025 AionUi (aionui.com)
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * [crewchat] 引擎页：本机执行引擎的管理（扫描 / 状态 / 安装 / 更新 / 网关通道）。
+ *
+ * 数据来自 `/api/crewchat/engines`（cc-switch 工具层扫描 + 我们执行器注册表），
+ * 网关通道来自 `/api/crewchat/gateway`，端点来自 `/api/providers`。
+ * 页面只做展示与请求，规则见 AGENTS/ui.md（共享骨架、Arco、i18n）。
  */
 
-import { ipcBridge } from '@/common';
 import { parseError } from '@/common/utils';
-import {
-  formatManagedAgentDiagnosticMessage,
-  managedAgentSearchText,
-  type ManagedAgent,
-} from '@/renderer/utils/model/agentTypes';
-import AionModal from '@/renderer/components/base/AionModal';
-import { AionSearchInput } from '@/renderer/components/base';
-import { useLayoutContext } from '@/renderer/hooks/context/LayoutContext';
-import { useManagedAgents } from '@/renderer/hooks/agent/useManagedAgents';
-import { openExternalUrl } from '@/renderer/utils/platform';
-import { Button, Message, Typography } from '@arco-design/web-react';
-import TalkToButlerButton from '@/renderer/components/base/TalkToButlerButton';
-import React, { useCallback, useMemo, useState } from 'react';
+import ThemedLogo from '@/renderer/components/agent/ThemedLogo';
+import EmptyState from '@/renderer/components/base/EmptyState';
+import SettingsCardList from '@/renderer/components/base/SettingsCardList';
+import SettingsCardRow from '@/renderer/components/base/SettingsCardRow';
+import StatusBadge, { type StatusTone } from '@/renderer/components/base/StatusBadge';
+import DataLocationNote from '@/renderer/components/settings/DataLocationNote';
+import { resolveAgentAvatar, useAgentLogos } from '@/renderer/utils/model/agentLogo';
+import { Avatar, Button, Message, Select, Switch, Tag, Tooltip } from '@arco-design/web-react';
+import { LinkCloud, Refresh, Terminal } from '@icon-park/react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import AgentCard from './AgentCard';
-import { isDeprecatedRuntimeAgentType } from '@/renderer/utils/model/agentTypeSupportPolicy';
-import InlineAgentEditor, { type CustomAgentDraft } from './InlineAgentEditor';
-import { getBoundAssistants, useAssistantsForAgents } from './BoundAssistants';
 import SettingsPageHeader from '../components/SettingsPageHeader';
-import { useNavigate } from 'react-router-dom';
 import {
-  filterAgentsByAvailability,
-  getAgentAvailabilityFilterStats,
-  type AgentAvailabilityFilter,
-} from './agentFilters';
+  fetchEngines,
+  fetchGateway,
+  fetchProviders,
+  installEngines,
+  setGatewayMode,
+  updateEngines,
+  type EngineView,
+  type GatewayStatus,
+  type ProviderOption,
+} from './enginesApi';
 
-const LOCAL_AGENT_SETUP_GUIDE_URL = 'https://github.com/iOfficeAI/AionUi/wiki/ACP-Setup';
+// 这些 CLI 是我们可以经网关反代的"身体"，其余引擎只做扫描/安装/更新。
+const GATEWAY_APPS = new Set(['codex', 'claude', 'opencode']);
+
+type EngineStatusKey = 'ready' | 'notInstalled' | 'notRunnable' | 'conflict';
+
+const engineStatus = (engine: EngineView): { tone: StatusTone; key: EngineStatusKey } => {
+  if (!engine.installed) return { tone: 'blocked', key: 'notInstalled' };
+  if (!engine.runnable) return { tone: 'blocked', key: 'notRunnable' };
+  if (engine.conflict) return { tone: 'warning', key: 'conflict' };
+  return { tone: 'ready', key: 'ready' };
+};
 
 const LocalAgents: React.FC = () => {
-  const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
-  const layout = useLayoutContext();
-  const isMobile = layout?.isMobile ?? false;
-  const [testingAgentId, setTestingAgentId] = useState<string | null>(null);
-  const [agentFilter, setAgentFilter] = useState<AgentAvailabilityFilter>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const { assistants } = useAssistantsForAgents();
+  const { t } = useTranslation();
+  const logos = useAgentLogos();
+  const [engines, setEngines] = useState<EngineView[]>([]);
+  const [gateway, setGateway] = useState<GatewayStatus | null>(null);
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [providerByEngine, setProviderByEngine] = useState<Record<string, string>>({});
 
-  // Management view: includes user-disabled custom agents so they stay
-  // listed (greyed) with a working re-enable toggle. `refreshCatalog`
-  // also refreshes assistant list caches because generated-assistant availability
-  // can change after health checks or custom-agent mutations.
-  const { agents: allAgents, isRefreshing, refreshCatalog } = useManagedAgents();
-
-  // Hide deprecated runtime backends (nanobot / openclaw-gateway / remote / gemini)
-  // — they are no longer offered as agents and shouldn't appear on the detection page.
-  const officialAgents = allAgents.filter(
-    (a) => a.agent_source !== 'custom' && !isDeprecatedRuntimeAgentType(a.agent_type)
-  );
-
-  const customAgents: ManagedAgent[] = allAgents.filter((a) => a.agent_source === 'custom');
-
-  const [editorVisible, setEditorVisible] = useState(false);
-  const [editingAgent, setEditingAgent] = useState<ManagedAgent | null>(null);
-
-  const handleSaveCustomAgent = useCallback(
-    async (draft: CustomAgentDraft) => {
-      const body = {
-        name: draft.name,
-        command: draft.command,
-        icon: draft.icon,
-        args: draft.args,
-        env: draft.env,
-        advanced: draft.advanced,
-      };
-      try {
-        if (editingAgent) {
-          await ipcBridge.acpConversation.updateCustomAgent.invoke({ id: editingAgent.id, ...body });
-        } else {
-          await ipcBridge.acpConversation.createCustomAgent.invoke(body);
-        }
-        await refreshCatalog();
-        setEditorVisible(false);
-        setEditingAgent(null);
-      } catch (err) {
-        console.error('save custom agent failed:', err);
-        Message.error(parseError(err));
-      }
-    },
-    [editingAgent, refreshCatalog]
-  );
-
-  const handleDeleteCustomAgent = useCallback(
-    async (agentId: string) => {
-      try {
-        await ipcBridge.acpConversation.deleteCustomAgent.invoke({ id: agentId });
-        await refreshCatalog();
-      } catch (err) {
-        console.error('delete custom agent failed:', err);
-        Message.error(parseError(err));
-      }
-    },
-    [refreshCatalog]
-  );
-
-  const handleToggleCustomAgent = useCallback(
-    async (agentId: string, enabled: boolean) => {
-      try {
-        await ipcBridge.acpConversation.setAgentEnabled.invoke({ id: agentId, enabled });
-        await refreshCatalog();
-      } catch (err) {
-        console.error('toggle custom agent failed:', err);
-        Message.error(parseError(err));
-      }
-    },
-    [refreshCatalog]
-  );
-
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-  const matchesAgentSearch = useCallback(
-    (agent: ManagedAgent) => {
-      if (!normalizedSearchQuery) return true;
-      return managedAgentSearchText(agent, i18n.language).includes(normalizedSearchQuery);
-    },
-    [i18n.language, normalizedSearchQuery]
-  );
-
-  const sortedOfficialAgents = useMemo(
-    () =>
-      officialAgents.toSorted((left, right) => {
-        const leftIsAionrs = left.agent_type === 'aionrs' || left.backend === 'aionrs';
-        const rightIsAionrs = right.agent_type === 'aionrs' || right.backend === 'aionrs';
-        if (leftIsAionrs !== rightIsAionrs) {
-          return leftIsAionrs ? -1 : 1;
-        }
-        // Strategic partner: pin Kimi right after the builtin aionrs agent.
-        const leftIsKimi = left.backend === 'kimi';
-        const rightIsKimi = right.backend === 'kimi';
-        if (leftIsKimi !== rightIsKimi) {
-          return leftIsKimi ? -1 : 1;
-        }
-        return left.name.localeCompare(right.name);
-      }),
-    [officialAgents]
-  );
-  const officialFilterStats = getAgentAvailabilityFilterStats(sortedOfficialAgents);
-  const visibleOfficialAgents = filterAgentsByAvailability(
-    sortedOfficialAgents.filter(matchesAgentSearch),
-    agentFilter
-  );
-
-  const openCustomAgentEditor = useCallback(() => {
-    setEditingAgent(null);
-    setEditorVisible(true);
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [nextEngines, nextGateway, nextProviders] = await Promise.all([
+        fetchEngines(),
+        fetchGateway(),
+        fetchProviders(),
+      ]);
+      setEngines(nextEngines);
+      setGateway(nextGateway);
+      setProviders(nextProviders);
+    } catch (error) {
+      Message.error(parseError(error));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const openAgentConfig = useCallback(
-    (agentId: string) => {
-      navigate(`/settings/agent/${agentId}/repair`);
-    },
-    [navigate]
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const providerOptions = useMemo(
+    () => providers.map((p) => ({ label: p.name, value: p.id })),
+    [providers]
   );
 
-  // Manual "test connection": runs the live ACP probe (initialize +
-  // session/new) and refreshes the catalog so the card reflects the new
-  // status immediately (F2-02: three states stay clickable, in-progress
-  // feedback, recover-on-success).
-  const handleTestConnection = useCallback(
-    async (agentId: string) => {
+  const runLifecycle = useCallback(
+    async (engine: EngineView, action: 'install' | 'update') => {
+      setBusy(engine.id);
       try {
-        setTestingAgentId(agentId);
-        const result = await ipcBridge.acpConversation.checkManagedAgentHealthById.invoke({ id: agentId });
-        await refreshCatalog();
-        switch (result.status) {
-          case 'online':
-            Message.success(t('settings.agentManagement.testConnectionOnline', { name: result.name }));
-            break;
-          case 'missing':
-            Message.warning(t('settings.agentManagement.testConnectionMissing', { name: result.name }));
-            break;
-          case 'offline':
-            // auth_required is offline-with-a-reason: surface the diagnostic
-            // (which carries the "needs sign-in" guidance) when present.
-            Message.warning(
-              formatManagedAgentDiagnosticMessage(t, result) ||
-                (result.last_check_error_code === 'auth_required'
-                  ? t('settings.agentManagement.testConnectionAuth', { name: result.name })
-                  : t('settings.agentManagement.testConnectionOffline', { name: result.name }))
-            );
-            break;
-          default:
-            break;
-        }
+        await (action === 'install' ? installEngines([engine.id]) : updateEngines([engine.id]));
+        Message.success(t(`settings.engines.${action}Done`, { name: engine.name }));
+        await refresh();
       } catch (error) {
-        console.error('test managed agent failed:', error);
-        Message.error(t('settings.agentManagement.testConnectionError'));
+        Message.error(parseError(error));
       } finally {
-        setTestingAgentId(null);
+        setBusy(null);
       }
     },
-    [refreshCatalog, t]
+    [refresh, t]
   );
 
+  const toggleGateway = useCallback(
+    async (engine: EngineView, enabled: boolean) => {
+      const providerId = providerByEngine[engine.id] || providers[0]?.id;
+      setBusy(`gw-${engine.id}`);
+      try {
+        const result = await setGatewayMode(engine.id, enabled, providerId);
+        setGateway((prev) => (prev ? { ...prev, channels: result.channels } : prev));
+      } catch (error) {
+        Message.error(parseError(error));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [providerByEngine, providers]
+  );
+
+  const avatarFor = (engine: EngineView) => {
+    const avatar = resolveAgentAvatar(logos, { backend: engine.id });
+    if (avatar.kind === 'image') {
+      return (
+        <Avatar size={28} shape='square' style={{ backgroundColor: 'transparent' }}>
+          <ThemedLogo
+            src={avatar.value}
+            alt={engine.name}
+            style={{ width: 28, height: 28, objectFit: 'contain', color: 'var(--text-primary)' }}
+          />
+        </Avatar>
+      );
+    }
+    if (avatar.kind === 'emoji') return <span className='text-18px leading-none'>{avatar.value}</span>;
+    return engine.kind === 'api' ? <LinkCloud theme='outline' size='18' /> : <Terminal theme='outline' size='18' />;
+  };
+
+  const subtitleFor = (engine: EngineView) => {
+    if (!engine.installed) return t('settings.engines.notInstalledHint');
+    return [engine.source, engine.version, engine.path].filter((part) => !!part).join('  ·  ');
+  };
+
+  const gatewayReady = gateway?.available ?? false;
+
   return (
-    <div data-testid='agent-management-page' className='flex flex-col gap-16px'>
+    <div data-testid='engines-page' className='flex flex-col gap-16px'>
       <SettingsPageHeader
-        data-testid='agent-management-header'
-        title={t('settings.agents', { defaultValue: 'Agents' })}
-        description={
-          <>
-            <span>{t('settings.agentManagement.localAgentsDescription')} </span>
-            <Button
-              type='text'
-              size='mini'
-              className='!h-auto !p-0 !align-baseline !text-13px !font-normal !text-primary-6 hover:!text-primary-7 hover:!underline underline-offset-2'
-              onClick={() => {
-                void openExternalUrl(LOCAL_AGENT_SETUP_GUIDE_URL).catch(console.error);
-              }}
-            >
-              {t('settings.agentManagement.localAgentsSetupLink')}
-            </Button>
-          </>
-        }
+        data-testid='engines-header'
+        title={t('settings.engines.title', { defaultValue: '引擎' })}
+        description={t('settings.engines.description')}
         actions={
-          <>
-            {!isMobile && (
-              <AionSearchInput
-                className='shrink-0 w-[200px] hidden md:flex'
-                data-testid='input-search-agents'
-                placeholder={t('settings.agentManagement.searchPlaceholder', { defaultValue: 'Search agents...' })}
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            )}
-            <TalkToButlerButton
-              label={t('settings.agentManagement.addCustomAgent', { defaultValue: 'Add custom Agent' })}
-              chatLabel={t('settings.talkToButler.addViaChat', { defaultValue: 'Add via chat' })}
-              onManual={openCustomAgentEditor}
-              manualLabel={t('settings.talkToButler.addManually', { defaultValue: 'Add manually' })}
-              prompt={t('settings.talkToButler.prompt.addCustomAgent', {
-                defaultValue: 'Help me add a custom Agent.',
-              })}
-              data-testid='btn-add-custom-agent'
-            />
-          </>
+          <Button
+            size='small'
+            type='outline'
+            loading={loading}
+            onClick={() => void refresh()}
+            icon={<Refresh theme='outline' size='14' />}
+          >
+            {t('settings.engines.refresh', { defaultValue: '刷新' })}
+          </Button>
         }
-        tabs={[
-          {
-            key: 'all',
-            label: t('settings.agentManagement.filterAll', { defaultValue: 'All' }),
-            count: officialFilterStats.all,
-          },
-          {
-            key: 'available',
-            label: t('settings.agentManagement.filterAvailable', { defaultValue: 'Available' }),
-            count: officialFilterStats.available,
-          },
-          {
-            key: 'unavailable',
-            label: t('settings.agentManagement.filterUnavailable', { defaultValue: 'Unavailable' }),
-            count: officialFilterStats.unavailable,
-          },
-        ]}
-        activeTab={agentFilter}
-        onTabChange={(key) => setAgentFilter(key as AgentAvailabilityFilter)}
       />
 
-      {isRefreshing ? (
-        <div className='text-11px text-t-tertiary'>{t('settings.agentManagement.refreshingStatuses')}</div>
-      ) : null}
+      {loading && engines.length === 0 ? (
+        <div className='text-12px text-t-tertiary'>{t('settings.engines.scanning', { defaultValue: '正在扫描…' })}</div>
+      ) : (
+        <SettingsCardList>
+          {engines.map((engine) => {
+            const status = engineStatus(engine);
+            const showGateway = gatewayReady && engine.is_body && GATEWAY_APPS.has(engine.id);
+            const channelOn = gateway?.channels?.[engine.id] ?? false;
+            const refCount = engine.agent_ids.length;
+            return (
+              <SettingsCardRow
+                key={engine.id}
+                testId={`engine-row-${engine.id}`}
+                icon={avatarFor(engine)}
+                title={
+                  <span className='flex min-w-0 items-center gap-8px'>
+                    <span className='truncate'>{engine.name}</span>
+                    <StatusBadge
+                      tone={status.tone}
+                      label={t(`settings.engines.status.${status.key}`)}
+                      tooltip={
+                        engine.conflict
+                          ? t('settings.engines.conflictHint', { count: engine.installs.length })
+                          : undefined
+                      }
+                    />
+                    <Tag size='small' bordered={false} className='!shrink-0 !rounded-8px !bg-fill-2 !text-11px !text-t-secondary'>
+                      {t(`settings.engineKind.${engine.kind}`, { defaultValue: engine.kind })}
+                    </Tag>
+                    {refCount > 0 ? (
+                      <Tag size='small' bordered={false} className='!shrink-0 !rounded-8px !bg-fill-2 !text-11px !text-t-secondary'>
+                        {t('settings.engines.refCount', { count: refCount })}
+                      </Tag>
+                    ) : null}
+                  </span>
+                }
+                subtitle={subtitleFor(engine)}
+                actions={
+                  <>
+                    {showGateway ? (
+                      <>
+                        <Tooltip content={t('settings.engines.viaGateway')}>
+                          <span className='flex items-center gap-6px text-11px text-t-secondary'>
+                            <Switch
+                              size='small'
+                              checked={channelOn}
+                              loading={busy === `gw-${engine.id}`}
+                              onChange={(checked) => void toggleGateway(engine, checked)}
+                            />
+                            {t('settings.engines.viaGateway')}
+                          </span>
+                        </Tooltip>
+                        <Select
+                          size='small'
+                          style={{ width: 150 }}
+                          value={providerByEngine[engine.id] || providers[0]?.id}
+                          options={providerOptions}
+                          placeholder={t('settings.engines.provider')}
+                          onChange={(value) =>
+                            setProviderByEngine((prev) => ({ ...prev, [engine.id]: String(value) }))
+                          }
+                        />
+                      </>
+                    ) : null}
+                    {!engine.installed ? (
+                      <Button
+                        size='small'
+                        type='primary'
+                        loading={busy === engine.id}
+                        onClick={() => void runLifecycle(engine, 'install')}
+                      >
+                        {t('settings.engines.install', { defaultValue: '安装' })}
+                      </Button>
+                    ) : engine.update_command ? (
+                      <Button
+                        size='small'
+                        type='outline'
+                        loading={busy === engine.id}
+                        onClick={() => void runLifecycle(engine, 'update')}
+                      >
+                        {t('settings.engines.update', { defaultValue: '更新' })}
+                      </Button>
+                    ) : null}
+                  </>
+                }
+              />
+            );
+          })}
+          {engines.length === 0 ? <EmptyState>{t('settings.engines.empty')}</EmptyState> : null}
+        </SettingsCardList>
+      )}
 
-      {/* Detected Agents section */}
-      <div data-testid='agent-management-official-section'>
-        <div className='flex flex-col gap-8px rounded-12px border border-border-2 bg-2 p-8px md:rounded-16px md:p-10px'>
-          {visibleOfficialAgents.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              type='official'
-              agent={agent}
-              boundAssistants={getBoundAssistants(agent, assistants)}
-              onTestConnection={() => void handleTestConnection(agent.id)}
-              onConfigure={() => openAgentConfig(agent.id)}
-              isTesting={testingAgentId === agent.id}
-            />
-          ))}
-          {visibleOfficialAgents.length === 0 && (
-            <Typography.Text type='secondary' className='block py-16px text-center text-12px'>
-              {normalizedSearchQuery
-                ? t('settings.agentManagement.noSearchResults', { defaultValue: 'No matching agents.' })
-                : t('settings.agentManagement.localAgentsEmpty')}
-            </Typography.Text>
-          )}
-        </div>
-      </div>
-
+      <DataLocationNote path={t('settings.engines.dataPath')} />
     </div>
   );
 };
