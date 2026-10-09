@@ -161,6 +161,41 @@ def test_shipped_page_endpoint_is_implemented(client, path: str) -> None:  # typ
     assert status < 500, f"{path} returned {status}"
 
 
+# ---- projects (workspace as first-class) -------------------------------------
+
+
+def test_projects_crud(client, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    assert len(c.get(f"{PREFIX}/crewchat/projects").json()) >= 1  # default exists
+
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    created = c.post(f"{PREFIX}/crewchat/projects", json={"name": "demo", "path": str(workspace)})
+    assert created.status_code == 200, created.text
+    project_id = created.json()["id"]
+    assert created.json()["path"] == str(workspace.resolve())
+
+    assert c.get(f"{PREFIX}/crewchat/projects/{project_id}").json()["name"] == "demo"
+    assert c.put(f"{PREFIX}/crewchat/projects/{project_id}", json={"name": "renamed"}).json()["name"] == "renamed"
+
+    bad = c.post(f"{PREFIX}/crewchat/projects", json={"name": "x", "path": str(tmp_path / "nope")})
+    assert bad.status_code == 400
+
+    assert c.delete(f"{PREFIX}/crewchat/projects/{project_id}").json() == {"success": True}
+    assert c.get(f"{PREFIX}/crewchat/projects/{project_id}").status_code == 404
+
+
+def test_conversation_binds_project(client, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    workspace = tmp_path / "ws2"
+    workspace.mkdir()
+    project_id = c.post(f"{PREFIX}/crewchat/projects", json={"name": "p", "path": str(workspace)}).json()["id"]
+
+    created = c.post(f"{PREFIX}/conversations", json={"id": "c-proj", "name": "x", "project_id": project_id})
+    assert created.json()["project_id"] == project_id
+    assert c.get(f"{PREFIX}/conversations/c-proj").json()["project_id"] == project_id
+
+
 # ---- conversation messages: cursor page shape --------------------------------
 
 
