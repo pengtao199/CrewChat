@@ -94,6 +94,13 @@ async fn tools() -> Result<Json<serde_json::Value>, String> {
     serde_json::to_value(reports).map(Json).map_err(|e| e.to_string())
 }
 
+/// 每个工具的当前版本与**远程最新版本**（复用 cc-switch 的工具层，含网络请求）。
+/// 用于判定"有没有新版"，从而只在有新版时才显示更新。
+async fn tool_versions() -> Result<Json<serde_json::Value>, String> {
+    let versions = cc_switch_lib::get_tool_versions(None, None).await?;
+    serde_json::to_value(versions).map(Json).map_err(|e| e.to_string())
+}
+
 #[derive(serde::Deserialize)]
 struct LifecycleBody {
     tools: Vec<String>,
@@ -113,6 +120,7 @@ async fn run_control(core: Arc<Core>, port: u16) -> anyhow::Result<()> {
         .route("/shutdown", post(shutdown))
         .route("/modes", get(modes))
         .route("/tools", get(tools))
+        .route("/tools/versions", get(tool_versions))
         .route("/tools/lifecycle", post(tools_lifecycle))
         .with_state(core);
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
