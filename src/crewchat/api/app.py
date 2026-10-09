@@ -20,6 +20,8 @@ from pydantic import BaseModel
 from . import (
     agents_api,
     crewchat_agents,
+    crewchat_engines,
+    crewchat_gateway,
     chat,
     assistants_api,
     auth,
@@ -56,6 +58,8 @@ def create_app() -> FastAPI:
         assistants_api,
         agents_api,
         crewchat_agents,
+        crewchat_engines,
+        crewchat_gateway,
         skills_api,
         mcp_api,
     ):

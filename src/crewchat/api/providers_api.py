@@ -1,4 +1,8 @@
-"""Models: the brain pool the UI manages under Settings → 模型."""
+"""Models: the brain pool the UI manages under Settings → 模型.
+
+唯一真相源是 `.data/providers.jsonc`（我们的通用 provider）。网关里按 CLI 分的那几份
+provider 是由这里**投影**出来的派生物，见 `core/gateway.py`。
+"""
 
 from __future__ import annotations
 
@@ -43,6 +47,7 @@ async def create_provider(request: Request) -> dict[str, Any]:
         model=str(body.get("model") or (body.get("models") or [""])[0]),
         api_key=str(body.get("api_key") or ""),
         models=list(body.get("models") or []),
+        api_format=str(body.get("api_format") or "openai_chat"),
     )
     providers.append(provider)
     save_providers(settings, providers)
@@ -57,7 +62,7 @@ async def update_provider(provider_id: str, request: Request) -> Any:
     target = next((p for p in providers if p.id == provider_id), None)
     if target is None:
         return JSONResponse({"error": "not_found"}, status_code=404)
-    for field in ("name", "base_url", "api_key", "model"):
+    for field in ("name", "base_url", "api_key", "model", "api_format"):
         if body.get(field) is not None:
             setattr(target, field, str(body[field]))
     if body.get("models") is not None:
