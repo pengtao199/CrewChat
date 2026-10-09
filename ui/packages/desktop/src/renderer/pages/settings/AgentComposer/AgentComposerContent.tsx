@@ -38,6 +38,7 @@ const EMPTY: AgentSpec = {
   skills: [],
   mcps: [],
   memory: false,
+  enabled: true,
   max_iter: 24,
   reasoning: false,
 };
@@ -272,6 +273,7 @@ const AgentComposerContent: React.FC = () => {
                   icon={agent.emoji}
                   title={agent.name || agent.id}
                   subtitle={`${agent.body} · ${agent.brain || '—'}`}
+                  badges={!agent.enabled ? <StatusBadge tone='neutral' label={t(`${c}.disabled`)} /> : undefined}
                   selected={selected === agent.id}
                   onClick={() => pickAgent(agent)}
                 />
@@ -310,6 +312,12 @@ const AgentComposerContent: React.FC = () => {
                 onChange={(value) => update({ id: value })}
                 placeholder={t(`${c}.idLabel`)}
               />
+            </div>
+            <div className='flex items-center gap-8px'>
+              <Switch checked={draft.enabled} onChange={(enabled) => update({ enabled })} />
+              <span className='text-12px text-t-tertiary'>
+                {draft.enabled ? t(`${c}.enabled`) : t(`${c}.disabled`)}
+              </span>
             </div>
           </Section>
 

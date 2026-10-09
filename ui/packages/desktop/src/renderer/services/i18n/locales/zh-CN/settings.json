@@ -1417,7 +1417,9 @@
   "crossSessionMessageResume": "重新开启",
   "crossSessionMessageUpdateFailed": "跨会话消息设置更新失败",
   "agentComposer": {
-    "title": "Agent",
+    "title": "Agents",
+    "enabled": "已启用",
+    "disabled": "已停用",
     "description": "一个 Agent = 大脑 + 身体 + 技能 + MCP + 记忆 + 规则。可跨项目复用，也可在多个项目里被引用。",
     "new": "新建",
     "refresh": "刷新",

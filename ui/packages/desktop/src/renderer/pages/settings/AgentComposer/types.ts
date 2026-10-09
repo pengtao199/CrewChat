@@ -21,6 +21,7 @@ export type AgentSpec = {
   skills: string[];
   mcps: string[];
   memory: boolean;
+  enabled: boolean;
   max_iter: number;
   reasoning: boolean;
 };

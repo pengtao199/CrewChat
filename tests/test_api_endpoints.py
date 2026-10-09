@@ -54,6 +54,18 @@ def test_agents_options_serializes(client) -> None:  # type: ignore[no-untyped-d
         assert {"id", "name", "model", "base_url", "has_key"} <= set(provider)
 
 
+def test_agent_enabled_persists(client) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    created = c.put(
+        f"{PREFIX}/crewchat/agents/demo",
+        json={"id": "demo", "name": "Demo", "body": "llm", "brain": "p/m", "enabled": False},
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["enabled"] is False
+    listed = c.get(f"{PREFIX}/crewchat/agents").json()["agents"]
+    assert next(a for a in listed if a["id"] == "demo")["enabled"] is False
+
+
 # ---- MCP CRUD ----------------------------------------------------------------
 
 

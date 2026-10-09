@@ -1416,7 +1416,9 @@
   "crossSessionMessageResume": "Turn back on",
   "crossSessionMessageUpdateFailed": "Failed to update the cross-conversation message setting",
   "agentComposer": {
-    "title": "Agent",
+    "title": "Agents",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
     "description": "An agent is a composition of brain + body + skills + MCP + memory + rules. Reusable across projects.",
     "new": "New",
     "refresh": "Refresh",

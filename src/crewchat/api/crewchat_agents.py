@@ -67,6 +67,7 @@ def _write_agent(path: Path, payload: dict[str, Any]) -> None:
         "skills": list(payload.get("skills") or []),
         "mcps": list(payload.get("mcps") or []),
         "memory": bool(payload.get("memory")),
+        "enabled": bool(payload.get("enabled", True)),
         "max_iter": int(payload.get("max_iter") or 24),
         "reasoning": bool(payload.get("reasoning")),
     }
