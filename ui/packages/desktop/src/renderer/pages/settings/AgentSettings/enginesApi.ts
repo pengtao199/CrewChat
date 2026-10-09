@@ -27,35 +27,39 @@ export type EngineInstall = {
   is_path_default: boolean;
 };
 
-/** One engine row: cc-switch's scan merged with our executor metadata. */
+/** Status the backend has already resolved for the row (AGENTS/ui.md: no UI logic). */
+export type EngineStatus = 'ready' | 'not_installed' | 'broken' | 'conflict';
+
+/** One engine row: cc-switch's scan + version check merged with our executor metadata. */
 export type EngineView = {
   id: string;
   name: string;
   kind: string;
   is_body: boolean;
   agent_ids: string[];
+  status: EngineStatus;
   installed: boolean;
   version: string | null;
+  latest_version: string | null;
+  has_update: boolean;
+  broken: boolean;
+  conflict: boolean;
+  error: string | null;
   path: string | null;
   source: string | null;
   runnable: boolean;
-  conflict: boolean;
   installs: EngineInstall[];
   update_command: string;
   anchored: boolean;
   unmanaged: boolean;
 };
 
-export type GatewayStatus = {
-  available: boolean;
-  alive: boolean;
-  running: boolean;
-  channels: Record<string, boolean>;
-};
+/** SWR key for the engines view. Re-entering the page reads the cache; only an
+ * explicit refresh (or a lifecycle action) triggers a new scan. */
+export const ENGINES_SWR_KEY = 'crewchat.engines';
 
-export type ProviderOption = { id: string; name: string; models: string[] };
-
-export const fetchEngines = () => request<EngineView[]>('/api/crewchat/engines');
+export const fetchEngines = (refresh = false) =>
+  request<EngineView[]>(`/api/crewchat/engines${refresh ? '?refresh=true' : ''}`);
 
 export const installEngines = (tools: string[]) =>
   request<{ success: boolean }>('/api/crewchat/engines/install', {
@@ -67,14 +71,4 @@ export const updateEngines = (tools: string[]) =>
   request<{ success: boolean }>('/api/crewchat/engines/update', {
     method: 'POST',
     body: JSON.stringify({ tools }),
-  });
-
-export const fetchGateway = () => request<GatewayStatus>('/api/crewchat/gateway');
-
-export const fetchProviders = () => request<ProviderOption[]>('/api/providers');
-
-export const setGatewayMode = (app: string, enabled: boolean, providerId?: string) =>
-  request<{ success: boolean; channels: Record<string, boolean> }>('/api/crewchat/gateway/mode', {
-    method: 'POST',
-    body: JSON.stringify({ app, enabled, provider_id: providerId }),
   });

@@ -3,11 +3,13 @@
  * Copyright 2025 AionUi (aionui.com)
  * SPDX-License-Identifier: Apache-2.0
  *
- * [crewchat] 引擎页：本机执行引擎的管理（扫描 / 状态 / 安装 / 更新 / 网关通道）。
+ * [crewchat] 引擎页：本机执行引擎（CLI）的状态与维护。
  *
- * 数据来自 `/api/crewchat/engines`（cc-switch 工具层扫描 + 我们执行器注册表），
- * 网关通道来自 `/api/crewchat/gateway`，端点来自 `/api/providers`。
- * 页面只做展示与请求，规则见 AGENTS/ui.md（共享骨架、Arco、i18n）。
+ * 只做引擎本身：装没装、能不能跑、有没有新版、多处冲突。按状态分组为「已安装 / 未安装」
+ * 两个 tab；版本与更新就在各自那一行上。模型端点与网关通道不在这里（归 Agent 的大脑）。
+ *
+ * 探测很重（本地扫 + 联网查版本），所以用 SWR 缓存：进入页面即时显示上次结果，只有点
+ * "刷新"或装机/更新后才会重扫。规则见 AGENTS/ui.md（共享骨架、Arco、i18n；状态由后端算好）。
  */
 
 import { parseError } from '@/common/utils';
@@ -16,73 +18,67 @@ import EmptyState from '@/renderer/components/base/EmptyState';
 import SettingsCardList from '@/renderer/components/base/SettingsCardList';
 import SettingsCardRow from '@/renderer/components/base/SettingsCardRow';
 import StatusBadge, { type StatusTone } from '@/renderer/components/base/StatusBadge';
-import DataLocationNote from '@/renderer/components/settings/DataLocationNote';
 import { resolveAgentAvatar, useAgentLogos } from '@/renderer/utils/model/agentLogo';
-import { Avatar, Button, Message, Select, Switch, Tag, Tooltip } from '@arco-design/web-react';
-import { LinkCloud, Refresh, Terminal } from '@icon-park/react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Avatar, Button, Message, Tag } from '@arco-design/web-react';
+import { Refresh, Terminal } from '@icon-park/react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import useSWR from 'swr';
 import SettingsPageHeader from '../components/SettingsPageHeader';
 import {
+  ENGINES_SWR_KEY,
   fetchEngines,
-  fetchGateway,
-  fetchProviders,
   installEngines,
-  setGatewayMode,
   updateEngines,
+  type EngineStatus,
   type EngineView,
-  type GatewayStatus,
-  type ProviderOption,
 } from './enginesApi';
 
-// 这些 CLI 是我们可以经网关反代的"身体"，其余引擎只做扫描/安装/更新。
-const GATEWAY_APPS = new Set(['codex', 'claude', 'opencode']);
-
-type EngineStatusKey = 'ready' | 'notInstalled' | 'notRunnable' | 'conflict';
-
-const engineStatus = (engine: EngineView): { tone: StatusTone; key: EngineStatusKey } => {
-  if (!engine.installed) return { tone: 'blocked', key: 'notInstalled' };
-  if (!engine.runnable) return { tone: 'blocked', key: 'notRunnable' };
-  if (engine.conflict) return { tone: 'warning', key: 'conflict' };
-  return { tone: 'ready', key: 'ready' };
+const STATUS_TONE: Record<EngineStatus, StatusTone> = {
+  ready: 'ready',
+  not_installed: 'blocked',
+  broken: 'blocked',
+  conflict: 'warning',
 };
+
+type EngineTab = 'installed' | 'not_installed';
 
 const LocalAgents: React.FC = () => {
   const { t } = useTranslation();
   const logos = useAgentLogos();
-  const [engines, setEngines] = useState<EngineView[]>([]);
-  const [gateway, setGateway] = useState<GatewayStatus | null>(null);
-  const [providers, setProviders] = useState<ProviderOption[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
-  const [providerByEngine, setProviderByEngine] = useState<Record<string, string>>({});
+  const [tab, setTab] = useState<EngineTab>('installed');
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [nextEngines, nextGateway, nextProviders] = await Promise.all([
-        fetchEngines(),
-        fetchGateway(),
-        fetchProviders(),
-      ]);
-      setEngines(nextEngines);
-      setGateway(nextGateway);
-      setProviders(nextProviders);
-    } catch (error) {
-      Message.error(parseError(error));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // 缓存优先：同一会话内再次进入不重扫；只有显式 refresh 走 ?refresh=true。
+  const { data, isLoading, mutate } = useSWR<EngineView[]>(ENGINES_SWR_KEY, () => fetchEngines(), {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    revalidateIfStale: false,
+    dedupingInterval: 5 * 60_000,
+  });
+  const engines = data ?? [];
 
+  const refresh = useCallback(() => mutate(fetchEngines(true), { revalidate: false }), [mutate]);
+
+  const installed = useMemo(() => engines.filter((e) => e.installed), [engines]);
+  const notInstalled = useMemo(() => engines.filter((e) => !e.installed), [engines]);
+  const shown = tab === 'installed' ? installed : notInstalled;
+
+  // 版本探测在后台跑（首次较慢、且被缓存 6 小时）。有结果前短暂轮询把它带出来，最多 8 次。
+  const versionsPending = engines.some((e) => e.installed && !e.latest_version);
+  const polls = useRef(0);
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const providerOptions = useMemo(
-    () => providers.map((p) => ({ label: p.name, value: p.id })),
-    [providers]
-  );
+    if (!versionsPending) {
+      polls.current = 0;
+      return;
+    }
+    const id = setInterval(() => {
+      polls.current += 1;
+      void mutate();
+      if (polls.current >= 8) clearInterval(id);
+    }, 5000);
+    return () => clearInterval(id);
+  }, [versionsPending, mutate]);
 
   const runLifecycle = useCallback(
     async (engine: EngineView, action: 'install' | 'update') => {
@@ -100,22 +96,6 @@ const LocalAgents: React.FC = () => {
     [refresh, t]
   );
 
-  const toggleGateway = useCallback(
-    async (engine: EngineView, enabled: boolean) => {
-      const providerId = providerByEngine[engine.id] || providers[0]?.id;
-      setBusy(`gw-${engine.id}`);
-      try {
-        const result = await setGatewayMode(engine.id, enabled, providerId);
-        setGateway((prev) => (prev ? { ...prev, channels: result.channels } : prev));
-      } catch (error) {
-        Message.error(parseError(error));
-      } finally {
-        setBusy(null);
-      }
-    },
-    [providerByEngine, providers]
-  );
-
   const avatarFor = (engine: EngineView) => {
     const avatar = resolveAgentAvatar(logos, { backend: engine.id });
     if (avatar.kind === 'image') {
@@ -130,43 +110,79 @@ const LocalAgents: React.FC = () => {
       );
     }
     if (avatar.kind === 'emoji') return <span className='text-18px leading-none'>{avatar.value}</span>;
-    return engine.kind === 'api' ? <LinkCloud theme='outline' size='18' /> : <Terminal theme='outline' size='18' />;
+    return <Terminal theme='outline' size='18' />;
   };
 
   const subtitleFor = (engine: EngineView) => {
     if (!engine.installed) return t('settings.engines.notInstalledHint');
-    return [engine.source, engine.version, engine.path].filter((part) => !!part).join('  ·  ');
+    const head = [engine.source, engine.version].filter((part) => !!part).join('  ·  ');
+    const fresh =
+      engine.has_update && engine.latest_version ? `  ${t('settings.engines.newVersion', { version: engine.latest_version })}` : '';
+    const tail = engine.path ? `  ·  ${engine.path}` : '';
+    return `${head}${fresh}${tail}`;
   };
 
-  const gatewayReady = gateway?.available ?? false;
+  const statusTip = (engine: EngineView) => {
+    if (engine.status === 'broken') return engine.error || t('settings.engines.brokenHint');
+    if (engine.status === 'conflict') return t('settings.engines.conflictHint', { count: engine.installs.length });
+    return undefined;
+  };
+
+  const actionsFor = (engine: EngineView) => {
+    if (engine.status === 'not_installed') {
+      return (
+        <Button size='small' type='primary' loading={busy === engine.id} onClick={() => void runLifecycle(engine, 'install')}>
+          {t('settings.engines.install')}
+        </Button>
+      );
+    }
+    if (engine.status === 'broken' || engine.status === 'conflict') {
+      return (
+        <Button size='small' type='outline' loading={busy === engine.id} onClick={() => void runLifecycle(engine, 'update')}>
+          {t('settings.engines.repair')}
+        </Button>
+      );
+    }
+    if (engine.status === 'ready' && engine.has_update) {
+      return (
+        <Button size='small' type='outline' loading={busy === engine.id} onClick={() => void runLifecycle(engine, 'update')}>
+          {t('settings.engines.update')}
+        </Button>
+      );
+    }
+    return null;
+  };
 
   return (
     <div data-testid='engines-page' className='flex flex-col gap-16px'>
       <SettingsPageHeader
         data-testid='engines-header'
-        title={t('settings.engines.title', { defaultValue: '引擎' })}
+        title={t('settings.engines.title')}
         description={t('settings.engines.description')}
         actions={
           <Button
             size='small'
             type='outline'
-            loading={loading}
+            loading={isLoading}
             onClick={() => void refresh()}
             icon={<Refresh theme='outline' size='14' />}
           >
-            {t('settings.engines.refresh', { defaultValue: '刷新' })}
+            {t('settings.engines.refresh')}
           </Button>
         }
+        tabs={[
+          { key: 'installed', label: t('settings.engines.tabInstalled'), count: installed.length },
+          { key: 'not_installed', label: t('settings.engines.tabNotInstalled'), count: notInstalled.length },
+        ]}
+        activeTab={tab}
+        onTabChange={(key) => setTab(key as EngineTab)}
       />
 
-      {loading && engines.length === 0 ? (
-        <div className='text-12px text-t-tertiary'>{t('settings.engines.scanning', { defaultValue: '正在扫描…' })}</div>
+      {isLoading && engines.length === 0 ? (
+        <div className='text-12px text-t-tertiary'>{t('settings.engines.scanning')}</div>
       ) : (
         <SettingsCardList>
-          {engines.map((engine) => {
-            const status = engineStatus(engine);
-            const showGateway = gatewayReady && engine.is_body && GATEWAY_APPS.has(engine.id);
-            const channelOn = gateway?.channels?.[engine.id] ?? false;
+          {shown.map((engine) => {
             const refCount = engine.agent_ids.length;
             return (
               <SettingsCardRow
@@ -176,18 +192,7 @@ const LocalAgents: React.FC = () => {
                 title={
                   <span className='flex min-w-0 items-center gap-8px'>
                     <span className='truncate'>{engine.name}</span>
-                    <StatusBadge
-                      tone={status.tone}
-                      label={t(`settings.engines.status.${status.key}`)}
-                      tooltip={
-                        engine.conflict
-                          ? t('settings.engines.conflictHint', { count: engine.installs.length })
-                          : undefined
-                      }
-                    />
-                    <Tag size='small' bordered={false} className='!shrink-0 !rounded-8px !bg-fill-2 !text-11px !text-t-secondary'>
-                      {t(`settings.engineKind.${engine.kind}`, { defaultValue: engine.kind })}
-                    </Tag>
+                    <StatusBadge tone={STATUS_TONE[engine.status]} label={t(`settings.engines.status.${engine.status}`)} tooltip={statusTip(engine)} />
                     {refCount > 0 ? (
                       <Tag size='small' bordered={false} className='!shrink-0 !rounded-8px !bg-fill-2 !text-11px !text-t-secondary'>
                         {t('settings.engines.refCount', { count: refCount })}
@@ -196,62 +201,15 @@ const LocalAgents: React.FC = () => {
                   </span>
                 }
                 subtitle={subtitleFor(engine)}
-                actions={
-                  <>
-                    {showGateway ? (
-                      <>
-                        <Tooltip content={t('settings.engines.viaGateway')}>
-                          <span className='flex items-center gap-6px text-11px text-t-secondary'>
-                            <Switch
-                              size='small'
-                              checked={channelOn}
-                              loading={busy === `gw-${engine.id}`}
-                              onChange={(checked) => void toggleGateway(engine, checked)}
-                            />
-                            {t('settings.engines.viaGateway')}
-                          </span>
-                        </Tooltip>
-                        <Select
-                          size='small'
-                          style={{ width: 150 }}
-                          value={providerByEngine[engine.id] || providers[0]?.id}
-                          options={providerOptions}
-                          placeholder={t('settings.engines.provider')}
-                          onChange={(value) =>
-                            setProviderByEngine((prev) => ({ ...prev, [engine.id]: String(value) }))
-                          }
-                        />
-                      </>
-                    ) : null}
-                    {!engine.installed ? (
-                      <Button
-                        size='small'
-                        type='primary'
-                        loading={busy === engine.id}
-                        onClick={() => void runLifecycle(engine, 'install')}
-                      >
-                        {t('settings.engines.install', { defaultValue: '安装' })}
-                      </Button>
-                    ) : engine.update_command ? (
-                      <Button
-                        size='small'
-                        type='outline'
-                        loading={busy === engine.id}
-                        onClick={() => void runLifecycle(engine, 'update')}
-                      >
-                        {t('settings.engines.update', { defaultValue: '更新' })}
-                      </Button>
-                    ) : null}
-                  </>
-                }
+                actions={actionsFor(engine)}
               />
             );
           })}
-          {engines.length === 0 ? <EmptyState>{t('settings.engines.empty')}</EmptyState> : null}
+          {shown.length === 0 ? (
+            <EmptyState>{tab === 'installed' ? t('settings.engines.emptyInstalled') : t('settings.engines.emptyNotInstalled')}</EmptyState>
+          ) : null}
         </SettingsCardList>
       )}
-
-      <DataLocationNote path={t('settings.engines.dataPath')} />
     </div>
   );
 };
