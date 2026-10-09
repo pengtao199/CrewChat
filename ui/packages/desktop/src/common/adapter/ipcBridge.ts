@@ -1150,8 +1150,8 @@ export const mode = {
 // ---------------------------------------------------------------------------
 
 export const usage = {
-  // 对外路径带版本根（后端在 ASGI 边界强制 /api/v1，见 core.version.api_prefix）。
-  summary: httpGet<UsageSummary, { days?: number }>((p) => `/api/v1/crewchat/usage?days=${p?.days ?? 30}`),
+  // 调用点保持上游式的不带版本路径；版本根由传输层统一加（见 apiPath.ts）。
+  summary: httpGet<UsageSummary, { days?: number }>((p) => `/api/crewchat/usage?days=${p?.days ?? 30}`),
 };
 
 // ---------------------------------------------------------------------------
