@@ -82,6 +82,8 @@ export type WorkspaceGroupedHistoryProps = {
   tooltipEnabled?: boolean;
   batchMode?: boolean;
   onBatchModeChange?: (value: boolean) => void;
+  /** Start a new (unbound) session — the Sessions section's add action. */
+  onNewSession?: () => void;
   afterPinnedContent?: ReactNode;
 };
 

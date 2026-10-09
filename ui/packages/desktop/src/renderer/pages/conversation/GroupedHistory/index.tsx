@@ -15,7 +15,7 @@ import { restrictToVerticalAxis } from '@/renderer/utils/ui/dndModifiers';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Button, Dropdown, Empty, Input, Menu, Message, Modal, Tooltip } from '@arco-design/web-react';
-import { FolderClose, MoreOne, Plus, Right } from '@icon-park/react';
+import { FolderClose, ListCheckbox, MoreOne, Plus, Right } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +36,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
   tooltipEnabled = false,
   batchMode = false,
   onBatchModeChange,
+  onNewSession,
   afterPinnedContent,
 }) => {
   const { id } = useParams();
@@ -401,17 +402,7 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
     [timelineSections]
   );
 
-  if (timelineSections.length === 0 && pinnedConversations.length === 0 && projectGroups.length === 0) {
-    return (
-      <>
-        {afterPinnedContent}
-        {projectsSection}
-        <div className='py-48px flex-center'>
-          <Empty description={t('conversation.history.noHistory')} />
-        </div>
-      </>
-    );
-  }
+  const hasAnyConversation = timelineSections.length > 0 || pinnedConversations.length > 0 || projectGroups.length > 0;
 
   return (
     <>
@@ -568,25 +559,82 @@ const WorkspaceGroupedHistory: React.FC<WorkspaceGroupedHistoryProps> = ({
         {/* L1: Projects — explicit projects (may be empty), peer to sessions */}
         {projectsSection}
 
-        {/* L1: Conversations section — peer to projects, internally split by timeline */}
-        {conversationOnlySections.length > 0 && (
-          <div className='min-w-0'>
-            {!collapsed && (
-              <SectionLabel sectionKey='conversations' label={t('conversation.history.conversationsSection')} />
-            )}
-            {!collapsedSections.has('conversations') &&
-              conversationOnlySections.map((section) => (
-                <div key={section.timeline} className='min-w-0'>
-                  {!collapsed && conversationOnlySections.length > 1 && (
-                    <div className='flex items-center px-16px h-24px select-none'>
-                      <span className='text-12px text-t-secondary font-[500] leading-none'>{section.timeline}</span>
-                    </div>
+        {/* L1: Sessions — always present; holds sessions with no project */}
+        <div className='min-w-0'>
+          {!collapsed && (
+            <SectionLabel
+              sectionKey='conversations'
+              label={t('conversation.history.conversationsSection')}
+              trailing={
+                <span className='flex items-center gap-6px'>
+                  {onBatchModeChange && (
+                    <Tooltip
+                      content={batchMode ? t('conversation.history.batchModeExit') : t('conversation.history.batchManage')}
+                      position='top'
+                    >
+                      <span
+                        role='button'
+                        tabIndex={0}
+                        aria-label={t('conversation.history.batchManage')}
+                        className={classNames(
+                          'flex-center cursor-pointer transition-colors size-20px rd-4px sider-action-btn',
+                          batchMode
+                            ? 'text-primary bg-[rgba(var(--primary-6),0.12)]'
+                            : 'text-t-secondary hover:text-t-primary'
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onBatchModeChange(!batchMode);
+                        }}
+                      >
+                        <ListCheckbox theme='outline' size='14' className='block leading-none' />
+                      </span>
+                    </Tooltip>
                   )}
-                  {section.items.map((item) =>
-                    item.type === 'conversation' && item.conversation ? renderConversation(item.conversation) : null
+                  {onNewSession && (
+                    <Tooltip content={t('conversation.welcome.newConversation')} position='top'>
+                      <span
+                        role='button'
+                        tabIndex={0}
+                        aria-label={t('conversation.welcome.newConversation')}
+                        className='flex-center cursor-pointer transition-colors text-t-secondary hover:text-t-primary size-20px rd-4px sider-action-btn'
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNewSession();
+                        }}
+                      >
+                        <Plus theme='outline' size='14' fill='currentColor' className='block leading-none' />
+                      </span>
+                    </Tooltip>
                   )}
-                </div>
-              ))}
+                </span>
+              }
+            />
+          )}
+          {!collapsedSections.has('conversations') &&
+            (conversationOnlySections.length > 0
+              ? conversationOnlySections.map((section) => (
+                  <div key={section.timeline} className='min-w-0'>
+                    {!collapsed && conversationOnlySections.length > 1 && (
+                      <div className='flex items-center px-16px h-24px select-none'>
+                        <span className='text-12px text-t-secondary font-[500] leading-none'>{section.timeline}</span>
+                      </div>
+                    )}
+                    {section.items.map((item) =>
+                      item.type === 'conversation' && item.conversation ? renderConversation(item.conversation) : null
+                    )}
+                  </div>
+                ))
+              : !collapsed && (
+                  <div className='px-12px py-6px text-13px text-t-tertiary'>
+                    {t('conversation.history.noHistory')}
+                  </div>
+                ))}
+        </div>
+
+        {!hasAnyConversation && (
+          <div className='py-24px flex-center'>
+            <Empty description={t('conversation.history.noHistory')} />
           </div>
         )}
       </div>

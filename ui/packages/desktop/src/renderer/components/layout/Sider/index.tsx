@@ -7,7 +7,7 @@ import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
-import { SiderToolbar, SiderSearchEntry, SiderScheduledEntry, SiderAssistantEntry } from './SiderNav';
+import { SiderSearchEntry, SiderScheduledEntry, SiderAssistantEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
 import siderStyles from './Sider.module.css';
 
@@ -181,14 +181,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
           </Suspense>
         ) : (
           <div className='size-full flex flex-col gap-2px'>
-            <SiderToolbar
-              isMobile={isMobile}
-              isBatchMode={isBatchMode}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onNewChat={handleNewChat}
-              onToggleBatchMode={() => setIsBatchMode((prev) => !prev)}
-            />
             {/* Search entry — desktop moves this into the titlebar toolbar;
                 mobile keeps it here in the sidebar. */}
             {isMobile && (
@@ -200,37 +192,42 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                 onSessionClick={onSessionClick}
               />
             )}
-            {/* Assistant nav entry - fixed above Scheduled */}
-            <SiderAssistantEntry
-              isMobile={isMobile}
-              isActive={pathname.startsWith('/assistants')}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onClick={handleAssistantClick}
-            />
-            {/* Scheduled tasks nav entry - fixed above scroll */}
-            <SiderScheduledEntry
-              isMobile={isMobile}
-              isActive={pathname === '/scheduled'}
-              collapsed={collapsed}
-              siderTooltipProps={siderTooltipProps}
-              onClick={handleScheduledClick}
-            />
-            {/* Divider between fixed top nav and scrollable content area */}
-            <div
-              className={classNames(
-                'shrink-0 mt-6px mb-2px h-1px bg-[var(--color-border-2)]',
-                collapsed ? 'mx-6px' : 'mx-10px'
-              )}
-            />
-            {/* Scrollable content: pinned → team (slot) → projects → conversations */}
+            {/* Scrollable content: pinned → projects → sessions (both always shown) */}
             <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
               <Suspense fallback={<div className='min-h-200px' />}>
                 <WorkspaceGroupedHistory
                   {...workspaceHistoryProps}
+                  onNewSession={handleNewChat}
                   afterPinnedContent={null}
                 />
               </Suspense>
+            </div>
+            {/* Divider + secondary entries (Agents / Scheduled), fixed above the footer */}
+            <div
+              className={classNames(
+                'shrink-0 mt-2px mb-2px h-1px bg-[var(--color-border-2)]',
+                collapsed ? 'mx-6px' : 'mx-10px'
+              )}
+            />
+            <div className='shrink-0 flex items-center gap-2px'>
+              <div className='flex-1 min-w-0'>
+                <SiderAssistantEntry
+                  isMobile={isMobile}
+                  isActive={pathname.startsWith('/assistants')}
+                  collapsed={collapsed}
+                  siderTooltipProps={siderTooltipProps}
+                  onClick={handleAssistantClick}
+                />
+              </div>
+              <div className='flex-1 min-w-0'>
+                <SiderScheduledEntry
+                  isMobile={isMobile}
+                  isActive={pathname === '/scheduled'}
+                  collapsed={collapsed}
+                  siderTooltipProps={siderTooltipProps}
+                  onClick={handleScheduledClick}
+                />
+              </div>
             </div>
           </div>
         )}
