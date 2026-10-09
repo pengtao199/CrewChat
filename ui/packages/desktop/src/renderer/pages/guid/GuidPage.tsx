@@ -15,14 +15,11 @@ import type { AgentDetail } from '@/common/types/agent/agentTypes';
 import { useInputFocusRing } from '@/renderer/hooks/chat/useInputFocusRing';
 import { appendPromptToDraft } from '@/renderer/hooks/chat/useSendBoxDraft';
 import { getFuzzyMatchIndices, useSlashCommandController } from '@/renderer/hooks/chat/useSlashCommandController';
-import { openExternalUrl } from '@/renderer/utils/platform';
 import SlashCommandMenu, { type SlashCommandMenuItem } from '@/renderer/components/chat/SlashCommandMenu';
 import AgentSelectionArea from './components/AgentSelectionArea';
 import GuidActionRow from './components/GuidActionRow';
 import GuidInputCard from './components/GuidInputCard';
 import GuidModelSelector from './components/GuidModelSelector';
-import QuickActionButtons from './components/QuickActionButtons';
-import FeedbackReportModal from '@/renderer/components/settings/SettingsModal/contents/FeedbackReportModal';
 import { useGuidAgentSelection } from './hooks/useGuidAgentSelection';
 import { useGuidInput } from './hooks/useGuidInput';
 import { useGuidModelSelection } from './hooks/useGuidModelSelection';
@@ -35,8 +32,7 @@ import { chatFileRefPath, uploadFileRef } from '@/common/types/chatFile';
 import { useOpenFileSelector } from '@/renderer/hooks/file/useOpenFileSelector';
 import { appendSpeechTranscript } from '@/renderer/hooks/system/useSpeechInput';
 import { useLiveTranscriptInsertion } from '@/renderer/hooks/system/useLiveTranscriptInsertion';
-import { ArrowRightUp } from '@icon-park/react';
-import { Button, ConfigProvider } from '@arco-design/web-react';
+import { ConfigProvider } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -62,16 +58,6 @@ const GuidPage: React.FC = () => {
   const { activeBorderColor, inactiveBorderColor, activeShadow } = useInputFocusRing();
 
   const localeKey = resolveLocaleKey(i18n.language);
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-
-  // Open external link
-  const openLink = useCallback(async (url: string) => {
-    try {
-      await openExternalUrl(url);
-    } catch (error) {
-      console.error('Failed to open external link:', error);
-    }
-  }, []);
 
   // --- Skills state ---
   // Skill metadata comes from the database-backed catalog. Built-in auto-inject
@@ -321,30 +307,6 @@ const GuidPage: React.FC = () => {
 
   // Typewriter placeholder
   const typewriterPlaceholder = useTypewriterPlaceholder(t('conversation.welcome.placeholder'));
-  const selectedAgentRecord = useMemo(() => {
-    if (!selectedAgentId) return undefined;
-    const selectedId = agentSelection.selectedAgentId;
-    const strippedId = selectedId.replace(/^builtin-/, '');
-    const candidates = new Set([selectedId, `builtin-${strippedId}`, strippedId]);
-    return agentSelection.agents.find((item) => candidates.has(item.id));
-  }, [agentSelection.agents, selectedAgentId, agentSelection.selectedAgentId]);
-  const selectedAgentPrompts = useMemo(() => {
-    if (!selectedAgentId) return [];
-    const resolvedPrompts =
-      selectedAgentDetail?.prompts.recommended_i18n?.[localeKey] ||
-      selectedAgentDetail?.prompts.recommended_i18n?.['en-US'] ||
-      selectedAgentDetail?.prompts.recommended ||
-      selectedAgentRecord?.prompts_i18n?.[localeKey] ||
-      selectedAgentRecord?.prompts_i18n?.['en-US'] ||
-      selectedAgentRecord?.prompts ||
-      [];
-
-    if (resolvedPrompts.length > 0) {
-      return resolvedPrompts;
-    }
-
-    return [t('guid.defaultPrompts.understand'), t('guid.defaultPrompts.cleanup'), t('guid.defaultPrompts.create')];
-  }, [localeKey, selectedAgentDetail, selectedAgentRecord, selectedAgentId, t]);
 
   // Sync disabledBuiltinSkills + enabledSkills from agent detail defaults.
   useEffect(() => {
@@ -704,42 +666,7 @@ const GuidPage: React.FC = () => {
             onClearWorkspace={() => guidInput.setDir('')}
           />
 
-          {selectedAgentPrompts.length > 0 ? (
-            <div className='mt-18px w-full animate-fade-in ps-20px'>
-              <div className={`${styles.agentPromptHint} mb-10px text-start`}>
-                {t('guid.promptExamplesHint', { defaultValue: 'Try these example prompts:' })}
-              </div>
-              <div className='flex flex-col gap-9px'>
-                {selectedAgentPrompts.map((prompt, index) => (
-                  <Button
-                    key={`${index}-${prompt}`}
-                    type='text'
-                    className='group !h-auto !w-full !border-none !bg-transparent !px-0 !py-6px !text-start !text-12.5px !text-t-secondary !whitespace-normal !break-words transition-colors hover:!bg-transparent hover:!text-t-primary'
-                    onClick={() => {
-                      guidInput.setInput(prompt);
-                      guidInput.handleTextareaFocus();
-                    }}
-                  >
-                    <span>{prompt}</span>
-                    <ArrowRightUp
-                      theme='outline'
-                      size='13'
-                      className='ms-6px inline-flex flex-shrink-0 align-[-1px] text-t-primary opacity-0 transition-opacity group-hover:opacity-100'
-                    />
-                  </Button>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
-
-        <QuickActionButtons
-          onOpenLink={openLink}
-          onOpenBugReport={() => setShowFeedbackModal(true)}
-          inactiveBorderColor={inactiveBorderColor}
-          activeShadow={activeShadow}
-        />
-        <FeedbackReportModal visible={showFeedbackModal} onCancel={() => setShowFeedbackModal(false)} />
       </div>
     </ConfigProvider>
   );
