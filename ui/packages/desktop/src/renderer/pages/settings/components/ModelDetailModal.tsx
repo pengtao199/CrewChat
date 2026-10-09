@@ -170,7 +170,11 @@ const ModelDetailModal: React.FC<{
             {/* 只读信息：模型标识与自动推导结果 */}
             <div className='rounded-8px bg-[var(--fill-1)] p-12px'>
               <div className='text-12px text-t-tertiary'>{t('settings.models.modelId')}</div>
-              <div className='mt-2px break-all font-mono text-13px text-t-primary'>{model.id}</div>
+              {/* 不要用 break-all：模型 id 是长无空格字符串，break-all 会在任意字符
+                  间断行，容器一变窄就竖着排下来。截断 + Tooltip 显示全文。 */}
+              <Tooltip content={model.id} className='block'>
+                <div className='mt-2px truncate font-mono text-13px text-t-primary'>{model.id}</div>
+              </Tooltip>
 
               {model.display_name && model.display_name !== model.id && (
                 <>

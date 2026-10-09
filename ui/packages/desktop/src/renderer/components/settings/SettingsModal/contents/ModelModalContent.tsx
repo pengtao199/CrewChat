@@ -7,7 +7,7 @@
 import { ipcBridge } from '@/common';
 import type { IModelView, IProvider, ModelTag } from '@/common/types/provider/providerApi';
 import { Button, Input, Message, Popconfirm, Switch, Tooltip } from '@arco-design/web-react';
-import { Delete, Down, Edit, Minus, More, Plus, Refresh } from '@icon-park/react';
+import { Delete, Down, Edit, More } from '@icon-park/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AionScrollArea from '@/renderer/components/base/AionScrollArea';
@@ -243,38 +243,30 @@ const ModelModalContent: React.FC = () => {
                         </span>
                       </div>
 
+                      {/* 三个控件，各司其职：
+                          总开关=全部模型启用/停用（不是两个语义相反的按钮），
+                          铅笔=编辑供应商，垃圾桶=删除供应商。 */}
                       <div className='flex flex-shrink-0 items-center gap-6px'>
                         {!provider.has_key && <StatusBadge tone='warning' label={t('settings.models.noKey')} />}
-                        {/* 批量启停：全部开 / 全部关 */}
-                        <Tooltip content={t('settings.models.enableAll')}>
-                          <Button
-                            size='mini'
-                            className='!w-28px !h-28px !min-w-28px'
-                            icon={<Refresh size='14' />}
-                            onClick={() => void onBulkToggle(provider, true)}
+                        <Tooltip
+                          content={
+                            enabledCount === provider.model_count
+                              ? t('settings.models.disableAll')
+                              : t('settings.models.enableAll')
+                          }
+                        >
+                          <Switch
+                            size='small'
+                            loading={providerBusy}
+                            checked={enabledCount > 0 && enabledCount === provider.model_count}
+                            onChange={(checked) => void onBulkToggle(provider, checked)}
                           />
                         </Tooltip>
-                        <Tooltip content={t('settings.models.disableAll')}>
-                          <Button
-                            size='mini'
-                            className='!w-28px !h-28px !min-w-28px'
-                            disabled={enabledCount === 0 || providerBusy}
-                            icon={<Minus size='14' />}
-                            onClick={() => void onBulkToggle(provider, false)}
-                          />
-                        </Tooltip>
-                        <Button
-                          size='mini'
-                          className='!w-28px !h-28px !min-w-28px'
-                          icon={<Plus size='14' />}
-                          onClick={() => editProviderCtrl.open({ data: provider })}
-                        />
                         <Button
                           size='mini'
                           className='!w-28px !h-28px !min-w-28px'
                           icon={<Edit size='14' />}
-                          onClick={() => setDetail({ provider, model: provider.models[0] })}
-                          disabled={!provider.models.length}
+                          onClick={() => editProviderCtrl.open({ data: provider })}
                         />
                         <Popconfirm
                           title={t('settings.models.confirmDeleteProvider', { name: provider.name })}
@@ -298,14 +290,17 @@ const ModelModalContent: React.FC = () => {
                               <SettingsCardRow
                                 key={model.id}
                                 flat
-                                title={
-                                  <span className='flex min-w-0 flex-wrap items-center gap-6px'>
-                                    <span className='truncate'>{model.label}</span>
+                                title={model.label}
+                                badges={
+                                  <>
                                     <ModelTags tags={model.tags} />
-                                  </span>
+                                    {!model.enabled ? (
+                                      <StatusBadge tone='neutral' label={t('settings.models.disabled')} />
+                                    ) : undefined}
+                                  </>
                                 }
-                                subtitle={<ModelMeta model={model} />}
-                                badges={!model.enabled ? <StatusBadge tone='neutral' label={t('settings.models.disabled')} /> : undefined}
+                                /* 上下文/价格靠右，和标题同一行 */
+                                meta={<ModelMeta model={model} />}
                                 actions={
                                   <>
                                     <Switch

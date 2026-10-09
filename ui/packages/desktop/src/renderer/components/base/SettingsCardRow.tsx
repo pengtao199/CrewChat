@@ -16,6 +16,12 @@ type SettingsCardRowProps = {
   title: React.ReactNode;
   subtitle?: React.ReactNode;
   badges?: React.ReactNode;
+  /**
+   * Right-aligned auxiliary info (context length, price…), rendered between the
+   * title block and the actions. Use this instead of `subtitle` when the info
+   * reads better on the same line, pushed to the right.
+   */
+  meta?: React.ReactNode;
   actions?: React.ReactNode;
   selected?: boolean;
   disabled?: boolean;
@@ -35,6 +41,7 @@ const SettingsCardRow: React.FC<SettingsCardRowProps> = ({
   title,
   subtitle,
   badges,
+  meta,
   actions,
   selected,
   disabled,
@@ -72,6 +79,7 @@ const SettingsCardRow: React.FC<SettingsCardRowProps> = ({
           {subtitle ? <div className='mt-2px truncate text-11px text-t-secondary'>{subtitle}</div> : null}
         </div>
       </div>
+      {meta ? <div className='ms-12px flex flex-shrink-0 items-center'>{meta}</div> : null}
       {actions ? (
         <div className='ms-12px flex flex-shrink-0 items-center gap-8px' onClick={stop}>
           {actions}
