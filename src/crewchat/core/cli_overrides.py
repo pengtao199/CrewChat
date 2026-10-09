@@ -13,7 +13,6 @@ _OVERRIDABLE = (
     "codex_sandbox",
     "codex_approval",
     "codex_network",
-    "local_password",
 )
 
 

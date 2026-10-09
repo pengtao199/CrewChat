@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 
 from ..core.config import get_settings
-from ..core.cli_overrides import current_settings
 
 
 def _db_path() -> Path:
@@ -299,10 +298,6 @@ def store() -> Store:
 
 def local_username() -> str:
     return os.environ.get("CREWCHAT_USERNAME") or "crewchat"
-
-
-def local_password() -> str:
-    return current_settings().local_password
 
 
 def user_payload() -> dict[str, Any]:

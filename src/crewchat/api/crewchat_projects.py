@@ -1,7 +1,7 @@
 """Projects: 工作区（一个文件夹）= 一等公民，单/多 agent 的工作目录。
 
-自研命名空间 `/api/crewchat/projects`。项目是会话的归属与执行 cwd：
-`Project.path` 就是 agent 的工作目录，`Project.agents_dir` 是该项目的 agent 定义目录。
+自研命名空间 `/api/crewchat/projects`。项目是会话的归属与执行 cwd：`Project.path`
+就是 agent 的工作目录（agent 定义是全局的，不归项目）。
 """
 
 from __future__ import annotations

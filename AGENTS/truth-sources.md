@@ -40,7 +40,7 @@
 
 ## 具体规则
 
-- 修改 Agent 只写 `config/agents/<id>.jsonc`，不写数据库副本。
+- 修改 Agent 只写 `.data/agents/<id>.jsonc`，不写数据库副本。
 - 读取技能/MCP 一律通过 `providers.py` 的 `available_skills()` / `shared_mcp_servers()`，不自行拼路径。
 - `.data/` 整体被 gitignore；新增本地状态放进 `.data/`，不要放仓库根目录。
 - 新增配置文件时，先判断它是否属于「跨工具共享」（`~/.agents/`）还是「本项目私有」（`.data/`）。
@@ -51,7 +51,7 @@
 - 不在代码里硬编码绝对路径（例如 `/Users/xxx/...`）；一律经 `config` 推导。
 - 不把 `~/.agents/` 的内容复制进 `.data/`。
 - 不让同一份配置有两个可写入口（例如界面和手改文件同时被支持却不同步）。
-- 不把密钥写进 `config/agents/*.jsonc`、日志或错误信息。
+- 不把密钥写进 `.data/agents/*.jsonc`、日志或错误信息。
 
 ## 检查
 

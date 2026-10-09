@@ -83,6 +83,7 @@ const AgentComposerContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [models, setModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
+  const [agentsDir, setAgentsDir] = useState('');
 
   /** brain 只写了端点时补上默认模型，否则模型下拉是空的。 */
   const normalize = useCallback((spec: AgentSpec, opts: ComposerOptions | null): AgentSpec => {
@@ -97,6 +98,7 @@ const AgentComposerContent: React.FC = () => {
     try {
       const [list, opts] = await Promise.all([fetchAgents(), fetchOptions()]);
       setAgents(list.agents);
+      setAgentsDir(list.agents_dir || '');
       setOptions(opts);
       const intent = (location.state as ComposerNavState | null) ?? null;
       if (intent?.createAgent) {
@@ -467,7 +469,7 @@ const AgentComposerContent: React.FC = () => {
             </div>
           </Section>
 
-          <DataLocationNote path={`config/agents/${draft.id || '…'}.jsonc`} />
+          <DataLocationNote path={agentsDir ? `${agentsDir}/${draft.id || '…'}.jsonc` : '…'} />
         </div>
       </div>
     </div>

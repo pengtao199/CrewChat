@@ -6,7 +6,6 @@
 
 import { bridge } from '@/common/platform/bridge';
 import { WEBUI_DEFAULT_PORT } from '@/common/config/constants';
-import { refreshSession } from './sessionRefresh';
 import type { ElectronBridgeAPI } from '@/common/types/platform/electron';
 
 interface CustomWindow extends Window {
@@ -23,16 +22,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isBrowserWebSocketPayload(value: unknown): value is BrowserWebSocketPayload {
   return isRecord(value) && typeof value.name === 'string';
-}
-
-export function isRealtimeAuthTerminalError(payload: unknown): boolean {
-  const data = getRealtimeErrorData(payload);
-  if (!data) {
-    return false;
-  }
-
-  const { code } = data;
-  return code === 'REALTIME_AUTH_MISSING' || code === 'REALTIME_AUTH_EXPIRED';
 }
 
 function getRealtimeErrorData(payload: unknown): Record<string, unknown> | null {
@@ -124,22 +113,6 @@ if (win.electronAPI) {
     }, reconnectDelay);
   };
 
-  // 跳转到登录页（已在登录页则跳过，防止无限刷新循环）
-  // Redirect to the login page (skipped when already there to avoid a reload loop).
-  const redirectToLogin = () => {
-    if (window.location.pathname === '/login' || window.location.hash.includes('/login')) {
-      return;
-    }
-
-    // 短暂延迟以便展示 UI 反馈；用 hash 导航留在 SPA 内（HashRouter），
-    // 避免整页刷新落到空 hash 造成白屏
-    // Short delay to surface any UI feedback; hash navigation stays within the SPA
-    // (HashRouter) instead of a full reload that would land on an empty hash.
-    setTimeout(() => {
-      window.location.hash = '/login';
-    }, 1000);
-  };
-
   // 3.建立 WebSocket 连接（或复用已有的 OPEN/CONNECTING 状态）
   const connect = () => {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
@@ -182,37 +155,6 @@ if (win.electronAPI) {
           if (socket && socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify({ name: 'pong', data: { timestamp: Date.now() } }));
           }
-          return;
-        }
-
-        // 处理认证过期 - 先静默续期，成功则重连，失败才跳转登录页
-        // Handle auth expiration - try a silent refresh first; reconnect on success,
-        // and only fall back to the login page when the refresh token is also dead.
-        if (isRealtimeAuthTerminalError(payload)) {
-          console.warn('[WebSocket] Authentication expired, attempting silent refresh');
-
-          // 续期期间暂停自动重连，避免拿着失效 Cookie 空转（#4124 的重连风暴）
-          // Pause auto-reconnect while refreshing so the dead cookie can't loop
-          // (the #4124 reconnect storm).
-          shouldReconnect = false;
-          if (reconnectTimer !== null) {
-            window.clearTimeout(reconnectTimer);
-            reconnectTimer = null;
-          }
-          socket?.close();
-
-          void refreshSession().then((refreshed) => {
-            if (refreshed) {
-              // 新 Cookie 已就位，重连即可携带
-              // Fresh cookie is in place — the reconnect carries it.
-              shouldReconnect = true;
-              reconnectDelay = 500;
-              connect();
-              return;
-            }
-            redirectToLogin();
-          });
-
           return;
         }
 

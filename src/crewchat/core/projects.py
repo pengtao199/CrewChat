@@ -12,18 +12,15 @@ from .config import Settings
 
 
 class Project:
-    def __init__(self, id: str, name: str, path: str, agents_dir: str = "config/agents") -> None:
+    """一个工作区（文件夹）。agent 是全局的，不属于项目。"""
+
+    def __init__(self, id: str, name: str, path: str) -> None:
         self.id = id
         self.name = name
         self.path = path
-        self.agents_dir = agents_dir
 
     def root(self) -> Path:
         return Path(self.path).expanduser()
-
-    def agents_path(self) -> Path:
-        agents = Path(self.agents_dir).expanduser()
-        return agents if agents.is_absolute() else self.root() / agents
 
     def workspace(self) -> Path:
         return self.root()
@@ -32,7 +29,7 @@ class Project:
         return self.root().is_dir()
 
     def as_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "name": self.name, "path": self.path, "agents_dir": self.agents_dir}
+        return {"id": self.id, "name": self.name, "path": self.path}
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Project:
@@ -40,7 +37,6 @@ class Project:
             id=str(raw.get("id") or raw.get("name") or "default"),
             name=str(raw.get("name") or raw.get("id") or "default"),
             path=str(raw.get("path") or "."),
-            agents_dir=str(raw.get("agents_dir") or "config/agents"),
         )
 
 
@@ -130,7 +126,8 @@ def _migrate_legacy_agents(settings: Settings, target: Path) -> None:
     marker = settings.data_dir / ".agents-migrated"
     if marker.exists():
         return
-    legacy = Path(settings.agents_dir)
+    # 旧位置：仓库内 config/agents（架构改版前）；一次性把既有 agent 搬过来。
+    legacy = Path("config/agents")
     if legacy.is_dir():
         for source in sorted(legacy.glob("*.jsonc")) + sorted(legacy.glob("*.json")):
             destination = target / source.name

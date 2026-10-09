@@ -36,10 +36,8 @@ class Settings(BaseSettings):
     max_turns: int = 12
 
     language: str = "zh-CN"
-    local_password: str = "crewchat"
 
     data_dir: Path = _default_data_dir()
-    agents_dir: Path = Path("config/agents")
 
     # 模型网关：端口在 core/gateway.py，实现由 `gateway_kind` 选。见 AGENTS/gateway.md。
     # 核心复用适配器的实现，但数据归我们：网关用 `gateway_dir` 作为自己的 home，

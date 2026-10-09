@@ -151,7 +151,7 @@ provider / MCP / Skill / Prompt / 用量数据接入我们的 app。我们的三
 | --- | --- | --- |
 | 1 headless 二进制 | 完成 | `gateway/cc-switch/`（vendor）+ `[[bin]] ccsw-proxy`，见 `NOTICE.md` |
 | 2 Python 监督 | 完成 | `core/gateway_ccswitch.py`（`ensure_running` / `alive` / `proxy_up`）+ `api/crewchat_gateway.py`（start/stop） |
-| 3 引擎指向代理 | 进行中 | 网关适配器与控制面已就绪；`gateway/litellm.yaml` **仍在仓库**，尚未删除 |
+| 3 引擎指向代理 | 完成 | 网关适配器与控制面就绪；已退役并**删除 `gateway/litellm.yaml`** |
 | 4 读 DB 接六类数据 | 部分 | usage：**口径已改为自研记账**（身体上报 → `.data/crewchat.db` `usage_events`，不读 cc-switch，只算本 app 发起的 CLI 身体）；provider 投影已接；MCP/Skill 仍读 `~/.agents` 约定、未接 cc-switch DB；Prompt 未接 |
 | 5 provider 切换 | 完成 | `/api/crewchat/gateway/mode` → `Gateway.activate/deactivate`（走 cc-switch `mode::controller`） |
 | 6 CLI 薄扫描 | 进行中 | `core/engines_ccswitch.py` + `api/crewchat_engines.py`；完成度待核 |
@@ -159,4 +159,4 @@ provider / MCP / Skill / Prompt / 用量数据接入我们的 app。我们的三
 
 计划外新增：**模型页**（provider/模型自动抓取、标签推导、批量启停），见提交 `e1293d2` 等。
 
-下一步优先级：① MCP/Skill/Prompt 接入 cc-switch DB 或明确不做；② 删除 `gateway/litellm.yaml` 收尾 Slice 3。（用量页已落地，口径为自研记账，见上表 Slice 4 行）
+下一步优先级：① MCP/Skill/Prompt 接入 cc-switch DB 或明确不做。（用量页已落地，口径为自研记账，见 Slice 4 行；LiteLLM 已删除。）
