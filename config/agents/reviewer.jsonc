@@ -10,5 +10,6 @@
   "mcps": [],
   "memory": false,
   "max_iter": 24,
-  "reasoning": false
+  "reasoning": false,
+  "enabled": true
 }

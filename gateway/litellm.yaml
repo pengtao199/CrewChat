@@ -3,6 +3,14 @@ model_list:
   #   /v1/chat/completions  → opencode、我们的 llm 身体
   #   /v1/responses          → codex（0.161 只支持这个）
   #   /v1/messages           → claude code
+  # 对照项：不走 chat 桥接，用于定位 /v1/messages 是否丢内容
+  - model_name: agnes-raw
+    litellm_params:
+      model: openai/agnes-2.5-flash
+      api_base: os.environ/AGNES_BASE_URL
+      api_key: os.environ/AGNES_API_KEY
+      drop_params: true
+
   - model_name: agnes-2.5-flash
     litellm_params:
       model: openai/chat_completions/agnes-2.5-flash
