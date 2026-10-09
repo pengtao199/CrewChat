@@ -23,7 +23,9 @@ import type { AgentAvatar } from '@/renderer/utils/model/agentAvatar';
 import {
   isBackendRelativeAssetPath,
   isLikelyLocalFilePath,
-  resolveAgentAvatar,
+  // Alias the imported resolver: this module defines its own `resolveAgentAvatar`
+  // wrapper, and calling the bare name inside it would recurse into itself.
+  resolveAgentAvatar as resolveAvatarValue,
 } from '@/renderer/utils/model/agentAvatar';
 import type { ManagedAgent } from '@/renderer/utils/model/agentTypes';
 import { resolveBackendAssetUrl } from '@/renderer/utils/platform';
@@ -99,7 +101,7 @@ function lookupBackendLogo(logos: AgentLogoMap, backend: string | undefined | nu
 
 function lookupBackendAvatar(logos: AgentLogoMap, backend: string | undefined | null): AgentAvatar {
   const logo = lookupBackendLogoValue(logos, backend);
-  return resolveAgentAvatar(logo || undefined);
+  return resolveAvatarValue(logo || undefined);
 }
 
 /**
@@ -140,7 +142,7 @@ export function resolveAgentAvatar(
     isExtension?: boolean;
   }
 ): AgentAvatar {
-  const explicitAvatar = resolveAgentAvatar(opts.icon || undefined);
+  const explicitAvatar = resolveAvatarValue(opts.icon || undefined);
   if (explicitAvatar.kind !== 'fallback') return explicitAvatar;
 
   if (opts.isExtension && opts.custom_agent_id) {
