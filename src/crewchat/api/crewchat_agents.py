@@ -95,8 +95,15 @@ async def agent_options() -> dict[str, Any]:
     settings = get_settings()
     providers = load_providers(settings)
     return {
+        # 只回调用方真正要用的字段；模型列表走 /api/providers/fetch-models（按端点实时拉取）。
         "providers": [
-            {"id": p.id, "name": p.name, "model": p.model, "models": p.models, "has_key": p.has_key()}
+            {
+                "id": p.id,
+                "name": p.name,
+                "model": p.model,
+                "base_url": p.base_url,
+                "has_key": p.has_key(),
+            }
             for p in providers
         ],
         "bodies": list_executors(),
