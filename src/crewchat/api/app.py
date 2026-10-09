@@ -115,7 +115,6 @@ def create_app() -> FastAPI:
         ApiVersionMiddleware,
         prefix=api_prefix(),
         internal_root=_INTERNAL_API_ROOT,
-        legacy_paths=("login", "logout"),
     )
     app.add_middleware(
         CORSMiddleware,
