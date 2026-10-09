@@ -36,10 +36,8 @@ def _view() -> list[dict[str, Any]]:
     refs = _agent_refs()
 
     out: list[dict[str, Any]] = []
-    seen: set[str] = set()
     for report in scan:
         tool = str(report.get("tool") or "")
-        seen.add(tool)
         installs = report.get("installs") or []
         default = installs[0] if installs else {}
         body = bodies.get(tool)
@@ -60,28 +58,6 @@ def _view() -> list[dict[str, Any]]:
                 "update_command": report.get("command") or "",
                 "anchored": bool(report.get("anchored")),
                 "unmanaged": bool(report.get("unmanaged")),
-            }
-        )
-    for eid, body in bodies.items():
-        if eid in seen:
-            continue
-        out.append(
-            {
-                "id": eid,
-                "name": body["label"],
-                "kind": body.get("kind", "cli"),
-                "is_body": True,
-                "agent_ids": refs.get(eid, []),
-                "installed": True,
-                "version": None,
-                "path": None,
-                "source": None,
-                "runnable": True,
-                "conflict": False,
-                "installs": [],
-                "update_command": "",
-                "anchored": False,
-                "unmanaged": True,
             }
         )
     return out
