@@ -187,22 +187,13 @@ class _FakeBody(exec_base.Executor):
         )
 
 
-class _StubProject:
-    def __init__(self, root) -> None:  # type: ignore[no-untyped-def]
-        self._root = root
-
-    def agents_path(self):  # type: ignore[no-untyped-def]
-        return self._root
-
-    def workspace(self):  # type: ignore[no-untyped-def]
-        return self._root
-
-
 def test_stream_ask_emits_done_with_usage(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     spec = AgentSpec(id="a", name="A", body="fake-usage-body")
     monkeypatch.setattr(session_mod, "load_specs", lambda _path: [spec])
+    monkeypatch.setattr(session_mod, "agents_dir_for", lambda _settings: tmp_path)
 
-    session = Session(_StubProject(tmp_path))
+    # 未绑定工作区 → 会话工作区由调用方传入（这里直接用 tmp_path）。
+    session = Session(None, tmp_path)
 
     async def collect() -> list:  # type: ignore[type-arg]
         return [event async for event in session.stream_ask(spec, "hello", "conv:x")]

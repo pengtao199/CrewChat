@@ -196,6 +196,32 @@ def test_conversation_binds_project(client, tmp_path) -> None:  # type: ignore[n
     assert c.get(f"{PREFIX}/conversations/c-proj").json()["project_id"] == project_id
 
 
+# ---- agents are global; session workspace is three-state ---------------------
+
+
+def test_agents_dir_is_global(client) -> None:  # type: ignore[no-untyped-def]
+    from crewchat.core.config import get_settings
+    from crewchat.core.projects import agents_dir_for
+
+    settings = get_settings()
+    assert agents_dir_for(settings) == settings.agents_home
+    assert agents_dir_for(settings, "any-project") == settings.agents_home  # project ignored
+
+
+def test_session_workspace_three_state(client, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from crewchat.core.config import get_settings
+    from crewchat.core.projects import Project
+    from crewchat.orchestration import session as session_mod
+
+    settings = get_settings()
+    bound = Project(id="p", name="p", path=str(tmp_path))
+    assert session_mod._session_workspace(settings, "conv:1", bound) == tmp_path
+
+    scratch = session_mod._session_workspace(settings, "conv:abc/123", None)
+    assert scratch.parent == settings.data_dir / "workspaces"
+    assert "/" not in scratch.name and scratch.name  # key sanitized
+
+
 # ---- conversation messages: cursor page shape --------------------------------
 
 
