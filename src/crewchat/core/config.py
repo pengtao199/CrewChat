@@ -62,12 +62,18 @@ class Settings(BaseSettings):
         return self.data_dir / "crewchat.db"
 
     @property
+    def agents_home(self) -> Path:
+        """全局 agent 目录。agent 是「公司的人」，不归任何工作区。"""
+        return self.data_dir / "agents"
+
+    @property
     def workspace(self) -> Path:
         return self.data_dir / "workspace"
 
     def ensure_dirs(self) -> None:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.workspace.mkdir(parents=True, exist_ok=True)
+        self.agents_home.mkdir(parents=True, exist_ok=True)
         self.gateway_dir.mkdir(parents=True, exist_ok=True)
 
 

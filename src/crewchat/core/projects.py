@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import tempfile
 import uuid
 from pathlib import Path
@@ -74,20 +75,13 @@ def save_projects(settings: Settings, projects: list[Project]) -> None:
         raise
 
 
-def create_project(
-    settings: Settings, name: str, path: str, agents_dir: str = ""
-) -> Project:
-    """新建项目（工作区 = `path` 指向的文件夹）。"""
+def create_project(settings: Settings, name: str, path: str) -> Project:
+    """新建项目（工作区 = `path` 指向的文件夹）。agent 全局，不属于项目。"""
     root = Path(path).expanduser()
     if not root.is_dir():
         raise ValueError(f"工作区不存在或不是文件夹：{root}")
     projects = load_projects(settings)
-    project = Project(
-        id=uuid.uuid4().hex[:8],
-        name=name.strip() or root.name,
-        path=str(root.resolve()),
-        agents_dir=agents_dir or "config/agents",
-    )
+    project = Project(id=uuid.uuid4().hex[:8], name=name.strip() or root.name, path=str(root.resolve()))
     projects.append(project)
     save_projects(settings, projects)
     return project
@@ -105,8 +99,6 @@ def update_project(settings: Settings, project_id: str, **fields: Any) -> Projec
             if not root.is_dir():
                 raise ValueError(f"工作区不存在或不是文件夹：{root}")
             project.path = str(root.resolve())
-        if fields.get("agents_dir") is not None:
-            project.agents_dir = str(fields["agents_dir"]) or "config/agents"
         save_projects(settings, projects)
         return project
     return None
@@ -122,12 +114,28 @@ def delete_project(settings: Settings, project_id: str) -> bool:
 
 
 def agents_dir_for(settings: Settings, project_id: str | None = None) -> Path:
-    """Agent 定义的唯一访问入口。
+    """全局 agent 目录（`<data>/agents`）——agent 是「公司的人」，不归工作区。
 
-    绝不直接用 settings.agents_dir：那是相对路径，只在 cwd 恰为仓库根时有效。
-    项目解析出的路径始终是绝对的。
+    参数 `project_id` 保留只为兼容旧调用，不再影响结果。首次访问时把旧的仓库内
+    `config/agents` 迁移过来（幂等，只做一次），避免既有 agent 消失。
     """
-    return get_project(settings, project_id).agents_path()
+    target = settings.agents_home
+    target.mkdir(parents=True, exist_ok=True)
+    _migrate_legacy_agents(settings, target)
+    return target
+
+
+def _migrate_legacy_agents(settings: Settings, target: Path) -> None:
+    marker = settings.data_dir / ".agents-migrated"
+    if marker.exists():
+        return
+    legacy = Path(settings.agents_dir)
+    if legacy.is_dir():
+        for source in sorted(legacy.glob("*.jsonc")) + sorted(legacy.glob("*.json")):
+            destination = target / source.name
+            if not destination.exists():
+                shutil.copy2(source, destination)
+    marker.write_text("1", encoding="utf-8")
 
 
 def get_project(settings: Settings, project_id: str | None) -> Project:

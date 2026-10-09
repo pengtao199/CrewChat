@@ -24,11 +24,11 @@ router = APIRouter()
 
 
 def _to_api(project: Project) -> dict[str, Any]:
+    # agent 全局，不属于项目 —— 项目只表达「工作区目录」。
     return {
         "id": project.id,
         "name": project.name,
         "path": str(project.root()),
-        "agents_dir": str(project.agents_path()),
         "exists": project.exists(),
     }
 
@@ -45,12 +45,7 @@ async def create(request: Request) -> Any:
     if not path:
         return JSONResponse({"error": "path_required"}, status_code=400)
     try:
-        project = create_project(
-            get_settings(),
-            str(body.get("name") or ""),
-            path,
-            str(body.get("agents_dir") or ""),
-        )
+        project = create_project(get_settings(), str(body.get("name") or ""), path)
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
     return _to_api(project)

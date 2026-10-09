@@ -20,17 +20,18 @@ from pydantic import ValidationError
 from ..core.config import get_settings
 from ..core.models import AgentSpec, load_specs
 from ..orchestration import session_for
-from ..core.projects import agents_dir_for, load_projects
+from ..core.projects import agents_dir_for
 
 router = APIRouter()
 
 _SAFE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
-def _agents_dir(project_id: str | None) -> Path:
+def _agents_dir(project_id: str | None = None) -> Path:
+    """全局 agent 目录；`project_id` 保留兼容但不影响结果（agent 不归工作区）。"""
     settings = get_settings()
     settings.ensure_dirs()
-    return agents_dir_for(settings, project_id)
+    return agents_dir_for(settings)
 
 
 def _spec_payload(spec: AgentSpec) -> dict[str, Any]:
@@ -134,7 +135,7 @@ async def upsert_agent(agent_id: str, request: Request, project_id: str | None =
     except OSError as exc:
         return JSONResponse({"error": f"write_failed: {exc}"}, status_code=500)
 
-    _reload_all(directory)
+    _reload_all()
     for spec in load_specs(directory):
         if spec.id == agent_id:
             return _spec_payload(spec)
@@ -148,7 +149,7 @@ async def delete_agent(agent_id: str, project_id: str | None = None) -> dict[str
     directory = _agents_dir(project_id)
     (directory / f"{agent_id}.jsonc").unlink(missing_ok=True)
     (directory / f"{agent_id}.json").unlink(missing_ok=True)
-    _reload_all(directory)
+    _reload_all()
     return {"success": True}
 
 
@@ -172,9 +173,9 @@ async def preview_prompt(agent_id: str, request: Request) -> dict[str, Any]:
     return {"prompt": candidate.persona(), "body": candidate.body, "brain": candidate.brain}
 
 
-def _reload_all(directory: Path) -> None:
+def _reload_all() -> None:
+    """agent 全局：改一处，所有已缓存 Session 一起刷新。"""
+    from ..orchestration.session import reload_all
+
     get_settings().ensure_dirs()
-    session_for("__agents__").reload()
-    for project in load_projects(get_settings()):
-        if project.agents_path() == directory:
-            session_for(f"__project__:{project.id}").reload()
+    reload_all()
