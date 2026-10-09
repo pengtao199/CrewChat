@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { withApiVersion } from '@/common/adapter/apiPath';
 import { getBaseUrl } from '@/common/adapter/httpBridge';
 import type { ChatFileRef } from '@/common/types/chatFile';
 
@@ -16,5 +17,5 @@ export const buildFileStreamUrl = (ref: ChatFileRef): string => {
   } else {
     params.set('path', ref.path);
   }
-  return `${getBaseUrl()}/api/fs/stream?${params.toString()}`;
+  return `${getBaseUrl()}${withApiVersion('/api/fs/stream')}?${params.toString()}`;
 };

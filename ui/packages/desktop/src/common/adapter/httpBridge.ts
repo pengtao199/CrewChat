@@ -6,6 +6,7 @@
  * so existing renderer code works without changes.
  */
 
+import { withApiVersion } from './apiPath';
 import { refreshSession, WS_CLOSE_POLICY_VIOLATION } from './sessionRefresh';
 
 // ---------------------------------------------------------------------------
@@ -179,9 +180,10 @@ const REFRESH_ENDPOINT = '/api/auth/refresh';
 /**
  * Paths where a 401 is a genuine credential decision rather than an expired
  * session — refreshing and replaying them would be recursive or nonsensical.
+ * Callers pass unversioned paths, but tolerate the versioned forms too.
  */
 function isAuthEndpoint(path: string): boolean {
-  return path.startsWith(REFRESH_ENDPOINT) || path === '/login' || path === '/logout';
+  return path.startsWith(REFRESH_ENDPOINT) || /(^|\/)(login|logout)$/.test(path);
 }
 
 /**
@@ -209,7 +211,7 @@ function sendHttpRequest(
   headers: Record<string, string>,
   body?: unknown
 ): Promise<Response> {
-  const url = `${getBaseUrl()}${path}`;
+  const url = `${getBaseUrl()}${withApiVersion(path)}`;
   return fetch(url, {
     method,
     headers,

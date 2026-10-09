@@ -7,8 +7,10 @@
  * bridge, since these endpoints exist only in this fork.
  */
 
+import { withApiVersion } from '@/common/adapter/apiPath';
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+  const response = await fetch(withApiVersion(path), {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     ...init,

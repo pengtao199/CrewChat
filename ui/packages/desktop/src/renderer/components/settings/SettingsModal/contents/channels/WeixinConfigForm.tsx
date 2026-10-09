@@ -9,6 +9,7 @@ import type { IChannelPairingRequest, IChannelPluginStatus, IChannelUser } from 
 import { assistants, channel } from '@/common/adapter/ipcBridge';
 import { isAionrsAssistant, type Assistant } from '@/common/types/agent/assistantTypes';
 import { resolveLocaleKey } from '@/common/utils';
+import { withApiVersion } from '@/common/adapter/apiPath';
 import { getBaseUrl } from '@/common/adapter/httpBridge';
 import { resolveAssistantName } from '@/renderer/utils/model/assistantDisplay';
 import { formatDateTime } from '@/renderer/services/i18n/format';
@@ -253,7 +254,7 @@ const WeixinConfigForm: React.FC<WeixinConfigFormProps> = ({ pluginStatus, model
     setLoginState('loading_qr');
     setQrcodeDataUrl(null);
 
-    const es = new EventSource(`${getBaseUrl()}/api/channel/weixin/login`);
+    const es = new EventSource(`${getBaseUrl()}${withApiVersion('/api/channel/weixin/login')}`);
     eventSourceRef.current = es;
 
     es.addEventListener('qr', (e: MessageEvent) => {

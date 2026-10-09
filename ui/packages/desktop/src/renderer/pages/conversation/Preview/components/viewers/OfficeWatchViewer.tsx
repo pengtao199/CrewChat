@@ -6,6 +6,7 @@
 
 import { ipcBridge } from '@/common';
 import type { ChatFileRef } from '@/common/types/chatFile';
+import { withApiVersion } from '@/common/adapter/apiPath';
 import { getBaseUrl, isBackendHttpError } from '@/common/adapter/httpBridge';
 import WebviewHost from '@/renderer/components/media/WebviewHost';
 import { openExternalUrl } from '@/renderer/utils/platform';
@@ -30,9 +31,9 @@ const BRIDGE = {
 
 // Web-server proxy base paths (Electron uses the direct localhost URL instead)
 const PROXY_PATH: Record<DocType, string> = {
-  ppt: '/api/ppt-proxy',
-  word: '/api/office-watch-proxy',
-  excel: '/api/office-watch-proxy',
+  ppt: withApiVersion('/api/ppt-proxy'),
+  word: withApiVersion('/api/office-watch-proxy'),
+  excel: withApiVersion('/api/office-watch-proxy'),
 };
 
 const IFRAME_TITLE: Record<DocType, string> = {

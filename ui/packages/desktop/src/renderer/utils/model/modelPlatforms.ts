@@ -12,10 +12,12 @@
  * Centralized management of all model platform configurations for extensibility and maintainability
  */
 
+import { withApiVersion } from '@/common/adapter/apiPath';
 import { resolveBackendAssetUrl } from '@/renderer/utils/platform';
 
 const buildLogoAssetUrl = (path: string): string => {
-  return resolveBackendAssetUrl(`/api/assets/logos/${path}`) ?? `/api/assets/logos/${path}`;
+  const versioned = withApiVersion(`/api/assets/logos/${path}`);
+  return resolveBackendAssetUrl(versioned) ?? versioned;
 };
 
 /**

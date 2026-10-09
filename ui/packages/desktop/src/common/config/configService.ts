@@ -1,3 +1,4 @@
+import { withApiVersion } from '../adapter/apiPath';
 import type { ConfigKey, ConfigKeyMap } from './configKeys';
 
 type Subscriber = (value: unknown) => void;
@@ -19,7 +20,7 @@ function getBaseUrl(): string {
 }
 
 async function fetchJson<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const url = `${getBaseUrl()}${path}`;
+  const url = `${getBaseUrl()}${withApiVersion(path)}`;
   const headers: Record<string, string> = {};
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json';

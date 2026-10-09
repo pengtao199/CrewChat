@@ -32,12 +32,13 @@
  * `browser.ts` can share it without bootstrapping each other's WebSocket.
  */
 
+import { API_VERSION_ROOT } from './apiPath';
 import { resolveCoreCsrfToken } from './httpBridge';
 
 /** WebSocket close code the backend uses for auth policy violations (RFC 6455 §7.4.1). */
 export const WS_CLOSE_POLICY_VIOLATION = 1008;
 
-const REFRESH_ENDPOINT = '/api/auth/refresh';
+const REFRESH_ENDPOINT = `${API_VERSION_ROOT}/auth/refresh`;
 
 /**
  * WebUI browser mode = a real DOM with no Electron preload port. Only here do
@@ -92,7 +93,7 @@ async function performRefresh(): Promise<boolean> {
     const response = await fetch(REFRESH_ENDPOINT, {
       method: 'POST',
       // Same-origin request: the browser attaches the HttpOnly refresh cookie
-      // (scoped to Path=/api/auth/refresh). No body is needed — the backend reads
+      // (scoped to Path=/api/v1/auth/refresh). No body is needed — the backend reads
       // the cookie and only falls back to a body token for legacy native clients.
       credentials: 'include',
       headers,

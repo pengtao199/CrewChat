@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { PREVIEW_SCOPE_KEY_PREFIX } from '@/renderer/pages/conversation/Preview/context/previewScope';
+import { API_VERSION_ROOT } from '@/common/adapter/apiPath';
 import { refreshSession } from '@/common/adapter/sessionRefresh';
 // M6: CSRF removed with legacy webserver — stub functions for compatibility, re-implement in M7
 const withCsrfToken = <T extends Record<string, unknown>>(data: T): T => data;
@@ -47,7 +48,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const AUTH_USER_ENDPOINT = '/api/auth/user';
+const AUTH_USER_ENDPOINT = `${API_VERSION_ROOT}/auth/user`;
 
 const isDesktopRuntime = typeof window !== 'undefined' && Boolean(window.electronAPI);
 
@@ -182,8 +183,8 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
       }
 
       // P1 安全修复：登录请求需要 CSRF Token / P1 Security fix: Login needs CSRF token
-      // Backend route is /login; web-host's static-server explicitly proxies it.
-      const response = await fetch('/login', {
+      // Backend route is /api/v1/login (version root is enforced at the ASGI boundary).
+      const response = await fetch(`${API_VERSION_ROOT}/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -277,7 +278,7 @@ export const AuthProvider: React.FC<React.PropsWithChildren> = ({ children }) =>
     }
 
     try {
-      await fetch('/logout', {
+      await fetch(`${API_VERSION_ROOT}/logout`, {
         method: 'POST',
         // Logout also needs CSRF token / 登出同样需要 CSRF Token
         headers: {

@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { withApiVersion } from '@/common/adapter/apiPath';
 import { getBaseUrl } from '@/common/adapter/httpBridge';
 import type { SpeechToTextResult } from '@/common/types/provider/speech';
 
@@ -93,7 +94,7 @@ export async function transcribeAudioBlob(blob: Blob, languageHint?: string): Pr
 
   return new Promise<SpeechToTextResult>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${getBaseUrl()}/api/stt`);
+    xhr.open('POST', `${getBaseUrl()}${withApiVersion('/api/stt')}`);
     // No withCredentials: the desktop backend allows origin `*`, which the
     // browser rejects for credentialed requests; WebUI is same-origin anyway.
 
