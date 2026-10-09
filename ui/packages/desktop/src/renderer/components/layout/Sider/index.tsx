@@ -6,7 +6,7 @@ import { cleanupSiderTooltips, getSiderTooltipProps } from '@renderer/utils/ui/s
 import { useLayoutContext } from '@renderer/hooks/context/LayoutContext';
 import { blurActiveElement } from '@renderer/utils/ui/focus';
 import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
-import { SiderSearchEntry, SiderScheduledEntry, SiderAssistantEntry } from './SiderNav';
+import { SiderSearchEntry, SiderScheduledEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
 import siderStyles from './Sider.module.css';
 
@@ -92,19 +92,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
     }
   };
 
-  const handleAssistantClick = () => {
-    cleanupSiderTooltips();
-    blurActiveElement();
-    closePreview();
-    setIsBatchMode(false);
-    Promise.resolve(navigate('/assistants')).catch((error) => {
-      console.error('Navigation failed:', error);
-    });
-    if (onSessionClick) {
-      onSessionClick();
-    }
-  };
-
   const handleQuickThemeToggle = () => {
     void setTheme(theme === 'dark' ? 'light' : 'dark');
   };
@@ -159,15 +146,6 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
               )}
             />
             <div className='shrink-0 flex items-center gap-2px'>
-              <div className='flex-1 min-w-0'>
-                <SiderAssistantEntry
-                  isMobile={isMobile}
-                  isActive={pathname.startsWith('/assistants')}
-                  collapsed={collapsed}
-                  siderTooltipProps={siderTooltipProps}
-                  onClick={handleAssistantClick}
-                />
-              </div>
               <div className='flex-1 min-w-0'>
                 <SiderScheduledEntry
                   isMobile={isMobile}

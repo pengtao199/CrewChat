@@ -11,7 +11,6 @@ const AgentSettings = React.lazy(() => import('@renderer/pages/settings/AgentSet
 // [crewchat] 独立于上游的 Agent 编排页
 const AgentComposer = React.lazy(() => import('@renderer/pages/settings/AgentComposer'));
 const AgentRepairPage = React.lazy(() => import('@renderer/pages/settings/AgentSettings/AgentRepairPage'));
-const AssistantSettings = React.lazy(() => import('@renderer/pages/settings/AssistantSettings'));
 const SkillsSettings = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillsHubSettings'));
 const SkillDetailPage = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillDetailPage'));
 const ToolsSettings = React.lazy(() => import('@renderer/pages/settings/ToolsSettings'));
@@ -68,10 +67,9 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
             element={TEAM_MODE_ENABLED ? withRouteFallback(TeamIndex) : <Navigate to='/guid' replace />}
           />
           <Route path='/settings/model' element={withRouteFallback(ModeSettings)} />
-          <Route path='/assistants' element={withRouteFallback(AssistantSettings)} />
-          {/* Assistants moved out of Settings to a top-level entry; keep a redirect
-              so old deep links / back-nav still land on the new page. */}
-          <Route path='/settings/assistants' element={<Navigate to='/assistants' replace />} />
+          {/* Agents live only under Settings now; old assistant entries redirect there. */}
+          <Route path='/assistants' element={<Navigate to='/settings/agents' replace />} />
+          <Route path='/settings/assistants' element={<Navigate to='/settings/agents' replace />} />
           {/* [crewchat] Agent 编排页优先于上游的 CLI 清单页 */}
           <Route path='/settings/agents' element={withRouteFallback(AgentComposer)} />
           <Route path='/settings/agent' element={withRouteFallback(AgentSettings)} />
