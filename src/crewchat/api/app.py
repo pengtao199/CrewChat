@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from ..core.version import backend_version, version_info
 from . import (
     agents_api,
     crewchat_agents,
@@ -94,9 +95,13 @@ def create_app() -> FastAPI:
         return {
             "platform": platform.system().lower(),
             "arch": platform.machine(),
-            "version": "0.1.0",
+            "version": backend_version(),
             "backend": "crewchat",
         }
+
+    @app.get("/api/crewchat/version")
+    async def crewchat_version() -> dict[str, Any]:
+        return {"success": True, **version_info()}
 
     @app.get("/api/system/current-user")
     async def current_user(request: Request) -> dict[str, Any]:

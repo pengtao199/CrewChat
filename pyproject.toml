@@ -1,6 +1,7 @@
 [project]
 name = "crewchat"
-version = "0.1.0"
+# PEP 440 形式的后端版本，与 src/crewchat/core/version.py 的 v1 递增体系一致。
+version = "1.0.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
