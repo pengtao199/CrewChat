@@ -24,7 +24,6 @@ const WebuiSettings = React.lazy(() => import('@renderer/pages/settings/WebuiSet
 const PetSettings = React.lazy(() => import('@renderer/pages/settings/PetSettings'));
 const ArchivedSettings = React.lazy(() => import('@renderer/pages/settings/ArchivedSettings'));
 const ExtensionSettingsPage = React.lazy(() => import('@renderer/pages/settings/ExtensionSettingsPage'));
-const LoginPage = React.lazy(() => import('@renderer/pages/login'));
 const ComponentsShowcase = React.lazy(() => import('@renderer/pages/TestShowcase'));
 const ScheduledTasksPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage'));
 const TaskDetailPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage/TaskDetailPage'));
@@ -47,34 +46,19 @@ const CapabilitiesRedirect: React.FC = () => {
 };
 
 const ProtectedLayout: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
-  const { status, user } = useAuth();
-  // Mounted once for every authenticated route: the loop warning has to reach
-  // the user even when they are looking at a THIRD conversation, which is the
-  // whole reason it is a broadcast rather than an in-conversation banner.
+  const { user } = useAuth();
+  // Mounted once for every route: the loop warning has to reach the user even
+  // when they are looking at a THIRD conversation, which is the whole reason it
+  // is a broadcast rather than an in-conversation banner.
   useCrossSessionRateLimitNotice(user?.id);
-
-  if (status === 'checking') {
-    return <AppLoader />;
-  }
-
-  if (status !== 'authenticated') {
-    return <Navigate to='/login' replace />;
-  }
-
   return React.cloneElement(layout);
 };
 
 const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
-  const { status } = useAuth();
-
   return (
     <HashRouter>
       <DocumentTitle />
       <Routes>
-        <Route
-          path='/login'
-          element={status === 'authenticated' ? <Navigate to='/guid' replace /> : withRouteFallback(LoginPage)}
-        />
         <Route element={<ProtectedLayout layout={layout} />}>
           <Route index element={<Navigate to='/guid' replace />} />
           <Route path='/guid' element={withRouteFallback(Guid)} />
@@ -118,7 +102,7 @@ const PanelRoute: React.FC<{ layout: React.ReactElement }> = ({ layout }) => {
           <Route path='/scheduled' element={withRouteFallback(ScheduledTasksPage)} />
           <Route path='/scheduled/:job_id' element={withRouteFallback(TaskDetailPage)} />
         </Route>
-        <Route path='*' element={<Navigate to={status === 'authenticated' ? '/guid' : '/login'} replace />} />
+        <Route path='*' element={<Navigate to='/guid' replace />} />
       </Routes>
     </HashRouter>
   );

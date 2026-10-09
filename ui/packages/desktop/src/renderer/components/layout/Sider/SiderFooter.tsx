@@ -7,9 +7,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@arco-design/web-react';
-import { ArrowCircleLeft, CloseOne, Moon, SettingTwo, SunOne } from '@icon-park/react';
+import { ArrowCircleLeft, Moon, SettingTwo, SunOne } from '@icon-park/react';
 import classNames from 'classnames';
-import { iconColors } from '@renderer/styles/colors';
 import type { SiderTooltipProps } from '@renderer/utils/ui/siderTooltip';
 
 interface SiderFooterProps {
@@ -20,8 +19,6 @@ interface SiderFooterProps {
   siderTooltipProps: SiderTooltipProps;
   onSettingsClick: () => void;
   onThemeToggle: () => void;
-  showLogout?: boolean;
-  onLogoutClick?: () => void;
 }
 
 const SiderFooter: React.FC<SiderFooterProps> = ({
@@ -32,8 +29,6 @@ const SiderFooter: React.FC<SiderFooterProps> = ({
   siderTooltipProps,
   onSettingsClick,
   onThemeToggle,
-  showLogout = false,
-  onLogoutClick,
 }) => {
   const { t } = useTranslation();
 
@@ -54,7 +49,8 @@ const SiderFooter: React.FC<SiderFooterProps> = ({
       style={{ lineHeight: 0 }}
     />
   );
-  const showThemeToggle = isSettings && !collapsed;
+  // Theme toggle is always available (not only inside Settings).
+  const showThemeToggle = !collapsed;
   const themeTooltip = theme === 'dark' ? t('settings.lightMode') : t('settings.darkMode');
 
   return (
@@ -79,32 +75,7 @@ const SiderFooter: React.FC<SiderFooterProps> = ({
             </span>
           </div>
         </Tooltip>
-        {showLogout && onLogoutClick && (
-          <Tooltip {...siderTooltipProps} content={t('settings.googleLogout')} position='right'>
-            <div
-              onClick={onLogoutClick}
-              className={classNames(
-                'h-32px flex items-center rd-0.5rem cursor-pointer transition-colors hover:bg-[rgba(var(--primary-6),0.14)] active:bg-fill-2',
-                collapsed ? 'w-full justify-center' : 'flex-1 min-w-0 justify-start gap-10px px-14px',
-                isMobile && 'sider-footer-btn-mobile'
-              )}
-            >
-              <span className='size-20px flex items-center justify-center shrink-0'>
-                <CloseOne
-                  theme='outline'
-                  size='16'
-                  fill={iconColors.primary}
-                  className='block leading-none'
-                  style={{ lineHeight: 0 }}
-                />
-              </span>
-              <span className='collapsed-hidden text-t-primary text-14px font-[500] leading-24px truncate'>
-                {t('settings.googleLogout')}
-              </span>
-            </div>
-          </Tooltip>
-        )}
-        {/* Theme toggle — lightweight icon button, only while inside Settings page (not in collapsed mode) */}
+        {/* Theme toggle — always available (not in collapsed mode) */}
         {showThemeToggle && (
           <Tooltip {...siderTooltipProps} content={themeTooltip} position='right'>
             <div
