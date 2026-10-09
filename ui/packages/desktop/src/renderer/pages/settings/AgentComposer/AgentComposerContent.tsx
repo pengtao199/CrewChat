@@ -209,11 +209,16 @@ const AgentComposerContent: React.FC = () => {
       content: t('settings.agentComposer.deleteBody', { id: selected }),
       okButtonProps: { status: 'danger' },
       onOk: async () => {
-        await removeAgent(selected);
+        try {
+          await removeAgent(selected);
+        } catch (error) {
+          Message.error((error as Error).message);
+          return;
+        }
         const rest = agents.filter((a) => a.id !== selected);
         setAgents(rest);
         setSelected(rest[0]?.id ?? '');
-        setDraft(rest[0] ?? EMPTY);
+        setDraft(rest[0] ? normalize(rest[0], options) : EMPTY);
         setDirty(false);
       },
     });
