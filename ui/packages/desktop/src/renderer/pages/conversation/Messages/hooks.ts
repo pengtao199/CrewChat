@@ -68,6 +68,12 @@ function getMessageIndexKey(message: TMessage): string | undefined {
   // update resolves to whatever frame was appended last and rewrites it.
   if (message.type === 'thinking') return `thinking:${message.msg_id}`;
   if (message.type === 'plan') return `plan:${message.msg_id}`;
+  // tool_call frames share the turn's msg_id but must not own the plain key.
+  // If they did, a text replace frame landing after a tool card would resolve the
+  // key to the tool row instead of the text bubble and append a full-text copy.
+  if (message.type === 'tool_call' && message.content?.call_id) {
+    return `tool_call:${message.msg_id}:${message.content.call_id}`;
+  }
   return message.msg_id;
 }
 
