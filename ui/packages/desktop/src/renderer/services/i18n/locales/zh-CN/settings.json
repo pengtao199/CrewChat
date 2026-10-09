@@ -1474,6 +1474,7 @@
     "noKey": "缺 key"
   },
   "agentsNavLabel": "Agents",
+  "enginesNavLabel": "引擎",
   "agentTabEnabled": "已启用",
   "agentTabBuiltin": "内置",
   "agentEditEntry": "编辑",

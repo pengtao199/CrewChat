@@ -1473,6 +1473,7 @@
     "noKey": "No key"
   },
   "agentsNavLabel": "Agents",
+  "enginesNavLabel": "Engines",
   "agentTabEnabled": "Enabled",
   "agentTabBuiltin": "Built-in",
   "agentEditEntry": "Edit",

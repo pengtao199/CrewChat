@@ -2091,6 +2091,7 @@ export type I18nKey =
   | 'settings.engines.title'
   | 'settings.engines.update'
   | 'settings.engines.updateDone'
+  | 'settings.enginesNavLabel'
   | 'settings.env'
   | 'settings.envKeyPlaceholder'
   | 'settings.envLabel'
