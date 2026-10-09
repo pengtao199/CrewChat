@@ -118,17 +118,19 @@ def _merge_provider_fields(target: Provider, body: dict[str, Any]) -> None:
 
 
 def _model_from_body(body: dict[str, Any]) -> Model:
-    """从请求体构造 Model，并校验标签合法性。"""
+    """从请求体构造 Model。
+
+    标签**不接受客户端传入** —— 标签一律由 `infer_tags` 推导（cc-switch 能力判定 +
+    价格目录 + 命名约定）。用户只能覆盖显示名与上下文长度。
+    """
     context_limit = body.get("context_limit")
     return Model(
         id=str(body.get("id") or "").strip(),
         display_name=str(body.get("display_name") or "").strip(),
-        tags=[t for t in (body.get("tags") or []) if t in MODEL_TAGS],
+        tags=[],
         context_limit=int(context_limit) if isinstance(context_limit, (int, float)) else None,
         enabled=bool(body.get("enabled", True)),
         protocol=str(body["protocol"]) if body.get("protocol") else None,
-        capabilities=dict(body.get("capabilities") or {}),
-        price=dict(body.get("price") or {}),
     )
 
 
@@ -141,10 +143,17 @@ async def list_providers() -> list[dict[str, Any]]:
 
 
 @router.post("/api/providers")
-async def create_provider(request: Request) -> dict[str, Any]:
+async def create_provider(request: Request) -> Any:
+    """新增供应商，并**自动拉取该端点的全部模型**。
+
+    模型没有可靠的人工枚举方式，所以新增即全量抓取：用户填好端点与密钥后不必再
+    去翻服务商文档挑模型 id。抓取失败（网络 / 端点 / 密钥问题）直接报错，不静默
+    建一个空供应商 —— 否则用户会以为配好了，实际一个模型都用不了。
+    """
     body = await request.json()
     settings = get_settings()
     providers = load_providers(settings)
+
     provider = Provider(
         id=str(body.get("id") or uuid.uuid4().hex[:8]),
         name=str(body.get("name") or "新端点"),
@@ -158,11 +167,41 @@ async def create_provider(request: Request) -> dict[str, Any]:
         is_full_url=bool(body.get("is_full_url", False)),
         models_url_override=str(body.get("models_url_override") or ""),
     )
+
+    # 全量抓取。已有模型（迁移/导入场景）不覆盖。
+    if not provider.models and provider.base_url:
+        try:
+            discovered = fetch_provider_models(settings, provider)
+        except Exception as exc:  # noqa: BLE001
+            return JSONResponse(
+                {
+                    "error": "fetch_models_failed",
+                    "message": f"{type(exc).__name__}: {exc}",
+                },
+                status_code=502,
+            )
+        if not discovered:
+            return JSONResponse(
+                {"error": "fetch_models_empty", "message": "端点未返回任何模型"},
+                status_code=502,
+            )
+        ids = [str(item["id"]) for item in discovered]
+        enriched = enrich_models(settings, ids)
+        provider.models = [
+            Model(
+                id=model_id,
+                display_name=str(enriched.get(model_id, {}).get("suggested_display_name") or ""),
+                tags=[],
+                enabled=True,
+            )
+            for model_id in ids
+        ]
+
     if not provider.model and provider.models:
         provider.model = provider.models[0].id
     providers.append(provider)
     save_providers(settings, providers)
-    return to_api(provider)
+    return {**to_api(provider), "fetched": len(provider.models)}
 
 
 @router.put("/api/providers/{provider_id}")
@@ -204,7 +243,10 @@ async def reveal_provider_key(provider_id: str) -> Any:
 
 @router.post("/api/providers/{provider_id}/models")
 async def add_model(provider_id: str, request: Request) -> Any:
-    """手动添加 / 编辑一个模型。`id` 已存在则覆盖。"""
+    """新增 / 编辑单个模型。`id` 已存在则覆盖。
+
+    标签始终自动推导，不接受客户端传入；用户能覆盖的是显示名与上下文长度。
+    """
     body = await request.json()
     settings = get_settings()
     providers = load_providers(settings)
@@ -216,25 +258,52 @@ async def add_model(provider_id: str, request: Request) -> Any:
     if not model.id:
         return JSONResponse({"error": "model_id_required"}, status_code=400)
 
-    # 用 cc-switch 的能力判定与价格目录补全（不覆盖用户已填的标签）。
+    # 保留已有模型上已确认的元数据；新模型从 cc-switch 补全。
+    existing = target.get_model(model.id)
     enriched = enrich_models(settings, [model.id]).get(model.id, {})
-    if "capabilities" in enriched and not model.capabilities:
-        model.capabilities = enriched["capabilities"]
-    if "price" in enriched and not model.price:
-        model.price = enriched["price"]
-    if not model.display_name and enriched.get("suggested_display_name"):
-        model.display_name = str(enriched["suggested_display_name"])
-
-    # 标签以推导为主；用户显式勾选的合并进来。
-    auto = infer_tags(model, enriched)
-    merged = [t for t in MODEL_TAGS if t in set(auto) | set(model.tags)]
-    model.tags = merged
+    if existing:
+        if not model.display_name:
+            model.display_name = existing.display_name
+        if model.context_limit is None:
+            model.context_limit = existing.context_limit
+        model.capabilities = existing.capabilities or enriched.get("capabilities", {})
+        model.price = existing.price or enriched.get("price", {})
+    else:
+        if "capabilities" in enriched:
+            model.capabilities = enriched["capabilities"]
+        if "price" in enriched:
+            model.price = enriched["price"]
+        if not model.display_name and enriched.get("suggested_display_name"):
+            model.display_name = str(enriched["suggested_display_name"])
 
     upsert_model(target, model)
     if not target.model:
         target.model = model.id
     save_providers(settings, providers)
     return {"success": True, "model": model_to_api(model, enriched), "provider": to_api(target)}
+
+
+@router.patch("/api/providers/{provider_id}/models")
+async def bulk_toggle_models(provider_id: str, request: Request) -> Any:
+    """批量启停模型。`ids` 为空则作用于该供应商的全部模型。
+
+    自动抓取会带来上百个模型，逐个点开关不现实，所以必须能一次批量控制。
+    """
+    body = await request.json()
+    settings = get_settings()
+    providers = load_providers(settings)
+    target = next((p for p in providers if p.id == provider_id), None)
+    if target is None:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    enabled = bool(body.get("enabled", True))
+    ids = {str(i) for i in (body.get("ids") or [])}
+    for model in target.models:
+        if not ids or model.id in ids:
+            model.enabled = enabled
+
+    save_providers(settings, providers)
+    return {"success": True, "changed": len(target.models) if not ids else len(ids), "provider": to_api(target)}
 
 
 @router.delete("/api/providers/{provider_id}/models/{model_id}")
