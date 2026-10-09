@@ -1,7 +1,7 @@
 # 用 cc-switch 核心替换 LiteLLM 执行计划
 
 Updated: 2026-10-09 (Asia/Shanghai)
-Status: Draft
+Status: In Progress（Slice 1–3/5 已落地，Slice 4/6 未完成；模型页为计划外新增，见文末「进度」）
 
 ## Goal
 
@@ -48,8 +48,10 @@ provider / MCP / Skill / Prompt / 用量数据接入我们的 app。我们的三
 把代理编译成 headless 可执行文件，我们的 Python 后端启动并监督它；CLI 引擎与 `llm` 身体指向它；
 六类管理数据**直接读它的 SQLite**（只读，第三方 schema，加校验与降级）。
 
-仓库策略：cc-switch **不 vendor 进我们的仓库**（25 万行）。采用与 `ui/` 相同的 fork 模式 ——
-产物在 `~/Developer/cc-switch-core`（带我们的 patch 与版本记录），本仓库只放构建脚本与文档。
+仓库策略（已修订）：cc-switch 的 Rust 核心**已固化为本仓库 `gateway/cc-switch/src-tauri/`**
+（只搬核心、不搬其前端），从仓库内构建，不依赖外部克隆；改动全部带 `[crewchat]` 标记，
+升级方式见 `gateway/cc-switch/NOTICE.md`。这与最初「不 vendor」的判断相反 —— 结论是
+**自包含、可复现构建优先于仓库体积**（`target/` 已 gitignore，不入库）。
 
 ## Work Slices
 
@@ -142,3 +144,19 @@ provider / MCP / Skill / Prompt / 用量数据接入我们的 app。我们的三
 - 用量页显示真实历史数据（与 cc-switch GUI 抽查一致）。
 - LiteLLM 不再参与运行路径，相关规则文件已更新。
 - `uv run python scripts/check_layers.py` 与 `check_imports.py` 通过；新增模块已登记分层。
+
+## 进度（对照实现，Updated: 2026-10-09）
+
+| Slice | 状态 | 证据 / 说明 |
+| --- | --- | --- |
+| 1 headless 二进制 | 完成 | `gateway/cc-switch/`（vendor）+ `[[bin]] ccsw-proxy`，见 `NOTICE.md` |
+| 2 Python 监督 | 完成 | `core/gateway_ccswitch.py`（`ensure_running` / `alive` / `proxy_up`）+ `api/crewchat_gateway.py`（start/stop） |
+| 3 引擎指向代理 | 进行中 | 网关适配器与控制面已就绪；`gateway/litellm.yaml` **仍在仓库**，尚未删除 |
+| 4 读 DB 接六类数据 | 部分 | usage：**口径已改为自研记账**（身体上报 → `.data/crewchat.db` `usage_events`，不读 cc-switch，只算本 app 发起的 CLI 身体）；provider 投影已接；MCP/Skill 仍读 `~/.agents` 约定、未接 cc-switch DB；Prompt 未接 |
+| 5 provider 切换 | 完成 | `/api/crewchat/gateway/mode` → `Gateway.activate/deactivate`（走 cc-switch `mode::controller`） |
+| 6 CLI 薄扫描 | 进行中 | `core/engines_ccswitch.py` + `api/crewchat_engines.py`；完成度待核 |
+| 7 规则更新 | 完成 | `AGENTS/gateway.md`、`truth-sources.md`、`dependencies.md` 已改 |
+
+计划外新增：**模型页**（provider/模型自动抓取、标签推导、批量启停），见提交 `e1293d2` 等。
+
+下一步优先级：① MCP/Skill/Prompt 接入 cc-switch DB 或明确不做；② 删除 `gateway/litellm.yaml` 收尾 Slice 3。（用量页已落地，口径为自研记账，见上表 Slice 4 行）
