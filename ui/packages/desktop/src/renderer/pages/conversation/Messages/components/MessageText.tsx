@@ -27,7 +27,10 @@ import { buildTurnClipboardText } from '@renderer/utils/chat/turnCopy';
 import { stripSkillSuggest, hasSkillSuggest } from '@renderer/utils/chat/skillSuggestParser';
 import { isForkEnabled } from '@/common/chat/forkConversation';
 import { useForkConversation } from '@/renderer/hooks/chat/useForkConversation';
+import { useRetryMessage } from '@/renderer/hooks/chat/useRetryMessage';
 import ForkBranchIcon from '@renderer/components/base/ForkBranchIcon';
+import MessageUsageFooter from './MessageUsageFooter';
+import { Refresh } from '@icon-park/react';
 
 /**
  * Format a timestamp for message display.
@@ -227,6 +230,41 @@ const MessageText: React.FC<{
     </Tooltip>
   ) : null;
 
+  // Per-agent retry: re-ask just the agent that wrote this bubble, instead of
+  // replaying the whole turn and re-running every speaker. Backend-only rows
+  // (history) carry the agent id in metadata; live rows fall back to senderName.
+  const usage = message.content.usage;
+  const retryAgentId = message.metadata?.agent_id;
+  const canRetry = !isUserMessage && !!conversationContext?.conversation_id && !isPendingDelivery;
+  const { retry: retryMessage, retrying: retrying } = useRetryMessage({
+    conversationId: conversationContext?.conversation_id ?? '',
+    agentId: retryAgentId,
+    agentName: senderName,
+  });
+  const retryButton = canRetry ? (
+    <Tooltip
+      content={
+        senderName
+          ? t('messages.retry.agent', { defaultValue: 'Ask {{name}} again', name: senderName })
+          : t('messages.retry.action', { defaultValue: 'Retry' })
+      }
+    >
+      <div
+        className='p-4px rd-4px cursor-pointer hover:bg-3 transition-colors opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto'
+        onClick={() => void retryMessage()}
+        style={{ lineHeight: 0 }}
+        data-testid='message-retry-button'
+      >
+        <Refresh
+          theme='outline'
+          size='16'
+          fill={iconColors.secondary}
+          className={retrying ? 'animate-spin' : undefined}
+        />
+      </div>
+    </Tooltip>
+  ) : null;
+
   const cronMeta = message.content.cronMeta;
   const displaySenderName = senderName === 'team_system' ? t('team.systemNotice.sender') : senderName;
   const fallbackBackendLogo = senderAgentType ? resolveAgentLogo(logos, { backend: senderAgentType }) : null;
@@ -350,19 +388,29 @@ const MessageText: React.FC<{
             {t('messages.delivery.pending', { defaultValue: 'Unread' })}
           </div>
         )}
+        {/* Model / tokens / cost / duration for this reply. Always visible (not
+            hover-gated): it is provenance, not an action. */}
+        {!isUserMessage && usage && <MessageUsageFooter usage={usage} />}
         {/* Hover-revealed copy + timestamp row. Mobile has no hover affordance,
             so we drop the row entirely — system-level long-press still copies.
             For AI replies split across several text messages, only the last text
             of the turn shows this row (showCopyRow); user messages always do. */}
-        {!isMobile && showCopyRow && (
+        {!isMobile && (showCopyRow || retryButton) && (
           <div
             className={classNames('h-32px flex items-center mt-4px gap-8px', {
               'flex-row-reverse': isUserMessage,
             })}
           >
-            {copyButton}
-            {forkButton}
-            {message.created_at && (
+            {showCopyRow && (
+              <>
+                {copyButton}
+                {forkButton}
+              </>
+            )}
+            {/* Retry is per agent, so it stays on every bubble — unlike copy/fork,
+                which act on the whole turn and belong on its last message only. */}
+            {retryButton}
+            {showCopyRow && message.created_at && (
               <span className='text-12px text-t-secondary opacity-0 group-hover:opacity-100 transition-opacity select-none'>
                 {formatMessageTime(message.created_at)}
               </span>

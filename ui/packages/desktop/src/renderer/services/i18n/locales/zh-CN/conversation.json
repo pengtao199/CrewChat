@@ -784,5 +784,8 @@
     "progress": "{{completed}}/{{total}}",
     "expand": "展开计划",
     "collapse": "收起计划"
+  },
+  "turn": {
+    "queued": "还有 {{count}} 位"
   }
 }

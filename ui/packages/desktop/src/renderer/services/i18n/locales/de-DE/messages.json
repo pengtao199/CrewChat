@@ -97,5 +97,10 @@
   "requestDetails": "Anfragedetails:",
   "delivery": {
     "pending": "Ungelesen"
+  },
+  "retry": {
+    "action": "Erneut versuchen",
+    "agent": "{{name}} erneut fragen",
+    "failed": "Wiederholen fehlgeschlagen: {{error}}"
   }
 }

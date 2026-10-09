@@ -336,3 +336,125 @@ def test_sidebar_archive_flow(client) -> None:  # type: ignore[no-untyped-def]
     assert c.delete(f"{PREFIX}/sidebar/archived").json() == {"teams_deleted": 0, "conversations_deleted": 1}
 
     assert c.post(f"{PREFIX}/sidebar/team/t1/archive").status_code == 404
+
+
+def _fake_session(specs, events_by_agent):
+    """A session whose `stream_ask` replays canned events per agent."""
+    by_id = {s.id: s for s in specs}
+
+    class _Session:
+        specs = by_id
+
+        async def stream_ask(self, spec, prompt, memory_key):
+            for event in events_by_agent[spec.id]:
+                yield event
+
+    return _Session()
+
+
+def _event(kind, **kwargs):
+    from crewchat.executors.base import ExecEvent
+
+    return ExecEvent(kind=kind, **kwargs)
+
+
+def test_group_turn_gives_each_agent_its_own_message(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """A group turn must not collapse every agent into one blob.
+
+    Each agent replies under its own msg_id (so the renderer draws one bubble per
+    speaker) and carries its own usage (so the footer is per reply, not per turn).
+    """
+    import asyncio
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-g", "name": "group"})
+
+    specs = [AgentSpec(id="a", body="claude", brain="p/m"), AgentSpec(id="b", body="codex", brain="p/m")]
+    events = {
+        "a": [
+            _event("delta", text="from a"),
+            _event("done", meta={"model": "m1", "usage": {"input_tokens": 3, "output_tokens": 4}}),
+        ],
+        "b": [
+            _event("delta", text="from b"),
+            _event("done", meta={"model": "m2", "usage": {"input_tokens": 5, "output_tokens": 6}}),
+        ],
+    }
+    monkeypatch.setattr(
+        chat_mod, "_for_conversation", lambda _cid: (_fake_session(specs, events), specs)
+    )
+
+    sent: list[dict] = []
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            sent.append({"name": name, "data": data})
+
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    chat_mod._running.clear()
+    chat_mod._speaker_state.clear()
+
+    asyncio.run(chat_mod._run_turn("conv-g", specs, "hi", "turn-1"))
+
+    texts = [f for f in sent if f["data"].get("type") == "text"]
+    # One msg_id per agent, and the group turn names its speakers.
+    assert {f["data"]["msg_id"] for f in texts} == {
+        f["data"]["msg_id"] for f in texts
+    } and len({f["data"]["msg_id"] for f in texts}) == 2
+    assert all(f["data"]["data"]["teammateMessage"] is True for f in texts)
+    assert {f["data"]["data"]["senderName"] for f in texts} == {s.display for s in specs}
+
+    finishes = [f for f in sent if f["data"].get("type") == "finish"]
+    # Only the last agent ends the turn; the first must not stop the spinner.
+    assert [f["data"].get("turn_complete", True) for f in finishes] == [False, True]
+    assert finishes[0]["data"]["data"]["model"] == "m1"
+    assert finishes[1]["data"]["data"]["model"] == "m2"
+
+    # Each reply is persisted as its own row, tagged with its speaker + usage.
+    rows = {m["metadata"]["agent_id"]: m for m in c.get(f"{PREFIX}/conversations/conv-g/messages").json()["items"]}
+    assert set(rows) == {"a", "b"}
+    assert rows["a"]["content"]["usage"]["model"] == "m1"
+    assert rows["a"]["content"]["teammateMessage"] is True
+    assert rows["a"]["content"]["senderName"] == specs[0].display
+
+
+def test_retry_targets_one_agent(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Retrying one agent must not replay the whole turn's other speakers."""
+    from crewchat.api import chat as chat_mod
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-r", "name": "retry"})
+    c.post(f"{PREFIX}/conversations/conv-r/agent-ids", json={"agent_ids": []})
+    c.post(f"{PREFIX}/conversations/conv-r/messages", json={"content": "ignored"})
+
+    from crewchat.api.store import store
+
+    store().add_message("u1", "conv-r", "user", "the question", "you", "2026-01-01T00:00:00Z")
+
+    from crewchat.core.models import AgentSpec
+
+    specs = [AgentSpec(id="a", body="claude", brain="p/m"), AgentSpec(id="b", body="codex", brain="p/m")]
+    monkeypatch.setattr(
+        chat_mod, "_for_conversation", lambda _cid: (_fake_session(specs, {"b": [_event("delta", text="b")], "a": []}), specs)
+    )
+
+    seen: list[list[str]] = []
+
+    class _Task:
+        def cancel(self):  # pragma: no cover - we only inspect the request
+            pass
+
+    def _create_task(coro):
+        seen.append([s.id for s in specs])
+        coro.close()
+        return _Task()
+
+    monkeypatch.setattr(chat_mod.asyncio, "create_task", _create_task)
+    chat_mod._running.clear()
+
+    r = c.post(f"{PREFIX}/conversations/conv-r/retry", json={"agent_id": "b"})
+    assert r.status_code == 200
+    assert r.json()["runtime"]["speaking"] == specs[1].display

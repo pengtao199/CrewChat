@@ -782,5 +782,8 @@
     "progress": "{{completed}}/{{total}}",
     "expand": "گسترش برنامه",
     "collapse": "جمع کردن برنامه"
+  },
+  "turn": {
+    "queued": "{{count}} نفر دیگر"
   }
 }

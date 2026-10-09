@@ -114,6 +114,17 @@ interface IMessage<T extends TMessageType, Content extends Record<string, any>> 
    * reload), and backends without turn-anchored forks.
    */
   backend_turn_id?: string;
+  /**
+   * Backend-persisted metadata for this row. Carries the writing agent's id so a
+   * reply bubble can be retried against that one agent, plus the raw usage block.
+   * Present on history rows; absent on live-streamed frames until reload.
+   */
+  metadata?: {
+    agent_id?: string;
+    body?: string;
+    teammate?: boolean;
+    [key: string]: unknown;
+  };
 }
 
 export type CronMessageMeta = {
@@ -121,6 +132,17 @@ export type CronMessageMeta = {
   cron_job_id: string;
   cron_job_name: string;
   triggered_at: number;
+};
+
+export type MessageUsage = {
+  model?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  cache_creation_tokens?: number;
+  reasoning_tokens?: number;
+  cost_usd?: number;
+  duration_ms?: number;
 };
 
 export type IMessageText = IMessage<
@@ -135,6 +157,8 @@ export type IMessageText = IMessage<
     senderAgentType?: string;
     /** Sender teammate's conversation id — lets the renderer resolve preset avatars via their conversation extras. */
     senderConversationId?: string;
+    /** Per-agent model/token/cost/duration, stamped on the reply footer. */
+    usage?: MessageUsage;
   }
 >;
 
@@ -472,6 +496,7 @@ type RawTextMessageContent = {
   senderConversationId?: unknown;
   sender_conversation_id?: unknown;
   senderConversationID?: unknown;
+  usage?: unknown;
 };
 
 type NormalizeTextMessageContentOptions = {
@@ -498,6 +523,29 @@ const firstStringField = (
   return undefined;
 };
 
+const normalizeMessageUsage = (raw: unknown): MessageUsage | undefined => {
+  if (!isObject(raw)) return undefined;
+  const num = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  const usage: MessageUsage = {};
+  if (typeof raw.model === 'string' && raw.model) usage.model = raw.model;
+  const input = num(raw.input_tokens ?? raw.inputTokens);
+  if (input !== undefined) usage.input_tokens = input;
+  const output = num(raw.output_tokens ?? raw.outputTokens);
+  if (output !== undefined) usage.output_tokens = output;
+  const cacheRead = num(raw.cache_read_tokens ?? raw.cacheReadTokens);
+  if (cacheRead !== undefined) usage.cache_read_tokens = cacheRead;
+  const cacheCreate = num(raw.cache_creation_tokens ?? raw.cacheCreationTokens);
+  if (cacheCreate !== undefined) usage.cache_creation_tokens = cacheCreate;
+  const reasoning = num(raw.reasoning_tokens ?? raw.reasoningTokens);
+  if (reasoning !== undefined) usage.reasoning_tokens = reasoning;
+  const cost = num(raw.cost_usd ?? raw.costUsd);
+  if (cost !== undefined) usage.cost_usd = cost;
+  const duration = num(raw.duration_ms ?? raw.durationMs);
+  if (duration !== undefined) usage.duration_ms = duration;
+  return Object.keys(usage).length > 0 ? usage : undefined;
+};
+
 const normalizeTextMessageContentObject = (
   data: RawTextMessageContent,
   options?: NormalizeTextMessageContentOptions
@@ -513,6 +561,7 @@ const normalizeTextMessageContentObject = (
   const cronMeta = isCronMessageMeta(data.cronMeta) ? data.cronMeta : undefined;
   const replace = options?.replace === true || data.replace === true;
   const teammateMessage = Boolean(data.teammateMessage) || Boolean(data.teammate_message);
+  const usage = normalizeMessageUsage(data.usage);
 
   return {
     content,
@@ -522,6 +571,7 @@ const normalizeTextMessageContentObject = (
     ...(senderName ? { senderName } : {}),
     ...(senderAgentType ? { senderAgentType } : {}),
     ...(senderConversationId ? { senderConversationId } : {}),
+    ...(usage ? { usage } : {}),
   };
 };
 

@@ -97,5 +97,10 @@
   "requestDetails": "Request details:",
   "delivery": {
     "pending": "Unread"
+  },
+  "retry": {
+    "action": "Retry",
+    "agent": "Ask {{name}} again",
+    "failed": "Retry failed: {{error}}"
   }
 }

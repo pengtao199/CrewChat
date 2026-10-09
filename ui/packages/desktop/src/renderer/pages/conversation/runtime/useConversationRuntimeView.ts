@@ -27,6 +27,7 @@ import {
   localStopAcknowledged,
   localStopRequested,
   resetLocalGate,
+  speakerChanged,
   subscribeConversationRuntimeView,
   turnCompleted,
   type ConversationRuntimeView,
@@ -42,6 +43,11 @@ type UseConversationRuntimeViewReturn = {
   canSendMessage: boolean;
   activeTurnId: string | null;
   supportsMidturnDelivery: boolean;
+  /** Agent currently streaming, plus who is queued behind it. */
+  speaking: string;
+  queued: string[];
+  /** Record which agent is streaming now (drives the turn indicator). */
+  markSpeaking: (speaking: string) => void;
   markSendStarted: () => void;
   markSendAccepted: (turn_id: string, runtime: TConversationRuntimeSummary, msg_id?: string) => void;
   markSendFailed: (failure: ConversationRuntimeSendFailure) => void;
@@ -220,6 +226,14 @@ export const useConversationRuntimeView = (conversation_id: string): UseConversa
     canSendMessage: view.canSendMessage,
     activeTurnId: view.activeTurnId,
     supportsMidturnDelivery: view.supportsMidturnDelivery,
+    speaking: view.speaking,
+    queued: view.queued,
+    markSpeaking: useCallback(
+      (speaking: string) => {
+        flushRuntimeViewLogs(speakerChanged(conversation_id, speaking));
+      },
+      [conversation_id]
+    ),
     markSendStarted,
     markSendAccepted,
     markSendFailed,

@@ -301,8 +301,14 @@ export function composeMessageWithIndex(
         if (message.position === 'right') {
           return list;
         }
-        // Complete teammate messages are not streaming chunks — skip if already exists
-        if ((message.content as { teammateMessage?: boolean })?.teammateMessage) {
+        // Complete teammate messages are not streaming chunks — skip if already exists.
+        // Gated on status so it only applies to history rows ('finish'): live frames for
+        // the same teammate bubble also carry teammateMessage, and skipping those would
+        // freeze the bubble at its first delta.
+        if (
+          (existingMsg.content as { teammateMessage?: boolean })?.teammateMessage &&
+          message.status === 'finish'
+        ) {
           return list;
         }
       }
@@ -778,6 +784,7 @@ export function normalizeDbMessage(msg: TMessage): TMessage {
 
   return {
     ...msg,
+    ...(msg.metadata ? { metadata: msg.metadata } : {}),
     content: normalizeTextMessageContent((msg as IMessageText).content),
   };
 }

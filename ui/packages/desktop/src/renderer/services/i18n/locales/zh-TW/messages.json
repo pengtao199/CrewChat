@@ -97,5 +97,10 @@
   "requestDetails": "請求內容：",
   "delivery": {
     "pending": "未讀"
+  },
+  "retry": {
+    "action": "重新生成",
+    "agent": "讓 {{name}} 重答",
+    "failed": "重試失敗：{{error}}"
   }
 }

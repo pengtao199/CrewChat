@@ -21,6 +21,10 @@ export type ConversationRuntimeView = {
    * (e.g. the command queue) bypass client-side queuing for backends that can
    * accept a message while a turn is already running. */
   supportsMidturnDelivery: boolean;
+  /** Agent currently streaming, plus who is queued behind it. Empty when idle or
+   * for a 1:1 turn (where "who" adds nothing). */
+  speaking: string;
+  queued: string[];
 };
 
 export type ConversationRuntimeViewLogEvent =
@@ -105,6 +109,8 @@ export const createDefaultConversationRuntimeView = (conversation_id: string): C
   hydrated: false,
   localStopping: false,
   supportsMidturnDelivery: false,
+  speaking: '',
+  queued: [],
 });
 
 const summarizeView = (view: ConversationRuntimeView): Record<string, unknown> => ({
@@ -164,6 +170,8 @@ const viewFromRuntimeSummary = (
     localSubmitting: pendingLocalSend,
     localStopping,
     supportsMidturnDelivery: runtime.supports_midturn_delivery === true,
+    speaking: runtime.speaking ?? '',
+    queued: runtime.queued ?? [],
   };
 };
 
@@ -682,6 +690,28 @@ export const resetLocalGate = (conversation_id: string, reason: string): Convers
     conversation_id,
     resetLocalGateConversationRuntimeView(runtimeViews.get(conversation_id), conversation_id, reason)
   );
+
+/**
+ * Track who is streaming right now.
+ *
+ * The backend runtime summary only arrives when a turn starts/ends, which is too
+ * coarse for a group turn: it would name the first speaker for the whole turn.
+ * The stream itself is the live source of truth, so each reply frame reports its
+ * own speaker and this records it for the "who is talking" indicator.
+ */
+export const speakerChanged = (conversation_id: string, speaking: string): ConversationRuntimeViewLogEntry[] => {
+  const current = runtimeViews.get(conversation_id);
+  if (!current || current.speaking === speaking) {
+    return [];
+  }
+  return setConversationRuntimeSnapshot(
+    conversation_id,
+    withLogs({
+      ...current,
+      speaking,
+    })
+  );
+};
 
 export const resetConversationRuntimeViewStoreForTest = () => {
   runtimeViews.clear();

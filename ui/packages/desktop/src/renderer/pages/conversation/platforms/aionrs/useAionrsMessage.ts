@@ -12,6 +12,7 @@ import { uuid } from '@/common/utils';
 import type { ThoughtData } from '@/renderer/components/chat/ThoughtDisplay';
 import { useMergeLiveMessage } from '@/renderer/pages/conversation/Messages/hooks';
 import { logStreamTerminalObserved } from '@/renderer/pages/conversation/runtime/useConversationRuntimeView';
+import { speakerChanged } from '@/renderer/pages/conversation/runtime/conversationRuntimeViewStore';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { isConversationProcessing } from '@/renderer/pages/conversation/utils/conversationRuntime';
 import { beginConversationTurn, endConversationTurn } from '@/renderer/pages/conversation/utils/conversationTurnClock';
@@ -248,6 +249,16 @@ export const useAionrsMessage = (
           const previous = messageBufferRef.current.get(message.msg_id) ?? '';
           messageBufferRef.current.set(message.msg_id, previous + chunk);
         }
+
+        // Group turns name their speaker on the text frame; a 1:1 turn sends no
+        // name, so this only moves the indicator when there is one to show.
+        const frameSenderName =
+          typeof payload === 'object' && payload !== null && 'senderName' in payload
+            ? (payload as { senderName?: unknown }).senderName
+            : undefined;
+        if (typeof frameSenderName === 'string' && frameSenderName) {
+          speakerChanged(conversation_id, frameSenderName);
+        }
       }
 
       switch (message.type) {
@@ -282,12 +293,27 @@ export const useAionrsMessage = (
                 merge_extra: true,
               });
             }
-            setStreamRunning(false);
-            setWaitingResponse(false);
-            setThought({ subject: '', description: '' });
+            // In a group turn each agent finishes on its own; only the last one
+            // ends the turn. Stamp usage on that bubble regardless — the footer
+            // is per agent.
             if (message.msg_id) {
+              mergeLiveMessage({
+                id: uuid(),
+                msg_id: message.msg_id,
+                type: 'text',
+                position: 'left',
+                conversation_id,
+                created_at: Date.now(),
+                content: { content: '', usage: usageData as never },
+              });
               void processCompletedAssistantMessage(message.msg_id);
             }
+            if (message.turn_complete === false) {
+              break;
+            }
+            speakerChanged(conversation_id, '');
+            setStreamRunning(false);            setWaitingResponse(false);
+            setThought({ subject: '', description: '' });
           }
           break;
         case 'tool_group':

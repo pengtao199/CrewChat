@@ -97,5 +97,10 @@
   "requestDetails": "Detalles de la solicitud:",
   "delivery": {
     "pending": "No leído"
+  },
+  "retry": {
+    "action": "Reintentar",
+    "agent": "Volver a preguntar a {{name}}",
+    "failed": "Error al reintentar: {{error}}"
   }
 }

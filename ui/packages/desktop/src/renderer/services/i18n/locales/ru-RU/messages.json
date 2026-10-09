@@ -101,5 +101,10 @@
   "requestDetails": "Детали запроса:",
   "delivery": {
     "pending": "Непрочитано"
+  },
+  "retry": {
+    "action": "Повторить",
+    "agent": "Спросить {{name}} снова",
+    "failed": "Не удалось повторить: {{error}}"
   }
 }

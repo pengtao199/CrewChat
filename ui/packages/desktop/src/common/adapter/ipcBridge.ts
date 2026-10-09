@@ -367,6 +367,11 @@ export const conversation = {
     (p) => `/api/conversations/${p.conversation_id}/terminals/${encodeURIComponent(p.terminal_id)}/kill`,
     () => undefined
   ),
+  /** Re-ask one agent (or the whole turn) about the last question. */
+  retryMessage: httpPost<
+    { turn_id: string; runtime: TConversationRuntimeSummary },
+    { conversation_id: string; agent_id?: string }
+  >((p) => `/api/conversations/${p.conversation_id}/retry`, (p) => ({ agent_id: p.agent_id })),
   activeCount: httpGet<{ count: number }>('/api/conversations/active-count'),
   sendMessage: httpPost<ISendMessageResult, ISendMessageParams>(
     (p) => `/api/conversations/${p.conversation_id}/messages`,
@@ -1970,6 +1975,9 @@ export interface IResponseMessage {
   status?: 'finish' | 'pending' | 'error' | 'work';
   /** Replace accumulated text for the same msg_id instead of appending. */
   replace?: boolean;
+  /** False when a group turn's non-final agent finished: that agent's bubble is
+   * complete, but the turn is still running (more speakers to come). */
+  turn_complete?: boolean;
 }
 
 export type IConversationArtifactKind = 'cron_trigger' | 'skill_suggest';

@@ -97,5 +97,10 @@
   "requestDetails": "요청 내용:",
   "delivery": {
     "pending": "읽지 않음"
+  },
+  "retry": {
+    "action": "다시 시도",
+    "agent": "{{name}}에게 다시 요청",
+    "failed": "재시도 실패: {{error}}"
   }
 }

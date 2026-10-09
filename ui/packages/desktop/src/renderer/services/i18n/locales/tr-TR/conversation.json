@@ -784,5 +784,8 @@
     "progress": "{{completed}}/{{total}}",
     "expand": "Planı genişlet",
     "collapse": "Planı daralt"
+  },
+  "turn": {
+    "queued": "{{count}} kişi daha"
   }
 }

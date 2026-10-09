@@ -220,6 +220,17 @@ const AionrsSendBox: React.FC<{
   const isCancelling = runtimeView.state === 'cancelling';
   const isBusy = isCancelling || commandQueueRuntimeGate.isProcessing || !commandQueueRuntimeGate.canSendMessage;
 
+  // Who is answering right now, and who still has to speak. Only meaningful for
+  // a group turn — a 1:1 turn has no `speaking` value, so this stays empty and
+  // ThoughtDisplay falls back to its normal status line.
+  const speakerStatus = useMemo(() => {
+    if (!runtimeView.speaking) return undefined;
+    const queued = runtimeView.queued.length;
+    return queued > 0
+      ? `${runtimeView.speaking} · ${t('conversation.turn.queued', { defaultValue: '{{count}} more', count: queued })}`
+      : runtimeView.speaking;
+  }, [runtimeView.queued.length, runtimeView.speaking, t]);
+
   const setContentRef = useLatestRef(setContent);
   const contentRef = useLatestRef(content);
   const atPathRef = useLatestRef(atPath);
@@ -745,7 +756,7 @@ const AionrsSendBox: React.FC<{
       <ThoughtDisplay
         thought={thought}
         running={teamRuntime?.loading ?? running}
-        statusText={teamRuntime?.statusText}
+        statusText={teamRuntime?.statusText ?? speakerStatus}
         externalElapsedSource={Boolean(teamRuntime) || turnStartedAtMs != null}
         startedAtMs={teamRuntime ? (teamRuntime.startedAtMs ?? null) : turnStartedAtMs}
         onStop={effectiveHandleStop}

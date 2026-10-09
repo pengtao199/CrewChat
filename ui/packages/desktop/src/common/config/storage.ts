@@ -149,6 +149,10 @@ export type TConversationRuntimeSummary = {
    * mid-turn UI on. Optional/undefined is treated as false for older
    * backends/responses that don't send it yet. */
   supports_midturn_delivery?: boolean;
+  /** Display name of the agent currently streaming its reply, if any. */
+  speaking?: string;
+  /** Display names of the agents still queued behind the current speaker. */
+  queued?: string[];
 };
 
 export type TConversationAgentIdentity = {

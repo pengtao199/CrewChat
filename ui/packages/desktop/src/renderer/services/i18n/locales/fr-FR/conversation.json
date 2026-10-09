@@ -782,5 +782,8 @@
     "progress": "{{completed}}/{{total}}",
     "expand": "Développer le plan",
     "collapse": "Réduire le plan"
+  },
+  "turn": {
+    "queued": "{{count}} encore"
   }
 }

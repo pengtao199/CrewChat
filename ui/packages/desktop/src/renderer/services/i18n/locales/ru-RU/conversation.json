@@ -798,5 +798,8 @@
     "progress": "{{completed}}/{{total}}",
     "expand": "Развернуть план",
     "collapse": "Свернуть план"
+  },
+  "turn": {
+    "queued": "ещё {{count}}"
   }
 }

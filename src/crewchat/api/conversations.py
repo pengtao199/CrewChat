@@ -197,16 +197,48 @@ async def get_message(conversation_id: str, message_id: str) -> Any:
 
 
 def _message_payload(row: dict[str, Any]) -> dict[str, Any]:
+    """One history row, shaped exactly like the frame that streamed it live.
+
+    `metadata` carries the agent identity and usage written by the chat layer, so
+    a reloaded conversation renders the same per-agent bubbles and footers the
+    live stream did instead of collapsing them into anonymous assistant text.
+    """
     role = row.get("role")
+    metadata = row.get("metadata") or {}
+    content: dict[str, Any] = {"content": row.get("content") or ""}
+    if role != "user":
+        author = row.get("author")
+        if author:
+            content["senderName"] = author
+        if metadata.get("body"):
+            content["senderAgentType"] = metadata["body"]
+        if metadata.get("teammate"):
+            content["teammateMessage"] = True
+        usage = {
+            key: metadata[key]
+            for key in (
+                "model",
+                "input_tokens",
+                "output_tokens",
+                "cache_read_tokens",
+                "cache_creation_tokens",
+                "reasoning_tokens",
+                "cost_usd",
+                "duration_ms",
+            )
+            if metadata.get(key) is not None
+        }
+        if usage:
+            content["usage"] = usage
     return {
         "id": row["id"],
         "msg_id": row["id"],
         "conversation_id": row["conversation_id"],
         "type": "text",
         "role": role,
-        "content": {"content": row.get("content") or ""},
+        "content": content,
         "created_at": _ms(row.get("created_at")),
-        "metadata": row.get("metadata") or {},
+        "metadata": metadata,
         "author": row.get("author"),
         "position": "right" if role == "user" else "left",
         "status": "finish",
@@ -288,11 +320,17 @@ async def delete_archived_item(item_type: str, item_id: str) -> Any:
     return {"success": True}
 
 
-def persist_turn(conv_id: str, role: str, content: str, author: str | None = None) -> str:
+def persist_turn(
+    conv_id: str,
+    role: str,
+    content: str,
+    author: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> str:
     """Called by the chat layer to record a message."""
     msg_id = uuid.uuid4().hex
     now = _iso(int(time.time() * 1000))
-    store().add_message(msg_id, conv_id, role, content, author, now)
+    store().add_message(msg_id, conv_id, role, content, author, now, metadata)
     return msg_id
 
 

@@ -61,10 +61,16 @@ def text_frame(
     *,
     replace: bool = True,
     status: str | None = "work",
+    sender: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    data: dict[str, Any] = {"content": content}
+    if sender:
+        # Identity travels with the text so the renderer can draw one bubble per
+        # agent instead of a single concatenated blob.
+        data.update(sender)
     frame: dict[str, Any] = {
         "type": "text",
-        "data": {"content": content},
+        "data": data,
         "msg_id": msg_id,
         "conversation_id": conversation_id,
         "created_at": int(time.time() * 1000),
@@ -77,10 +83,27 @@ def text_frame(
     return frame
 
 
-def finish_frame(conversation_id: str, msg_id: str, turn_id: str | None = None) -> dict[str, Any]:
+def finish_frame(
+    conversation_id: str,
+    msg_id: str,
+    turn_id: str | None = None,
+    usage: dict[str, Any] | None = None,
+    *,
+    turn_complete: bool = True,
+) -> dict[str, Any]:
+    """One agent's reply is complete.
+
+    `usage` carries the per-agent numbers (model/tokens/cost/duration) so the
+    renderer can stamp a footer on that bubble; the renderer also reads tokens
+    off this frame, so the shape stays a flat token mapping.
+
+    `turn_complete` is false for every agent but the last: in a group turn each
+    agent finishes separately, and only the final one ends the turn (the renderer
+    must not drop its "running" state when agent 1 of 3 is done).
+    """
     frame: dict[str, Any] = {
         "type": "finish",
-        "data": {},
+        "data": dict(usage or {}),
         "msg_id": msg_id,
         "conversation_id": conversation_id,
         "created_at": int(time.time() * 1000),
@@ -88,6 +111,8 @@ def finish_frame(conversation_id: str, msg_id: str, turn_id: str | None = None) 
     }
     if turn_id:
         frame["turn_id"] = turn_id
+    if not turn_complete:
+        frame["turn_complete"] = False
     return frame
 
 

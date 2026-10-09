@@ -782,5 +782,8 @@
     "progress": "{{completed}}/{{total}}",
     "expand": "계획 펼치기",
     "collapse": "계획 접기"
+  },
+  "turn": {
+    "queued": "{{count}}명 더"
   }
 }

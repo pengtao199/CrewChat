@@ -782,5 +782,8 @@
     "progress": "{{completed}}/{{total}}",
     "expand": "プランを展開",
     "collapse": "プランを折りたたむ"
+  },
+  "turn": {
+    "queued": "あと {{count}} 人"
   }
 }

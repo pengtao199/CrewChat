@@ -97,5 +97,10 @@
   "requestDetails": "جزئیات درخواست:",
   "delivery": {
     "pending": "خوانده‌نشده"
+  },
+  "retry": {
+    "action": "تلاش دوباره",
+    "agent": "پرسش دوباره از {{name}}",
+    "failed": "تلاش دوباره ناموفق بود: {{error}}"
   }
 }

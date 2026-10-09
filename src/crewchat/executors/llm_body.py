@@ -7,7 +7,7 @@ from openai import AsyncOpenAI
 
 from ..core.config import Settings
 from ..core.providers import Provider
-from .base import ExecRequest, ExecResult, Executor, register
+from .base import ExecRequest, ExecResult, Executor, TokenUsage, _int, register
 
 
 @register
@@ -47,6 +47,7 @@ class LLMBody(Executor):
 
         parts: list[str] = []
         error: str | None = None
+        usage = TokenUsage()
         try:
             stream = await client.chat.completions.create(
                 model=cfg["model"],
@@ -54,8 +55,16 @@ class LLMBody(Executor):
                 temperature=cfg["temperature"],
                 max_tokens=cfg["max_tokens"],
                 stream=True,
+                stream_options={"include_usage": True},
             )
             async for chunk in stream:
+                # The terminal chunk carries totals for the whole call; the
+                # per-chunk counts are a running preview of the same numbers.
+                if getattr(chunk, "usage", None):
+                    usage = TokenUsage(
+                        input_tokens=_int(chunk.usage.prompt_tokens),
+                        output_tokens=_int(chunk.usage.completion_tokens),
+                    )
                 for choice in chunk.choices:
                     delta = choice.delta.content
                     if delta:
@@ -69,6 +78,7 @@ class LLMBody(Executor):
             text=text,
             duration_ms=int((time.monotonic() - started) * 1000),
             error=error or (None if text else "empty completion"),
+            usage=None if usage.is_empty() else usage,
             meta={"body": self.id, "model": cfg["model"], "base_url": cfg["base_url"]},
         )
 

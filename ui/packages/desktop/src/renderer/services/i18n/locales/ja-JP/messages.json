@@ -97,5 +97,10 @@
   "requestDetails": "リクエスト内容:",
   "delivery": {
     "pending": "未読"
+  },
+  "retry": {
+    "action": "再試行",
+    "agent": "{{name}} に再回答を依頼",
+    "failed": "再試行に失敗しました: {{error}}"
   }
 }

@@ -97,5 +97,10 @@
   "requestDetails": "İstek ayrıntıları:",
   "delivery": {
     "pending": "Okunmadı"
+  },
+  "retry": {
+    "action": "Yeniden dene",
+    "agent": "{{name}}'ye tekrar sor",
+    "failed": "Yeniden deneme başarısız: {{error}}"
   }
 }
