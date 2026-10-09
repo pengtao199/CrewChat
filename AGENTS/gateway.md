@@ -39,7 +39,7 @@
 - **网关是"端口 + 适配器"**：业务只依赖 `core/gateway.py` 的 `ModelGateway` 端口
   （`status` / `ensure_running` / `stop` / `activate(app, provider)` / `deactivate` / `usage`），
   实现可替换。当前实现是 `core/gateway_ccswitch.py`，由 `Settings.gateway_kind` 选。
-  新增实现（如 `gateway_litellm.py`）只加一个适配器 + 在工厂登记，业务与 API 不动。
+  新增网关实现只在 `core/` 加一个适配器 + 在工厂登记，业务与 API 不动。
 - **协议差异集中在网关**：业务代码只认 OpenAI 兼容语义。
 - **端点能力差异显式表达**：上游不支持 Responses 扩展（如 codex 的 `namespace` 工具）就在
   provider 的 `apiFormat` 里表达，让网关走转译路径，不靠客户端试错、不在身体里手写转换。
