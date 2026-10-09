@@ -12,7 +12,7 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 router = APIRouter()
@@ -40,8 +40,7 @@ def _dir_entry(path: Path) -> dict[str, Any]:
 
 
 @router.post("/api/fs/dir")
-async def list_dir(request: Request) -> list[dict[str, Any]]:
-    body = await request.json()
+def list_dir(body: dict[str, Any]) -> list[dict[str, Any]]:
     directory = Path(str(body.get("dir") or body.get("root") or "")).expanduser()
     if not directory.is_dir():
         return []
@@ -53,8 +52,7 @@ async def list_dir(request: Request) -> list[dict[str, Any]]:
 
 
 @router.post("/api/fs/list")
-async def list_files(request: Request) -> list[dict[str, Any]]:
-    body = await request.json()
+def list_files(body: dict[str, Any]) -> list[dict[str, Any]]:
     root = Path(str(body.get("root") or "")).expanduser()
     if not root.is_dir():
         return []
@@ -72,8 +70,7 @@ async def list_files(request: Request) -> list[dict[str, Any]]:
 
 
 @router.post("/api/fs/read")
-async def read_file(request: Request) -> Any:
-    body = await request.json()
+def read_file(body: dict[str, Any]) -> Any:
     path = Path(str(body.get("path") or "")).expanduser()
     if not path.is_file():
         return None
@@ -86,8 +83,7 @@ async def read_file(request: Request) -> Any:
 
 
 @router.post("/api/fs/write")
-async def write_file(request: Request) -> bool:
-    body = await request.json()
+def write_file(body: dict[str, Any]) -> bool:
     path = Path(str(body.get("path") or "")).expanduser()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -98,8 +94,7 @@ async def write_file(request: Request) -> bool:
 
 
 @router.post("/api/fs/metadata")
-async def metadata(request: Request) -> Any:
-    body = await request.json()
+def metadata(body: dict[str, Any]) -> Any:
     path = Path(str(body.get("path") or "")).expanduser()
     if not path.exists():
         return JSONResponse({"error": "not_found"}, status_code=404)
@@ -115,8 +110,7 @@ async def metadata(request: Request) -> Any:
 
 
 @router.post("/api/fs/image-base64")
-async def image_base64(request: Request) -> Any:
-    body = await request.json()
+def image_base64(body: dict[str, Any]) -> Any:
     path = Path(str(body.get("path") or "")).expanduser()
     if not path.is_file():
         return None

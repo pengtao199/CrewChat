@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ..core.config import get_settings
@@ -18,14 +18,17 @@ from ..core.providers import get_provider
 
 router = APIRouter()
 
+# 网关控制都是同步阻塞调用（httpx 到 ccsw-proxy / SQLite）。声明为同步 `def`，
+# FastAPI 用线程池执行，避免慢调用冻结事件循环。
+
 
 @router.get("/api/crewchat/gateway")
-async def gateway_status() -> dict[str, Any]:
+def gateway_status() -> dict[str, Any]:
     return get_gateway().status()
 
 
 @router.post("/api/crewchat/gateway/start")
-async def gateway_start() -> Any:
+def gateway_start() -> Any:
     try:
         return {"success": get_gateway().ensure_running()}
     except RuntimeError as exc:
@@ -33,18 +36,17 @@ async def gateway_start() -> Any:
 
 
 @router.post("/api/crewchat/gateway/stop")
-async def gateway_stop() -> dict[str, Any]:
+def gateway_stop() -> dict[str, Any]:
     get_gateway().stop()
     return {"success": True}
 
 
 @router.post("/api/crewchat/gateway/mode")
-async def gateway_set_mode(request: Request) -> Any:
+def gateway_set_mode(body: dict[str, Any]) -> Any:
     """让某个 CLI（`app`）走网关 / 回到直连。
 
     走网关用 `provider_id`（大脑池条目）；未指定则用默认端点（第一个带 key 的）。
     """
-    body = await request.json()
     app = str(body.get("app") or "")
     if not app:
         return JSONResponse({"error": "missing_app"}, status_code=400)
@@ -66,5 +68,5 @@ async def gateway_set_mode(request: Request) -> Any:
 
 
 @router.get("/api/crewchat/gateway/usage")
-async def gateway_usage(days: int = 30) -> list[dict[str, Any]]:
+def gateway_usage(days: int = 30) -> list[dict[str, Any]]:
     return get_gateway().usage(days)

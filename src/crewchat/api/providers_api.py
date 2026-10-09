@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ..core.config import get_settings
@@ -135,7 +135,7 @@ def _model_from_body(body: dict[str, Any]) -> Model:
 
 
 @router.get("/api/providers")
-async def list_providers() -> list[dict[str, Any]]:
+def list_providers() -> list[dict[str, Any]]:
     settings = get_settings()
     providers = load_providers(settings)
     enriched = enrich_all(settings, providers)
@@ -143,14 +143,13 @@ async def list_providers() -> list[dict[str, Any]]:
 
 
 @router.post("/api/providers")
-async def create_provider(request: Request) -> Any:
+def create_provider(body: dict[str, Any]) -> Any:
     """新增供应商，并**自动拉取该端点的全部模型**。
 
     模型没有可靠的人工枚举方式，所以新增即全量抓取：用户填好端点与密钥后不必再
     去翻服务商文档挑模型 id。抓取失败（网络 / 端点 / 密钥问题）直接报错，不静默
     建一个空供应商 —— 否则用户会以为配好了，实际一个模型都用不了。
     """
-    body = await request.json()
     settings = get_settings()
     providers = load_providers(settings)
 
@@ -205,8 +204,7 @@ async def create_provider(request: Request) -> Any:
 
 
 @router.put("/api/providers/{provider_id}")
-async def update_provider(provider_id: str, request: Request) -> Any:
-    body = await request.json()
+def update_provider(provider_id: str, body: dict[str, Any]) -> Any:
     settings = get_settings()
     providers = load_providers(settings)
     target = next((p for p in providers if p.id == provider_id), None)
@@ -222,7 +220,7 @@ async def update_provider(provider_id: str, request: Request) -> Any:
 
 
 @router.delete("/api/providers/{provider_id}")
-async def delete_provider(provider_id: str) -> dict[str, Any]:
+def delete_provider(provider_id: str) -> dict[str, Any]:
     settings = get_settings()
     providers = [p for p in load_providers(settings) if p.id != provider_id]
     save_providers(settings, providers)
@@ -230,7 +228,7 @@ async def delete_provider(provider_id: str) -> dict[str, Any]:
 
 
 @router.get("/api/providers/{provider_id}/secret")
-async def reveal_provider_key(provider_id: str) -> Any:
+def reveal_provider_key(provider_id: str) -> Any:
     """按需取明文 key。默认列表永远只给掩码。"""
     provider = next((p for p in load_providers(get_settings()) if p.id == provider_id), None)
     if provider is None:
@@ -242,12 +240,11 @@ async def reveal_provider_key(provider_id: str) -> Any:
 
 
 @router.post("/api/providers/{provider_id}/models")
-async def add_model(provider_id: str, request: Request) -> Any:
+def add_model(provider_id: str, body: dict[str, Any]) -> Any:
     """新增 / 编辑单个模型。`id` 已存在则覆盖。
 
     标签始终自动推导，不接受客户端传入；用户能覆盖的是显示名与上下文长度。
     """
-    body = await request.json()
     settings = get_settings()
     providers = load_providers(settings)
     target = next((p for p in providers if p.id == provider_id), None)
@@ -284,12 +281,11 @@ async def add_model(provider_id: str, request: Request) -> Any:
 
 
 @router.patch("/api/providers/{provider_id}/models")
-async def bulk_toggle_models(provider_id: str, request: Request) -> Any:
+def bulk_toggle_models(provider_id: str, body: dict[str, Any]) -> Any:
     """批量启停模型。`ids` 为空则作用于该供应商的全部模型。
 
     自动抓取会带来上百个模型，逐个点开关不现实，所以必须能一次批量控制。
     """
-    body = await request.json()
     settings = get_settings()
     providers = load_providers(settings)
     target = next((p for p in providers if p.id == provider_id), None)
@@ -307,7 +303,7 @@ async def bulk_toggle_models(provider_id: str, request: Request) -> Any:
 
 
 @router.delete("/api/providers/{provider_id}/models/{model_id}")
-async def delete_model(provider_id: str, model_id: str) -> Any:
+def delete_model(provider_id: str, model_id: str) -> Any:
     settings = get_settings()
     providers = load_providers(settings)
     target = next((p for p in providers if p.id == provider_id), None)
@@ -322,13 +318,12 @@ async def delete_model(provider_id: str, model_id: str) -> Any:
 
 
 @router.post("/api/providers/fetch-models")
-async def fetch_models(request: Request) -> dict[str, Any]:
+def fetch_models(body: dict[str, Any]) -> dict[str, Any]:
     """从供应商端点拉取可用模型（手动添加模型时的辅助，不是主路径）。
 
     接受已存在的 provider id（key 在服务端用，浏览器永远拿不到），或编辑态下的
     显式 base_url/api_key。抓取逻辑复用 cc-switch 的 `model_fetch`。
     """
-    body = await request.json()
     settings = get_settings()
     provider_id = str(body.get("provider_id") or "")
 
@@ -364,11 +359,11 @@ async def fetch_models(request: Request) -> dict[str, Any]:
 
 
 @router.get("/api/model-tags")
-async def list_model_tags() -> dict[str, Any]:
+def list_model_tags() -> dict[str, Any]:
     """合法标签枚举，供前端渲染标签选择器（前端不硬编码这份列表）。"""
     return {"tags": list(MODEL_TAGS)}
 
 
 @router.post("/api/providers/detect-protocol")
-async def detect_protocol(request: Request) -> dict[str, Any]:
+def detect_protocol(body: dict[str, Any]) -> dict[str, Any]:
     return {"protocol": "openai", "success": True}

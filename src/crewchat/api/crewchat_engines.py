@@ -6,7 +6,7 @@
 性能（产品要求：设置页秒开）：
 - **本地扫描**便宜但会 spawn 进程 → 缓存 5 分钟。
 - **版本探测**要联网（慢且易抖动）→ 缓存 6 小时，**后台刷新**，主请求绝不等它。
-- 进入页面即时返回上次结果；只有显式 `?refresh=true` 才同步重扫。装/更新后失效缓存。
+- 进入页面即时返回上次结果；`?refresh=true` 只强制**本地扫描**同步，联网版本仍后台刷新。装/更新后失效缓存。
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import threading
 import time
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from ..core.config import get_settings
@@ -49,11 +49,9 @@ def _do_refresh_versions() -> None:
         _versions_busy = False
 
 
-def _refresh_versions(blocking: bool) -> None:
+def _refresh_versions() -> None:
+    """联网版本刷新**只在后台**跑：主请求永不因网络而等待。"""
     global _versions_busy
-    if blocking:
-        _do_refresh_versions()
-        return
     if _versions_busy:
         return
     _versions_busy = True
@@ -76,10 +74,8 @@ def _scan(force: bool) -> list[dict[str, Any]]:
 def _versions(force: bool) -> dict[str, Any]:
     never = _VERSIONS["data"] is None
     stale = never or (time.monotonic() - _VERSIONS["ts"]) > _VERSIONS_TTL
-    if force:
-        _refresh_versions(blocking=True)
-    elif stale:
-        _refresh_versions(blocking=False)  # 后台，主请求不等
+    if force or stale:
+        _refresh_versions()  # 后台刷新；本次返回上次结果
     with _versions_lock:
         return dict(_VERSIONS["data"] or {})
 
@@ -160,19 +156,21 @@ def _compute_view(force: bool = False) -> list[dict[str, Any]]:
     return out
 
 
+# 这些路由做同步阻塞 I/O（扫描进程 / 调网关 / 拉 npm·github 版本）。
+# 声明为**同步** `def`，FastAPI 会在线程池里执行，绝不阻塞事件循环（见文件头性能说明）。
 @router.get("/api/crewchat/engines")
-async def list_engines(refresh: bool = False) -> list[dict[str, Any]]:
+def list_engines(refresh: bool = False) -> list[dict[str, Any]]:
     return _compute_view(force=refresh)
 
 
 @router.post("/api/crewchat/engines/install")
-async def install_engines(request: Request) -> Any:
-    return _lifecycle(await request.json(), "install")
+def install_engines(body: dict[str, Any]) -> Any:
+    return _lifecycle(body, "install")
 
 
 @router.post("/api/crewchat/engines/update")
-async def update_engines(request: Request) -> Any:
-    return _lifecycle(await request.json(), "update")
+def update_engines(body: dict[str, Any]) -> Any:
+    return _lifecycle(body, "update")
 
 
 def _lifecycle(body: dict[str, Any], action: str) -> Any:

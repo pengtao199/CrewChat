@@ -5,7 +5,7 @@ from __future__ import annotations
 import shutil
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter
 
 from ..core.config import get_settings
 from ..core.diagnostics import snapshot
@@ -26,15 +26,14 @@ KNOWN_TOOLS = {
 
 
 @router.post("/api/shell/check-tool-installed")
-async def check_tool_installed(request: Request) -> bool:
-    body = await request.json()
+def check_tool_installed(body: dict[str, Any]) -> bool:
     tool = str(body.get("tool") or "")
     binary = KNOWN_TOOLS.get(tool, tool)
     return shutil.which(binary) is not None
 
 
 @router.get("/api/engines/management")
-async def managed_agents() -> list[dict[str, Any]]:
+def managed_agents() -> list[dict[str, Any]]:
     settings = get_settings()
     settings.ensure_dirs()
     probes = snapshot(settings)
@@ -72,16 +71,16 @@ async def managed_agents() -> list[dict[str, Any]]:
 
 
 @router.post("/api/engines/refresh")
-async def refresh_agents() -> dict[str, Any]:
+def refresh_agents() -> dict[str, Any]:
     session_for("__agents__").reload()
     return {"success": True}
 
 
 @router.get("/api/engines/custom")
-async def custom_agents() -> list[dict[str, Any]]:
+def custom_agents() -> list[dict[str, Any]]:
     return []
 
 
 @router.get("/api/extensions/acp-adapters")
-async def acp_adapters() -> list[dict[str, Any]]:
+def acp_adapters() -> list[dict[str, Any]]:
     return []
