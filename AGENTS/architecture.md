@@ -23,7 +23,7 @@
 | 层 | 目录 | 文件 | 说明 |
 | --- | --- | --- | --- |
 | **L0** 基础 | `core/` | `config` `models` | 纯数据与配置，不知道任何实现 |
-| **L1** 基础设施 | `core/` | `providers` `projects` `diagnostics` `cli_overrides` | 大脑池、项目、机器探测 |
+| **L1** 基础设施 | `core/` | `providers` `projects` `diagnostics` `cli_overrides` `gateway` | 大脑池、项目、机器探测、模型网关接入 |
 | **L2** 执行 | `executors/` | `base` + 每个身体一个文件 | 不知道编排与会话 |
 | **L3** 编排 | `orchestration/` | `session`（群聊将新增 `group`） | 会话运行 |
 | **L4** 契约 | `api/` | 见下 | 只做请求解析与形状转换 |
@@ -49,7 +49,11 @@ src/crewchat/
 │   ├── providers.py            大脑池 + ~/.agents 约定 + resolve_brain
 │   ├── projects.py             项目（工作区 + agent 目录）
 │   ├── diagnostics.py          CLI 与端点的探测
-│   └── cli_overrides.py        手改的 CLI 参数覆盖
+│   ├── cli_overrides.py        手改的 CLI 参数覆盖
+│   ├── gateway.py              模型网关端口 + 工厂（ModelGateway / get_gateway）
+│   ├── gateway_ccswitch.py     cc-switch 网关适配器（监督/控制/投影/读）
+│   ├── engines.py              引擎管理端口 + 工厂（EngineTools / get_engine_tools）
+│   └── engines_ccswitch.py     cc-switch 引擎工具适配器（扫描/安装/更新）
 ├── executors/              L2 身体
 │   ├── base.py                 Executor 契约与注册表
 │   ├── llm_body.py             openai SDK
@@ -70,7 +74,9 @@ src/crewchat/
     ├── providers_api.py        上游契约：模型端点
     ├── skills_api.py           上游契约：技能
     ├── mcp_api.py              上游契约：MCP 服务
-    └── crewchat_agents.py      自研命名空间 /api/crewchat/agents
+    ├── crewchat_agents.py      自研命名空间 /api/crewchat/agents
+    ├── crewchat_gateway.py     自研命名空间 /api/crewchat/gateway（网关状态与控制）
+    └── crewchat_engines.py     自研命名空间 /api/crewchat/engines（引擎扫描/安装/更新）
 ```
 
 ## crewai 的定位

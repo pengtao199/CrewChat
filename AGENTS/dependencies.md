@@ -23,6 +23,13 @@
 - 依赖体积会进入最终产物，前端尤其注意（曾因 `monaco-editor` / `mermaid` 等体积大而剔除与保留页面无关的包）。
 - 网关类基础设施独立安装（`uv tool install`），不进项目依赖。
 
+## 已固化的第三方源码（vendored）
+
+- **cc-switch 核心** → `gateway/cc-switch/`（MIT）。固化而非运行时依赖，保证自包含、可直接构建。
+  - 只固化其 Rust 核心（`src-tauri/`），不搬其前端。
+  - 我们的改动全部带 `[crewchat]` 标记；升级方式见 `gateway/cc-switch/NOTICE.md`。
+  - 构建产物（`target/`）不入库（见 `.gitignore`）。
+
 ## 网络受限
 
 - 遇到下载/安装因网络失败（DNS、TLS、超时、限速），**停止并报告**：原始错误、尝试过什么、建议下一步。

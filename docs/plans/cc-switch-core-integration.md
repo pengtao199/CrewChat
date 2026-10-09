@@ -25,7 +25,13 @@ provider / MCP / Skill / Prompt / 用量数据接入我们的 app。我们的三
 - 现有数据（用户机器）：`providers` 10、`provider_endpoints` 6、`mcp_servers` 5、`skills` 49、
   `prompts` 2、`proxy_request_logs` 16,568、`usage_daily_rollups` 293、`model_pricing` 199。
 - 路由粒度：**按 app_type**（每个 CLI 一个当前 provider + 故障转移队列），由
-  `provider_router.select_providers(app_type)` 决定；代理模式的「当前 provider」读 `live-state.json` + DB。
+  `provider_router.select_providers(app_type)` 决定。解析链见
+  `mode/current.rs::provider_in_use`：代理模式（`live-state.json` 的 `proxy_route`）优先，否则回落直连指针
+  （`settings.json` 的 `current_provider`）。**冷启动时两者皆空 → 无路由**（`/v1/models` 空、`active_targets: []`）。
+- **切换可脱离 GUI**：`store::AppState` 不持有 `AppHandle`（`AppState::new(db)` 即可构造），
+  `pub mod controller` 导出 `enter_with_route` / `set_route` / `switch_route` / `exit` —— 我们可 headless 调用它的官方切换逻辑，
+  **不必手写 `live-state.json`**。
+- 已验证 headless 可运行：`cargo build --bin ccsw-proxy` 3m16s（debug）；启动后 `/health` 与 `/status` 均正常。
 - 镜像实测（`git ls-remote` HEAD 与 GitHub 比对）：
   `gh-proxy.com` 4.2s **且最新** ✅ / 直连 4.3s 最新 / `gitclone.com` 0.8s 但 **缓存滞后** ❌ / `ghfast.top` 5.0s。
 - 现有网关：`gateway/litellm.yaml`，监听 4000，由 `uv tool` 独立安装。
@@ -98,9 +104,10 @@ provider / MCP / Skill / Prompt / 用量数据接入我们的 app。我们的三
 
 - Intent：在我们的界面里切当前通道，不用开它的 GUI。
 - Steps：
-  1. 读 `live-state.json` + DB 得到当前路由；写回以切换（格式以其源码为准）
+  1. **走它的官方逻辑，不手写 `live-state.json`**：在 `ccsw-proxy` 里加一个薄控制面（子命令或本地 HTTP），
+     内部用 `AppState::new(db)` + `mode::controller::{enter_with_route, set_route, exit}`（均已 `pub`、不依赖 Tauri）
   2. 界面上标注「此切换影响该 CLI 的所有 Agent」
-- Verify：切换后同一对话的下一轮走到新 provider（用日志确认）。
+- Verify：切换后 `/status` 的 `current_provider` 变化，且同一对话下一轮走到新 provider。
 
 ### Slice 6：CLI 薄扫描（它不落库的部分）
 
