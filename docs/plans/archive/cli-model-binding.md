@@ -1,3 +1,5 @@
+> 归档：2026-10-10。执行以 [../crewchat.md](../crewchat.md) 为准。下文是当时的记录，其中的 Current Facts 与未完成切片不要再当任务做。
+
 # CLI 模型绑定：按进程配置，不改用户全局
 
 Updated: 2026-10-10 (Asia/Shanghai)

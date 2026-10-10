@@ -1,3 +1,5 @@
+> 归档：2026-10-10。执行以 [../crewchat.md](../crewchat.md) 为准。本文只保留当时的官方分档与 OpenCode 实测，不再当作待执行计划。
+
 # 所有 CLI 经 cc-switch 反代：调研报告与实施计划
 
 > 状态：**调研记录**。实施以 [cli-model-binding.md](cli-model-binding.md) 为准（按进程配置，不改用户全局，不换网关）。本文保留官方分档与 opencode 实测，不再当作待执行计划。

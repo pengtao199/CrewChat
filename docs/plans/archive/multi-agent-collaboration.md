@@ -1,3 +1,5 @@
+> 归档：2026-10-10。执行以 [../crewchat.md](../crewchat.md) 为准。阶段 1 已在 `orchestration/group.py`。阶段 2、3 的做法见新计划，不要按本文的 Stages 重做。
+
 # 多 Agent 协作核心 执行计划
 
 Updated: 2026-10-10 (Asia/Shanghai)

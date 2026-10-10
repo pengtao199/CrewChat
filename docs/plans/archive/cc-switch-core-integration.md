@@ -1,3 +1,5 @@
+> 归档：2026-10-10。执行以 [../crewchat.md](../crewchat.md) 为准。下文是当时的记录，其中的 Current Facts 与未完成切片不要再当任务做。用量、技能、MCP 的落点以 `AGENTS/truth-sources.md` 为准，不再接 cc-switch 的库。
+
 # 用 cc-switch 核心替换 LiteLLM 执行计划
 
 Updated: 2026-10-09 (Asia/Shanghai)
