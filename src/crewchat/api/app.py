@@ -45,6 +45,14 @@ from .store import store
 
 UI_DIST = Path(__file__).resolve().parents[3] / "ui" / "dist"
 
+
+def _cache_headers(path: str) -> dict[str, str]:
+    """入口文档每次都向服务器核对。带内容哈希的静态文件可以久留。"""
+    name = path.rsplit("/", 1)[-1]
+    if name in {"index.html", "sw.js"} or name.endswith((".html", ".webmanifest")):
+        return {"Cache-Control": "no-cache"}
+    return {"Cache-Control": "public, max-age=86400"}
+
 # 路由内部注册的根（未版本化）。版本段只存在于对外请求路径上。
 _INTERNAL_API_ROOT = "/api"
 
@@ -234,8 +242,9 @@ def create_app() -> FastAPI:
         async def spa(path: str) -> Any:
             candidate = UI_DIST / path
             if path and candidate.is_file():
-                return FileResponse(candidate)
-            return FileResponse(UI_DIST / "index.html")
+                return FileResponse(candidate, headers=_cache_headers(path))
+            # 入口页不能被缓存。否则刷新仍带着旧的脚本地址，切页时去拉已经不存在的分包，整页空白。
+            return FileResponse(UI_DIST / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app
 
