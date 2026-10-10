@@ -76,6 +76,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 - Agent 字段名与 `crewai.Agent` 保持一致（`role` / `goal` / `backstory` / `skills` / `mcps` / `memory`），同一份文件既能被 CrewChat 加载，也能被 crewai 原生加载。
 - 一个会话绑定一个或多个 Agent（`agent_ids`）；单 Agent 时是单聊，多 Agent 时是群聊。
+- 多 Agent 会话固定加入可见管理员 `crewchat-manager`（普通 Agent 文件，可编辑、可删、可恢复）。它担任 Leader：先规划，再委派，最后汇总。创建时还要写 `leader_agent_id` 和 `project_id`。
 - 会话的模型默认取自 Agent 的大脑；会话级覆盖是例外。
 - 新增 Agent 组成维度时，必须同步四处：`core/models.py` 的 `AgentSpec`、读写接口、编排页表单、本文件。
 
@@ -86,6 +87,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 | 引擎 | `body` / `Executor` | 引擎 | backend（上游用语，仅限契约层）、agent、runner |
 | Agent | `AgentSpec` | Agent | assistant、worker、bot |
 | 内置 Agent | 预置 Agent 模板 + `builtin` 引擎 | Agent | 独立 Assistant 类型 |
+| 管理员 Agent | `crewchat-manager`（`body: llm`，必须显式配大脑） | 管理员 | 隐藏协调器、隐式默认大脑 |
 | 大脑 | `brain` / `Provider` | 模型端点 | model（那是大脑的一部分）、api |
 | 技能 | `skills` | 技能 | capability、plugin（plugin 是安装包） |
 | 工具 | `mcps` / 应用内置工具 | 工具 | — |

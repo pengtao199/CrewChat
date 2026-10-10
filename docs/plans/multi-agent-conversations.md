@@ -1,7 +1,7 @@
 # 多 Agent 单会话
 
 Updated: 2026-10-10 (Asia/Shanghai)
-Status: In Progress
+Status: In Progress（Slice 1–4 代码已落地，Guid 与流式还要浏览器走查）
 
 ## Goal
 

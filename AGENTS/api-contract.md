@@ -62,7 +62,10 @@
 | 用量（自研 `/api/v1/crewchat/usage`，按身体/模型/天聚合） | 已实现 |
 | 项目=工作区（自研 `/api/v1/crewchat/projects` CRUD） | 已实现 |
 | 文件/目录浏览（上游 `/api/v1/fs/*`：dir/list/read/write/metadata/image-base64） | 已实现（其余 fs 端点未实现） |
-| 团队（多 Agent）、文件浏览、扩展、定时任务、远程连接 | 未实现（501） |
+| 单会话多 Agent（`extra.team_agent_ids` + 管理员 Leader） | 已实现 |
+| 管理员状态 / 恢复（`/api/crewchat/agents/manager`） | 已实现 |
+| 群聊中间 `finish`（`turn_complete: false`） | 已实现（只关该发言者气泡，不结束整轮） |
+| 独立 Team API（`/api/teams/*`）、文件浏览其余端点、扩展、定时任务、远程连接 | 未实现（501） |
 
 ## 禁止项
 
