@@ -1,7 +1,7 @@
 # CrewChat 执行计划
 
 Updated: 2026-10-10 (Asia/Shanghai)
-Status: In Progress（Slice 1 已跑通）
+Status: In Progress（Slice 1、2 已跑通）
 
 往后只执行这一份。被取代的计划在 [archive/](archive/)，其中的 Current Facts 和未完成切片不再当任务做。
 
@@ -15,7 +15,7 @@ Status: In Progress（Slice 1 已跑通）
 - 模型绑定已落地。每个 ACP 进程自带一份配置、这次的发布 id 和 `PROXY_MANAGED`。id 格式在 `gateway/cc-switch/src-tauri/src/mode/stack.rs` 的 `encode`：Claude `ccs-claude-<key>--<model>`，Codex `ccs-<key>/<model>`，Gemini `ccs-gemini-<key>--<model>`（`/` 写成 `~`），其余 `ccs-<app>-<key>/<model>`。`Session` 不调用 `Gateway.ensure`。
 - 2026-10-10 用大脑 `agnes/agnes-2.5-flash`、提示「只用一个词回答：pong」实测，Claude、Codex、Gemini、Grok、OpenCode、OpenClaw、Hermes、Pi 都返回了模型回复。Pi 的开场技能清单已用 `quietStartup` 挡掉。Gemini 的工具 schema 在转发前补上 `parameters`。
 - Mcode（MiniMax Code）已跑通。二进制在 `~/.minimax-code/bin/mcode`（0.6.5），不在默认 PATH 里，身体会自己找这个官方安装目录。`get_adapter` 走 Codex 适配器。2026-10-10 同一提示下，`POST /mcode/v1/chat/completions` 返回 `pong`，`cli-mcode` 对话也是 `pong`。
-- 协作只做了阶段 1：`orchestration/group.py` 的 `build_prompt` 让后一个 Agent 看到前面的产出，`api/chat.py` 在群聊回合调用它。两个真实 CLI「乙引用甲的具体内容」这一条没有在最近这次实测里重跑。阶段 2（委派）和阶段 3（规划者）没有代码。
+- 协作阶段 1 已在真机上成立。2026-10-10 同一会话里 OpenCode 先回答「蓝鲸」，Codex 的 prompt 带上了这段产出，回复里也有「蓝鲸」。两个 `msg_id`，`turn_complete` 只在最后一个为真。阶段 2（委派）和阶段 3（规划者）没有代码。
 - 身体是两个：`llm_body` 直连，`acp_body` 覆盖全部 CLI。协作不用 crewai 的执行引擎，理由在 `AGENTS/architecture.md`。
 
 ## Non-Goals
@@ -46,6 +46,7 @@ Status: In Progress（Slice 1 已跑通）
 - Files：`src/crewchat/api/chat.py`、`src/crewchat/orchestration/group.py`。只在真机失败时改。
 - Steps：同一个会话放两个已实测能说话的 Agent（例如 OpenCode 与 Codex），任务让甲给出一个具体词或数字，让乙复述。看乙的气泡。
 - Verify：乙的文本包含甲的那个词或数字。事件仍是每个 Agent 一个 `msg_id`，`turn_complete` 只在最后一个为真。失败时先看 `build_prompt` 的 `prior` 有没有进乙的 prompt，再改循环。
+- 结果：2026-10-10 已通过。OpenCode 产出「蓝鲸」，Codex 的 prompt 含这段产出，回复也含「蓝鲸」。Codex 另有一行模型元数据缺失的警告，不影响这一条。
 - Checkpoint：通过后再做委派。不通过就不开始 Slice 3。
 
 ### Slice 3：显式委派
