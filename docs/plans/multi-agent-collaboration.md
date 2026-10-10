@@ -1,7 +1,7 @@
 # 多 Agent 协作核心 执行计划
 
-Updated: 2026-10-09 (Asia/Shanghai)
-Status: Planned（未开工）
+Updated: 2026-10-10 (Asia/Shanghai)
+Status: In Progress（阶段 1 已接入 `api/chat.py` → `orchestration/group.py` 的 `build_prompt`；阶段 2、3 未做）
 
 ## Goal
 
@@ -155,7 +155,7 @@ uv run python scripts/check_imports.py
 
 ## Progress
 
-- [ ] Stage 1 共享上下文
+- [x] Stage 1 共享上下文（`group.build_prompt`，`chat.py` 群聊回合已调用）
 - [ ] Stage 2 显式委派
 - [ ] Stage 3 规划者
 

@@ -1,6 +1,6 @@
 # 所有 CLI 经 cc-switch 反代：调研报告与实施计划
 
-> 状态：**调研完成，待实施**。本文是调研结论 + 计划，不含代码改动。
+> 状态：**调研记录**。实施以 [cli-model-binding.md](cli-model-binding.md) 为准（按进程配置，不改用户全局，不换网关）。本文保留官方分档与 opencode 实测，不再当作待执行计划。
 > 上游依据：cc-switch 官方 v4.0.x（仓库 `farion1231/cc-switch`，docs v3.20.4 / 4.0 聚合指南）、opencode 官方 v2 文档、ACP 注册表。
 
 ## 1. 目标
