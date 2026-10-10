@@ -257,3 +257,49 @@ def test_only_real_session_ids_are_resumed(monkeypatch, tmp_path) -> None:  # ty
 async def _drain_other(session, spec) -> None:  # type: ignore[no-untyped-def]
     async for _ in session.stream_ask(spec, "hi", "conv:other"):
         pass
+
+
+def test_group_prompt_carries_prior_outputs_in_order() -> None:
+    """A later speaker must see earlier speakers' output — that is the collaboration.
+
+    Without it every agent answers the same question in parallel; with it a
+    reviewer can act on a specific contribution.
+    """
+    from crewchat.core.models import AgentSpec
+    from crewchat.orchestration.group import PER_OUTPUT_LIMIT, build_prompt
+
+    a = AgentSpec(id="a", name="甲", role="写代码")
+    b = AgentSpec(id="b", name="乙", role="审代码")
+
+    # First speaker: no prior block at all.
+    first = build_prompt(a, [a, b], "实现 slugify", [])
+    assert "已经产出" not in first
+    assert "写代码" in first  # own persona present
+    assert "在场 agent（你之外）：🤖 乙" in first
+    assert "实现 slugify" in first
+
+    # Second speaker: both prior blocks, named and ordered.
+    second = build_prompt(b, [a, b], "实现 slugify", [("🤖 甲", "我写了 def slugify(): ...")])
+    assert "已经产出" in second
+    assert "--- 🤖 甲 ---" in second
+    assert "def slugify" in second
+    assert second.index("已经产出") < second.index("用户的任务")
+
+    # Order is preserved across several prior speakers.
+    many = build_prompt(b, [a, b], "t", [("🤖 甲", "A"), ("🤖 丙", "C")])
+    assert many.index("--- 🤖 甲 ---") < many.index("--- 🤖 丙 ---")
+
+
+def test_group_prompt_truncates_oversized_prior_output() -> None:
+    """A long upstream reply must not be pasted whole into the next speaker."""
+    from crewchat.core.models import AgentSpec
+    from crewchat.orchestration.group import build_prompt
+
+    a = AgentSpec(id="a", name="甲")
+    spec = AgentSpec(id="b", name="乙")
+    huge = "x" * 50_000
+    prompt = build_prompt(spec, [a, spec], "t", [("🤖 甲", huge)], limit=100)
+
+    assert "已截断" in prompt
+    assert huge not in prompt
+    assert len(prompt) < 1000

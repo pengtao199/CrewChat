@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 
 from ..core.models import AgentSpec
 from ..orchestration import session_for
+from ..orchestration.group import build_prompt
 from .conversations import ensure_conversation, persist_turn
 from .hub import (
     error_frame,
@@ -85,19 +86,14 @@ def _for_conversation(conversation_id: str):  # type: ignore[no-untyped-def]
     return session, specs
 
 
-def _prompt_for(specs: list[AgentSpec], content: str, group: bool) -> list[str]:
-    prompts: list[str] = []
-    for spec in specs:
-        persona = spec.persona()
-        if not persona:
-            prompts.append(content)
-            continue
-        head = persona
-        if group:
-            others = "、".join(s.display for s in specs if s.id != spec.id) or "（无）"
-            head += f"\n\n在场 agent（你之外）：{others}\n给出你的判断与产出，别人错了直接指出，不要复述。"
-        prompts.append(f"{head}\n\n---\n\n{content}")
-    return prompts
+def _single_prompt(spec: AgentSpec, content: str) -> str:
+    """A 1:1 turn: persona + task, nothing else.
+
+    No peers and no shared context — there is only one speaker, so the pipeline
+    machinery of `orchestration.group` would add noise.
+    """
+    persona = spec.persona()
+    return f"{persona}\n\n---\n\n{content}" if persona else content
 
 
 def _sender(spec: AgentSpec, group: bool) -> dict[str, Any]:
@@ -147,13 +143,20 @@ async def _run_turn(
     Each agent gets a fresh `msg_id`, so the renderer keeps one bubble per
     speaker instead of one blob of concatenated text. That id is also the
     persisted row id, so reloading history reproduces exactly what was streamed.
+
+    In a group turn the prompt is built per speaker as the turn progresses,
+    carrying what the earlier agents produced — that is the collaboration.
     """
     session, _ = _for_conversation(conversation_id)
     group = len(specs) > 1
-    prompts = _prompt_for(specs, content, group)
+    #: (display, output) of the agents that already spoke, fed forward in order.
+    prior: list[tuple[str, str]] = []
 
     try:
-        for index, (spec, prompt) in enumerate(zip(specs, prompts, strict=False)):
+        for index, spec in enumerate(specs):
+            prompt = (
+                build_prompt(spec, specs, content, prior) if group else _single_prompt(spec, content)
+            )
             reply_msg_id = uuid.uuid4().hex
             sender = _sender(spec, group)
             buffer: list[str] = []
@@ -224,6 +227,10 @@ async def _run_turn(
                         **usage,
                     },
                 )
+                # Feed this agent's output to the next speaker. Done only after the
+                # reply is complete (and only when non-empty) so a silent or failed
+                # agent does not inject an empty block downstream.
+                prior.append((spec.display, text))
             await hub.broadcast(
                 "message.stream",
                 finish_frame(
