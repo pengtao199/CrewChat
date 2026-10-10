@@ -310,9 +310,24 @@ def _pi_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) ->
     env["PI_CODING_AGENT_DIR"] = str(home)
 
 
+def _mcode_launcher() -> Path | None:
+    """官方安装器把入口放在 `~/.minimax-code/bin`，不改用户的 shell PATH。"""
+    found = shutil.which("mcode")
+    if found:
+        return Path(found)
+    candidate = Path.home() / ".minimax-code" / "bin" / "mcode"
+    return candidate if os.access(candidate, os.X_OK) else None
+
+
 def _mcode_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
     """这一次 Mcode 进程用自己的 `MINIMAX_DATA_DIR`。"""
     del req
+    launcher = _mcode_launcher()
+    if launcher is not None:
+        bin_dir = str(launcher.parent)
+        current = env.get("PATH", "")
+        if bin_dir not in current.split(os.pathsep):
+            env["PATH"] = bin_dir + os.pathsep + current
     home = _fresh_home("mcode")
     model = _model_of(provider)
     base = _proxy_base_with_app("mcode")
@@ -629,7 +644,11 @@ class AcpBody(Executor):
 
     @classmethod
     def available(cls) -> bool:
-        return bool(cls.command) and shutil.which(cls.command[0]) is not None
+        if not cls.command:
+            return False
+        if cls.command[0] == "mcode":
+            return _mcode_launcher() is not None
+        return shutil.which(cls.command[0]) is not None
 
     async def run(self, req: ExecRequest, provider: Provider | None) -> ExecResult:
         started = time.monotonic()
