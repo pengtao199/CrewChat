@@ -2,6 +2,8 @@
 
 多 Agent 协作桌面应用。Python 后端（自建编排 + 身体抽象）+ fork 自 AionUi 的前端外壳 + cc-switch 网关（`ccsw-proxy`）。
 
+花名册里只有两份预置 Agent 了解本应用：`agent-helper`（改别人的 Agent 配置）和 `crewchat-manager`（群聊 Leader）。其余 Agent 是通用角色，不绑定本仓库。细节见 `AGENTS/agent-model.md`。
+
 ## 执行入口
 
 1. 开始任务前先匹配已安装的 skill、插件、MCP，再读下方专项规则；规则优先于通用最佳实践。

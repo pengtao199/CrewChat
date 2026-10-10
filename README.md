@@ -27,7 +27,7 @@
 
 | 概念 | 定义 | 真相源 |
 | --- | --- | --- |
-| **Agent** | 大脑 + 身体 + 能力 + 人格；全局花名册，不归任何项目 | `.data/agents/*.jsonc` |
+| **Agent** | 大脑 + 身体 + 能力 + 人格；全局花名册，不归任何项目。预置只有助手（改配置）和管理员（群聊 Leader），其余是通用角色 | `.data/agents/*.jsonc` |
 | **Conversation** | 用户与若干 Agent 的一条工作线程 | `.data/crewchat.db` |
 | **Project** | 一个文件夹；决定工作目录与会话归属 | `.data/projects.jsonc` |
 | **Workspace** | Agent 实际读写的目录（项目目录，或未绑项目的沙盒） | `.data/workspaces/` |

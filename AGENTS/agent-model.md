@@ -15,8 +15,7 @@
 | 类型 | 例子 | 谁提供 | 用户要做什么 |
 | --- | --- | --- | --- |
 | 本地 CLI | codex / claude / opencode | 用户安装 | 装好并登录；app 只探测 |
-| 远程 API | llm（经网关） | app 提供通道 | 只需配模型端点 |
-| 应用内置 | 助手引擎 | app 随包自带 | 什么都不用做 |
+| 远程 API | llm（直连大脑，无工具） | app 提供通道 | 必须显式配大脑 |
 
 代码里引擎叫 `body`（大脑的执行体），用户可见名是「引擎」。`AgentSpec.body` 引用引擎 id。
 
@@ -52,16 +51,25 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 **Agent 只引用资源，不定义资源。** 新增一个引擎/工具/技能不该改任何 Agent 文件。
 
-## 三、内置 Agent（原「助手」）
+## 三、两份内置 Agent，其余都是通用角色
 
-**「助手」不是第四种概念，它是预置的 Agent；本仓库已把 `assistant` 命名统一为 `agent`。**
+花名册里只有两份预置文件了解 CrewChat 本身；它们仍然是普通 `AgentSpec`，可改可删。代码里没有独立的 `Assistant` 类型。
 
-- 引擎：应用内置（操作本应用）
-- 工具：应用内置（诊断、读写 Agent、列技能…）
-- 技能：应用内置
-- 存在形式：编排页的一个模板；用户创建后就是普通 Agent 文件，可改可删
+| id | 用户可见 | 引擎 | 职责 | 不做什么 |
+| --- | --- | --- | --- | --- |
+| `agent-helper` | Agent 助手 | CLI（要能读文件、改花名册） | 读写 `.data/agents/*.jsonc`，按本文件调优别人的大脑 / 引擎 / 技能 / MCP / 记忆 / 人格 | 不写产品代码，不改 `.data/providers.jsonc` 里的密钥 |
+| `crewchat-manager` | 管理员 | **`llm`（刻意不用 CLI）** | 群聊 Leader：规划、委派、汇总 | 不写代码、不改文件、不代替在场成员干活 |
 
-代码里没有独立的 `Assistant` 类型：`api/agent_catalog_api.py` 负责把 Agent 投影成上游契约需要的形状，其余一律叫 Agent。
+**管理员用 `llm` 是可行且应当的。** `llm` 没有工具循环，写不了仓库，也就不会越权去做成员的工作；它只吃人格 + 本轮共享上下文。`llm` 必须显式配大脑，缺了就不能开群聊。技能和 MCP 写在管理员文件里也不会生效，不要挂。
+
+**其余 Agent 一律通用。** 它们是「后端 / 前端 / 运维」这类角色，不属于本仓库，也不该在人格里写死 CrewChat 的目录或规则。会话绑了哪个项目，就在那个项目的工作区干活。
+
+### 助手怎么改一份 Agent
+
+1. 先读本文件和 `AGENTS/truth-sources.md`，再读目标 `.data/agents/<id>.jsonc`。
+2. 按六个组成逐项看：大脑是否可用、引擎是否匹配职责、技能是否对口、MCP 是否对口、要不要记忆、`role` / `goal` / `backstory` 是否只描述角色而不是某个仓库。
+3. 只改花名册文件。密钥只存在 `.data/providers.jsonc`，禁止抄进 Agent。
+4. 给会写代码的 Agent 开 `memory`，并挂它真正用得上的技能 / MCP；规划型（管理员）保持 `body: llm`，技能留空。
 
 ## 四、原则
 
@@ -86,7 +94,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 | --- | --- | --- | --- |
 | 引擎 | `body` / `Executor` | 引擎 | backend（上游用语，仅限契约层）、agent、runner |
 | Agent | `AgentSpec` | Agent | assistant、worker、bot |
-| 内置 Agent | 预置 Agent 模板 + `builtin` 引擎 | Agent | 独立 Assistant 类型 |
+| 内置 Agent | `agent-helper` / `crewchat-manager`（普通 Agent 文件） | Agent 助手 / 管理员 | 独立 Assistant 类型、隐藏协调器 |
 | 管理员 Agent | `crewchat-manager`（`body: llm`，必须显式配大脑） | 管理员 | 隐藏协调器、隐式默认大脑 |
 | 大脑 | `brain` / `Provider` | 模型端点 | model（那是大脑的一部分）、api |
 | 技能 | `skills` | 技能 | capability、plugin（plugin 是安装包） |
