@@ -889,6 +889,21 @@ fn decode_codex_request_body(
 // ============================================================================
 
 /// 处理 /v1/chat/completions 请求（OpenAI Chat Completions API - Codex CLI）
+/// openai 兼容入口上的请求属于哪个 app。两级推断，不做「猜是某个 app」的兜底：
+/// 1. 模型 id 自带的 app 段（`ccs-<app>-…`，经登记的 Stack 身体会带它）；
+/// 2. 路径段（`/<app>/v1/chat/completions`；`/v1/chat/completions` 这种没有 app 段的不算）。
+/// 都推不出返回 None，调用方拒绝该请求。
+fn chat_app_of(path: &str, body: &Value) -> Option<AppType> {
+    body.get("model")
+        .and_then(Value::as_str)
+        .and_then(crate::mode::stack::app_of_stack_id)
+        .or_else(|| {
+            let mut segments = path.trim_start_matches('/').split('/');
+            let first = segments.next()?;
+            (segments.next() == Some("v1")).then(|| first.parse::<AppType>().ok()).flatten()
+        })
+}
+
 pub async fn handle_chat_completions(
     State(state): State<ProxyState>,
     request: axum::extract::Request,
@@ -906,7 +921,15 @@ pub async fn handle_chat_completions(
     let body_bytes = decode_codex_request_body(&mut headers, body_bytes)?;
     let mut body: Value = serde_json::from_slice(&body_bytes)
         .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?;
-    let stack = match resolve_stack_target(&state, &AppType::Codex, &mut body) {
+    // openai 兼容入口上的请求属于哪个 app（`chat_app_of` 的两级推断）；推不出就拒。
+    let Some(chat_app) = chat_app_of(uri.path(), &body) else {
+        return Err(ProxyError::InvalidRequest(
+            "请求既没有带 app 段的 Stack 模型 id（ccs-<app>-…），路径也指定不了 app".into(),
+        ));
+    };
+    // Stack 模型 id（`ccs-<app>-<key>/<model>`）逐请求路由；没有则是普通模型名，
+    // 照旧按该 app 的当前路由转发。
+    let stack = match resolve_stack_target(&state, &chat_app, &mut body) {
         Ok(stack) => stack,
         Err(rejected) => return Ok(*rejected),
     };
@@ -915,9 +938,9 @@ pub async fn handle_chat_completions(
         &state,
         &body,
         &headers,
-        AppType::Codex,
-        "Codex",
-        "codex",
+        chat_app.clone(),
+        chat_app.as_str(),
+        chat_app.as_str(),
         stack,
     )
     .await?;
@@ -931,7 +954,7 @@ pub async fn handle_chat_completions(
     let forwarder = ctx.create_forwarder(&state);
     let mut result = match forwarder
         .forward_with_retry(
-            &AppType::Codex,
+            &chat_app,
             method,
             &endpoint,
             body,

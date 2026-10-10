@@ -319,17 +319,21 @@ def test_opencode_config_carries_own_provider_not_the_users() -> None:
 
     prov = Provider(
         id="agnes", name="Agnes", base_url="https://apihub.agnes-ai.com/v1",
-        model="agnes-2.5-flash", api_key="sk-test",
+        model="ccs-opencode-agnes-ai/agnes-2.5-flash", api_key="sk-test",
     )
-    cfg = json.loads(_inline_config(prov, [], []))
+    cfg = json.loads(_inline_config(prov, [], [], "opencode"))
 
     assert "mcp" not in cfg  # no inherited servers
     block = cfg["provider"]["agnes"]
-    assert block["options"]["baseURL"] == "https://apihub.agnes-ai.com/v1"
-    # the key is referenced by env var (env_key convention), never embedded
-    assert block["options"]["apiKey"] == "{env:AGNES_API_KEY}"
+    # baseURL points at the local reverse proxy with the app segment, not the upstream
+    assert block["options"]["baseURL"] == "http://127.0.0.1:15721/opencode/v1"
+    # the key is the gateway placeholder, never the real provider key
+    assert block["options"]["apiKey"] == "PROXY_MANAGED"
     assert "sk-test" not in json.dumps(cfg)
+    # plain model name extracted from the ccs- id
     assert "agnes-2.5-flash" in block["models"]
+    # top-level default model selects the catalog entry
+    assert cfg["model"] == "agnes/agnes-2.5-flash"
 
 
 def test_opencode_config_only_includes_declared_capabilities() -> None:

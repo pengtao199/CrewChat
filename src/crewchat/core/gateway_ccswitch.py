@@ -25,7 +25,19 @@ from typing import Any
 from .config import Settings, get_settings
 from .providers import Provider
 
-SUPPORTED_APPS = ("codex", "claude", "opencode")
+# cc-switch 认识的全部 app（与它的 VALID_TOOLS 一致）。每个身体都要在网关里成为
+# 一条 provider 行，经反代逐请求路由——身体本身只拿发布 id，不拿明文 key。
+SUPPORTED_APPS = (
+    "claude",
+    "codex",
+    "gemini",
+    "grok",
+    "opencode",
+    "openclaw",
+    "hermes",
+    "pi",
+    "mcode",
+)
 
 
 def _binary(settings: Settings) -> Path | None:
@@ -69,16 +81,44 @@ def _build_settings_config(app_type: str, provider: Provider) -> tuple[dict[str,
             env["ANTHROPIC_API_KEY"] = api_key
         return ({"env": env}, {"apiFormat": provider.api_format})
     if app_type == "opencode":
+        return _openai_compatible(provider)
+    if app_type in _GENERIC_OPENAI_APPS:
+        return _openai_compatible(provider)
+    if app_type == "gemini":
+        env = {"GOOGLE_GEMINI_BASE_URL": base_url}
+        if api_key:
+            env["GEMINI_API_KEY"] = api_key
+        return ({"env": env}, {"apiFormat": provider.api_format})
+    if app_type == "grok":
         models = provider.model_ids() or ([model] if model else [])
         return (
             {
-                "npm": "@ai-sdk/openai-compatible",
-                "options": {"baseURL": base_url, "apiKey": api_key},
-                "models": {m: {"name": ""} for m in models},
+                "name": provider.name or provider.id,
+                "model": model,
+                "base_url": base_url,
+                "api_key": api_key,
+                "models": {m: {"name": m} for m in models},
             },
-            {},
+            {"apiFormat": provider.api_format},
         )
     raise ValueError(f"不支持的 app_type: {app_type}")
+
+
+#: 这些 app 都是 openai 兼容：cc-switch 转发的上游形状同 codex 的 chat/completions 一族，
+#: 这里存的 base_url/key 是**上游**（cc-switch 转发过去），身体只拿发布 id。
+_GENERIC_OPENAI_APPS = ("openclaw", "hermes", "pi", "mcode")
+
+
+def _openai_compatible(provider: Provider) -> tuple[dict[str, Any], dict[str, Any]]:
+    models = provider.model_ids() or ([provider.model] if provider.model else [])
+    return (
+        {
+            "npm": "@ai-sdk/openai-compatible",
+            "options": {"baseURL": provider.base_url, "apiKey": provider.api_key},
+            "models": {m: {"name": ""} for m in models},
+        },
+        {"apiFormat": provider.api_format},
+    )
 
 
 class Store:
@@ -288,13 +328,18 @@ class CcSwitchGateway:
         }
 
     STACK_APPS = ("claude", "codex")
+    REGISTER_APPS = ("opencode", "openclaw", "hermes", "pi", "mcode")
+    ROUTE_APPS = ("gemini", "grok")
 
     def activate(self, app: str, provider: Provider) -> str | None:
         """把通用 provider 投影给该 CLI，并让请求经反代用上它。
 
-        claude/codex 走 cc-switch 的 **Stack**：返回带供应商前缀的发布模型 id
-        （`ccs-…`），代理据此**逐请求**路由 —— 同一个 CLI 可同时用多个 provider/模型。
-        其余（opencode 等）回退到 route 模式，返回 None。
+        按 cc-switch 官方分三档：
+        - **Stack**（claude/codex）：`/stack/route`，cc-switch 改写 CLI 配置 + 发布 id；
+        - **共存**（opencode/openclaw/hermes/pi/mcode）：`/stack/register`，cc-switch 只
+          登记 Stack 成员、不改写 CLI 配置——配置由身体侧每次 spawn 时自己生成；
+        - **路由**（gemini/grok）：`/enter`，cc-switch 改写 CLI 配置，路由目标由反代
+          当前路由决定，不返回发布 id（单供应商语义）。
         """
         if not self.ensure_running():
             raise RuntimeError("网关未就绪")
@@ -309,8 +354,17 @@ class CcSwitchGateway:
             )
             resp.raise_for_status()
             return resp.json().get("model_id")
-        resp = httpx.post(f"{self.control}/enter", json={"app": app, "route": route}, timeout=30)
-        resp.raise_for_status()
+        if app in self.REGISTER_APPS:
+            resp = httpx.post(
+                f"{self.control}/stack/register",
+                json={"app": app, "provider_id": route, "model": provider.model},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            return resp.json().get("model_id")
+        if app in self.ROUTE_APPS:
+            httpx.post(f"{self.control}/enter", json={"app": app, "route": route}, timeout=30).raise_for_status()
+            return None
         return None
 
     def ensure(self, app: str) -> None:

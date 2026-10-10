@@ -327,6 +327,13 @@ impl ProxyServer {
                 "/codex/v1/chat/completions",
                 post(handlers::handle_chat_completions),
             )
+            // 通用 openai 兼容入口：`/<app>/v1/chat/completions`，路径段指定该请求属于
+            // 哪个 CLI（opencode/openclaw/hermes/pi/mcode…）。这些 CLI 只发裸模型名，
+            // 路由目标几乎全凭路径决定——编排层据此把它们逐个接到反代上。
+            .route(
+                "/:app/v1/chat/completions",
+                post(handlers::handle_chat_completions),
+            )
             // OpenAI Models API (Codex CLI reachability check)
             .route("/models", get(handlers::handle_models))
             .route("/v1/models", get(handlers::handle_models))

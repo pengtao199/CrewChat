@@ -404,6 +404,16 @@ async fn write_proxy(
             .map_err(err)?;
             unchanged
         }
+        // 通用（除 Claude 外）的 openai 兼容 app：编排层逐次注入代理端点，不需要 CC Switch
+        // 改写任何全局客户端文件——只把契约记下来（"这个 app 在走本地代理、当前路由是谁"），
+        // 模型由编排层用发布 id 逐请求路由。
+        other if crate::mode::stack::uses_generic_stack(other) => {
+            let contract = contract::generic(other.as_str(), &route.id);
+            let unchanged = !force && live_now.has_contract(&contract.key);
+            target.contract = Some(contract);
+            commit_state(state, app, &pending(target))?;
+            unchanged
+        }
         _ => return Err(format!("{} 不支持本地路由", app.as_str())),
     };
     Ok(!unchanged)
@@ -737,6 +747,11 @@ async fn warn_if_official_route(state: &AppState, app: &AppType, route: &Provide
 /// 不动 Stack 名单成员，只让盘上的文件重新等于「当前契约本来就该写的样子」。
 /// 多 CLI 编排器在每次起 CLI 之前调它，配置被谁改回去都能补回来。
 pub async fn ensure_projection(state: &AppState, app: &AppType) -> Result<(), String> {
+    if stack::uses_generic_stack(app) {
+        // 「共存」app：客户端配置由编排层每次 spawn 时生成，没有 CC Switch 可修的全局
+        // 文件；登记态写进状态文件后也不漂移——没有需要收敛的东西。
+        return Ok(());
+    }
     require_proxy_app(app)?;
     let _guard = lock_settled(state, app)
         .await
@@ -773,6 +788,57 @@ pub async fn ensure_projection(state: &AppState, app: &AppType) -> Result<(), St
     )
     .await
     .map(|_| ())
+}
+
+/// 登记一个「共存」app（openai 兼容一族：opencode/openclaw/hermes/pi/mcode）为 Stack
+/// 成员，返回发布模型 id（`ccs-<app>-<key>/<model>`）。
+///
+/// 与 [`enter_with_route`] 的本质区别：**不改写**该 app 的客户端配置文件——它的配置由
+/// 编排层（我们的身体）每次 spawn 时自己生成，CC Switch 没有那份文件的所有权。这里的
+/// 职责只有三件：分配 key、登记成员、落定「代理 + 聚合」模式。落定之后反代就能按发布
+/// id 逐请求路由到对应供应商，而真实 key 留在网关侧，不随配置发给 CLI。
+pub async fn register_stack_member(
+    state: &AppState,
+    app: &AppType,
+    route_id: &str,
+    model: &str,
+) -> Result<String, String> {
+    if !stack::uses_generic_stack(app) {
+        return Err(format!(
+            "{} 的客户端配置由 CC Switch 接管，请走 /stack/route 或 /enter",
+            app.as_str()
+        ));
+    }
+    if model.is_empty() {
+        return Err("model 不能为空：发布 id 要靠它路由".into());
+    }
+    let _guard = lock_settled(state, app)
+        .await
+        .map_err(|error| error.to_string())?;
+    let provider = state
+        .db
+        .get_provider_by_id(route_id, app.as_str())
+        .map_err(err)?
+        .ok_or_else(|| format!("供应商不存在: {route_id}"))?;
+    let mut members = settled_stack(app)?;
+    let key = stack::allocate_key(&mut members, &provider);
+    if !members.is_member(route_id) {
+        members.members.push(route_id.to_string());
+    }
+    members.enabled = true;
+    let target = PendingTarget {
+        pointer: Some(route_id.to_string()),
+        state: Some(ModeState {
+            mode: Some(Mode::Proxy),
+            attached: true,
+            proxy_route: Some(route_id.to_string()),
+            contract: Some(contract::generic(app.as_str(), route_id)),
+        }),
+        stack: Some(members),
+        ..PendingTarget::default()
+    };
+    commit_state(state, app, &target)?;
+    Ok(stack::encode(app, &key, model, false))
 }
 
 pub async fn exit(state: &AppState, app: &AppType) -> Result<(), String> {

@@ -65,6 +65,21 @@ pub fn grok(projection: &GrokProjection) -> Contract {
     }
 }
 
+/// 通用（除 Claude 外全部 app）：契约只登记「这个 app 走本地代理、当前路由是谁」，
+/// 不往客户端文件写任何东西——这些 CLI 由编排层**逐次**注入代理端点（改进程环境），
+/// 没有需要 CC Switch 维护的全局配置可改，也就没有 `exclusive` 需要在退出时删。
+pub fn generic(app: &str, route_id: &str) -> Contract {
+    Contract {
+        version: CONTRACT_VERSION,
+        key: key_of(&json!({
+            "app": app,
+            "version": CONTRACT_VERSION,
+            "route": route_id,
+        })),
+        exclusive: Map::new(),
+    }
+}
+
 fn sorted(map: &Map<String, Value>) -> Value {
     let mut entries: Vec<_> = map.iter().collect();
     entries.sort_by(|a, b| a.0.cmp(b.0));

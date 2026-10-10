@@ -112,6 +112,7 @@ class Session:
                         on_event=on_event,
                         skills=list(spec.skills),
                         mcps=list(spec.mcps),
+                        app_id=spec.body,
                     ),
                     effective,
                 )

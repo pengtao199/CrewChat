@@ -418,7 +418,7 @@ pub enum AppType {
 }
 
 impl AppType {
-    pub fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             AppType::Claude => "claude",
             AppType::ClaudeDesktop => "claude-desktop",
@@ -446,6 +446,10 @@ impl AppType {
     }
 
     pub fn supports_local_proxy(&self) -> bool {
+        // 官方语义（4.1/4.2 本地路由服务）：只有这四个 app 的客户端配置能由 CC Switch
+        // 接管改写。其余 app（opencode/openclaw/hermes/pi/mcode）是「共存」——配置由调用方
+        // 自己生成，CC Switch 只登记 Stack 成员（见 `controller::register_stack_member`），
+        // 所以这里不放开，防止把「接管」这条路径用到接不住的应用上。
         matches!(
             self,
             AppType::Claude | AppType::Codex | AppType::Gemini | AppType::GrokBuild

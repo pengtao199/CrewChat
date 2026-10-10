@@ -37,6 +37,8 @@ class ExecRequest:
     #: 配置，就得知道它该带哪些能力——而不是把用户全局那份整个继承过来。
     skills: list[str] = field(default_factory=list)
     mcps: list[str] = field(default_factory=list)
+    #: 身体 id（`opencode`/`openclaw`/…），供 env 钩子拼反代的 app 段路径。
+    app_id: str = ""
 
     def emit(self, kind: EventKind, **kw: Any) -> None:
         if self.on_event is None:

@@ -101,6 +101,29 @@ async fn identity(State(_core): State<Arc<Core>>) -> Json<serde_json::Value> {
 }
 
 #[derive(serde::Deserialize)]
+struct StackRegisterBody {
+    app: String,
+    provider_id: String,
+    model: String,
+}
+
+/// [crewchat] 登记「共存」app 为 Stack 成员，返回发布模型 id。
+///
+/// 与 `/stack/route` 的区别：不改写该 app 的客户端配置文件——它的配置由编排层每次
+/// spawn 时自己生成（见 AGENTS/bodies.md）。CC Switch 只做 key 分配、成员登记、
+/// 「代理 + 聚合」模式落定；反代据此按发布 id 逐请求路由，真实 key 留在网关侧。
+async fn stack_register(
+    State(core): State<Arc<Core>>,
+    Json(body): Json<StackRegisterBody>,
+) -> Result<Json<serde_json::Value>, String> {
+    let app = parse_app(&body.app)?;
+    let model_id =
+        controller::register_stack_member(&core.state, &app, &body.provider_id, &body.model)
+            .await?;
+    Ok(Json(serde_json::json!({ "ok": true, "model_id": model_id })))
+}
+
+#[derive(serde::Deserialize)]
 struct StackRouteBody {
     app: String,
     provider_id: String,
@@ -278,6 +301,7 @@ async fn run_control(core: Arc<Core>, port: u16) -> anyhow::Result<()> {
         .route("/ensure", post(ensure))
         .route("/identity", get(identity))
         .route("/stack/route", post(stack_route))
+        .route("/stack/register", post(stack_register))
         .route("/shutdown", post(shutdown))
         .route("/modes", get(modes))
         .route("/tools", get(tools))

@@ -33,50 +33,85 @@ from .base import ExecRequest, ExecResult, Executor, TokenUsage, register
 
 # ---- 每个 CLI 的私有部分，只剩"怎么把它拉起来" ------------------------------
 
+#: 反代认的占位凭据——客户端发这个，cc-switch 在转发时换成真实 key。身体因此永远拿不到
+#: 明文 key：真相源只在网关那一侧。
+PROXY_TOKEN = "PROXY_MANAGED"
+
+
+def _proxy_base() -> str:
+    s = Settings()
+    return f"http://127.0.0.1:{s.gateway_proxy_port}/v1"
+
+
+def _proxy_base_with_app(app_id: str = "") -> str:
+    """带 app 段的反代地址：`http://127.0.0.1:15721/<app>/v1`。
+
+    反代按路径段确定请求属于哪个 app（`chat_app_of`），路由到该 app 的当前供应商。
+    """
+    s = Settings()
+    base = f"http://127.0.0.1:{s.gateway_proxy_port}"
+    return f"{base}/{app_id}/v1" if app_id else f"{base}/v1"
+
+
+def _gateway_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
+    """把 openai 兼容的一族（openclaw/hermes/pi/mcode）指向反代、用发布 id。
+
+    身体**只**拿到网关发布的模型 id（`provider.model` 已被 `Session` 换成
+    `ccs-<app>-<key>/<model>`），凭据用占位符——明文 key 只存在于网关侧的 provider 行里。
+    反代按路径段（`/<app>/v1/...`）确定 app，路由到该 app 的当前供应商。
+    """
+    env["OPENAI_BASE_URL"] = _proxy_base_with_app(req.app_id)
+    env["OPENAI_API_KEY"] = PROXY_TOKEN
+
+
 def _opencode_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
     """opencode 的一次运行要自己的配置，不继承用户全局那份。
 
     否则每个 agent 都背着用户全部 MCP（一次简单回复 47 秒），用户改一个字影响所有
-    agent。这里只装它的供应商、它声明的技能与 MCP。
+    agent。这里只装：经反代的供应商（发布 id + 占位凭据）、它声明的技能与 MCP。
+
+    同时清掉父进程的 `OPENCODE_*` 环境变量（桌面应用/开发会话会设 `OPENCODE_SERVER_PASSWORD`
+    等），否则 spawn 出的 ACP 服务器会连父进程的服务器而不是自己启动。
     """
-    env["OPENCODE_CONFIG_CONTENT"] = _inline_config(provider, req.skills, req.mcps)
-    env.setdefault("OPENCODE_FAST_BOOT", "1")
-    env.setdefault("OPENCODE_DISABLE_MODELS_FETCH", "1")
-    env.setdefault("OPENCODE_DISABLE_FILEWATCHER", "1")
-    env.setdefault("OPENCODE_DISABLE_AUTOUPDATE", "1")
+    # 清掉父进程的 OPENCODE_* 变量，让子进程独立启动
+    for key in list(env.keys()):
+        if key.startswith("OPENCODE_"):
+            del env[key]
+    env["OPENCODE_CONFIG_CONTENT"] = _inline_config(provider, req.skills, req.mcps, req.app_id)
+    env["OPENCODE_FAST_BOOT"] = "1"
+    env["OPENCODE_DISABLE_MODELS_FETCH"] = "1"
+    env["OPENCODE_DISABLE_FILEWATCHER"] = "1"
+    env["OPENCODE_DISABLE_AUTOUPDATE"] = "1"
 
 
 def _claude_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
-    """把 claude 的模型设成网关发布的 id。
+    """claude 走反代：端点 + 发布模型 id + 占位凭据。
 
-    claude 默认用自己那家（`claude-opus-5-5`），网关没有这条路由，直接 503。
-    `provider.model` 此时已是 `Gateway.activate` 返回的发布 id（`ccs-claude-…`），
-    告诉 claude 用它，请求才会经反代路由到该 agent 的大脑。
+    claude 默认用自己那家（`claude-opus-5-5`），网关没这条路由直接 503。`provider.model`
+    此时已是 `Gateway.activate` 的发布 id（`ccs-claude-…`）。
     """
+    env["ANTHROPIC_BASE_URL"] = _proxy_base().removesuffix("/v1")
+    env["ANTHROPIC_AUTH_TOKEN"] = PROXY_TOKEN
     if provider is not None and provider.model:
         env["ANTHROPIC_MODEL"] = provider.model
 
 
 #: 会讲 ACP 的 CLI → 启动方式、是否需要网关、以及它自己那点额外环境。
-#: 加一个 CLI 就是加一行。`needs_gateway=True` 的身体由 `Session` 先 `activate`
-#: 拿到发布模型 id（写全局客户端配置指向反代），再交给下面的 env 钩子注入。
+#: 加一个 CLI 就是加一行。全部 CLI 都经 cc-switch 反代（`needs_gateway=True`）：`Session`
+#: 先 `Gateway.activate` 拿到发布模型 id，再由 env 钩子把端点指向反代、用占位凭据。
+#: 身体因此不碰明文 key，真相源只在网关那一侧。
 ACP_CLIS: dict[str, dict[str, Any]] = {
-    "opencode": {"label": "OpenCode", "command": ["opencode", "acp"], "env": _opencode_env},
-    "openclaw": {"label": "OpenClaw", "command": ["openclaw", "acp"]},
-    "claude": {
-        "label": "Claude Code",
-        "command": ["claude-agent-acp"],
-        "needs_gateway": True,
-        "env": _claude_env,
-    },
-    "codex": {"label": "Codex CLI", "command": ["codex-acp"], "needs_gateway": True},
+    "opencode": {"label": "OpenCode", "command": ["opencode", "acp"], "needs_gateway": True, "env": _opencode_env},
+    "openclaw": {"label": "OpenClaw", "command": ["openclaw", "acp"], "needs_gateway": True, "env": _gateway_env},
+    "claude": {"label": "Claude Code", "command": ["claude-agent-acp"], "needs_gateway": True, "env": _claude_env},
+    "codex": {"label": "Codex CLI", "command": ["codex-acp"], "needs_gateway": True, "env": _gateway_env},
     # 其余是本机（或用户装后）有 acp 入口的 CLI。没装就显示为不可用，装了即可选。
     # 命令取自 ACP 官方注册表与各 CLI 文档，见 AGENTS/bodies.md。
-    "gemini": {"label": "Gemini CLI", "command": ["gemini", "--acp"]},
-    "grok": {"label": "Grok Build", "command": ["grok", "agent", "stdio"]},
-    "hermes": {"label": "Hermes Agent", "command": ["hermes", "acp"]},
-    "pi": {"label": "Pi", "command": ["pi-acp"]},
-    "mcode": {"label": "MiniMax Code", "command": ["mcode", "acp"]},
+    "gemini": {"label": "Gemini CLI", "command": ["gemini", "--acp"], "needs_gateway": True, "env": _gateway_env},
+    "grok": {"label": "Grok Build", "command": ["grok", "agent", "stdio"], "needs_gateway": True, "env": _gateway_env},
+    "hermes": {"label": "Hermes Agent", "command": ["hermes", "acp"], "needs_gateway": True, "env": _gateway_env},
+    "pi": {"label": "Pi", "command": ["pi-acp"], "needs_gateway": True, "env": _gateway_env},
+    "mcode": {"label": "MiniMax Code", "command": ["mcode", "acp"], "needs_gateway": True, "env": _gateway_env},
 }
 
 
@@ -99,21 +134,32 @@ def _mcp_entry(spec: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
-def _inline_config(provider: Provider | None, skills: list[str], mcps: list[str]) -> str:
-    """为这一次运行生成 opencode 配置，不回退到用户全局配置。"""
+
+def _inline_config(provider: Provider | None, skills: list[str], mcps: list[str], app_id: str = "") -> str:
+    """为这一次运行生成 opencode 配置，不继承用户全局配置。
+
+    经网关时 `provider.model` 是发布 id（`ccs-opencode-<key>/<model>`）。opencode 的模型
+    目录只从全局配置 + models.dev + auth.json 构建，`OPENCODE_CONFIG_CONTENT` 不影响目录——
+    所以用**已在目录里的 provider 名**（`provider.id`），只覆盖 baseURL 指向反代（带 app
+    段），模型选目录里已有的那条。反代按路径段（`/opencode/v1/...`）确定 app，路由到当前
+    供应商。
+    """
     cfg: dict[str, Any] = {"$schema": "https://opencode.ai/config.json"}
 
     if provider is not None and provider.id:
-        models = {mid: {"name": mid} for mid in (provider.model_ids() or [provider.model])}
+        # 从发布 id 提取裸模型名：`ccs-opencode-<key>/<model>` → `<model>`
+        plain_model = provider.model.split("/")[-1] if "/" in provider.model else provider.model
+        model_key = f"{provider.id}/{plain_model}"
+        cfg["model"] = model_key
         cfg["provider"] = {
             provider.id: {
                 "npm": "@ai-sdk/openai-compatible",
                 "name": provider.name or provider.id,
                 "options": {
-                    "baseURL": provider.base_url,
-                    "apiKey": f"{{env:{provider.env_key()}}}",
+                    "baseURL": _proxy_base_with_app(app_id),
+                    "apiKey": PROXY_TOKEN,
                 },
-                "models": models,
+                "models": {plain_model: {"name": plain_model}},
             }
         }
 
@@ -337,16 +383,24 @@ async def _select_model(conn: Any, session_id: str, config_options: Any, provide
     """把会话的模型选成该 agent 的大脑。
 
     ACP 把"用哪个模型"做成一个配置项，agent 默认用它自己那家（opencode 默认
-    openrouter）。不选，请求就落到别人的额度上。找到那个提供了我们要的模型的配置项，
-    设过去——这一步对任何讲 ACP 的 CLI 都一样。
+    openrouter）。不选，请求就落到别人的额度上。候选值按优先级：
+    `<provider>/<plain_model>`（内联配置的 catalog id）、
+    `<provider>/<full_model>`（直连回退）、`ccs-…`（claude/codex 发布 id）。
     """
-    if provider is None or not provider.id:
+    if provider is None or not provider.model:
         return
-    want = f"{provider.id}/{provider.model}"
+    plain = provider.model.split("/")[-1] if "/" in provider.model else provider.model
+    candidates = [
+        f"{provider.id}/{plain}",
+        f"{provider.id}/{provider.model}",
+        provider.model,
+    ]
     for option in config_options or []:
-        if want in _select_values(option):
+        values = _select_values(option)
+        chosen = next((c for c in candidates if c in values), None)
+        if chosen:
             await conn.set_config_option(
-                config_id=getattr(option, "id", "model"), session_id=session_id, value=want
+                config_id=getattr(option, "id", "model"), session_id=session_id, value=chosen
             )
             return
 
