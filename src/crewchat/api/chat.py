@@ -279,6 +279,7 @@ async def _run_turn(
                         "teammate": group,
                         **usage,
                     },
+                    msg_id=reply_msg_id,
                 )
                 # Feed this agent's output to the next speaker. Done only after the
                 # reply is complete (and only when non-empty) so a silent or failed

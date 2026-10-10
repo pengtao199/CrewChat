@@ -77,8 +77,12 @@ def create_project(settings: Settings, name: str, path: str) -> Project:
     root = Path(path).expanduser()
     if not root.is_dir():
         raise ValueError(f"工作区不存在或不是文件夹：{root}")
+    resolved = str(root.resolve())
     projects = load_projects(settings)
-    project = Project(id=uuid.uuid4().hex[:8], name=name.strip() or root.name, path=str(root.resolve()))
+    for existing in projects:
+        if str(Path(existing.path).expanduser().resolve()) == resolved:
+            return existing
+    project = Project(id=uuid.uuid4().hex[:8], name=name.strip() or root.name, path=resolved)
     projects.append(project)
     save_projects(settings, projects)
     return project

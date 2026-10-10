@@ -415,7 +415,10 @@ def test_group_turn_gives_each_agent_its_own_message(client, monkeypatch) -> Non
     assert finishes[1]["data"]["data"]["model"] == "m2"
 
     # Each reply is persisted as its own row, tagged with its speaker + usage.
+    # The stored id is the same one the stream used, so a reload does not fork a bubble.
     rows = {m["metadata"]["agent_id"]: m for m in c.get(f"{PREFIX}/conversations/conv-g/messages").json()["items"]}
+    stream_ids = {f["data"]["msg_id"] for f in texts}
+    assert {row["id"] for row in rows.values()} == stream_ids
     assert set(rows) == {"a", "b"}
     assert rows["a"]["content"]["usage"]["model"] == "m1"
     assert rows["a"]["content"]["teammateMessage"] is True

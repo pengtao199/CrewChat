@@ -56,7 +56,7 @@ def to_api(row: dict[str, Any], agents: dict[str, Any] | None = None) -> dict[st
         "backend": getattr(spec, "body", None) or "llm",
         "workspace": _project_path(row.get("project_id")),
         "custom_workspace": bool(_project_path(row.get("project_id"))),
-        "agent_name": getattr(spec, "name", None) or first or "",
+        "agent_name": _roster_label(agent_ids, agents) or getattr(spec, "name", None) or first or "",
         "cli_path": None,
         "team_agent_ids": agent_ids,
         "leader_agent_id": row.get("leader_agent_id") or None,
@@ -92,6 +92,18 @@ def to_api(row: dict[str, Any], agents: dict[str, Any] | None = None) -> dict[st
         "runtime": idle_runtime(),
         "source": "aionui",
     }
+
+
+def _roster_label(agent_ids: list[str], agents: dict[str, Any] | None) -> str:
+    if len(agent_ids) < 2:
+        return ""
+    names: list[str] = []
+    for agent_id in agent_ids:
+        spec = (agents or {}).get(agent_id)
+        names.append(getattr(spec, "name", None) or agent_id)
+    shown = names[:3]
+    extra = len(names) - len(shown)
+    return " · ".join(shown) + (f" +{extra}" if extra else "")
 
 
 def _project_path(project_id: str | None) -> str:
@@ -388,9 +400,10 @@ def persist_turn(
     content: str,
     author: str | None = None,
     metadata: dict[str, Any] | None = None,
+    msg_id: str | None = None,
 ) -> str:
     """Called by the chat layer to record a message."""
-    msg_id = uuid.uuid4().hex
+    msg_id = msg_id or uuid.uuid4().hex
     now = _iso(int(time.time() * 1000))
     store().add_message(msg_id, conv_id, role, content, author, now, metadata)
     return msg_id
