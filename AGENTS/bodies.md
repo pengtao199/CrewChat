@@ -53,24 +53,25 @@ class Executor(ABC):
 
 | id | acp 启动命令 | 经网关 | 记忆 |
 | --- | --- | --- | --- |
-| `opencode` | `opencode acp` | **是**（当前路由，`OPENCODE_CONFIG_CONTENT`） | ACP session |
-| `openclaw` | `openclaw acp` | 否 | ACP session |
-| `claude` | `claude-agent-acp` | **是**（临时 `CLAUDE_CONFIG_DIR`，发布 id） | ACP session |
+| `opencode` | `opencode acp` | **是**（隔离的 `opencode.json`：`providers.gw.settings`，目录键 `main`，`modelID` 为发布 id） | ACP session |
+| `openclaw` | `openclaw acp` | **是**（`OPENCLAW_STATE_DIR`，另起一次本机 Gateway） | ACP session |
+| `claude` | `claude-agent-acp` | **是**（临时 `CLAUDE_CONFIG_DIR`） | ACP session |
 | `codex` | `codex-acp` | **是**（临时 `CODEX_HOME`，`ccs-<key>/<model>`） | ACP session |
-| `gemini` | `gemini --acp` | **是**（`/enter`，一条当前供应商） | ACP session |
-| `grok` | `grok agent stdio` | **是**（`/enter`，一条当前供应商） | ACP session |
-| `hermes` | `hermes acp` | 否 | ACP session |
-| `pi` | `pi-acp` | 否 | ACP session |
-| `mcode` | `mcode acp` | 否 | ACP session |
+| `gemini` | `gemini --acp` | **是**（`GEMINI_MODEL`，`ccs-gemini-<key>--<model>`） | ACP session |
+| `grok` | `grok agent stdio` | **是**（`GROK_HOME`） | ACP session |
+| `hermes` | `hermes acp` | **是**（`~/.hermes/crewchat-sessions` 下的 `HERMES_HOME`，不改用户的 `config.yaml`） | ACP session |
+| `pi` | `pi-acp` | **是**（`PI_CODING_AGENT_DIR` 的 `models.json`，`api: openai-completions`，`apiKey` 为 `PROXY_MANAGED`；`settings.json` 设 `quietStartup`，开场白不进对话） | ACP session |
+| `mcode` | `mcode acp` | **是**（`MINIMAX_DATA_DIR`） | ACP session |
 | `llm` | （非 CLI）`openai` SDK 直连 | 否 | 会话上下文 |
 
 命令取自 ACP 官方注册表（`agentclientprotocol.com/get-started/agents`）与各 CLI 文档。
 没装的 CLI 显示为不可用，装了即可选——`available()` 只做 `which(命令[0])`。
 
-**经网关**（`needs_gateway=True`）的身体由 `Session` 先 `Gateway.activate`。Claude / Codex
-拿到发布 id，写进这一次进程的临时目录（`PROXY_MANAGED`，不含真实 key），不改用户的
-`~/.claude` 与 `~/.codex`。Gemini / Grok 只 `POST /enter`，不返回发布 id，也不注入
-`OPENAI_*`。子进程退出（含失败）时删除临时目录。
+**经网关**（`needs_gateway=True`）的身体由 `Session` 先 `Gateway.activate` 拿到这次的发布
+id，写进这一次进程自己的配置（`PROXY_MANAGED`，不含真实 key）。同一个 CLI 的两个会话
+可以同时用两家供应商。不改用户的 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.grok`、
+`~/.hermes/config.yaml`。Hermes 只在 `~/.hermes/crewchat-sessions/` 下建临时家。
+子进程退出（含失败）时删除临时目录。`llm` 仍直连。
 
 模型选择：会话建好后，从 ACP 的 `config_options` 里找出提供了该 agent 大脑的那个项并
 设过去——对 `opencode` 这类把大脑列进选项的 CLI 生效；`claude/codex` 的选项只有自家
