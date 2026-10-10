@@ -20,7 +20,7 @@ MANAGER_ID = "crewchat-manager"
 _MANAGER_TEMPLATE: dict[str, Any] = {
     "name": "管理员",
     "emoji": "🧭",
-    "body": "llm",
+    "body": "opencode",
     "brain": "",
     "role": "你是这个会话的管理员，也是唯一的 Leader。你拆解用户任务、按专长把子任务交给在场成员、最后汇总成一份结论。",
     "goal": "让在场的专业成员各自做完自己的部分，再给出对得上用户原话的结论。你自己不写代码、不改文件、不代替任何人执行。",

@@ -93,6 +93,7 @@ class Session:
                 # 需要网关的身体配了大脑就挂到反代上，否则它用自己的登录。
                 model_id = self._gateway_model(spec, provider, executor.needs_gateway)
                 # 不调用 ensure：它会把当前路由写进用户的全局 CLI 配置，两个会话就会抢同一家。
+                catalog_model = provider.model if provider is not None else ""
                 effective = provider
                 if model_id and provider is not None:
                     effective = copy.copy(provider)
@@ -107,6 +108,8 @@ class Session:
                         skills=list(spec.skills),
                         mcps=list(spec.mcps),
                         app_id=spec.body,
+                        conversation_id=session_key,
+                        catalog_model=catalog_model,
                     ),
                     effective,
                 )

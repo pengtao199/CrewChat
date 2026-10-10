@@ -58,7 +58,7 @@ def managed_agents() -> list[dict[str, Any]]:
                 "type": body,
                 "kind": kinds.get(body, "cli"),
                 "name": probe.label if probe else body,
-                "installed": bool(probe.installed) if probe else body == "llm",
+                "installed": bool(probe.installed) if probe else bool(engine.get("available")),
                 "version": probe.version if probe else None,
                 "path": probe.path if probe else None,
                 "status": "online" if (probe.ready if probe else True) else "offline",

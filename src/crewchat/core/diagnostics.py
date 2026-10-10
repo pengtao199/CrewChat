@@ -9,7 +9,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .config import Settings
-from .providers import load_providers
 
 _TIMEOUT = 20
 
@@ -94,27 +93,6 @@ def probe_claude() -> Probe:
     return probe
 
 
-def probe_llm(settings: Settings) -> Probe:
-    """The llm body is driven by the brain pool, so availability follows the pool
-    (any provider with a key), not the legacy single-endpoint settings."""
-    pool = load_providers(settings)
-    usable = next((p for p in pool if p.has_key()), None)
-    base_url = usable.base_url if usable else "（未配置）"
-    host = urlparse(base_url).hostname or "unknown" if usable else ""
-
-    probe = Probe(
-        id="llm",
-        label="OpenAI 兼容端点",
-        installed=True,
-        path=base_url,
-        logged_in=usable is not None,
-        auth_method="API key" if usable else None,
-        detail=f"{host} · {provider_name(base_url)}" if usable else "大脑池里没有带 key 的端点",
-    )
-    probe.version = f"{usable.model} ({usable.name})" if usable else "未配置"
-    return probe
-
-
 _CODEX_AUTH = {
     "an api key": "API key",
     "api key": "API key",
@@ -152,10 +130,10 @@ def provider_name(base_url: str) -> str:
 
 
 def snapshot(settings: Settings) -> dict[str, Probe]:
+    del settings
     return {
         "codex": probe_codex(),
         "claude": probe_claude(),
-        "llm": probe_llm(settings),
     }
 
 

@@ -53,7 +53,7 @@ def to_api(row: dict[str, Any], agents: dict[str, Any] | None = None) -> dict[st
     spec = (agents or {}).get(first) if first else None
 
     extra: dict[str, Any] = {
-        "backend": getattr(spec, "body", None) or "llm",
+        "backend": getattr(spec, "body", None) or "opencode",
         "workspace": _project_path(row.get("project_id")),
         "custom_workspace": bool(_project_path(row.get("project_id"))),
         "agent_name": _roster_label(agent_ids, agents) or getattr(spec, "name", None) or first or "",

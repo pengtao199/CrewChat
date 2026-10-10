@@ -129,7 +129,14 @@ def _opencode_env(provider: Provider | None, req: ExecRequest, env: dict[str, st
     data = home / "data"
     config_dir.mkdir(parents=True)
     (data / "opencode").mkdir(parents=True)
-    content = _inline_config(provider, req.skills, req.mcps, req.app_id)
+    content = _inline_config(
+        provider,
+        req.skills,
+        req.mcps,
+        req.app_id,
+        session=req.conversation_id or req.session or "",
+        catalog_model=req.catalog_model,
+    )
     (config_dir / "opencode.json").write_text(content, encoding="utf-8")
     (data / "opencode" / "auth.json").write_text(
         json.dumps({"gw": {"type": "api", "key": PROXY_TOKEN}}),
@@ -487,26 +494,51 @@ def _opencode_wire_model(model: str) -> tuple[str, str]:
     return "main", model
 
 
-def _inline_config(provider: Provider | None, skills: list[str], mcps: list[str], app_id: str = "") -> str:
+def _inline_config(
+    provider: Provider | None,
+    skills: list[str],
+    mcps: list[str],
+    app_id: str = "",
+    *,
+    session: str = "",
+    catalog_model: str = "",
+) -> str:
     """为这一次运行生成 opencode 配置，不继承用户全局配置。
 
     provider 名固定为 `gw`。OpenCode 2 读 `providers.*.settings`，目录键是 `main`，
     `modelID` 是这次的发布 id。反代按这个 id 选供应商。
+    OpenCode Go 要稳定的 `x-opencode-session`；发布 id 不在它的模型目录里，
+    所以同时写上 limit，避免 "metadata not found" 警告。
     """
     cfg: dict[str, Any] = {"$schema": "https://opencode.ai/config.json"}
 
     if provider is not None and provider.model:
         short, wire = _opencode_wire_model(provider.model)
+        known = provider.get_model(catalog_model) if catalog_model else None
+        model_entry: dict[str, Any] = {
+            "name": (known.label if known else None) or catalog_model or short,
+            "modelID": wire,
+            "limit": {
+                "context": int(known.context_limit) if known and known.context_limit else 128000,
+                "output": 16384,
+            },
+        }
+        settings: dict[str, Any] = {
+            "baseURL": _proxy_base_with_app(app_id or "opencode"),
+            "apiKey": PROXY_TOKEN,
+        }
+        headers: dict[str, str] = {"User-Agent": "crewchat/1.0"}
+        if session:
+            headers["x-opencode-session"] = session
+            model_entry["headers"] = {"x-opencode-session": session}
+        settings["headers"] = headers
         cfg["model"] = f"gw/{short}"
         cfg["providers"] = {
             "gw": {
                 "name": provider.name or "gw",
                 "package": "aisdk:@ai-sdk/openai-compatible",
-                "settings": {
-                    "baseURL": _proxy_base_with_app(app_id or "opencode"),
-                    "apiKey": PROXY_TOKEN,
-                },
-                "models": {short: {"name": short, "modelID": wire}},
+                "settings": settings,
+                "models": {short: model_entry},
             }
         }
 

@@ -225,10 +225,6 @@ def test_resolve_brain_splits_provider_and_overrides_model(monkeypatch) -> None:
     # CLI body without a model part → leave the CLI's own brain alone.
     assert P.resolve_brain(object(), AgentSpec(id="b", body="claude", brain="1fd10b59")) is None
 
-    # llm body resolves even without a model part.
-    llm = P.resolve_brain(object(), AgentSpec(id="c", body="llm", brain="1fd10b59"))
-    assert llm is not None and llm.id == "1fd10b59"
-
 
 def test_only_real_session_ids_are_resumed(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
     """A session id must come from the CLI, never be invented.
@@ -242,7 +238,7 @@ def test_only_real_session_ids_are_resumed(monkeypatch, tmp_path) -> None:  # ty
     from crewchat.core.models import AgentSpec
     from crewchat.orchestration import session as session_mod
 
-    spec = AgentSpec(id="a1", body="llm", brain="p/m")
+    spec = AgentSpec(id="a1", body="opencode", brain="p/m")
 
     class _Executor:
         needs_gateway = False
@@ -606,19 +602,31 @@ def test_opencode_config_only_includes_declared_capabilities() -> None:
 
     prov = Provider(id="agnes", name="Agnes", base_url="https://x/v1", model="m", api_key="k")
     # A made-up mcp name is not in the shared registry, so it must not appear.
-    cfg = json.loads(_inline_config(prov, ["definitely-not-a-skill"], ["nope-not-an-mcp"]))
+    cfg = json.loads(
+        _inline_config(
+            prov,
+            ["definitely-not-a-skill"],
+            ["nope-not-an-mcp"],
+            session="conv:demo",
+            catalog_model="m",
+        )
+    )
     assert "skills" not in cfg
     assert "mcp" not in cfg
+    gw = cfg["providers"]["gw"]
+    assert gw["settings"]["headers"]["x-opencode-session"] == "conv:demo"
+    assert gw["models"]["main"]["limit"]["context"] == 128000
+    assert gw["models"]["main"]["modelID"] == "m"
 
 
 def test_acp_registers_the_cli_bodies() -> None:
-    """All CLIs are ACP bodies; `llm` stays because it is direct, not a CLI."""
+    """Every body is an ACP CLI; there is no direct API body."""
     from crewchat.executors import list_executors
 
     by_id = {e["id"]: e for e in list_executors()}
     for cli in ("opencode", "openclaw", "claude", "codex"):
         assert by_id[cli]["kind"] == "cli"
-    assert by_id["llm"]["kind"] == "api"
+    assert "llm" not in by_id
 
 
 def test_acp_model_option_lookup_handles_flat_and_grouped() -> None:

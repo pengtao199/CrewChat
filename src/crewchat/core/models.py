@@ -23,7 +23,7 @@ class AgentSpec(BaseModel):
     backstory: str = ""
 
     brain: str = ""
-    body: str = "llm"
+    body: str = "opencode"
 
     skills: list[str] = Field(default_factory=list)
     mcps: list[str] = Field(default_factory=list)
@@ -47,7 +47,7 @@ class AgentSpec(BaseModel):
 
     @property
     def is_cli_backed(self) -> bool:
-        return self.body != "llm"
+        return True
 
     def resolve_cwd(self, workspace: Path) -> Path:
         """该 Agent 的执行目录：显式 cwd 优先，否则用项目工作区。

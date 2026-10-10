@@ -39,6 +39,10 @@ class ExecRequest:
     mcps: list[str] = field(default_factory=list)
     #: 身体 id（`opencode`/`openclaw`/…），供 env 钩子拼反代的 app 段路径。
     app_id: str = ""
+    #: 会话键（`conv:<id>`），给需要稳定会话头的上游（如 OpenCode Go）。
+    conversation_id: str = ""
+    #: 大脑里的真实模型 id。经网关后 `provider.model` 会变成发布 id。
+    catalog_model: str = ""
 
     def emit(self, kind: EventKind, **kw: Any) -> None:
         if self.on_event is None:
@@ -51,7 +55,7 @@ class TokenUsage:
     """一次身体运行的 token 消耗，作为跨身体的统一形状。
 
     各身体来源不同（claude 的 model_usage、codex 的 TurnCompletedEvent.usage、
-    opencode 的 step-finish、llm 的 OpenAI usage），这里归一到同一组计数字段。
+    opencode 的 step-finish），这里归一到同一组计数字段。
     只统计**经我们 app 发起的**运行——不读网关日志、不掺用户裸跑 CLI 的消耗。
     """
 
@@ -114,7 +118,7 @@ class Executor(ABC):
     kind: ClassVar[EngineKind] = "cli"
     #: 该身体是否要靠网关（反代）注入大脑。True 的身体读全局客户端配置（无法逐次覆盖），
     #: 必须由 `Gateway.activate` 挂到反代并按 provider 逐请求路由；False 的身体自己按次
-    #: 注入端点（opencode 用 env+`--model`，llm 直连），不碰全局配置，天然可多开。
+    #: 注入端点，不碰全局配置，天然可多开。
     needs_gateway: ClassVar[bool] = False
 
     @classmethod

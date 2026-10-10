@@ -422,14 +422,13 @@ def available_plugins() -> list[str]:
 def resolve_brain(settings: Settings, spec: Any) -> Provider | None:
     """Agent 的大脑，`brain` 写成 `providerId[/modelId]`（modelId 可含 `/`）。
 
-    - CLI 身体：没写模型（brain 里没有 `/`）就返回 None，让它用自带大脑；
+    - 没写模型（brain 里没有 `/`）就返回 None，让 CLI 用自带大脑；
       写了就用这个端点，并覆盖 provider 的默认模型。
-    - llm 身体：始终返回端点（没有端点即不可用）。
     """
     brain = (getattr(spec, "brain", "") or "").strip()
     if not brain:
         return None
-    if spec.is_cli_backed and "/" not in brain:
+    if "/" not in brain:
         return None
     provider_id, _, model = brain.partition("/")
     provider = get_provider(settings, provider_id)
