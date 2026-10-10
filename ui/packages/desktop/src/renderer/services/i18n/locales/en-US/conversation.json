@@ -19,6 +19,34 @@
     "skillsMarketDesc": "Search and activate community Skills on demand. Configure once, available for all agents.",
     "skillsMarketDetails": "View More >>"
   },
+  "group": {
+    "single": "One agent",
+    "multi": "Several agents",
+    "manager": "Manager",
+    "managerHint": "The manager splits the work, assigns it, then summarizes.",
+    "managerReady": "Ready",
+    "managerMissing": "No manager yet",
+    "managerUnconfigured": "Needs a brain",
+    "restore": "Restore manager",
+    "configure": "Configure",
+    "workers": "Members {{count}}",
+    "needWorkspace": "A group needs a project first",
+    "needMember": "Pick at least one member",
+    "search": "Search agents",
+    "selected": "Selected",
+    "unavailable": "This agent is not available",
+    "createError": {
+      "missingProject": "A group conversation needs a project",
+      "unknownProject": "That project is gone",
+      "leaderNotManager": "Only the manager can lead a group",
+      "noWorkers": "Pick at least one member",
+      "managerMissing": "Restore the manager first",
+      "managerDisabled": "The manager is turned off",
+      "managerUnconfigured": "The manager still needs a brain",
+      "unknownAgent": "One of the members is no longer on the roster",
+      "disabledAgent": "One of the members is turned off"
+    }
+  },
   "history": {
     "recents": "Recents",
     "noHistory": "No chat history",

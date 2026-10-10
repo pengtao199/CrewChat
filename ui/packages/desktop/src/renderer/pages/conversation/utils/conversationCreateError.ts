@@ -161,11 +161,27 @@ export const normalizeConversationRuntimeWorkspaceErrorCode = (
   return code === 'WORKSPACE_PATH_RUNTIME_UNAVAILABLE' ? code : undefined;
 };
 
+const GROUP_CREATE_ERROR_KEYS: Record<string, string> = {
+  missing_project: 'conversation.group.createError.missingProject',
+  unknown_project: 'conversation.group.createError.unknownProject',
+  leader_not_manager: 'conversation.group.createError.leaderNotManager',
+  no_workers: 'conversation.group.createError.noWorkers',
+  manager_missing: 'conversation.group.createError.managerMissing',
+  manager_disabled: 'conversation.group.createError.managerDisabled',
+  manager_unconfigured: 'conversation.group.createError.managerUnconfigured',
+  unknown_agent: 'conversation.group.createError.unknownAgent',
+  disabled_agent: 'conversation.group.createError.disabledAgent',
+};
+
 export const getConversationCreateErrorMessage = (error: unknown, t: TFunction): string => {
   const normalizedCode = normalizeConversationCreateErrorCode(error);
   const payload = getWorkspacePathErrorPayload(error);
   const workspacePath = getWorkspacePathFromErrorDetails(error);
   const rawMessage = payload?.error || parseError(error) || t('conversation.createFailed');
+  const groupKey = GROUP_CREATE_ERROR_KEYS[payload?.error || ''];
+  if (groupKey) {
+    return t(groupKey, { defaultValue: rawMessage });
+  }
 
   if (normalizedCode && workspacePath) {
     return t(`conversation.createError.pathVariants.${normalizedCode}`, {

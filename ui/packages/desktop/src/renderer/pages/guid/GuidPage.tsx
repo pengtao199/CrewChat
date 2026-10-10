@@ -17,10 +17,12 @@ import { appendPromptToDraft } from '@/renderer/hooks/chat/useSendBoxDraft';
 import { getFuzzyMatchIndices, useSlashCommandController } from '@/renderer/hooks/chat/useSlashCommandController';
 import SlashCommandMenu, { type SlashCommandMenuItem } from '@/renderer/components/chat/SlashCommandMenu';
 import AgentSelectionArea from './components/AgentSelectionArea';
+import GuidTeamPanel from './components/GuidTeamPanel';
 import GuidActionRow from './components/GuidActionRow';
 import GuidInputCard from './components/GuidInputCard';
 import GuidModelSelector from './components/GuidModelSelector';
 import { useGuidAgentSelection } from './hooks/useGuidAgentSelection';
+import { useGuidTeamSelection } from './hooks/useGuidTeamSelection';
 import { useGuidInput } from './hooks/useGuidInput';
 import { useGuidModelSelection } from './hooks/useGuidModelSelection';
 import { useGuidSend } from './hooks/useGuidSend';
@@ -32,7 +34,7 @@ import { chatFileRefPath, uploadFileRef } from '@/common/types/chatFile';
 import { useOpenFileSelector } from '@/renderer/hooks/file/useOpenFileSelector';
 import { appendSpeechTranscript } from '@/renderer/hooks/system/useSpeechInput';
 import { useLiveTranscriptInsertion } from '@/renderer/hooks/system/useLiveTranscriptInsertion';
-import { ConfigProvider } from '@arco-design/web-react';
+import { Button, ConfigProvider } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -146,6 +148,7 @@ const GuidPage: React.FC = () => {
   const resetMentionQuery = useCallback<React.Dispatch<React.SetStateAction<string | null>>>(() => {}, []);
   const resetMentionActiveIndex = useCallback<React.Dispatch<React.SetStateAction<number>>>(() => {}, []);
 
+  const teamSelection = useGuidTeamSelection(agentSelection.agents);
   const selectedAgentId = agentSelection.selectedAgentId;
   const hasSelectedAgent = selectedAgentId !== null;
   const { data: selectedAgentDetail } = useSWR(
@@ -246,6 +249,9 @@ const GuidPage: React.FC = () => {
     // Agent state
     selectedAgentId: agentSelection.selectedAgentId,
     selectedAgentBackend: agentSelection.selectedAgentBackend,
+    chatMode: teamSelection.mode,
+    workerIds: teamSelection.workerIds,
+    managerReady: teamSelection.managerReady,
     selectedMode: agentSelection.selectedMode,
     selectedAcpModel: agentSelection.selectedAcpModel,
     selectedThoughtLevelValue: agentSelection.selectedThoughtLevelValue,
@@ -635,12 +641,43 @@ const GuidPage: React.FC = () => {
             <p className='text-2xl font-semibold mb-0 text-t-primary text-center'>{t('conversation.welcome.title')}</p>
           </div>
 
-          <AgentSelectionArea
-            selectedAgentId={agentSelection.selectedAgentId}
-            agents={agentSelection.agents}
-            localeKey={localeKey}
-            onSelectAgent={handleSelectAgent}
-          />
+          <div className='mb-8px flex justify-center gap-8px'>
+            <Button
+              size='small'
+              type={teamSelection.mode === 'single' ? 'primary' : 'text'}
+              onClick={() => teamSelection.setMode('single')}
+            >
+              {t('conversation.group.single')}
+            </Button>
+            <Button
+              size='small'
+              type={teamSelection.mode === 'group' ? 'primary' : 'text'}
+              onClick={() => teamSelection.setMode('group')}
+            >
+              {t('conversation.group.multi')}
+            </Button>
+          </div>
+
+          {teamSelection.mode === 'group' ? (
+            <GuidTeamPanel
+              manager={teamSelection.manager}
+              managerLoading={teamSelection.managerLoading}
+              workers={teamSelection.workers}
+              workerIds={teamSelection.workerIds}
+              localeKey={localeKey}
+              hasWorkspace={Boolean(guidInput.dir)}
+              onToggleWorker={teamSelection.toggleWorker}
+              onRemoveWorker={teamSelection.removeWorker}
+              onRestoreManager={() => void teamSelection.restoreManager()}
+            />
+          ) : (
+            <AgentSelectionArea
+              selectedAgentId={agentSelection.selectedAgentId}
+              agents={agentSelection.agents}
+              localeKey={localeKey}
+              onSelectAgent={handleSelectAgent}
+            />
+          )}
 
           <GuidInputCard
             focusRequestKey={navState?.focusPrefill && navState.prefillPrompt ? location.key : undefined}

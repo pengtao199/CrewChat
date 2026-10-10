@@ -591,6 +591,22 @@ export type Workspace = {
   exists: boolean;
 };
 
+export type ManagerStatus = {
+  id: string;
+  exists: boolean;
+  enabled: boolean;
+  has_brain: boolean;
+  ready: boolean;
+  reason: string;
+  path: string;
+  created?: boolean;
+};
+
+export const crewchatAgents = {
+  manager: httpGet<ManagerStatus, void>('/api/crewchat/agents/manager'),
+  restoreManager: httpPost<ManagerStatus, void>('/api/crewchat/agents/manager/restore'),
+};
+
 export const workspaces = {
   list: httpGet<Workspace[], void>('/api/crewchat/projects'),
   create: httpPost<Workspace, { name: string; path: string }>('/api/crewchat/projects'),

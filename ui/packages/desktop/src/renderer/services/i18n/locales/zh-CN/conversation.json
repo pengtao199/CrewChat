@@ -19,6 +19,34 @@
     "skillsMarketDesc": "按需搜索并调用社区 Skills，一次配置，所有Agent通用。",
     "skillsMarketDetails": "详情 >>"
   },
+  "group": {
+    "single": "单 Agent",
+    "multi": "多 Agent",
+    "manager": "管理员",
+    "managerHint": "管理员先拆任务，再把子任务交给成员，最后汇总。",
+    "managerReady": "已就绪",
+    "managerMissing": "还没有管理员",
+    "managerUnconfigured": "还没选大脑",
+    "restore": "恢复管理员",
+    "configure": "去配置",
+    "workers": "成员 {{count}}",
+    "needWorkspace": "多 Agent 必须先选项目",
+    "needMember": "再选至少一个成员",
+    "search": "搜索 Agent",
+    "selected": "已选",
+    "unavailable": "这个 Agent 现在不可用",
+    "createError": {
+      "missingProject": "多 Agent 会话必须绑定一个项目",
+      "unknownProject": "这个项目不存在",
+      "leaderNotManager": "群聊只能由管理员带队",
+      "noWorkers": "至少选一个成员",
+      "managerMissing": "还没有管理员，先恢复它",
+      "managerDisabled": "管理员被关掉了",
+      "managerUnconfigured": "管理员还没选大脑",
+      "unknownAgent": "有成员已经不在花名册里",
+      "disabledAgent": "有成员被关掉了"
+    }
+  },
   "history": {
     "recents": "最近",
     "noHistory": "暂无对话历史",

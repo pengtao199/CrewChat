@@ -17,6 +17,7 @@ import { type TFunction } from 'i18next';
 import type { NavigateFunction } from 'react-router-dom';
 import { mutate as swrMutate } from 'swr';
 import { getConversationCreateErrorMessage } from '@/renderer/pages/conversation/utils/conversationCreateError';
+import { buildGroupRoster } from '../utils/groupRoster';
 
 export type GuidSendDeps = {
   // Input state
@@ -32,6 +33,9 @@ export type GuidSendDeps = {
   // Agent state
   selectedAgentId: string | null;
   selectedAgentBackend: string;
+  chatMode?: 'single' | 'group';
+  workerIds?: string[];
+  managerReady?: boolean;
   selectedMode: string;
   selectedAcpModel: string | null;
   selectedThoughtLevelValue?: string;
@@ -79,6 +83,9 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     loading,
     selectedAgentId,
     selectedAgentBackend,
+    chatMode = 'single',
+    workerIds = [],
+    managerReady = false,
     selectedMode,
     selectedAcpModel,
     selectedThoughtLevelValue,
@@ -100,18 +107,30 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   } = deps;
   const sendingRef = useRef(false);
   // Workspaces are projects; the picked dir maps to one so the session binds it.
-  const { workspaces } = useWorkspaces();
+  const { workspaces, create: createWorkspace } = useWorkspaces();
 
   const handleSend = useCallback(async () => {
-    if (!selectedAgentId) {
+    const isGroup = chatMode === 'group';
+    if (isGroup) {
+      if (!dir || workerIds.length === 0 || !managerReady) return;
+    } else if (!selectedAgentId) {
       return;
     }
 
     const isCustomWorkspace = !!dir;
     const finalWorkspace = dir || '';
-    const projectId = dir ? workspaces.find((workspace) => workspace.path === dir)?.id : undefined;
+    let projectId = dir ? workspaces.find((workspace) => workspace.path === dir)?.id : undefined;
+    if (isGroup && dir && !projectId) {
+      const folderName = dir.split(/[\\/]/).pop() || dir;
+      try {
+        projectId = (await createWorkspace(folderName, dir))?.id;
+      } catch {
+        return;
+      }
+    }
+    if (isGroup && !projectId) return;
 
-    const agentConversationId = selectedAgentId;
+    const agentConversationId = isGroup ? 'crewchat-manager' : selectedAgentId;
     const agentBackend = selectedAgentBackend;
     const enabled_skills_to_send = guidEnabledSkills ?? agentDefaultSkillIds;
     const excludeBuiltinSkills = guidDisabledBuiltinSkills ?? agentDefaultDisabledBuiltinSkillIds;
@@ -174,7 +193,14 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
       mcp_ids: agentOverrideMcpIds,
     };
 
-    if (agentBackend === 'aionrs') {
+    const groupExtra = isGroup
+      ? {
+          team_agent_ids: buildGroupRoster(workerIds),
+          leader_agent_id: 'crewchat-manager',
+        }
+      : {};
+
+    if (!isGroup && agentBackend === 'aionrs') {
       if (!current_model) {
         Message.warning(t('conversation.noModelConfigured'));
         return;
@@ -251,6 +277,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
           selected_mcp_server_ids: selectedUserMcpServerIdsToSend,
           selected_session_mcp_servers:
             selectedMcpServerIds !== undefined ? selectedSessionMcpServers : selectedSessionMcpServersToSend,
+          ...groupExtra,
         },
       });
       if (!conversation || !conversation.id) {
@@ -293,6 +320,9 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     dir,
     selectedAgentId,
     selectedAgentBackend,
+    chatMode,
+    workerIds,
+    managerReady,
     selectedMode,
     selectedAcpModel,
     selectedThoughtLevelValue,
@@ -307,6 +337,8 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     navigate,
     t,
     localeKey,
+    workspaces,
+    createWorkspace,
   ]);
 
   const sendMessageHandler = useCallback(() => {
@@ -349,7 +381,9 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   // Calculate button disabled state. Empty input is allowed once an agent is
   // picked — that path creates an empty conversation ("start chat") rather than
   // sending a message, so the gate only blocks while loading or with no agent.
-  const isButtonDisabled = loading || !selectedAgentId;
+  const isButtonDisabled =
+    loading ||
+    (chatMode === 'group' ? !dir || workerIds.length === 0 || !managerReady : !selectedAgentId);
 
   return {
     handleSend,
