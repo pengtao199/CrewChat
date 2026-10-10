@@ -303,3 +303,44 @@ def test_group_prompt_truncates_oversized_prior_output() -> None:
     assert "已截断" in prompt
     assert huge not in prompt
     assert len(prompt) < 1000
+
+
+def test_opencode_config_carries_own_provider_not_the_users() -> None:
+    """Each opencode run must get its own config, not inherit the user's global one.
+
+    Inheriting the global config made every agent carry all of the user's MCP
+    servers (one simple reply took ~47s and any global edit leaked into every
+    agent). The inline config must carry exactly the brain provider.
+    """
+    import json
+
+    from crewchat.core.providers import Provider
+    from crewchat.executors.opencode_body import _inline_config
+
+    prov = Provider(
+        id="agnes", name="Agnes", base_url="https://apihub.agnes-ai.com/v1",
+        model="agnes-2.5-flash", api_key="sk-test",
+    )
+    cfg = json.loads(_inline_config(prov, [], []))
+
+    assert "mcp" not in cfg  # no inherited servers
+    block = cfg["provider"]["agnes"]
+    assert block["options"]["baseURL"] == "https://apihub.agnes-ai.com/v1"
+    # the key is referenced by env var (env_key convention), never embedded
+    assert block["options"]["apiKey"] == "{env:AGNES_API_KEY}"
+    assert "sk-test" not in json.dumps(cfg)
+    assert "agnes-2.5-flash" in block["models"]
+
+
+def test_opencode_config_only_includes_declared_capabilities() -> None:
+    """An agent's skills/MCPs are the only ones written; undeclared ones are dropped."""
+    import json
+
+    from crewchat.core.providers import Provider
+    from crewchat.executors.opencode_body import _inline_config
+
+    prov = Provider(id="agnes", name="Agnes", base_url="https://x/v1", model="m", api_key="k")
+    # A made-up mcp name is not in the shared registry, so it must not appear.
+    cfg = json.loads(_inline_config(prov, ["definitely-not-a-skill"], ["nope-not-an-mcp"]))
+    assert "skills" not in cfg
+    assert "mcp" not in cfg

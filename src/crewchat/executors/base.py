@@ -33,6 +33,10 @@ class ExecRequest:
     timeout: float = 1800.0
     session: str | None = None
     on_event: Callable[[ExecEvent], None] | None = None
+    #: 该 agent 声明的技能名 / MCP id。有的身体（opencode）要为一次运行生成自己的
+    #: 配置，就得知道它该带哪些能力——而不是把用户全局那份整个继承过来。
+    skills: list[str] = field(default_factory=list)
+    mcps: list[str] = field(default_factory=list)
 
     def emit(self, kind: EventKind, **kw: Any) -> None:
         if self.on_event is None:

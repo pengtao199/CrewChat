@@ -4,12 +4,12 @@ import functools
 import json
 import os
 import shutil
-import subprocess
 import time
+from pathlib import Path
 from typing import Any
 
 from ..core.config import Settings
-from ..core.providers import Provider
+from ..core.providers import Provider, available_skills, shared_mcp_servers
 from .base import ExecRequest, ExecResult, Executor, TokenUsage, _int, register
 
 
@@ -26,6 +26,69 @@ def _opencode_model(provider: Provider | None, raw: str | None) -> str:
     return f"{provider.id}/{name}" if provider.id else name
 
 
+def _mcp_entry(spec: dict[str, Any]) -> dict[str, Any]:
+    """`~/.agents/mcp.json` 的一条 → opencode 的 `mcp` 条目。
+
+    opencode 用自己的形状（`type`/`command` 数组/`environment`），和 MCP 生态通用的
+    `command`+`args`+`env` 不一样，这里做一次转换。
+    """
+    url = spec.get("url")
+    if url:
+        return {"type": "remote", "url": url, "enabled": True}
+    command = spec.get("command")
+    if not command:
+        return {}
+    args = [str(a) for a in (spec.get("args") or [])]
+    entry: dict[str, Any] = {
+        "type": "local",
+        "command": [str(command), *args],
+        "enabled": True,
+    }
+    env = spec.get("env") or spec.get("environment")
+    if env:
+        entry["environment"] = {str(k): str(v) for k, v in env.items()}
+    return entry
+
+
+def _inline_config(provider: Provider | None, skills: list[str], mcps: list[str]) -> str:
+    """为这一次运行生成 opencode 配置，**不回退到用户全局配置**。
+
+    以前 opencode 继承 `~/.config/opencode/opencode.jsonc`，于是每个 agent 都要背负
+    用户全部的 MCP（codegraph、xcode、npx 拉的一堆……），一次简单回复要 47 秒，而且
+    用户改一个字就影响全部 agent。这里只装该 agent 的：它的供应商、它声明的技能与 MCP。
+    """
+    cfg: dict[str, Any] = {"$schema": "https://opencode.ai/config.json"}
+
+    if provider is not None and provider.id:
+        options: dict[str, Any] = {"baseURL": provider.base_url}
+        options["apiKey"] = f"{{env:{provider.env_key()}}}"
+        models = {mid: {"name": mid} for mid in (provider.model_ids() or [provider.model])}
+        cfg["provider"] = {
+            provider.id: {
+                "npm": "@ai-sdk/openai-compatible",
+                "name": provider.name or provider.id,
+                "options": options,
+                "models": models,
+            }
+        }
+
+    if skills:
+        known = {s["name"]: s["path"] for s in available_skills()}
+        paths = sorted({str(Path(p).parent) for name in skills if (p := known.get(name))})
+        if paths:
+            cfg["skills"] = {"paths": paths}
+
+    if mcps:
+        servers = shared_mcp_servers()
+        entries = {
+            name: entry for name in mcps if name in servers and (entry := _mcp_entry(servers[name]))
+        }
+        if entries:
+            cfg["mcp"] = entries
+
+    return json.dumps(cfg, ensure_ascii=False)
+
+
 @functools.cache
 def _cli_available() -> bool:
     return shutil.which("opencode") is not None
@@ -36,6 +99,10 @@ class OpencodeBody(Executor):
     """`opencode run` 是官方稳定的非交互入口（比 alpha 的 Python SDK 更可靠）：
 
     - `--format json` 逐事件流式输出
+    - `--standalone` 用私有 server，不碰用户全局的后台服务；`opencode` 的后台服务
+      固定占一个端口，进程崩溃后会留下占着端口的孤儿，之后每次 `opencode run` 都会
+      「等后台服务启动」直到超时。私有 server 把这个共享状态整个绕开——同「自己拥有
+      进程」的原则，和网关、claude/codex 的端点归属一致。
     - `--session` 续接会话 = agent 记忆
     - `--model provider/model` 每个 agent 可以用不同大脑
     """
@@ -57,7 +124,7 @@ class OpencodeBody(Executor):
         started = time.monotonic()
         model = _opencode_model(provider, self.settings.opencode_model or None)
 
-        cmd = ["opencode", "run", "--format", "json", "--auto"]
+        cmd = ["opencode", "run", "--format", "json", "--standalone", "--auto"]
         remote = self.remote_sessions.get(req.session or "")
         if remote:
             cmd += ["--session", remote]
@@ -71,6 +138,13 @@ class OpencodeBody(Executor):
                 env.setdefault("OPENCODE_API_KEY", provider.api_key)
                 env.setdefault(provider.env_key(), provider.api_key)
             env.setdefault("OPENCODE_BASE_URL", provider.base_url)
+        # 这次运行自己的配置，盖过用户全局那份（`OPENCODE_CONFIG_CONTENT` 优先级最高）。
+        env["OPENCODE_CONFIG_CONTENT"] = _inline_config(provider, req.skills, req.mcps)
+        # 私有 server 不需要联网拉模型表、不需要文件监视、不需要自动更新。
+        env.setdefault("OPENCODE_FAST_BOOT", "1")
+        env.setdefault("OPENCODE_DISABLE_MODELS_FETCH", "1")
+        env.setdefault("OPENCODE_DISABLE_FILEWATCHER", "1")
+        env.setdefault("OPENCODE_DISABLE_AUTOUPDATE", "1")
 
         text_parts: list[str] = []
         tools: list[str] = []

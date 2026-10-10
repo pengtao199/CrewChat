@@ -110,6 +110,8 @@ class Session:
                         timeout=self.settings.executor_timeout,
                         session=known_session,
                         on_event=on_event,
+                        skills=list(spec.skills),
+                        mcps=list(spec.mcps),
                     ),
                     effective,
                 )
