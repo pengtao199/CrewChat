@@ -28,7 +28,7 @@
 | --- | --- | --- |
 | codex | `/v1/responses` | 多数第三方端点只有 `/v1/chat/completions` |
 | claude | `/v1/messages` | 同上 |
-| opencode / llm | `/v1/chat/completions` | 一致 |
+| opencode | `/v1/chat/completions` | 一致 |
 
 代理一个进程同时暴露三种格式，因此所有身体都能接任意上游。
 
@@ -53,7 +53,7 @@
   - 判据不是"能不能连上"，而是"上游能否接受该 CLI 发出的完整工具声明"。
 - **一份通用 provider，所有 CLI 复用**：不为每个 CLI 各存一份；投影把它编译成各 CLI 的格式，核心负责反代与协议转换。
 - 让某 CLI 走代理经端口 `Gateway.activate(app, provider)`。返回值是该 CLI **本次应使用的发布 id**。
-  每个经网关的 CLI 都返回 id，不返回 `None`。`llm` 不走这里。
+  每个经网关的 CLI 都返回 id，不返回 `None`。
 - **进程配置是模型绑定的位置**。每个 ACP 进程写自己的一份配置，模型名是这次的发布 id，凭据是
   `PROXY_MANAGED`。用户的 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.grok`、`~/.hermes/config.yaml`、
   `~/.openclaw` 不是 CrewChat 的写入目标。Hermes 的临时家放在 `~/.hermes/crewchat-sessions/`
@@ -71,7 +71,7 @@
   `~/.hermes/crewchat-sessions/<id>`，Pi
   `PI_CODING_AGENT_DIR`（`models.json` 的 `api` 必须是 `openai-completions`），Mcode
   `MINIMAX_DATA_DIR`。
-- **哪些身体走网关由 `Executor.needs_gateway` 决定**：上表里的 CLI 都是 `True`。`llm` 直连。
+- **哪些身体走网关由 `Executor.needs_gateway` 决定**：上表里的 CLI 都是 `True`。
 - 身体的模型指定仍通过大脑池（`Provider.model`）传递；`codex` 的 provider 名放
   `settings.codex_provider`，不硬编码在身体里。
 - 密钥的落点见 `AGENTS/truth-sources.md`；不得把密钥写进代码、日志或前端。

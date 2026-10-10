@@ -15,7 +15,6 @@
 | 类型 | 例子 | 谁提供 | 用户要做什么 |
 | --- | --- | --- | --- |
 | 本地 CLI | codex / claude / opencode | 用户安装 | 装好并登录；app 只探测 |
-| 远程 API | llm（直连大脑，无工具） | app 提供通道 | 必须显式配大脑 |
 
 代码里引擎叫 `body`（大脑的执行体），用户可见名是「引擎」。`AgentSpec.body` 引用引擎 id。
 
@@ -58,9 +57,9 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 | id | 用户可见 | 引擎 | 职责 | 不做什么 |
 | --- | --- | --- | --- | --- |
 | `agent-helper` | Agent 助手 | CLI（要能读文件、改花名册） | 读写 `.data/agents/*.jsonc`，按本文件调优别人的大脑 / 引擎 / 技能 / MCP / 记忆 / 人格 | 不写产品代码，不改 `.data/providers.jsonc` 里的密钥 |
-| `crewchat-manager` | 管理员 | **`llm`（刻意不用 CLI）** | 群聊 Leader：规划、委派、汇总 | 不写代码、不改文件、不代替在场成员干活 |
+| `crewchat-manager` | 管理员 | CLI（与成员相同，默认 `opencode`） | 群聊 Leader：规划、委派、汇总 | 不代替成员写完整个任务；人格里写明只规划、委派、汇总 |
 
-**管理员用 `llm` 是可行且应当的。** `llm` 没有工具循环，写不了仓库，也就不会越权去做成员的工作；它只吃人格 + 本轮共享上下文。`llm` 必须显式配大脑，缺了就不能开群聊。技能和 MCP 写在管理员文件里也不会生效，不要挂。
+管理员也是普通 CLI Agent，必须显式配大脑。恢复模板不覆盖已有文件。
 
 **其余 Agent 一律通用。** 它们是「后端 / 前端 / 运维」这类角色，不属于本仓库，也不该在人格里写死 CrewChat 的目录或规则。会话绑了哪个项目，就在那个项目的工作区干活。
 
@@ -69,7 +68,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 1. 先读本文件和 `AGENTS/truth-sources.md`，再读目标 `.data/agents/<id>.jsonc`。
 2. 按六个组成逐项看：大脑是否可用、引擎是否匹配职责、技能是否对口、MCP 是否对口、要不要记忆、`role` / `goal` / `backstory` 是否只描述角色而不是某个仓库。
 3. 只改花名册文件。密钥只存在 `.data/providers.jsonc`，禁止抄进 Agent。
-4. 给会写代码的 Agent 开 `memory`，并挂它真正用得上的技能 / MCP；规划型（管理员）保持 `body: llm`，技能留空。
+4. 给会写代码的 Agent 开 `memory`，并挂它真正用得上的技能 / MCP；管理员用 CLI，人格约束它只规划、委派、汇总。
 
 ## 四、原则
 
@@ -77,7 +76,6 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 - **Agent 是独立实体**：不属于任何项目，可被多个项目引用。
 - **文件是真相源**：Agent 定义存放 `.data/agents/*.jsonc`（全局花名册，`settings.agents_home`），界面是编辑器而非存储。
 - **CLI 引擎自带大脑是默认**：`codex` / `claude` / `opencode` 不显式配 `brain` 时用各自 CLI 的默认模型；显式配了就用配的。
-- **纯模型引擎必须配大脑**：`body: "llm"` 没有内置大脑，缺 `brain` 时该 Agent 不可用。
 - **工具是能力而不是身份**：给 Agent 加工具不改变它是谁。
 
 ## 五、具体规则
@@ -95,7 +93,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 | 引擎 | `body` / `Executor` | 引擎 | backend（上游用语，仅限契约层）、agent、runner |
 | Agent | `AgentSpec` | Agent | assistant、worker、bot |
 | 内置 Agent | `agent-helper` / `crewchat-manager`（普通 Agent 文件） | Agent 助手 / 管理员 | 独立 Assistant 类型、隐藏协调器 |
-| 管理员 Agent | `crewchat-manager`（`body: llm`，必须显式配大脑） | 管理员 | 隐藏协调器、隐式默认大脑 |
+| 管理员 Agent | `crewchat-manager`（CLI，必须显式配大脑） | 管理员 | 隐藏协调器、隐式默认大脑 |
 | 大脑 | `brain` / `Provider` | 模型端点 | model（那是大脑的一部分）、api |
 | 技能 | `skills` | 技能 | capability、plugin（plugin 是安装包） |
 | 工具 | `mcps` / 应用内置工具 | 工具 | — |

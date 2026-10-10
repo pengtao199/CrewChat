@@ -1,8 +1,8 @@
 /**
  * Usage API shapes — mirrors the backend `/api/crewchat/usage` response.
  *
- * Only consumption caused by CrewChat-driven CLI bodies is counted; the `llm`
- * built-in client and the user's own terminal usage are excluded.
+ * Only consumption caused by CrewChat-driven CLI bodies is counted;
+ * the user's own terminal usage is excluded.
  */
 
 export type UsageBucket = {

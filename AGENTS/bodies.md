@@ -2,7 +2,7 @@
 
 ## 适用范围
 
-新增或修改执行器（`codex` / `claude` / `opencode` / `llm`），或处理 CLI 版本兼容、流式事件、会话记忆时。
+新增或修改执行器（`codex` / `claude` / `opencode`），或处理 CLI 版本兼容、流式事件、会话记忆时。
 
 ## 目标
 
@@ -62,7 +62,6 @@ class Executor(ABC):
 | `hermes` | `hermes acp` | **是**（`~/.hermes/crewchat-sessions` 下的 `HERMES_HOME`，不改用户的 `config.yaml`） | ACP session |
 | `pi` | `pi-acp` | **是**（`PI_CODING_AGENT_DIR` 的 `models.json`，`api: openai-completions`，`apiKey` 为 `PROXY_MANAGED`；`settings.json` 设 `quietStartup`，开场白不进对话） | ACP session |
 | `mcode` | `mcode acp` | **是**（`MINIMAX_DATA_DIR`） | ACP session |
-| `llm` | （非 CLI）`openai` SDK 直连 | 否 | 会话上下文 |
 
 命令取自 ACP 官方注册表（`agentclientprotocol.com/get-started/agents`）与各 CLI 文档。
 没装的 CLI 显示为不可用，装了即可选——`available()` 只做 `which(命令[0])`。
@@ -71,7 +70,7 @@ class Executor(ABC):
 id，写进这一次进程自己的配置（`PROXY_MANAGED`，不含真实 key）。同一个 CLI 的两个会话
 可以同时用两家供应商。不改用户的 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.grok`、
 `~/.hermes/config.yaml`。Hermes 只在 `~/.hermes/crewchat-sessions/` 下建临时家。
-子进程退出（含失败）时删除临时目录。`llm` 仍直连。
+子进程退出（含失败）时删除临时目录。
 
 模型选择：会话建好后，从 ACP 的 `config_options` 里找出提供了该 agent 大脑的那个项并
 设过去——对 `opencode` 这类把大脑列进选项的 CLI 生效；`claude/codex` 的选项只有自家

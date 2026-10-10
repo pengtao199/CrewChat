@@ -20,7 +20,7 @@ Status: In Progress（Slice 1–4 代码已落地，Guid 与流式还要浏览�
 
 - 多 Agent 模式必须绑定一个 `project_id`；所有成员共享该项目路径，执行保持串行，避免同时写同一工作区。
 - 固定可见 Leader id 为 `crewchat-manager`。它是普通 `AgentSpec` 和普通 `.data/agents/*.jsonc` 文件，不新增独立 Agent 类型。
-- 管理员模板默认使用 `body: llm`，但不做隐式大脑回退。首次使用前必须明确选择 provider/model 并写入管理员 Agent 文件；缺配置时入口给出修复动作。
+- 管理员模板默认使用 CLI（`opencode`），但不做隐式大脑回退。首次使用前必须明确选择 provider/model 并写入管理员 Agent 文件；缺配置时入口给出修复动作。
 - 管理员可在 Agents 设置中编辑或删除；删除后多 Agent 入口提供「恢复管理员」而不是每次启动强制重建。
 - 首版成员在创建后固定；会话内增删成员、并行执行和 `@Agent` 路由留到后续。
 

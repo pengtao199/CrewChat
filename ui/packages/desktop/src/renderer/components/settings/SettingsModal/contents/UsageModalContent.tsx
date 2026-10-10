@@ -23,7 +23,7 @@ import { useSettingsViewMode } from '../settingsViewContext';
  *
  * 只展示**由 CrewChat 自己发起的 CLI 身体**所消耗的 token 与成本：数据来自我们
  * 自己的记账（`.data/crewchat.db`），不读网关日志，因此天然排除用户在终端里裸跑
- * CLI 的用量。`llm` 是内置 API 客户端、不是 CLI 身体，不计入。
+ * CLI 的用量。
  */
 
 const DAY_OPTIONS = [7, 30, 90] as const;

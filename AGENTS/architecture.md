@@ -24,7 +24,7 @@
 | --- | --- | --- | --- |
 | **L0** 基础 | `core/` | `config` `models` | 纯数据与配置，不知道任何实现 |
 | **L1** 基础设施 | `core/` | `providers` `projects` `diagnostics` `cli_overrides` `gateway` | 大脑池、项目、机器探测、模型网关接入 |
-| **L2** 执行 | `executors/` | `base`、`llm_body`、`acp_body` | 不知道编排与会话 |
+| **L2** 执行 | `executors/` | `base`、`acp_body` | 不知道编排与会话 |
 | **L3** 编排 | `orchestration/` | `session`、`group` | 会话运行；群聊的共享上下文在 `group.py` |
 | **L4** 契约 | `api/` | 见下 | 只做请求解析与形状转换 |
 
@@ -56,7 +56,6 @@ src/crewchat/
 │   └── engines_ccswitch.py     cc-switch 引擎工具适配器（扫描/安装/更新）
 ├── executors/              L2 身体
 │   ├── base.py                 Executor 契约与注册表
-│   ├── llm_body.py             openai SDK，直连大脑池
 │   └── acp_body.py             全部 CLI 身体（ACP）
 ├── orchestration/          L3
 │   ├── session.py              Session、stream_ask、session_for
