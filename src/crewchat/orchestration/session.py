@@ -50,10 +50,9 @@ class Session:
     def _gateway_model(self, spec: AgentSpec, provider: Provider | None, needs_gateway: bool) -> str | None:
         """需要网关的身体经反代用上它的 (身体, provider, model)，返回该用的模型 id。
 
-        Claude / Codex 返回 Stack 发布 id（`ccs-claude-<key>--<model>`、
-        `ccs-<key>/<model>`），写进这一次进程的临时配置，代理据此逐请求路由。
-        OpenCode、Gemini、Grok 返回 None：前一家用当前路由，后两家走 `/enter`。
-        没配大脑时也不动，保留 CLI 自身登录。同一 (身体, provider, model) 只挂一次。
+        每个经网关的 CLI 都返回这次的发布 id，写进这一次进程的配置。两个会话
+        因此可以同时用两家供应商。没配大脑时不动，保留 CLI 自身登录。
+        同一 (身体, provider, model) 只挂一次。
         """
         if provider is None or not needs_gateway:
             return None
@@ -93,16 +92,7 @@ class Session:
             try:
                 # 需要网关的身体配了大脑就挂到反代上，否则它用自己的登录。
                 model_id = self._gateway_model(spec, provider, executor.needs_gateway)
-                # Claude / Codex 的配置在进程临时目录，ensure 会改写 ~/.claude 与 ~/.codex。
-                # Gemini / Grok 仍走官方路由，起进程前把它们自己的配置收敛到当前契约。
-                if (
-                    executor.needs_gateway
-                    and provider is not None
-                    and spec.body not in ("claude", "codex")
-                ):
-                    from ..core.gateway import get_gateway
-
-                    get_gateway(self.settings).ensure(spec.body)
+                # 不调用 ensure：它会把当前路由写进用户的全局 CLI 配置，两个会话就会抢同一家。
                 effective = provider
                 if model_id and provider is not None:
                     effective = copy.copy(provider)

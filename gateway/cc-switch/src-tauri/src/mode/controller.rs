@@ -802,7 +802,10 @@ pub async fn register_stack_member(
     route_id: &str,
     model: &str,
 ) -> Result<String, String> {
-    if !stack::uses_generic_stack(app) && !stack::supports_stack(app) {
+    if !stack::uses_generic_stack(app)
+        && !stack::supports_stack(app)
+        && !matches!(app, AppType::Gemini)
+    {
         return Err(format!(
             "{} 不按进程配置接管，请走 /enter",
             app.as_str()

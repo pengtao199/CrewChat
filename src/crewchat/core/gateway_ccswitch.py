@@ -7,7 +7,7 @@
 - 网关库里的 provider 是**派生物**——由通用 provider 投影而来，可重建。
 
 cc-switch 没有"通用 provider"概念（严格按 app_type 分），所以 `activate` 分两步：
-把通用 provider 投影成该 CLI 的一条，再 `enter`（它据此重写 CLI 客户端配置）。
+把通用 provider 投影成该 CLI 的一条，再登记 Stack。进程配置由身体写，不改用户全局配置。
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ def _build_settings_config(app_type: str, provider: Provider) -> tuple[dict[str,
         if api_key:
             env["GEMINI_API_KEY"] = api_key
         return ({"env": env}, {"apiFormat": provider.api_format})
-    if app_type == "grok":
+    if app_type in ("grok", "grokbuild"):
         models = provider.model_ids() or ([model] if model else [])
         return (
             {
@@ -110,9 +110,16 @@ _GENERIC_OPENAI_APPS = ("openclaw", "hermes", "pi", "mcode")
 
 
 def _openai_compatible(provider: Provider) -> tuple[dict[str, Any], dict[str, Any]]:
+    """OpenCode / OpenClaw / Hermes / Pi / Mcode 的网关行。
+
+    `options` 是这些 CLI 自己的配置形状。转发时它们走 Codex 适配器，适配器只读
+    顶层 `base_url` 和 `api_key`，不读 `options`。两套都写上，请求才能换上真实 key。
+    """
     models = provider.model_ids() or ([provider.model] if provider.model else [])
     return (
         {
+            "base_url": provider.base_url,
+            "api_key": provider.api_key,
             "npm": "@ai-sdk/openai-compatible",
             "options": {"baseURL": provider.base_url, "apiKey": provider.api_key},
             "models": {m: {"name": ""} for m in models},
@@ -169,8 +176,9 @@ class Store:
             raise ValueError(f"不支持的 app_type: {app_type}")
         if not self.enabled():
             raise RuntimeError(f"网关库不存在：{self.path}（先启动网关）")
+        stored = "grokbuild" if app_type == "grok" else app_type
         settings_config, meta = _build_settings_config(app_type, provider)
-        provider_id = f"crewchat-{app_type}-{provider.id}"
+        provider_id = f"crewchat-{stored}-{provider.id}"
         with closing(self._connect(readonly=False)) as conn:
             conn.execute(
                 """
@@ -185,7 +193,7 @@ class Store:
                 """,
                 (
                     provider_id,
-                    app_type,
+                    stored,
                     provider.name,
                     json.dumps(settings_config, ensure_ascii=False),
                     json.dumps(meta, ensure_ascii=False),
@@ -328,43 +336,30 @@ class CcSwitchGateway:
         }
 
     STACK_APPS = ("claude", "codex")
-    REGISTER_APPS = ("opencode",)
-    ROUTE_APPS = ("gemini", "grok")
 
     def activate(self, app: str, provider: Provider) -> str | None:
-        """把通用 provider 投影进网关，让这一次请求经反代用上它。
+        """把通用 provider 投影进网关，返回这次进程要用的发布 id。
 
-        - Claude / Codex：`/stack/route` 只登记 Stack 并返回发布 id。进程配置由身体
-          写到临时目录，这里不改 `~/.claude` / `~/.codex`。
-        - OpenCode：`/stack/register` 记下当前路由。`modelID` 是否原样上送还没证实，
-          所以返回 None，身体继续用大脑自己的模型名。
-        - Gemini / Grok：`/enter`，官方路由模式，一条 CLI 一个当前供应商，返回 None。
+        Claude / Codex 走 `/stack/route`，其余 CLI 走 `/stack/register`。两条都只登记
+        Stack，不改用户的全局配置。发布 id 写进这一次进程的配置，网关按 id 选供应商，
+        所以同一个 CLI 的两个会话可以用两家。
         """
+        if app not in SUPPORTED_APPS:
+            return None
         if not self.ensure_running():
             raise RuntimeError("网关未就绪")
+        gateway_app = "grokbuild" if app == "grok" else app
         route = Store(self.settings).project_provider(app, provider)
         import httpx
 
-        if app in self.STACK_APPS:
-            resp = httpx.post(
-                f"{self.control}/stack/route",
-                json={"app": app, "provider_id": route, "model": provider.model},
-                timeout=60,
-            )
-            resp.raise_for_status()
-            return resp.json().get("model_id")
-        if app in self.REGISTER_APPS:
-            resp = httpx.post(
-                f"{self.control}/stack/register",
-                json={"app": app, "provider_id": route, "model": provider.model},
-                timeout=60,
-            )
-            resp.raise_for_status()
-            return None
-        if app in self.ROUTE_APPS:
-            httpx.post(f"{self.control}/enter", json={"app": app, "route": route}, timeout=30).raise_for_status()
-            return None
-        return None
+        path = "/stack/route" if app in self.STACK_APPS else "/stack/register"
+        resp = httpx.post(
+            f"{self.control}{path}",
+            json={"app": gateway_app, "provider_id": route, "model": provider.model},
+            timeout=60,
+        )
+        resp.raise_for_status()
+        return resp.json().get("model_id")
 
     def ensure(self, app: str) -> None:
         """把盘上该 CLI 的配置收敛到当前契约——**不改模式、不改路由**。

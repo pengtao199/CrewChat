@@ -2487,14 +2487,27 @@ pub async fn handle_gemini(
         .to_bytes();
     // GET 类只读端点（/v1beta/models、/v1beta/models/<model> 等）没有请求体，
     // 不能强制 parse 为 JSON —— 否则空 body 会被拒绝。
-    let body: Value = if body_bytes.is_empty() {
+    let mut body: Value = if body_bytes.is_empty() {
         Value::Null
     } else {
         serde_json::from_slice(&body_bytes)
             .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?
     };
 
-    // Gemini 的模型名称在 URI 中
+    // 模型名在 URL 路径段。发布 id（`ccs-gemini-<key>--<model>`）逐请求选供应商，
+    // 两个 Gemini 进程可以同时用两家，不靠一条当前路由。
+    let extracted = crate::proxy::handler_context::extract_gemini_model_from_path(uri.path());
+    let mut probe = json!({ "model": extracted.clone().unwrap_or_default() });
+    let stack = match resolve_stack_target(&state, &AppType::Gemini, &mut probe) {
+        Ok(stack) => stack,
+        Err(rejected) => return Ok(*rejected),
+    };
+    let routed = stack.is_some();
+    let upstream = probe
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     let mut ctx = RequestContext::new(
         &state,
         &body,
@@ -2502,28 +2515,41 @@ pub async fn handle_gemini(
         AppType::Gemini,
         "Gemini",
         "gemini",
-        None,
+        stack,
     )
     .await?
     .with_model_from_uri(&uri);
+    if routed && !upstream.is_empty() {
+        ctx.request_model = upstream.clone();
+    }
 
-    // 提取完整的路径和查询参数
+    // 提取完整的路径和查询参数。命中发布 id 时，路径里的模型段换成上游名。
     let endpoint = uri
         .path_and_query()
         .map(|pq| pq.as_str())
         .unwrap_or(uri.path());
+    let endpoint = match (routed, extracted) {
+        (true, Some(client_model)) if !client_model.is_empty() && client_model != upstream => {
+            endpoint.replacen(&client_model, &upstream, 1)
+        }
+        _ => endpoint.to_string(),
+    };
 
     let is_stream = body
         .get("stream")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    // Gemini CLI 把工具 schema 放在 parametersJsonSchema 里。OpenAI 兼容上游
+    // 只认 function.parameters，缺了这个字段整段请求会被拒。
+    crate::proxy::providers::gemini_schema::ensure_function_declaration_parameters(&mut body);
+
     let forwarder = ctx.create_forwarder(&state);
     let mut result = match forwarder
         .forward_with_retry(
             &AppType::Gemini,
             method,
-            endpoint,
+            &endpoint,
             body,
             headers,
             extensions,

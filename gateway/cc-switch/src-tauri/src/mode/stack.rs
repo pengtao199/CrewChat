@@ -112,6 +112,8 @@ pub fn encode(app: &AppType, key: &str, model: &str, one_m: bool) -> String {
             format!("{CLAUDE_PREFIX}{key}{CLAUDE_SEPARATOR}{model}{marker}")
         }
         AppType::Codex => format!("{CODEX_PREFIX}{key}{CODEX_SEPARATOR}{model}"),
+        // Gemini 把模型名放在 URL 路径段里，不能含 `/`。`~` 还原成 `/`。
+        AppType::Gemini => format!("ccs-gemini-{key}--{}", model.replace('/', "~")),
         other => encode_generic(other, key, model),
     }
 }
@@ -125,14 +127,19 @@ pub fn encode_generic(app: &AppType, key: &str, model: &str) -> String {
 pub fn uses_generic_stack(app: &AppType) -> bool {
     matches!(
         app,
-        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::Pi | AppType::Mcode
+        AppType::OpenCode
+            | AppType::OpenClaw
+            | AppType::Hermes
+            | AppType::Pi
+            | AppType::Mcode
+            | AppType::GrokBuild
     )
 }
 
 /// 从 `ccs-<app>-<key>/<model>` 切出 app 名。按已知 app 名做前缀匹配，避免把 key 算进 app。
 fn generic_app_of(id: &str) -> Option<&str> {
     let rest = id.strip_prefix(GENERIC_PREFIX)?;
-    const NAMES: &[&str] = &["openclaw", "opencode", "hermes", "mcode", "pi"];
+    const NAMES: &[&str] = &["grokbuild", "openclaw", "opencode", "hermes", "mcode", "pi"];
     for name in NAMES {
         let Some(after_name) = rest.strip_prefix(name) else {
             continue;
@@ -191,6 +198,22 @@ pub fn decode<'a>(app: &AppType, id: &'a str) -> Decoded<'a> {
                 return Decoded::Plain;
             }
             (rest, "/", false)
+        }
+        AppType::Gemini => {
+            let Some(rest) = id.strip_prefix("ccs-gemini-") else {
+                return Decoded::Plain;
+            };
+            let Some((key, model)) = rest.split_once("--") else {
+                return Decoded::Plain;
+            };
+            if key.is_empty() || model.is_empty() {
+                return Decoded::Malformed;
+            }
+            return Decoded::Stack {
+                key,
+                model,
+                one_m: false,
+            };
         }
         other if uses_generic_stack(other) => {
             // 通用 id：`ccs-<app>-<key>/<model>`，先切掉 `ccs-<app>-` 再按 `/` 分。
@@ -645,10 +668,15 @@ pub fn resolve(
         _ => None,
     }
     .unwrap_or_else(|| {
+        let model_part = if matches!(app, AppType::Gemini) {
+            model_part.replace('~', "/")
+        } else {
+            model_part.to_string()
+        };
         if one_m {
             format!("{model_part}{ONE_M_MARKER_FOR_CLIENT}")
         } else {
-            model_part.to_string()
+            model_part
         }
     });
     Ok(Resolved::Hit(Box::new(StackTarget {
@@ -806,6 +834,22 @@ mod tests {
     }
 
     #[test]
+    fn gemini_ids_are_one_path_segment() {
+        let gemini = AppType::Gemini;
+        let id = encode(&gemini, "deepseek", "deepseek/deepseek-v4-pro", false);
+        assert_eq!(id, "ccs-gemini-deepseek--deepseek~deepseek-v4-pro");
+        assert!(!id.contains('/'));
+        assert_eq!(
+            decode(&gemini, &id),
+            Decoded::Stack {
+                key: "deepseek",
+                model: "deepseek~deepseek-v4-pro",
+                one_m: false
+            }
+        );
+    }
+
+    #[test]
     fn generic_ids_round_trip_and_carry_their_app() {
         for app in [
             AppType::OpenCode,
@@ -813,6 +857,7 @@ mod tests {
             AppType::Hermes,
             AppType::Pi,
             AppType::Mcode,
+            AppType::GrokBuild,
         ] {
             let id = encode(&app, "deepseek", "vendor/model", false);
             assert_eq!(id, format!("ccs-{}-deepseek/vendor/model", app.as_str()));

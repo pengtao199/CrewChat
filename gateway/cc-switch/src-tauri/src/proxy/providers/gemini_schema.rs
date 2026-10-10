@@ -214,6 +214,45 @@ fn to_gemini_schema(schema: Value) -> Value {
     }
 }
 
+/// Give every Gemini `functionDeclarations` entry a `parameters` object.
+///
+/// Gemini CLI puts the JSON Schema in `parametersJsonSchema` and omits
+/// `parameters`. Relays that rebuild an OpenAI `tools[].function` from
+/// `parameters` only then reject the request with
+/// `tools[0].function: missing field parameters`. Copy the schema across
+/// when `parameters` is absent. An existing `parameters` value is left as-is.
+pub fn ensure_function_declaration_parameters(body: &mut Value) {
+    let Some(tools) = body.get_mut("tools").and_then(|value| value.as_array_mut()) else {
+        return;
+    };
+    for tool in tools {
+        let Some(declarations) = tool
+            .get_mut("functionDeclarations")
+            .and_then(|value| value.as_array_mut())
+        else {
+            continue;
+        };
+        for declaration in declarations {
+            let Some(obj) = declaration.as_object_mut() else {
+                continue;
+            };
+            let missing = match obj.get("parameters") {
+                None | Some(Value::Null) => true,
+                _ => false,
+            };
+            if !missing {
+                continue;
+            }
+            let params = obj
+                .get("parametersJsonSchema")
+                .filter(|value| value.is_object())
+                .cloned()
+                .unwrap_or_else(|| json!({"type": "object", "properties": {}}));
+            obj.insert("parameters".to_string(), params);
+        }
+    }
+}
+
 pub fn build_gemini_function_declaration(
     name: &str,
     description: Option<&str>,
@@ -323,6 +362,65 @@ mod tests {
 
         assert_eq!(result["parameters"]["type"], "object");
         assert!(result["parameters"]["properties"].is_object());
+    }
+
+    #[test]
+    fn copies_parameters_json_schema_when_parameters_is_absent() {
+        let mut body = json!({
+            "tools": [{
+                "functionDeclarations": [{
+                    "name": "read_file",
+                    "parametersJsonSchema": {
+                        "type": "object",
+                        "properties": { "path": { "type": "string" } }
+                    }
+                }]
+            }]
+        });
+
+        ensure_function_declaration_parameters(&mut body);
+
+        assert_eq!(
+            body["tools"][0]["functionDeclarations"][0]["parameters"]["properties"]["path"]["type"],
+            "string"
+        );
+        assert!(body["tools"][0]["functionDeclarations"][0]
+            .get("parametersJsonSchema")
+            .is_some());
+    }
+
+    #[test]
+    fn defaults_parameters_when_a_declaration_has_no_schema() {
+        let mut body = json!({
+            "tools": [{ "functionDeclarations": [{ "name": "ping" }] }]
+        });
+
+        ensure_function_declaration_parameters(&mut body);
+
+        assert_eq!(
+            body["tools"][0]["functionDeclarations"][0]["parameters"]["type"],
+            "object"
+        );
+    }
+
+    #[test]
+    fn leaves_existing_parameters_untouched() {
+        let mut body = json!({
+            "tools": [{
+                "functionDeclarations": [{
+                    "name": "lookup",
+                    "parameters": { "type": "object", "properties": { "q": { "type": "string" } } },
+                    "parametersJsonSchema": { "type": "object", "properties": { "other": { "type": "number" } } }
+                }]
+            }]
+        });
+
+        ensure_function_declaration_parameters(&mut body);
+
+        assert_eq!(
+            body["tools"][0]["functionDeclarations"][0]["parameters"]["properties"]["q"]["type"],
+            "string"
+        );
     }
 
     /// Defensive: an atomic (non-object) schema is left untouched, because

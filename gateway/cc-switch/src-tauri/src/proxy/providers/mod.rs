@@ -213,8 +213,11 @@ impl ProviderType {
                 ProviderType::Gemini
             }
             AppType::GrokBuild => ProviderType::Codex,
-            AppType::OpenCode | AppType::OpenClaw | AppType::Hermes => ProviderType::Codex,
-            AppType::Pi | AppType::Mcode => return None,
+            // Pi 的进程配置是 openai-completions，转发形状与 OpenCode 相同。
+            AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::Pi => {
+                ProviderType::Codex
+            }
+            AppType::Mcode => return None,
         };
         Some(provider_type)
     }
@@ -269,8 +272,11 @@ pub fn get_adapter(app_type: &AppType) -> Option<Box<dyn ProviderAdapter>> {
         AppType::Codex => Box::new(CodexAdapter::new()),
         AppType::Gemini => Box::new(GeminiAdapter::new()),
         AppType::GrokBuild => Box::new(CodexAdapter::new()),
-        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes => Box::new(CodexAdapter::new()),
-        AppType::Pi | AppType::Mcode => return None,
+        // Pi 走 OpenAI chat。Codex 适配器读顶层 base_url / api_key，正好换上真实 key。
+        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::Pi => {
+            Box::new(CodexAdapter::new())
+        }
+        AppType::Mcode => return None,
     })
 }
 
