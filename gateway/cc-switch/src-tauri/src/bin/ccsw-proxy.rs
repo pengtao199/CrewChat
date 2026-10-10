@@ -66,6 +66,40 @@ async fn exit(
     Ok(Json(serde_json::json!({ "ok": true, "app": app.as_str() })))
 }
 
+/// [crewchat] 只做一件事：把盘上的客户端配置收敛到当前契约，**不改模式、不改路由**。
+///
+/// 调用方（多 CLI 编排器）在每个 CLI 起进程之前调它。返回 `changed` 说明这次真的
+/// 重写了盘上的配置，`false` 说明本来就是收敛的。之所以单独开一个端点而不是复用
+/// `/enter`：进入模式是「切到某家」，收敛是「确认盘上就是我以为的那样」——两件事，
+/// 后者必须能在不改变用户选择的前提下反复调用。
+async fn ensure(
+    State(core): State<Arc<Core>>,
+    Json(body): Json<RouteBody>,
+) -> Result<Json<serde_json::Value>, String> {
+    let app = parse_app(&body.app)?;
+    controller::ensure_projection(&core.state, &app).await?;
+    Ok(Json(serde_json::json!({ "ok": true, "app": app.as_str() })))
+}
+
+/// [crewchat] 这个代理进程的身份：它用的是哪份数据目录、哪个库、哪些端口、谁在跑。
+///
+/// 调用方用它判断「端口上那个代理是不是我起的」。只探端口是不够的：端口上可能是
+/// 另一个 cc-switch 实例（默认数据目录），连上去会读到别人的供应商表，还会被当成
+/// 自己那份在用。身份对不上就必须拒连，而不是静默用错库。
+async fn identity(State(_core): State<Arc<Core>>) -> Json<serde_json::Value> {
+    // 报**解析后**的路径，不是环境变量原文：调用方要拿它和自己期望的目录比，
+    // 没设环境变量时解析结果才是真正生效的那个。
+    let dir = cc_switch_lib::get_app_config_dir();
+    let db = dir.join("cc-switch.db").display().to_string();
+    Json(serde_json::json!({
+        "ok": true,
+        "pid": std::process::id(),
+        "home": dir.display().to_string(),
+        "db": db,
+        "exe": std::env::current_exe().ok().map(|p| p.display().to_string()).unwrap_or_default(),
+    }))
+}
+
 #[derive(serde::Deserialize)]
 struct StackRouteBody {
     app: String,
@@ -90,9 +124,14 @@ async fn stack_route(
     let active = controller::stack_views(&core.state, &app)
         .map(|view| view.active)
         .unwrap_or(false);
+    // 每次都收敛一次，不靠「首次进入」这个一次性副作用。以前只在 `!active` 时写 CLI
+    // 配置：只要记账说已经在代理模式，之后就只更新名单、再也不校验盘上的文件。配置一旦
+    // 被客户端刷新或被别的程序改回，就永远补不回来——多 CLI 并行时必然出现「一个能用、
+    // 一个一直报未登录」。写盘本身幂等（write_proxy 会拿盘上实际内容判收敛），所以
+    // 多这一次没有副作用。
+    controller::enter_with_route(&core.state, &app, true, Some(&body.provider_id)).await?;
     if !active {
-        // 首次：以该供应商为默认那家进入 Stack 模式（并重写 CLI 配置指向反代）。
-        controller::enter_with_route(&core.state, &app, true, Some(&body.provider_id)).await?;
+        log::info!("[STACK] {} 首次进入聚合模式", app.as_str());
     }
     // 其余家：加入名单（幂等；默认那家已在名单里）。
     controller::set_stack_member(&core.state, &app, &body.provider_id, true)
@@ -236,6 +275,8 @@ async fn run_control(core: Arc<Core>, port: u16) -> anyhow::Result<()> {
     let router = Router::new()
         .route("/enter", post(enter))
         .route("/exit", post(exit))
+        .route("/ensure", post(ensure))
+        .route("/identity", get(identity))
         .route("/stack/route", post(stack_route))
         .route("/shutdown", post(shutdown))
         .route("/modes", get(modes))

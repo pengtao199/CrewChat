@@ -175,14 +175,47 @@ class CcSwitchGateway:
     def available(self) -> bool:
         return _binary(self.settings) is not None
 
-    def alive(self) -> bool:
-        """进程是否在跑（控制面可达）。代理在无 app 走代理时会自行停止，但进程仍在。"""
+    def identity(self) -> dict[str, Any] | None:
+        """端口上那个代理的身份（它用的数据目录、库、进程号）。"""
         try:
             import httpx
 
-            return httpx.get(f"{self.control}/modes", timeout=3).status_code == 200
+            resp = httpx.get(f"{self.control}/identity", timeout=3)
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            return data if isinstance(data, dict) else None
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _owns_endpoint(self) -> bool:
+        """控制面上那个代理**是不是我们起的**。
+
+        只探端口会把别人的进程当自己的：端口上可能是用默认数据目录（`~/.cc-switch`）
+        起的另一个 cc-switch，连上去读的是别人的供应商表——表现就是「刚投影进去的供应商
+        说不存在」。所以按身份校验：对不上就当它不存在，宁可自己起一个。
+        """
+        ident = self.identity()
+        if ident is None:
+            return False
+        home = str(ident.get("home") or "")
+        return Path(home).resolve() == self.settings.gateway_dir.resolve()
+
+    def _foreign_endpoint(self) -> bool:
+        """控制面可达、但身份不是我们的。"""
+        ident = self.identity()
+        return ident is not None and not self._owns_endpoint()
+
+    def alive(self) -> bool:
+        """**我们自己的**代理是否在跑（控制面可达且身份对得上）。"""
+        try:
+            import httpx
+
+            if httpx.get(f"{self.control}/modes", timeout=3).status_code != 200:
+                return False
         except Exception:  # noqa: BLE001
             return False
+        return self._owns_endpoint()
 
     def proxy_up(self) -> bool:
         try:
@@ -195,6 +228,15 @@ class CcSwitchGateway:
     def ensure_running(self, wait: float = 15.0) -> bool:
         if self.alive():
             return True
+        # 端口被**别的** cc-switch 占着：不能接着用，更不能悄悄把自己那份数据写进
+        # 别人的库。明确报出来，让上层决定是换端口还是先停掉那个实例。
+        if self._foreign_endpoint():
+            raise RuntimeError(
+                f"端口 {self.settings.gateway_control_port} 上是另一个 cc-switch 实例"
+                f"（数据目录 {self.identity().get('home')}，进程 {self.identity().get('pid')}），"
+                f"不是 CrewChat 自己的（{self.settings.gateway_dir}）。"
+                "请先停掉它，或改 CREWCHAT_GATEWAY_CONTROL_PORT。"
+            )
         binary = _binary(self.settings)
         if binary is None:
             raise RuntimeError(
@@ -270,6 +312,18 @@ class CcSwitchGateway:
         resp = httpx.post(f"{self.control}/enter", json={"app": app, "route": route}, timeout=30)
         resp.raise_for_status()
         return None
+
+    def ensure(self, app: str) -> None:
+        """把盘上该 CLI 的配置收敛到当前契约——**不改模式、不改路由**。
+
+        `activate` 已经会把配置写对，但 CLI 自己会刷新配置、别的程序也会改它。起进程
+        之前再收敛一次，配置被谁改回去都能补回来——这才是「说用哪一家就用哪一家」的前提。
+        """
+        if not self.alive():
+            return
+        import httpx
+
+        httpx.post(f"{self.control}/ensure", json={"app": app}, timeout=60).raise_for_status()
 
     def deactivate(self, app: str) -> None:
         import httpx

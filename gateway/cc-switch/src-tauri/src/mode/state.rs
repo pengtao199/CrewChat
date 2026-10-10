@@ -212,6 +212,9 @@ pub mod op {
     pub const DETACH: &str = "detach";
     /// 启动时把客户端重新指向代理。
     pub const ATTACH: &str = "attach";
+    /// 只收敛盘上的客户端文件，不改模式也不改路由（编排器每次起 CLI 前调）。
+    /// 和 `ATTACH`/`CATALOG` 不同：**不**强制重写——盘上已经收敛就一个字都不动。
+    pub const ENSURE: &str = "ensure";
     /// 代理模式下换路由（契约变了时同一操作里先改写客户端）。
     pub const ROUTE: &str = "route";
     /// 增删 Stack 模型（契约变了时同一操作里先改写客户端）。

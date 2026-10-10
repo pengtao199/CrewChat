@@ -2,6 +2,7 @@
 //! 的写前意图和崩溃恢复。
 
 pub mod contract;
+pub mod converge;
 pub mod controller;
 pub mod current;
 pub mod operation;

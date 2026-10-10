@@ -38,6 +38,7 @@ use crate::services::provider::{claude_direct, gemini_direct, grok_direct};
 use crate::store::AppState;
 
 use super::contract;
+use super::converge;
 use super::current::{self, Purpose};
 use super::operation;
 use super::stack::{self, StackModel, StackView};
@@ -316,7 +317,16 @@ async fn write_proxy(
             let stack_default = stack::claude_route_default(&members);
             let (projection, contract) =
                 claude_contract(route, &proxy_url, &published, stack_default.as_ref());
-            let unchanged = !force && live_now.has_contract(&contract.key);
+            // 记账说没变**还不够**：盘上的 settings.json 可能已经被客户端刷新、被别的
+            // 程序改回、被用户手改。多 CLI 并行时这就是「codex 好好的、claude 一直
+            // Not logged in」的来源——两边都记账说没变，盘上只有一个被写进去过。
+            // 必须拿盘上实际内容再判一次。
+            let converged = converge::claude_converged(
+                &crate::config::get_claude_settings_path(),
+                live_now.claude_exclusive_owner().as_ref(),
+                &projection,
+            );
+            let unchanged = !force && live_now.has_contract(&contract.key) && converged;
             let patch = direct_patch(live_now.claude_exclusive_owner().as_ref(), &projection);
             target.contract = Some(contract);
             claude_direct::run(
@@ -360,7 +370,10 @@ async fn write_proxy(
                 .await
                 .map_err(err)?;
             let planned = codex_direct::plan(&state.db, &owner, &spec, &prepared).map_err(err)?;
-            let unchanged = !force && live_now.has_contract(&planned.contract.key);
+            // 同 Claude：记账之外还要看盘上的 config.toml 是不是真的收敛了。
+            let converged =
+                converge::codex_converged(&crate::codex_config::get_codex_config_path(), planned.config());
+            let unchanged = !force && live_now.has_contract(&planned.contract.key) && converged;
             target.contract = Some(planned.contract.clone());
             let pending = pending(target);
             if unchanged {
@@ -718,6 +731,50 @@ async fn warn_if_official_route(state: &AppState, app: &AppType, route: &Provide
 }
 
 /// 退出代理模式：客户端写回直连指针的供应商，路由保留。
+/// 把盘上的客户端配置收敛到当前契约，**不改模式、不改路由**。
+///
+/// 和 [`enter_with_route`] 的区别只在于不动用户的选择：这里不切模式、不换默认供应商、
+/// 不动 Stack 名单成员，只让盘上的文件重新等于「当前契约本来就该写的样子」。
+/// 多 CLI 编排器在每次起 CLI 之前调它，配置被谁改回去都能补回来。
+pub async fn ensure_projection(state: &AppState, app: &AppType) -> Result<(), String> {
+    require_proxy_app(app)?;
+    let _guard = lock_settled(state, app)
+        .await
+        .map_err(|error| error.to_string())?;
+    let mode = current::mode_state(app);
+    if !mode.is_proxy() {
+        // 不在代理模式就没有「该写成的反代配置」，直连的收敛是另一条路径，
+        // 这里不越权去改它。
+        return Err(format!("{} 当前不在代理模式，无需收敛", app.as_str()));
+    }
+    let stack = settled_stack(app)?;
+    let route = route_provider(state, app, &mode)?
+        .or_else(|| direct_provider(state, app).ok().flatten())
+        .ok_or_else(|| {
+            format!(
+                "{} 没有可用于收敛的当前供应商",
+                app.as_str()
+            )
+        })?;
+    let live_now = LiveNow::of(state, app, &mode)?;
+    write_proxy(
+        state,
+        app,
+        op::ENSURE,
+        &route,
+        &live_now,
+        ModeState {
+            mode: Some(Mode::Proxy),
+            attached: true,
+            proxy_route: Some(route.id.clone()),
+            contract: None,
+        },
+        if stack.enabled { Some(stack) } else { None },
+    )
+    .await
+    .map(|_| ())
+}
+
 pub async fn exit(state: &AppState, app: &AppType) -> Result<(), String> {
     require_proxy_app(app)?;
     {

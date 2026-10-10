@@ -93,6 +93,12 @@ class Session:
             try:
                 # 需要网关的身体配了大脑就挂到反代上，否则它用自己的登录。
                 model_id = self._gateway_model(spec, provider, executor.needs_gateway)
+                # 挂上不等于盘上就还是那样：CLI 自己会刷新配置，别的程序也会改它。
+                # 每回合起进程前收敛一次——「说用哪一家就用哪一家」得每次都成立。
+                if executor.needs_gateway and provider is not None:
+                    from ..core.gateway import get_gateway
+
+                    get_gateway(self.settings).ensure(spec.body)
                 effective = provider
                 if model_id and provider is not None:
                     effective = copy.copy(provider)
