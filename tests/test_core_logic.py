@@ -165,6 +165,8 @@ def test_build_settings_config_opencode_lists_models() -> None:
     provider = _provider(base_url="https://up/v1", api_key="k", models=["a", "b"])
     settings_config, _ = _build_settings_config("opencode", provider)
     assert settings_config["options"]["baseURL"] == "https://up/v1"
+    assert settings_config["base_url"] == "https://up/v1"
+    assert settings_config["api_key"] == "k"
     assert set(settings_config["models"]) == {"a", "b"}
 
 
@@ -324,17 +326,34 @@ def test_opencode_config_carries_own_provider_not_the_users() -> None:
     cfg = json.loads(_inline_config(prov, [], [], "opencode"))
 
     assert "mcp" not in cfg  # no inherited servers
-    block = cfg["provider"]["gw"]
+    block = cfg["providers"]["gw"]
     # baseURL points at the local reverse proxy with the app segment, not the upstream
-    assert block["options"]["baseURL"] == "http://127.0.0.1:15721/opencode/v1"
+    assert block["settings"]["baseURL"] == "http://127.0.0.1:15721/opencode/v1"
     # the key is the gateway placeholder, never the real provider key
-    assert block["options"]["apiKey"] == "PROXY_MANAGED"
+    assert block["settings"]["apiKey"] == "PROXY_MANAGED"
+    assert block["package"] == "aisdk:@ai-sdk/openai-compatible"
     assert "sk-test" not in json.dumps(cfg)
-    assert "agnes" not in cfg["provider"]
-    # catalog short name, and modelID is the value the gateway should see
-    assert "agnes-2.5-flash" in block["models"]
-    assert block["models"]["agnes-2.5-flash"]["modelID"] == "agnes-2.5-flash"
-    assert cfg["model"] == "gw/agnes-2.5-flash"
+    assert "agnes" not in cfg["providers"]
+    # catalog name stays slash-free; modelID is the published id the gateway routes on
+    assert block["models"]["main"]["modelID"] == "ccs-opencode-agnes-ai/agnes-2.5-flash"
+    assert cfg["model"] == "gw/main"
+
+    from pathlib import Path
+
+    from crewchat.executors.acp_body import _opencode_env, _release_homes
+    from crewchat.executors.base import ExecRequest
+
+    env: dict[str, str] = {"OPENCODE_SERVER_PASSWORD": "nope"}
+    _opencode_env(prov, ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id="opencode"), env)
+    try:
+        written = json.loads(Path(env["OPENCODE_CONFIG_DIR"]).joinpath("opencode.json").read_text())
+        assert written["providers"]["gw"]["models"]["main"]["modelID"] == "ccs-opencode-agnes-ai/agnes-2.5-flash"
+        assert "sk-test" not in json.dumps(written)
+        assert env["OPENCODE_TEST_HOME"]
+        assert env["OPENCODE_DISABLE_PROJECT_CONFIG"] == "1"
+        assert "OPENCODE_SERVER_PASSWORD" not in env
+    finally:
+        _release_homes(env)
 
 
 def test_claude_and_codex_homes_keep_published_ids_and_the_placeholder() -> None:
@@ -393,6 +412,77 @@ def test_claude_and_codex_homes_keep_published_ids_and_the_placeholder() -> None
     finally:
         _release_homes(left_env)
         _release_homes(right_env)
+
+
+def test_every_cli_process_keeps_its_own_published_id() -> None:
+    """Different sessions of the same CLI carry different published ids, not one current route."""
+    from pathlib import Path
+
+    from crewchat.core.providers import Provider
+    from crewchat.executors.acp_body import (
+        PROXY_TOKEN,
+        _gemini_env,
+        _grok_env,
+        _hermes_env,
+        _mcode_env,
+        _openclaw_env,
+        _pi_env,
+        _release_homes,
+    )
+    from crewchat.executors.base import ExecRequest
+
+    def prov(model: str) -> Provider:
+        return Provider(id="deepseek", name="DeepSeek", base_url="https://api.deepseek.com", model=model, api_key="sk-test")
+
+    left = "ccs-hermes-deepseek/deepseek-v4-pro"
+    right = "ccs-hermes-agnes/agnes-2"
+    homes: list[dict[str, str]] = []
+
+    def bind(hook, app: str, model: str) -> dict[str, str]:
+        env: dict[str, str] = {}
+        hook(prov(model), ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id=app), env)
+        homes.append(env)
+        return env
+
+    try:
+        gemini = bind(_gemini_env, "gemini", "ccs-gemini-deepseek--deepseek-v4-pro")
+        assert gemini["GEMINI_MODEL"] == "ccs-gemini-deepseek--deepseek-v4-pro"
+        assert gemini["GEMINI_API_KEY"] == PROXY_TOKEN
+        assert "sk-test" not in gemini.values()
+
+        grok_a = bind(_grok_env, "grok", left)
+        grok_b = bind(_grok_env, "grok", right)
+        assert grok_a["GROK_HOME"] != grok_b["GROK_HOME"]
+        text = Path(grok_a["GROK_CONFIG_PATH"]).read_text()
+        assert left in text and PROXY_TOKEN in text and "sk-test" not in text
+        assert "/grokbuild/v1" in text
+
+        hermes = bind(_hermes_env, "hermes", left)
+        hermes_text = Path(hermes["HERMES_HOME"]).joinpath("config.yaml").read_text()
+        assert left in hermes_text and PROXY_TOKEN in hermes_text and "sk-" not in hermes_text
+        assert "api_mode: chat_completions" in hermes_text
+        assert "discover_models: false" in hermes_text
+        assert Path(hermes["HERMES_HOME"]).is_relative_to(Path.home() / ".hermes" / "crewchat-sessions")
+
+        pi = bind(_pi_env, "pi", left)
+        pi_text = Path(pi["PI_CODING_AGENT_DIR"]).joinpath("models.json").read_text()
+        assert left in pi_text and PROXY_TOKEN in pi_text and "sk-" not in pi_text
+        assert "openai-completions" in pi_text
+        pi_settings = Path(pi["PI_CODING_AGENT_DIR"]).joinpath("settings.json").read_text()
+        assert '"quietStartup": true' in pi_settings
+
+        mcode = bind(_mcode_env, "mcode", left)
+        mcode_text = Path(mcode["MINIMAX_DATA_DIR"]).joinpath("config.yaml").read_text()
+        assert left in mcode_text and PROXY_TOKEN in mcode_text and "sk-" not in mcode_text
+
+        claw = bind(_openclaw_env, "openclaw", left)
+        claw_text = Path(claw["OPENCLAW_CONFIG_PATH"]).read_text()
+        assert left in claw_text and PROXY_TOKEN in claw_text and "sk-" not in claw_text
+        assert "openai-completions" in claw_text
+        assert '"mode": "local"' in claw_text
+    finally:
+        for env in homes:
+            _release_homes(env)
 
 
 def test_opencode_config_only_includes_declared_capabilities() -> None:
