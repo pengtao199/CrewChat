@@ -4,7 +4,8 @@
 
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
-| [CrewChat 执行计划](crewchat.md) | Slice 1–4 已跑通 | 执行计划里的切片都已实测 |
+| [设置页：Agents、引擎、模型](settings-pages.md) | Implemented | 这三个设置页的界面和交互。代码已落地，浏览器逐项点击还没走完 |
+| [CrewChat 执行计划](crewchat.md) | Slice 1–4 已跑通 | 协作循环。切片已实测，不在本页改动里重做 |
 
 ## 归档
 
