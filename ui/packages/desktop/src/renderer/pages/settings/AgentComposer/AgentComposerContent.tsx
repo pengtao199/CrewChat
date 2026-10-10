@@ -31,7 +31,7 @@ const EMPTY: AgentSpec = {
   name: '',
   emoji: '🤖',
   brain: '',
-  body: 'llm',
+  body: '',
   role: '',
   goal: '',
   backstory: '',
@@ -104,7 +104,9 @@ const AgentComposerContent: React.FC = () => {
       const intent = (location.state as ComposerNavState | null) ?? null;
       if (intent?.createAgent) {
         setSelected('');
-        setDraft({ ...EMPTY, id: '', name: '' });
+        // 身体默认选第一个装好的 CLI，省得新 Agent 从一个跑不起来的身体开始。
+        const firstCli = opts.bodies.find((b) => b.available)?.id ?? opts.bodies[0]?.id ?? '';
+        setDraft({ ...EMPTY, id: '', name: '', body: firstCli });
         setDirty(false);
         navigate(location.pathname, { replace: true, state: null });
       } else if (intent?.selectAgentId) {
@@ -188,7 +190,9 @@ const AgentComposerContent: React.FC = () => {
   const save = async () => {
     if (!draft.id) return void Message.error(t('settings.agentComposer.idRequired'));
     if (!draft.body) return void Message.error(t('settings.agentComposer.bodyRequired'));
-    if (draft.body === 'llm' && !draft.brain) {
+    // 自带登录的身体可以不配大脑（用 CLI 自己的）；其余必须有端点。
+    const chosen = options?.bodies.find((b) => b.id === draft.body);
+    if (chosen && !chosen.has_builtin_brain && !draft.brain) {
       return void Message.error(t('settings.agentComposer.brainRequired'));
     }
     setSaving(true);

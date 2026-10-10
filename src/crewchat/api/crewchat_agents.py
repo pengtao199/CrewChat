@@ -108,7 +108,10 @@ async def agent_options() -> dict[str, Any]:
             }
             for p in providers
         ],
-        "bodies": list_executors(),
+        # 身体的选项是**可执行的 CLI**。`llm` 是直连（一次 API 调用，没有 CLI、
+        # 没有工作区、没有工具循环），是一种对话方式，不是一种身体——放进这个下拉
+        # 只会让"选身体"这个动作变模糊。按 kind 过滤，将来新增的 API 类实现同样不进。
+        "bodies": [b for b in list_executors() if b.get("kind") == "cli"],
         "skills": [s["name"] for s in available_skills()],
         "mcps": sorted(shared_mcp_servers().keys()),
         "plugins": available_plugins(),
