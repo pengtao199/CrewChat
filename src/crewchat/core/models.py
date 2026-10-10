@@ -62,6 +62,23 @@ class AgentSpec(BaseModel):
         return "\n".join(parts)
 
 
+class CollaborationTask(BaseModel):
+    """One subtask a leader assigned to someone in the room.
+
+    Field names follow ``crewai.Task`` (``description``, ``expected_output``,
+    ``context``, ``agent``). ``agent`` is the assignee's id or name — the loop
+    resolves it to an agent already in the turn. ``context`` names the steps
+    this one waits for. This is only the shape; nothing here runs a crew.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    description: str
+    expected_output: str = ""
+    context: list[str] = Field(default_factory=list)
+    agent: str = ""
+
+
 def spec_file(agents_dir: Path) -> list[Path]:
     if not agents_dir.is_dir():
         return []

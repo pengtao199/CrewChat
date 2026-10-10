@@ -423,6 +423,180 @@ def test_group_turn_gives_each_agent_its_own_message(client, monkeypatch) -> Non
 
 
 
+def test_handoff_sends_the_named_agent_the_subtask(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The delegate runs the subtask, and the stream shows the handoff itself."""
+    import asyncio
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-h", "name": "handoff"})
+
+    a = AgentSpec(id="a", name="甲", body="opencode", brain="p/m")
+    b = AgentSpec(id="b", name="乙", body="codex", brain="p/m")
+    specs = [a, b]
+    prompts: list[tuple[str, str]] = []
+    events = {
+        "a": [_event("delta", text='handoff(to="乙", task="只回答海星")')],
+        "b": [_event("delta", text="海星")],
+    }
+
+    by_id = {s.id: s for s in specs}
+
+    class _Session:
+        specs = by_id
+
+        async def stream_ask(self, spec, prompt, memory_key):  # type: ignore[no-untyped-def]
+            prompts.append((spec.id, prompt))
+            for event in events[spec.id]:
+                yield event
+
+    monkeypatch.setattr(chat_mod, "_for_conversation", lambda _cid: (_Session(), specs))
+    sent: list[dict] = []
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            sent.append({"name": name, "data": data})
+
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    chat_mod._running.clear()
+    chat_mod._speaker_state.clear()
+
+    asyncio.run(chat_mod._run_turn("conv-h", specs, "用户原话：写一首诗", "turn-h"))
+
+    assert [spec_id for spec_id, _ in prompts] == ["a", "b"]
+    delegated = prompts[1][1]
+    assert "子任务：" in delegated
+    assert "只回答海星" in delegated
+    assert "用户的任务" not in delegated
+    assert "写一首诗" not in delegated
+
+    tools = [f for f in sent if f["data"].get("type") == "tool_call"]
+    assert len(tools) == 1
+    assert tools[0]["data"]["data"]["name"] == "handoff"
+    assert tools[0]["data"]["data"]["description"].startswith("🤖 乙：")
+    assert "只回答海星" in tools[0]["data"]["data"]["description"]
+
+    finishes = [f for f in sent if f["data"].get("type") == "finish"]
+    assert [f["data"].get("turn_complete", True) for f in finishes] == [False, True]
+
+
+def test_leader_plan_runs_the_second_step_with_the_first_output(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Step 2 sees step 1's output. The stream shows owner and order."""
+    import asyncio
+    from collections import deque
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-p", "name": "plan"})
+
+    a = AgentSpec(id="a", name="甲", body="opencode", brain="p/m")
+    b = AgentSpec(id="b", name="乙", body="codex", brain="p/m")
+    specs = [a, b]
+    prompts: list[tuple[str, str]] = []
+    replies = {
+        "a": deque(
+            [
+                'plan(owner="甲", task="复述该数字", done="只有该数字", after="乙")\n'
+                'plan(owner="乙", task="给出数字42", done="只有42")',
+                "42",
+                "汇总：乙先给出42，甲复述42",
+            ]
+        ),
+        "b": deque(["42"]),
+    }
+
+    by_id = {s.id: s for s in specs}
+
+    class _Session:
+        specs = by_id
+
+        async def stream_ask(self, spec, prompt, memory_key):  # type: ignore[no-untyped-def]
+            prompts.append((spec.id, prompt))
+            yield _event("delta", text=replies[spec.id].popleft())
+
+    monkeypatch.setattr(chat_mod, "_for_conversation", lambda _cid: (_Session(), specs))
+    sent: list[dict] = []
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            sent.append(data)
+
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    chat_mod._running.clear()
+    chat_mod._speaker_state.clear()
+
+    asyncio.run(chat_mod._run_turn("conv-p", specs, "先查出数字再复述", "turn-p"))
+
+    assert [spec_id for spec_id, _prompt in prompts] == ["a", "b", "a", "a"]
+    assert "用户的任务" not in prompts[1][1]
+    assert "给出数字42" in prompts[1][1]
+    assert "先查出数字再复述" not in prompts[1][1]
+    assert "42" in prompts[2][1]
+    assert "复述该数字" in prompts[2][1]
+    assert "负责人" in prompts[3][1]
+
+    plans = [frame for frame in sent if frame.get("type") == "tool_call" and frame["data"]["name"] == "plan"]
+    assert [frame["data"]["description"] for frame in plans] == [
+        "1. 🤖 乙：给出数字42",
+        "2. 🤖 甲：复述该数字",
+    ]
+
+
+def test_cancel_does_not_run_a_queued_handoff(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Cancelling the turn drops the queue. The delegate must not start."""
+    import asyncio
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-c", "name": "cancel"})
+
+    a = AgentSpec(id="a", name="甲", body="opencode", brain="p/m")
+    b = AgentSpec(id="b", name="乙", body="codex", brain="p/m")
+    specs = [a, b]
+    called: list[str] = []
+
+    by_id = {s.id: s for s in specs}
+
+    class _Session:
+        specs = by_id
+
+        async def stream_ask(self, spec, prompt, memory_key):  # type: ignore[no-untyped-def]
+            called.append(spec.id)
+            if spec.id == "a":
+                yield _event("delta", text='handoff(to="乙", task="只回答海星")')
+                task = asyncio.current_task()
+                assert task is not None
+                task.cancel()
+                return
+            yield _event("delta", text="海星")
+
+    monkeypatch.setattr(chat_mod, "_for_conversation", lambda _cid: (_Session(), specs))
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            return None
+
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    chat_mod._running.clear()
+    chat_mod._speaker_state.clear()
+
+    async def _go() -> None:
+        task = asyncio.create_task(chat_mod._run_turn("conv-c", specs, "用户原话", "turn-c"))
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    asyncio.run(_go())
+    assert called == ["a"]
+
+
 def test_send_broadcasts_user_message_and_turn_completion(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     """A send must echo the user's row and close the turn on the socket.
 

@@ -292,6 +292,70 @@ def test_group_prompt_carries_prior_outputs_in_order() -> None:
     assert many.index("--- 🤖 甲 ---") < many.index("--- 🤖 丙 ---")
 
 
+def test_handoff_request_is_recognized_and_queued() -> None:
+    """A handoff is a request the loop accepts, not a process the agent starts."""
+    from crewchat.core.models import AgentSpec
+    from crewchat.orchestration.group import (
+        accept_handoff,
+        parse_handoff,
+        plan_steps,
+        resolve_handoff,
+    )
+
+    a = AgentSpec(id="a", name="甲")
+    b = AgentSpec(id="b", name="乙")
+    peers = [a, b]
+
+    assert parse_handoff("只是提到 handoff 这个词") is None
+    assert parse_handoff('handoff(to="", task="x")') is None
+    assert parse_handoff('handoff(to="乙", task="只回答海星")') == ("乙", "只回答海星")
+
+    assert resolve_handoff("乙", peers, "a") == b
+    assert resolve_handoff("b", peers, "a") == b
+    assert resolve_handoff("甲", peers, "a") is None  # not yourself
+    assert resolve_handoff("不在场", peers, "a") is None
+
+    steps = plan_steps(peers, "用户原话")
+    assert accept_handoff(steps, 0, b, "只回答海星", "🤖 甲", max_steps=4)
+    assert [(step.spec.id, step.kind, step.task) for step in steps] == [
+        ("a", "roster", "用户原话"),
+        ("b", "handoff", "只回答海星"),
+    ]
+    # Already queued: a second request for the same agent is not stacked.
+    assert not accept_handoff(steps, 0, b, "另一件", "🤖 甲", max_steps=4)
+
+
+def test_plan_runs_in_dependency_order_and_drops_unknown_owners() -> None:
+    """A later step waits for the owner it names, and someone absent is not queued."""
+    from crewchat.core.models import AgentSpec
+    from crewchat.orchestration.group import apply_plan, parse_plan, plan_steps
+
+    a = AgentSpec(id="a", name="甲")
+    b = AgentSpec(id="b", name="乙")
+    text = (
+        'plan(owner="甲", task="复述该数字", done="只有该数字", after="乙")\n'
+        'plan(owner="乙", task="给出数字42", done="只有42")\n'
+        'plan(owner="不在场", task="忽略", done="无")'
+    )
+    tasks = parse_plan(text)
+    assert [task.agent for task in tasks] == ["甲", "乙", "不在场"]
+    assert tasks[0].context == ["乙"]
+    assert tasks[0].expected_output == "只有该数字"
+
+    steps = plan_steps([a, b], "用户原话")
+    queued = apply_plan(steps, 0, tasks, [a, b], a, max_steps=4)
+    assert [spec.name for spec, _task in queued] == ["乙", "甲"]
+    assert [(step.spec.name, step.kind) for step in steps] == [
+        ("甲", "roster"),
+        ("乙", "handoff"),
+        ("甲", "handoff"),
+        ("甲", "handoff"),
+    ]
+    assert "给出数字42" in steps[1].task
+    assert "用户原话" not in steps[1].task
+    assert "负责人" in steps[-1].task
+
+
 def test_group_prompt_truncates_oversized_prior_output() -> None:
     """A long upstream reply must not be pasted whole into the next speaker."""
     from crewchat.core.models import AgentSpec

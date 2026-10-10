@@ -17,7 +17,16 @@ from fastapi.responses import JSONResponse
 
 from ..core.models import AgentSpec
 from ..orchestration import session_for
-from ..orchestration.group import build_prompt
+from ..orchestration.group import (
+    accept_handoff,
+    apply_plan,
+    build_handoff_prompt,
+    build_prompt,
+    parse_handoff,
+    parse_plan,
+    plan_steps,
+    resolve_handoff,
+)
 from .conversations import ensure_conversation, persist_turn
 from .hub import (
     error_frame,
@@ -151,19 +160,37 @@ async def _run_turn(
     group = len(specs) > 1
     #: (display, output) of the agents that already spoke, fed forward in order.
     prior: list[tuple[str, str]] = []
+    # One extra pass per agent is enough for a handoff back; beyond that the
+    # queue stops so two agents cannot delegate forever.
+    steps = plan_steps(specs, content)
+    max_steps = max(len(specs) * 2, 1)
 
     try:
-        for index, spec in enumerate(specs):
-            prompt = (
-                build_prompt(spec, specs, content, prior) if group else _single_prompt(spec, content)
-            )
+        index = 0
+        while index < len(steps):
+            current = asyncio.current_task()
+            if current is not None and current.cancelling():
+                raise asyncio.CancelledError
+            step = steps[index]
+            spec = step.spec
+            if group and step.kind == "handoff":
+                prompt = build_handoff_prompt(spec, specs, step.task, prior, step.requester)
+            elif group:
+                prompt = build_prompt(spec, specs, step.task, prior)
+            else:
+                prompt = _single_prompt(spec, content)
             reply_msg_id = uuid.uuid4().hex
             sender = _sender(spec, group)
             buffer: list[str] = []
             usage: dict[str, Any] = {}
 
             # Tell the UI who is about to speak and who is still queued.
-            _broadcast_speaker(conversation_id, turn_id, spec.display, [s.display for s in specs[index + 1 :]])
+            _broadcast_speaker(
+                conversation_id,
+                turn_id,
+                spec.display,
+                [pending.spec.display for pending in steps[index + 1 :]],
+            )
 
             async for event in session.stream_ask(spec, prompt, f"conv:{conversation_id}"):
                 if event.kind == "delta" and event.text:
@@ -231,6 +258,69 @@ async def _run_turn(
                 # reply is complete (and only when non-empty) so a silent or failed
                 # agent does not inject an empty block downstream.
                 prior.append((spec.display, text))
+                if group:
+                    planned = apply_plan(
+                        steps,
+                        index,
+                        parse_plan(text),
+                        specs,
+                        spec,
+                        max_steps=max_steps,
+                    )
+                    if planned:
+                        for number, (owner, task) in enumerate(planned, 1):
+                            label = f"{number}. {owner.display}：{task.description}"
+                            await hub.broadcast(
+                                "message.stream",
+                                tool_frame(
+                                    conversation_id,
+                                    reply_msg_id,
+                                    "plan",
+                                    "completed",
+                                    turn_id,
+                                    f"plan-{reply_msg_id}-{number}",
+                                    {"to": owner.display, "task": label},
+                                    task.expected_output or "已排入",
+                                ),
+                            )
+                    else:
+                        requested = parse_handoff(text)
+                        target = (
+                            resolve_handoff(requested[0], specs, spec.id)
+                            if requested is not None
+                            else None
+                        )
+                        if (
+                            requested is not None
+                            and target is not None
+                            and accept_handoff(
+                                steps,
+                                index,
+                                target,
+                                requested[1],
+                                spec.display,
+                                max_steps=max_steps,
+                            )
+                        ):
+                            await hub.broadcast(
+                                "message.stream",
+                                tool_frame(
+                                    conversation_id,
+                                    reply_msg_id,
+                                    "handoff",
+                                    "completed",
+                                    turn_id,
+                                    f"handoff-{reply_msg_id}",
+                                    {"to": target.display, "task": requested[1]},
+                                    f"交给 {target.display}",
+                                ),
+                            )
+                    _broadcast_speaker(
+                        conversation_id,
+                        turn_id,
+                        spec.display,
+                        [pending.spec.display for pending in steps[index + 1 :]],
+                    )
             await hub.broadcast(
                 "message.stream",
                 finish_frame(
@@ -238,9 +328,10 @@ async def _run_turn(
                     reply_msg_id,
                     turn_id,
                     usage,
-                    turn_complete=index == len(specs) - 1,
+                    turn_complete=index == len(steps) - 1,
                 ),
             )
+            index += 1
     except asyncio.CancelledError:
         await hub.broadcast(
             "message.stream",

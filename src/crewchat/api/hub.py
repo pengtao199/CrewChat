@@ -196,7 +196,12 @@ _TOOL_STATUS = {
 def _describe_tool_call(name: str, args: dict[str, Any]) -> str:
     if not args:
         return ""
-    for key in ("command", "file_path", "path", "pattern", "query", "url", "file_name"):
+    if name == "handoff":
+        target = args.get("to")
+        task = args.get("task")
+        if isinstance(target, str) and isinstance(task, str) and target and task:
+            return f"{target}：{task}"[:80]
+    for key in ("command", "task", "file_path", "path", "pattern", "query", "url", "file_name"):
         value = args.get(key)
         if isinstance(value, str) and value:
             return value[:80]
