@@ -1884,10 +1884,13 @@ export interface ICreateConversationParams {
       mcp_ids?: string[];
     };
   };
-  extra: {
-    workspace?: string;
-    custom_workspace?: boolean;
-    default_files?: string[];
+    extra: {
+      workspace?: string;
+      custom_workspace?: boolean;
+      project_id?: string;
+      team_agent_ids?: string[];
+      leader_agent_id?: string;
+      default_files?: string[];
     cli_path?: string;
     gateway?: {
       host?: string;
