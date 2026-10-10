@@ -1,7 +1,7 @@
 # CLI 模型绑定：按进程配置，不改用户全局
 
 Updated: 2026-10-10 (Asia/Shanghai)
-Status: 已落地（OpenCode 逐请求未验证）
+Status: 已落地。回显（本地假上游，不是线上 ccsw-proxy）确认 Claude、Codex、Gemini、Grok、OpenCode、Pi、Mcode、Hermes、OpenClaw 都会把发布 id 和 `PROXY_MANAGED` 打到本机反代。Hermes 的临时家在 `~/.hermes/crewchat-sessions/`。OpenClaw 每次另起自己的 Gateway。假上游不返回 SSE，所以 Hermes / OpenCode 的回合在发出请求后超时，请求本身已经带对了模型和占位凭据。
 
 ## Goal
 
@@ -23,7 +23,7 @@ Status: 已落地（OpenCode 逐请求未验证）
 
 - 不更换网关，不把 cc-switch 换成 Nyro / MuxLayer / Bifrost。
 - 不在这一计划里做协作的路由和委派（见 [multi-agent-collaboration.md](multi-agent-collaboration.md)）。
-- 不给 Hermes、Pi、Mcode、OpenClaw 假装 `OPENAI_BASE_URL` 就能接管。它们保持「这一条 CLI 一个当前供应商」，等有官方隔离目录再加钩子。
+- 不靠一条「当前路由」让两个会话共用同一家供应商。每个进程带自己的发布 id。
 - `llm` 继续直连。
 
 ## Approach
@@ -32,11 +32,15 @@ Status: 已落地（OpenCode 逐请求未验证）
 
 | CLI | 进程配置 | 模型名 | 并发 |
 | --- | --- | --- | --- |
-| Claude | 临时目录，`CLAUDE_CONFIG_DIR`，`settings.json` 里写 `ANTHROPIC_BASE_URL` 与 `ANTHROPIC_MODEL` | Stack 发布 id | 可同时多家 |
-| Codex | 临时目录，`CODEX_HOME`，`config.toml` 的 `base_url` 指反代 | `ccs-<key>/<model>` | 可同时多家 |
-| OpenCode | `OPENCODE_CONFIG_CONTENT`，唯一 provider 名，`apiKey` 为 `PROXY_MANAGED` | 目录短名；发给上游的值用 `modelID` | 先按一条当前路由；`modelID` 验证通过后再逐请求 |
-| Gemini、Grok | 继续 `POST /enter`，官方路由模式 | CLI 自己的模型名 | 一条当前供应商 |
-| 其余 CLI | 不经网关接管 | — | 不在本计划 |
+| Claude | 临时目录，`CLAUDE_CONFIG_DIR` | `ccs-claude-<key>--<model>` | 可同时多家 |
+| Codex | 临时目录，`CODEX_HOME` | `ccs-<key>/<model>` | 可同时多家 |
+| Gemini | `GEMINI_MODEL` + `GOOGLE_GEMINI_BASE_URL` | `ccs-gemini-<key>--<model>` | 可同时多家 |
+| Grok | `GROK_HOME` | `ccs-grokbuild-<key>/<model>` | 可同时多家 |
+| OpenCode | `OPENCODE_TEST_HOME` + `OPENCODE_CONFIG_DIR` 的 V2 `providers.gw`，目录键 `main`，`modelID` 为发布 id | `ccs-opencode-<key>/<model>` | 可同时多家 |
+| OpenClaw | `OPENCLAW_STATE_DIR`，`api: openai-completions`，另起本机 Gateway | `ccs-openclaw-<key>/<model>` | 可同时多家 |
+| Hermes | `~/.hermes/crewchat-sessions/<id>`，不改用户的 `config.yaml` | `ccs-hermes-<key>/<model>` | 可同时多家 |
+| Pi | `PI_CODING_AGENT_DIR` 的 `models.json`，`api: openai-completions` | `ccs-pi-<key>/<model>` | 可同时多家 |
+| Mcode | `MINIMAX_DATA_DIR` | `ccs-mcode-<key>/<model>` | 可同时多家 |
 
 `activate` 仍把通用 provider 投影进网关并打开 Stack，这样 `resolve` 认发布 id。它不再调用会改写 `~/.claude` / `~/.codex` 的 `enter_with_route` / `ensure`。子进程结束后删除临时目录。子进程环境不放入真实 key。
 
