@@ -709,3 +709,110 @@ def test_tool_frame_carries_input_and_output() -> None:  # type: ignore[no-untyp
 
     # A frame with no details at all must not describe nothing.
     assert "description" not in tool_frame("c", "m", "Bash", "running")["data"]
+
+
+# ---- conversation roster (single vs group) -----------------------------------
+
+
+def test_manager_restore_does_not_overwrite(client) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    missing = c.get(f"{PREFIX}/crewchat/agents/manager").json()
+    assert missing["exists"] is False
+    assert missing["ready"] is False
+    assert missing["reason"] == "missing"
+
+    first = c.post(f"{PREFIX}/crewchat/agents/manager/restore").json()
+    assert first["created"] is True
+    assert first["exists"] is True
+    assert first["has_brain"] is False
+    assert first["reason"] == "unconfigured"
+
+    edited = c.put(
+        f"{PREFIX}/crewchat/agents/crewchat-manager",
+        json={"name": "室长", "body": "llm", "brain": "p/m", "enabled": True},
+    )
+    assert edited.status_code == 200, edited.text
+    again = c.post(f"{PREFIX}/crewchat/agents/manager/restore").json()
+    assert again["created"] is False
+    assert again["has_brain"] is True
+    assert c.get(f"{PREFIX}/crewchat/agents/crewchat-manager").json()["name"] == "室长"
+
+
+def test_create_conversation_binds_single_agent(client) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    c.put(f"{PREFIX}/crewchat/agents/coder", json={"name": "Coder", "body": "llm", "brain": "p/m"})
+    created = c.post(
+        f"{PREFIX}/conversations",
+        json={"id": "solo-1", "name": "solo", "agent": {"id": "coder"}},
+    )
+    assert created.status_code == 200, created.text
+    body = created.json()
+    assert body["extra"]["team_agent_ids"] == ["coder"]
+    assert body["extra"]["leader_agent_id"] is None
+    assert c.get(f"{PREFIX}/conversations/solo-1").json()["extra"]["team_agent_ids"] == ["coder"]
+
+
+def test_create_group_requires_project_and_ready_manager(client, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    workspace = tmp_path / "ws-group"
+    workspace.mkdir()
+    project_id = c.post(
+        f"{PREFIX}/crewchat/projects", json={"name": "g", "path": str(workspace)}
+    ).json()["id"]
+    c.put(f"{PREFIX}/crewchat/agents/coder", json={"name": "Coder", "body": "llm", "brain": "p/m"})
+
+    missing_project = c.post(
+        f"{PREFIX}/conversations",
+        json={"extra": {"team_agent_ids": ["coder"]}},
+    )
+    assert missing_project.status_code == 400
+    assert missing_project.json()["error"] == "missing_project"
+
+    no_manager = c.post(
+        f"{PREFIX}/conversations",
+        json={"project_id": project_id, "extra": {"team_agent_ids": ["coder"]}},
+    )
+    assert no_manager.status_code == 400
+    assert no_manager.json()["error"] == "manager_missing"
+
+    c.post(f"{PREFIX}/crewchat/agents/manager/restore")
+    unconfigured = c.post(
+        f"{PREFIX}/conversations",
+        json={"project_id": project_id, "extra": {"team_agent_ids": ["coder"]}},
+    )
+    assert unconfigured.status_code == 400
+    assert unconfigured.json()["error"] == "manager_unconfigured"
+
+    c.put(
+        f"{PREFIX}/crewchat/agents/crewchat-manager",
+        json={"name": "管理员", "body": "llm", "brain": "p/m", "enabled": True},
+    )
+    unknown = c.post(
+        f"{PREFIX}/conversations",
+        json={"project_id": project_id, "extra": {"team_agent_ids": ["ghost"]}},
+    )
+    assert unknown.status_code == 400
+    assert unknown.json()["error"] == "unknown_agent"
+
+    created = c.post(
+        f"{PREFIX}/conversations",
+        json={
+            "id": "group-1",
+            "name": "group",
+            "project_id": project_id,
+            "extra": {"team_agent_ids": ["coder", "coder"], "leader_agent_id": "crewchat-manager"},
+        },
+    )
+    assert created.status_code == 200, created.text
+    extra = created.json()["extra"]
+    assert extra["team_agent_ids"] == ["crewchat-manager", "coder"]
+    assert extra["leader_agent_id"] == "crewchat-manager"
+    assert created.json()["project_id"] == project_id
+
+
+def test_send_rejects_unbound_conversation(client) -> None:  # type: ignore[no-untyped-def]
+    c, _ = client
+    assert c.post(f"{PREFIX}/conversations", json={"id": "empty-1", "name": "x"}).status_code == 200
+    r = c.post(f"{PREFIX}/conversations/empty-1/messages", json={"content": "hi"})
+    assert r.status_code == 400
+    assert r.json()["error"] == "no_agent_in_conversation"

@@ -629,3 +629,23 @@ def test_every_scanned_tool_is_an_acp_body() -> None:
     scanned = {"claude", "codex", "gemini", "grok", "opencode", "openclaw", "hermes", "pi", "mcode"}
     assert scanned <= set(ACP_CLIS)
     assert scanned <= {e["id"] for e in list_executors()}
+
+
+def test_manager_restore_writes_once(tmp_path, monkeypatch) -> None:
+    from crewchat.core import config
+    from crewchat.core.agent_presets import MANAGER_ID, manager_reason, restore_manager
+    from crewchat.core.models import AgentSpec
+
+    monkeypatch.setenv("CREWCHAT_DATA_DIR", str(tmp_path / "data"))
+    config.get_settings.cache_clear()
+    settings = config.get_settings()
+    first = restore_manager(settings)
+    assert first["created"] is True
+    assert first["reason"] == "unconfigured"
+    path = settings.agents_home / f"{MANAGER_ID}.jsonc"
+    path.write_text(path.read_text(encoding="utf-8").replace('"brain": ""', '"brain": "p/m"'), encoding="utf-8")
+    second = restore_manager(settings)
+    assert second["created"] is False
+    assert second["ready"] is True
+    assert manager_reason(AgentSpec(id=MANAGER_ID, enabled=False, brain="p/m")) == "disabled"
+    config.get_settings.cache_clear()

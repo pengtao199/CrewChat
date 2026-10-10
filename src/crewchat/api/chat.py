@@ -82,6 +82,15 @@ def _broadcast_speaker(
     _speaker_state[conversation_id] = {"turn_id": turn_id, "speaking": speaking, "queued": queued}
 
 
+class ConversationBindError(Exception):
+    """The conversation named agents that cannot run this turn."""
+
+    def __init__(self, code: str, **extra: Any) -> None:
+        self.code = code
+        self.extra = extra
+        super().__init__(code)
+
+
 def _for_conversation(conversation_id: str):  # type: ignore[no-untyped-def]
     from .store import store
 
@@ -89,10 +98,12 @@ def _for_conversation(conversation_id: str):  # type: ignore[no-untyped-def]
     # 按会话所属项目建 Session：项目决定工作目录(cwd)与 agent 集。
     session = session_for(f"conv:{conversation_id}", (row or {}).get("project_id"))
     agent_ids = (row or {}).get("agent_ids") or []
-    specs = [session.specs[a] for a in agent_ids if a in session.specs]
-    if not specs:
-        specs = list(session.specs.values())[:1]
-    return session, specs
+    if not agent_ids:
+        raise ConversationBindError("no_agent_in_conversation")
+    missing = [agent_id for agent_id in agent_ids if agent_id not in session.specs]
+    if missing:
+        raise ConversationBindError("unknown_agent", missing=missing)
+    return session, [session.specs[agent_id] for agent_id in agent_ids]
 
 
 def _single_prompt(spec: AgentSpec, content: str) -> str:
@@ -364,7 +375,10 @@ async def send_message(conversation_id: str, request: Request) -> Any:
     if not content:
         return JSONResponse({"error": "empty_message"}, status_code=400)
 
-    store_conv, specs = _for_conversation(conversation_id)
+    try:
+        store_conv, specs = _for_conversation(conversation_id)
+    except ConversationBindError as exc:
+        return JSONResponse({"error": exc.code, **exc.extra}, status_code=400)
     if not specs:
         return JSONResponse({"error": "no_agent_in_conversation"}, status_code=400)
 

@@ -83,6 +83,9 @@ class Store:
                 CREATE INDEX IF NOT EXISTS idx_usage_body ON usage_events (body);
                 """
             )
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(conversations)")}
+            if "leader_agent_id" not in columns:
+                conn.execute("ALTER TABLE conversations ADD COLUMN leader_agent_id TEXT")
             if not conn.execute("SELECT 1 FROM client_prefs LIMIT 1").fetchone():
                 conn.execute(
                     "INSERT INTO client_prefs (key, value) VALUES (?, ?)",
@@ -120,13 +123,20 @@ class Store:
     # ----- conversations ----------------------------------------------------
 
     def create_conversation(
-        self, conv_id: str, title: str, project_id: str | None, agent_ids: list[str], now: str
+        self,
+        conv_id: str,
+        title: str,
+        project_id: str | None,
+        agent_ids: list[str],
+        now: str,
+        leader_agent_id: str | None = None,
     ) -> None:
         with self._lock, self._connect() as conn:
             conn.execute(
-                "INSERT INTO conversations (id, title, project_id, agent_ids, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (conv_id, title, project_id, json.dumps(agent_ids), now, now),
+                "INSERT INTO conversations "
+                "(id, title, project_id, agent_ids, leader_agent_id, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (conv_id, title, project_id, json.dumps(agent_ids), leader_agent_id, now, now),
             )
 
     def list_conversations(self, include_archived: bool = False) -> list[dict[str, Any]]:

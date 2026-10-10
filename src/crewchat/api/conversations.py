@@ -59,6 +59,7 @@ def to_api(row: dict[str, Any], agents: dict[str, Any] | None = None) -> dict[st
         "agent_name": getattr(spec, "name", None) or first or "",
         "cli_path": None,
         "team_agent_ids": agent_ids,
+        "leader_agent_id": row.get("leader_agent_id") or None,
     }
 
     model: dict[str, Any] = {}
@@ -247,21 +248,80 @@ def _message_payload(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _bind_create(body: dict[str, Any]) -> tuple[list[str], str | None, str | None] | JSONResponse:
+    """Resolve who belongs in a new conversation.
+
+    A group send uses ``extra.team_agent_ids`` plus the built-in manager.
+    A 1:1 send uses ``agent.id``. Empty is allowed so a draft row can exist;
+    sending later still requires a bound agent.
+    """
+    from ..core.agent_presets import MANAGER_ID, load_manager, manager_reason, roster_unready
+    from ..core.config import get_settings
+    from ..core.models import load_specs
+    from ..core.projects import agents_dir_for, get_project
+
+    extra = body.get("extra") or {}
+    team_ids = [str(item) for item in (extra.get("team_agent_ids") or []) if str(item).strip()]
+    leader_id = str(extra.get("leader_agent_id") or "").strip() or None
+    single_id = str((body.get("agent") or {}).get("id") or "").strip() or None
+    project_id = body.get("project_id") or extra.get("project_id") or None
+    if project_id is not None:
+        project_id = str(project_id).strip() or None
+
+    settings = get_settings()
+    specs = {spec.id: spec for spec in load_specs(agents_dir_for(settings))}
+
+    if team_ids or leader_id:
+        if not project_id:
+            return JSONResponse({"error": "missing_project"}, status_code=400)
+        if get_project(settings, project_id) is None:
+            return JSONResponse({"error": "unknown_project"}, status_code=400)
+        if leader_id and leader_id != MANAGER_ID:
+            return JSONResponse({"error": "leader_not_manager"}, status_code=400)
+        workers: list[str] = []
+        seen: set[str] = set()
+        for agent_id in team_ids:
+            if agent_id == MANAGER_ID or agent_id in seen:
+                continue
+            seen.add(agent_id)
+            workers.append(agent_id)
+        if not workers:
+            return JSONResponse({"error": "no_workers"}, status_code=400)
+        manager = load_manager(settings)
+        reason = manager_reason(manager)
+        if reason:
+            return JSONResponse({"error": f"manager_{reason}"}, status_code=400)
+        for agent_id in workers:
+            unready = roster_unready(specs.get(agent_id), require_brain=False)
+            if unready:
+                return JSONResponse({"error": unready, "agent_id": agent_id}, status_code=400)
+        return [MANAGER_ID, *workers], MANAGER_ID, project_id
+
+    agent_ids = [single_id] if single_id else []
+    if single_id:
+        unready = roster_unready(specs.get(single_id), require_brain=False)
+        if unready:
+            return JSONResponse({"error": unready, "agent_id": single_id}, status_code=400)
+    return agent_ids, None, project_id
+
+
 @router.post("/api/conversations")
 async def create_conversation(request: Request) -> Any:
     body = await request.json()
     conv_id = str(body.get("id") or uuid.uuid4())
     name = str(body.get("name") or "新会话")
-    extra = body.get("extra") or {}
-    agent_ids = extra.get("team_agent_ids") or []
-    # 项目是一等公民：会话必须归属一个工作区。客户端可能在顶层或 extra 里带。
-    project_id = body.get("project_id") or extra.get("project_id")
+    bound = _bind_create(body)
+    if isinstance(bound, JSONResponse):
+        return bound
+    agent_ids, leader_agent_id, project_id = bound
     now = _iso(int(time.time() * 1000))
-    store().create_conversation(conv_id, name, project_id, list(agent_ids), now)
+    store().create_conversation(conv_id, name, project_id, list(agent_ids), now, leader_agent_id)
     row = store().get_conversation(conv_id) or {
         "id": conv_id,
         "title": name,
         "agent_ids": agent_ids,
+        "leader_agent_id": leader_agent_id,
+        "project_id": project_id,
         "created_at": now,
         "updated_at": now,
     }
@@ -336,8 +396,19 @@ def persist_turn(
     return msg_id
 
 
-def ensure_conversation(conv_id: str, name: str, agent_ids: list[str], project_id: str | None = None) -> None:
+def ensure_conversation(
+    conv_id: str,
+    name: str,
+    agent_ids: list[str],
+    project_id: str | None = None,
+    leader_agent_id: str | None = None,
+) -> None:
     if store().get_conversation(conv_id) is None:
         store().create_conversation(
-            conv_id, name, project_id, agent_ids, _iso(int(time.time() * 1000))
+            conv_id,
+            name,
+            project_id,
+            agent_ids,
+            _iso(int(time.time() * 1000)),
+            leader_agent_id,
         )

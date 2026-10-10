@@ -123,6 +123,23 @@ async def agent_options() -> dict[str, Any]:
     }
 
 
+@router.get("/api/crewchat/agents/manager")
+async def manager_status() -> dict[str, Any]:
+    from ..core.agent_presets import manager_status as status
+
+    return status(get_settings())
+
+
+@router.post("/api/crewchat/agents/manager/restore")
+async def restore_manager() -> dict[str, Any]:
+    from ..core.agent_presets import restore_manager as restore
+
+    result = restore(get_settings())
+    if result.get("created"):
+        _reload_all()
+    return result
+
+
 @router.get("/api/crewchat/agents/{agent_id}")
 async def get_agent(agent_id: str, project_id: str | None = None) -> Any:
     for spec in load_specs(_agents_dir(project_id)):
