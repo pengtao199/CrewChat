@@ -5,6 +5,7 @@ import json
 import os
 import re
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -106,6 +107,45 @@ class Model:
         return None
 
 
+class ProviderKey:
+    """一把可备注的 API Key。对话只用标成默认的那一把。"""
+
+    def __init__(self, id: str, secret: str, remark: str = "", is_default: bool = False) -> None:
+        self.id = id
+        self.secret = secret
+        self.remark = remark
+        self.is_default = is_default
+
+    def as_dict(self, reveal: bool = False) -> dict[str, Any]:
+        data: dict[str, Any] = {
+            "id": self.id,
+            "remark": self.remark,
+            "is_default": self.is_default,
+        }
+        if reveal:
+            data["secret"] = self.secret
+        return data
+
+
+def split_legacy_secrets(text: str) -> list[str]:
+    """旧数据把多把 Key 写在一个字符串里。
+
+    有换行时只按换行切，避免 Key 正文里的逗号被切开。没有换行时才按逗号切。
+    """
+    body = (text or "").strip()
+    if not body:
+        return []
+    parts = body.split("\n") if "\n" in body else body.split(",") if "," in body else [body]
+    return [part.strip() for part in parts if part.strip()]
+
+
+def keys_from_legacy(api_key: str) -> list[ProviderKey]:
+    return [
+        ProviderKey(id=f"legacy-{index + 1}", secret=secret, is_default=index == 0)
+        for index, secret in enumerate(split_legacy_secrets(api_key))
+    ]
+
+
 class Provider:
     """一个可复用的**通用**模型端点（大脑池条目）。Agent 通过 id 引用，不拥有它。
 
@@ -128,12 +168,15 @@ class Provider:
         enabled: bool = True,
         is_full_url: bool = False,
         models_url_override: str = "",
+        keys: list[ProviderKey] | None = None,
     ) -> None:
         self.id = id
         self.name = name
         self.base_url = base_url
         self.model = model
-        self.api_key = api_key
+        self.keys = keys if keys is not None else keys_from_legacy(api_key)
+        self.api_key = ""
+        self._sync_default()
         self.models = [m for m in (Model.from_raw(raw) for raw in (models or [])) if m]
         self.api_format = api_format
         self.temperature = temperature
@@ -147,12 +190,25 @@ class Provider:
         """opencode 的 `{env:XXX}` 约定里用到的变量名。"""
         return f"{re.sub(r'[^0-9A-Za-z]', '_', self.id).upper()}_API_KEY"
 
+    def _sync_default(self) -> None:
+        """`api_key` 始终是默认那一把的明文，供网关和直连使用。"""
+        usable = [key for key in self.keys if key.secret.strip()]
+        if not usable:
+            self.api_key = ""
+            return
+        chosen = next((key for key in usable if key.is_default), usable[0])
+        for key in self.keys:
+            key.is_default = key is chosen
+        self.api_key = chosen.secret
+
+    def default_secret(self) -> str:
+        return self.api_key
+
     def has_key(self) -> bool:
         return bool(self.api_key)
 
     def key_count(self) -> int:
-        """有效 API Key 个数（多 Key 以换行/逗号分隔）。"""
-        return len([k for k in re.split(r"[,\n]", self.api_key or "") if k.strip()])
+        return len([key for key in self.keys if key.secret.strip()])
 
     def get_model(self, model_id: str) -> Model | None:
         return next((m for m in self.models if m.id == model_id), None)
@@ -175,10 +231,29 @@ class Provider:
             "is_full_url": self.is_full_url,
             "models_url_override": self.models_url_override,
             "api_key": self.api_key if reveal else ("已设置" if self.has_key() else ""),
+            "keys": [key.as_dict(reveal=reveal) for key in self.keys],
         }
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Provider:
+        raw_keys = raw.get("keys")
+        keys: list[ProviderKey] | None = None
+        if isinstance(raw_keys, list) and raw_keys:
+            keys = []
+            for item in raw_keys:
+                if not isinstance(item, dict):
+                    continue
+                secret = str(item.get("secret") or "")
+                keys.append(
+                    ProviderKey(
+                        id=str(item.get("id") or uuid.uuid4().hex[:8]),
+                        secret=secret,
+                        remark=str(item.get("remark") or ""),
+                        is_default=bool(item.get("is_default")),
+                    )
+                )
+            if not keys:
+                keys = None
         return cls(
             id=str(raw["id"]),
             name=str(raw.get("name") or raw["id"]),
@@ -193,6 +268,7 @@ class Provider:
             enabled=bool(raw.get("enabled", True)),
             is_full_url=bool(raw.get("is_full_url", False)),
             models_url_override=str(raw.get("models_url_override") or ""),
+            keys=keys,
         )
 
 
@@ -220,6 +296,37 @@ def get_provider(settings: Settings, provider_id: str | None) -> Provider | None
             if provider.id == provider_id:
                 return provider
     return next((p for p in providers if p.has_key()), None)
+
+
+def replace_keys(provider: Provider, incoming: list[Any], mask: str = "••••••••") -> None:
+    """用请求里的 Key 列表替换现有列表。
+
+    空字符串和掩码表示「这把没改」，沿用已存的明文。新 id 必须自带明文。
+    """
+    existing = {key.id: key.secret for key in provider.keys}
+    built: list[ProviderKey] = []
+    for item in incoming:
+        if not isinstance(item, dict):
+            continue
+        key_id = str(item.get("id") or "").strip() or uuid.uuid4().hex[:8]
+        remark = str(item.get("remark") or "").strip()
+        provided = item.get("secret")
+        if provided is None or str(provided) in ("", mask):
+            secret = existing.get(key_id, "")
+        else:
+            secret = str(provided)
+        if not secret.strip():
+            continue
+        built.append(
+            ProviderKey(
+                id=key_id,
+                secret=secret,
+                remark=remark,
+                is_default=bool(item.get("is_default")),
+            )
+        )
+    provider.keys = built
+    provider._sync_default()
 
 
 def upsert_model(provider: Provider, model: Model) -> None:

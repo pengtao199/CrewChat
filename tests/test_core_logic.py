@@ -74,9 +74,39 @@ def test_provider_env_key_is_uppercased_and_sanitized() -> None:
     assert _provider(id="my.endpoint-1").env_key() == "MY_ENDPOINT_1_API_KEY"
 
 
-def test_provider_key_count_handles_multiple_secrets() -> None:
-    assert _provider(api_key="a\nb, c").key_count() == 3
+def test_provider_key_count_splits_newlines_before_commas() -> None:
+    """A newline separates accounts. A comma inside a line stays part of the secret."""
+    newline = _provider(api_key="a\nb, c")
+    assert newline.key_count() == 2
+    assert newline.default_secret() == "a"
+    comma = _provider(api_key="a, b")
+    assert comma.key_count() == 2
+    assert comma.default_secret() == "a"
     assert _provider(api_key="").key_count() == 0
+
+
+def test_provider_keys_round_trip_with_remarks_and_keep_unedited_secrets() -> None:
+    from crewchat.core.providers import replace_keys
+
+    provider = _provider(api_key="sk-live")
+    assert provider.keys[0].id == "legacy-1"
+    replace_keys(
+        provider,
+        [
+            {"id": "legacy-1", "remark": "工作", "secret": "••••••••", "is_default": False},
+            {"id": "personal", "remark": "个人", "secret": "sk-other", "is_default": True},
+        ],
+    )
+    assert provider.default_secret() == "sk-other"
+    assert provider.keys[0].secret == "sk-live"
+    assert provider.keys[0].remark == "工作"
+    saved = provider.as_dict(reveal=True)
+    assert saved["api_key"] == "sk-other"
+    assert "sk-live" not in saved["api_key"]
+    loaded = Provider.from_dict(saved)
+    assert loaded.key_count() == 2
+    assert loaded.default_secret() == "sk-other"
+    assert {key.remark for key in loaded.keys} == {"工作", "个人"}
 
 
 def test_provider_as_dict_masks_key_unless_revealed() -> None:

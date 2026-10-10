@@ -658,8 +658,10 @@ class AcpBody(Executor):
         error: str | None = None
 
         env = dict(os.environ)
-        if provider is not None and provider.api_key:
-            _scrub_secret(env, provider.api_key)
+        if provider is not None:
+            for key in provider.keys:
+                if key.secret:
+                    _scrub_secret(env, key.secret)
         if self.env_hook is not None:
             self.env_hook(provider, req, env)
         if self.id == "openclaw":

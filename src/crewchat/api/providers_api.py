@@ -20,7 +20,9 @@ from ..core.providers import (
     Provider,
     load_providers,
     remove_model,
+    replace_keys,
     save_providers,
+    split_legacy_secrets,
     upsert_model,
 )
 
@@ -73,6 +75,15 @@ def to_api(p: Provider, enriched: dict[str, dict[str, Any]] | None = None) -> di
         "api_key": _masked(p),
         "has_key": p.has_key(),
         "key_count": p.key_count(),
+        "keys": [
+            {
+                "id": key.id,
+                "remark": key.remark,
+                "is_default": key.is_default,
+                "has_secret": bool(key.secret.strip()),
+            }
+            for key in p.keys
+        ],
         "model": p.model,
         "models": [model_to_api(m, enriched.get(m.id)) for m in p.models],
         "model_count": len(p.models),
@@ -113,8 +124,18 @@ def _merge_provider_fields(target: Provider, body: dict[str, Any]) -> None:
     if body.get("extra_headers") is not None:
         target.extra_headers = dict(body["extra_headers"] or {})
     # 掩码回传时不要把 "••••••••" 当成真 key 存回去。
-    if body.get("api_key") and body["api_key"] != _KEY_MASK:
-        target.api_key = str(body["api_key"])
+    # 有 keys 列表时以它为准；否则兼容旧客户端传来的一整段 api_key。
+    if isinstance(body.get("keys"), list):
+        replace_keys(target, body["keys"], mask=_KEY_MASK)
+    elif body.get("api_key") and body["api_key"] != _KEY_MASK:
+        replace_keys(
+            target,
+            [
+                {"id": f"legacy-{index + 1}", "secret": secret, "is_default": index == 0}
+                for index, secret in enumerate(split_legacy_secrets(str(body["api_key"])))
+            ],
+            mask=_KEY_MASK,
+        )
 
 
 def _model_from_body(body: dict[str, Any]) -> Model:
@@ -166,6 +187,8 @@ def create_provider(body: dict[str, Any]) -> Any:
         is_full_url=bool(body.get("is_full_url", False)),
         models_url_override=str(body.get("models_url_override") or ""),
     )
+    if isinstance(body.get("keys"), list):
+        replace_keys(provider, body["keys"], mask=_KEY_MASK)
 
     # 全量抓取。已有模型（迁移/导入场景）不覆盖。
     if not provider.models and provider.base_url:
@@ -228,12 +251,16 @@ def delete_provider(provider_id: str) -> dict[str, Any]:
 
 
 @router.get("/api/providers/{provider_id}/secret")
-def reveal_provider_key(provider_id: str) -> Any:
-    """按需取明文 key。默认列表永远只给掩码。"""
+def reveal_provider_key(provider_id: str, key_id: str = "") -> Any:
+    """按需取一把 Key 的明文。默认列表永远只给掩码。"""
     provider = next((p for p in load_providers(get_settings()) if p.id == provider_id), None)
     if provider is None:
         return JSONResponse({"error": "not_found"}, status_code=404)
-    return {"api_key": provider.api_key}
+    chosen = next((key for key in provider.keys if key.id == key_id), None) if key_id else None
+    if chosen is None:
+        chosen = next((key for key in provider.keys if key.is_default and key.secret), None)
+    secret = chosen.secret if chosen is not None else ""
+    return {"id": chosen.id if chosen is not None else "", "secret": secret, "api_key": secret}
 
 
 # ----- 模型 ------------------------------------------------------------------

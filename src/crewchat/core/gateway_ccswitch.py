@@ -59,7 +59,8 @@ def _build_settings_config(app_type: str, provider: Provider) -> tuple[dict[str,
     """
     model = provider.model or (provider.models[0] if provider.models else "")
     base_url = provider.base_url
-    api_key = provider.api_key
+    # 多账号时只用默认那一把，不把备注和其余 Key 拼进子进程。
+    api_key = provider.default_secret()
     if app_type == "codex":
         config = (
             'model_provider = "custom"\n'
