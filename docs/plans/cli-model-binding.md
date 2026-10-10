@@ -1,7 +1,7 @@
 # CLI 模型绑定：按进程配置，不改用户全局
 
 Updated: 2026-10-10 (Asia/Shanghai)
-Status: Ready
+Status: 已落地（OpenCode 逐请求未验证）
 
 ## Goal
 

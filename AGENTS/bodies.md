@@ -15,7 +15,7 @@ class Executor(ABC):
     id: ClassVar[str]                  # 身体标识，与 AgentSpec.body 一致
     label: ClassVar[str]               # 界面展示名
     has_builtin_brain: ClassVar[bool]  # 是否自带大脑
-    needs_gateway: ClassVar[bool]      # 大脑须经反代注入（读全局客户端配置的身体），见 gateway.md
+    needs_gateway: ClassVar[bool]      # 大脑经反代；Claude/Codex 写进程临时配置，见 gateway.md
 
     @classmethod
     def available(cls) -> bool: ...     # 本机是否可用
@@ -53,12 +53,12 @@ class Executor(ABC):
 
 | id | acp 启动命令 | 经网关 | 记忆 |
 | --- | --- | --- | --- |
-| `opencode` | `opencode acp` | 否（env 自注入） | ACP session |
+| `opencode` | `opencode acp` | **是**（当前路由，`OPENCODE_CONFIG_CONTENT`） | ACP session |
 | `openclaw` | `openclaw acp` | 否 | ACP session |
-| `claude` | `claude-agent-acp` | **是** | ACP session |
-| `codex` | `codex-acp` | **是** | ACP session |
-| `gemini` | `gemini --acp` | 否 | ACP session |
-| `grok` | `grok agent stdio` | 否 | ACP session |
+| `claude` | `claude-agent-acp` | **是**（临时 `CLAUDE_CONFIG_DIR`，发布 id） | ACP session |
+| `codex` | `codex-acp` | **是**（临时 `CODEX_HOME`，`ccs-<key>/<model>`） | ACP session |
+| `gemini` | `gemini --acp` | **是**（`/enter`，一条当前供应商） | ACP session |
+| `grok` | `grok agent stdio` | **是**（`/enter`，一条当前供应商） | ACP session |
 | `hermes` | `hermes acp` | 否 | ACP session |
 | `pi` | `pi-acp` | 否 | ACP session |
 | `mcode` | `mcode acp` | 否 | ACP session |
@@ -67,10 +67,10 @@ class Executor(ABC):
 命令取自 ACP 官方注册表（`agentclientprotocol.com/get-started/agents`）与各 CLI 文档。
 没装的 CLI 显示为不可用，装了即可选——`available()` 只做 `which(命令[0])`。
 
-**经网关**（`needs_gateway=True`）的身体由 `Session` 先 `Gateway.activate` 拿到发布
-模型 id 并写全局客户端配置指向反代，再由该 CLI 的 env 钩子把 id 注进去（claude 用
-`ANTHROPIC_MODEL`）。不注入的话 CLI 会用它自己那家模型（claude 默认 `claude-opus-5-5`），
-网关没有这条路由，直接 503。
+**经网关**（`needs_gateway=True`）的身体由 `Session` 先 `Gateway.activate`。Claude / Codex
+拿到发布 id，写进这一次进程的临时目录（`PROXY_MANAGED`，不含真实 key），不改用户的
+`~/.claude` 与 `~/.codex`。Gemini / Grok 只 `POST /enter`，不返回发布 id，也不注入
+`OPENAI_*`。子进程退出（含失败）时删除临时目录。
 
 模型选择：会话建好后，从 ACP 的 `config_options` 里找出提供了该 agent 大脑的那个项并
 设过去——对 `opencode` 这类把大脑列进选项的 CLI 生效；`claude/codex` 的选项只有自家

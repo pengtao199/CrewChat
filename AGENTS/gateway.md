@@ -52,17 +52,22 @@
     上游原生支持 Responses 扩展 → `openai_responses`；仅 chat/completions → `openai_chat`；原生 Anthropic → `anthropic`。
   - 判据不是"能不能连上"，而是"上游能否接受该 CLI 发出的完整工具声明"。
 - **一份通用 provider，所有 CLI 复用**：不为每个 CLI 各存一份；投影把它编译成各 CLI 的格式，核心负责反代与协议转换。
-- 让某 CLI 走代理经端口 `Gateway.activate(app, provider)`（走 cc-switch 官方 `mode::controller`），
-  它会重写该 CLI 的客户端配置；不手改 `~/.codex/config.toml` 这类文件。返回值是该 CLI
-  **本次应使用的模型 id**（Stack 模式带供应商前缀；非 Stack 返回 `None`）。
-- **一引擎多模型靠 Stack，不靠「当前路由」**：cc-switch 的默认 route 模式每个 CLI 只有**一条**
-  当前 provider，两个同 CLI 的 agent 用不同 provider 会互相顶掉。Stack 模式把每家的模型以
-  保留前缀 id 发布（claude `ccs-claude-<key>--<model>`、codex `ccs-<key>/<model>`），代理按 id
-  **逐请求**路由，因此同一个 CLI 可同时用多个 provider/模型 —— 这是多 agent 协作的前提。
-  `activate` 对 claude/codex 走 `POST /stack/route`；`supports_stack` 之外的身体这样处理不了。
-- **哪些身体走网关由 `Executor.needs_gateway` 决定**：`claude` / `codex` 读全局客户端配置，
-  必须经网关（`needs_gateway=True`）；`opencode` 每次用 env + `--model` 自己注入端点、
-  `llm` 直连，`needs_gateway=False`，**不碰全局配置**，多开天然安全。
+- 让某 CLI 走代理经端口 `Gateway.activate(app, provider)`。返回值是该 CLI **本次应使用的模型 id**
+  （Claude / Codex 的 Stack 发布 id；其余返回 `None`）。
+- **进程配置是模型绑定的位置**。Claude 写临时目录的 `settings.json` 并设 `CLAUDE_CONFIG_DIR`；
+  Codex 写临时目录的 `config.toml` 并设 `CODEX_HOME`；OpenCode 用 `OPENCODE_CONFIG_CONTENT`。
+  用户的 `~/.claude` 与 `~/.codex` 不是 CrewChat 的写入目标。`activate` 对 Claude / Codex 只登记
+  Stack（`POST /stack/route` 不调用 `enter_with_route`），不改全局文件。`Session` 不为这两家调用
+  `Gateway.ensure`。
+- **一引擎多模型靠 Stack 发布 id**：Claude `ccs-claude-<key>--<model>`，Codex `ccs-<key>/<model>`
+  （`mode/stack.rs` 的 `encode`）。代理在该 app 处于「代理 + Stack 开」时按 id 逐请求路由，
+  同一个 CLI 可同时用多个 provider。真实 key 只留在网关，进程配置里是占位符 `PROXY_MANAGED`。
+- **OpenCode 目前是一条当前路由**。`activate` 登记路由后返回 `None`，身体发送大脑自己的模型名。
+  `modelID` 是否原样出现在请求体里尚未用回显 server 证实，不把它说成逐请求多家。
+- **Gemini / Grok** 走 `POST /enter`，官方路由模式，一条 CLI 一个当前供应商。不注入 `OPENAI_BASE_URL`。
+- **Hermes / Pi / Mcode / OpenClaw** 不经网关接管。`llm` 直连。
+- **哪些身体走网关由 `Executor.needs_gateway` 决定**：`claude` / `codex` / `opencode` / `gemini` /
+  `grok` 为 `True`。
 - 身体的模型指定仍通过大脑池（`Provider.model`）传递；`codex` 的 provider 名放
   `settings.codex_provider`，不硬编码在身体里。
 - 密钥的落点见 `AGENTS/truth-sources.md`；不得把密钥写进代码、日志或前端。
@@ -82,5 +87,5 @@
 
 - 这个上游支持哪种线格式？provider 的 `apiFormat` 对不对？
 - 换一个新的 OpenAI 兼容端点，需要改几处？理想是只在 cc-switch 加一条 provider。
-- 这次改动是否动了 cc-switch 的产物或客户端配置文件？为什么不能用 `apiFormat` / `enter` 解决？
+- 这次改动是否写了用户的 `~/.claude` 或 `~/.codex`？进程临时目录才是模型绑定的位置。
 - 读的是 cc-switch 的库还是我们自己的副本？应该只有前者。
