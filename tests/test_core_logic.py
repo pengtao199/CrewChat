@@ -324,16 +324,75 @@ def test_opencode_config_carries_own_provider_not_the_users() -> None:
     cfg = json.loads(_inline_config(prov, [], [], "opencode"))
 
     assert "mcp" not in cfg  # no inherited servers
-    block = cfg["provider"]["agnes"]
+    block = cfg["provider"]["gw"]
     # baseURL points at the local reverse proxy with the app segment, not the upstream
     assert block["options"]["baseURL"] == "http://127.0.0.1:15721/opencode/v1"
     # the key is the gateway placeholder, never the real provider key
     assert block["options"]["apiKey"] == "PROXY_MANAGED"
     assert "sk-test" not in json.dumps(cfg)
-    # plain model name extracted from the ccs- id
+    assert "agnes" not in cfg["provider"]
+    # catalog short name, and modelID is the value the gateway should see
     assert "agnes-2.5-flash" in block["models"]
-    # top-level default model selects the catalog entry
-    assert cfg["model"] == "agnes/agnes-2.5-flash"
+    assert block["models"]["agnes-2.5-flash"]["modelID"] == "agnes-2.5-flash"
+    assert cfg["model"] == "gw/agnes-2.5-flash"
+
+
+def test_claude_and_codex_homes_keep_published_ids_and_the_placeholder() -> None:
+    """Each spawn writes its own home. The real key stays out of the file and the env."""
+    from pathlib import Path
+
+    from crewchat.core.providers import Provider
+    from crewchat.executors.acp_body import (
+        PROXY_TOKEN,
+        _claude_env,
+        _codex_env,
+        _release_homes,
+        _scrub_secret,
+    )
+    from crewchat.executors.base import ExecRequest
+
+    claude = Provider(
+        id="deepseek", name="DeepSeek", base_url="https://api.deepseek.com",
+        model="ccs-claude-deepseek--deepseek-v4", api_key="sk-test",
+    )
+    env = {"DEEPSEEK_API_KEY": "sk-test"}
+    _scrub_secret(env, claude.api_key)
+    _claude_env(claude, ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id="claude"), env)
+    try:
+        blob = Path(env["CLAUDE_CONFIG_DIR"]).joinpath("settings.json").read_text()
+        assert "ccs-claude-deepseek--deepseek-v4" in blob
+        assert PROXY_TOKEN in blob
+        assert "sk-test" not in blob
+        assert "sk-test" not in env.values()
+    finally:
+        _release_homes(env)
+
+    left = Provider(
+        id="deepseek", name="DeepSeek", base_url="https://api.deepseek.com",
+        model="ccs-deepseek/deepseek/deepseek-v4-pro", api_key="sk-left",
+    )
+    right = Provider(
+        id="agnes", name="Agnes", base_url="https://api.agnes.test",
+        model="ccs-agnes/agnes-2", api_key="sk-right",
+    )
+    left_env: dict[str, str] = {}
+    right_env: dict[str, str] = {}
+    req = ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id="codex")
+    _codex_env(left, req, left_env)
+    _codex_env(right, req, right_env)
+    try:
+        left_text = Path(left_env["CODEX_HOME"]).joinpath("config.toml").read_text()
+        right_text = Path(right_env["CODEX_HOME"]).joinpath("config.toml").read_text()
+        assert left_env["CODEX_HOME"] != right_env["CODEX_HOME"]
+        assert "ccs-deepseek/deepseek/deepseek-v4-pro" in left_text
+        assert "ccs-agnes/agnes-2" in right_text
+        assert 'wire_api = "responses"' in left_text
+        assert "127.0.0.1:15721/v1" in left_text
+        assert PROXY_TOKEN in left_text and PROXY_TOKEN in right_text
+        assert "sk-" not in left_text and "sk-" not in right_text
+    finally:
+        _release_homes(left_env)
+        _release_homes(right_env)
 
 
 def test_opencode_config_only_includes_declared_capabilities() -> None:

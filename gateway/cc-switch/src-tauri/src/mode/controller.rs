@@ -790,22 +790,21 @@ pub async fn ensure_projection(state: &AppState, app: &AppType) -> Result<(), St
     .map(|_| ())
 }
 
-/// 登记一个「共存」app（openai 兼容一族：opencode/openclaw/hermes/pi/mcode）为 Stack
-/// 成员，返回发布模型 id（`ccs-<app>-<key>/<model>`）。
+/// 登记 Stack 成员并返回发布模型 id，**不改写**客户端配置文件。
 ///
-/// 与 [`enter_with_route`] 的本质区别：**不改写**该 app 的客户端配置文件——它的配置由
-/// 编排层（我们的身体）每次 spawn 时自己生成，CC Switch 没有那份文件的所有权。这里的
-/// 职责只有三件：分配 key、登记成员、落定「代理 + 聚合」模式。落定之后反代就能按发布
-/// id 逐请求路由到对应供应商，而真实 key 留在网关侧，不随配置发给 CLI。
+/// Claude / Codex 的发布 id 仍是官方格式（`ccs-claude-<key>--<model>`、
+/// `ccs-<key>/<model>`）。配置由编排层写进这一次进程的临时目录，不碰 `~/.claude`
+/// 与 `~/.codex`。这里只做三件事：分配 key、登记成员、落定「代理 + 聚合」。落定之后
+/// `stack::resolve` 才能按发布 id 逐请求路由；真实 key 留在网关侧。
 pub async fn register_stack_member(
     state: &AppState,
     app: &AppType,
     route_id: &str,
     model: &str,
 ) -> Result<String, String> {
-    if !stack::uses_generic_stack(app) {
+    if !stack::uses_generic_stack(app) && !stack::supports_stack(app) {
         return Err(format!(
-            "{} 的客户端配置由 CC Switch 接管，请走 /stack/route 或 /enter",
+            "{} 不按进程配置接管，请走 /enter",
             app.as_str()
         ));
     }

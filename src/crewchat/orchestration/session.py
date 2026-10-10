@@ -50,9 +50,9 @@ class Session:
     def _gateway_model(self, spec: AgentSpec, provider: Provider | None, needs_gateway: bool) -> str | None:
         """需要网关的身体经反代用上它的 (身体, provider, model)，返回该用的模型 id。
 
-        claude/codex 返回带供应商前缀的 Stack 发布 id，代理据此**逐请求**路由，因此
-        同一个 CLI 可同时用多个 provider/模型（「一引擎多模型」）。不需要网关的身体
-        （opencode 自己注入端点、llm 直连）返回 None，不碰全局配置 —— 多开天然安全。
+        Claude / Codex 返回 Stack 发布 id（`ccs-claude-<key>--<model>`、
+        `ccs-<key>/<model>`），写进这一次进程的临时配置，代理据此逐请求路由。
+        OpenCode、Gemini、Grok 返回 None：前一家用当前路由，后两家走 `/enter`。
         没配大脑时也不动，保留 CLI 自身登录。同一 (身体, provider, model) 只挂一次。
         """
         if provider is None or not needs_gateway:
@@ -93,9 +93,13 @@ class Session:
             try:
                 # 需要网关的身体配了大脑就挂到反代上，否则它用自己的登录。
                 model_id = self._gateway_model(spec, provider, executor.needs_gateway)
-                # 挂上不等于盘上就还是那样：CLI 自己会刷新配置，别的程序也会改它。
-                # 每回合起进程前收敛一次——「说用哪一家就用哪一家」得每次都成立。
-                if executor.needs_gateway and provider is not None:
+                # Claude / Codex 的配置在进程临时目录，ensure 会改写 ~/.claude 与 ~/.codex。
+                # Gemini / Grok 仍走官方路由，起进程前把它们自己的配置收敛到当前契约。
+                if (
+                    executor.needs_gateway
+                    and provider is not None
+                    and spec.body not in ("claude", "codex")
+                ):
                     from ..core.gateway import get_gateway
 
                     get_gateway(self.settings).ensure(spec.body)

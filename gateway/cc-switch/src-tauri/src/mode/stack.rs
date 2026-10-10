@@ -34,9 +34,10 @@ use super::state::{self, StackState};
 /// `/model` 选择器，不以 `claude-` 开头 MAX 窗口才生效。
 const CLAUDE_PREFIX: &str = "ccs-claude-";
 const CLAUDE_SEPARATOR: &str = "--";
-/// 通用（除 Claude 外全部 app）的 Stack 模型 id：`ccs-<app>-<key>/<model>`，如
-/// `ccs-opencode-agnes-ai/agnes-2.5-flash`。id 自带 app 名，代理据此在**同一个**
-/// `/v1/chat/completions` 端点上解析出该 app 的 Stack 逐请求路由，不必按 app 分端点。
+/// Codex 的 Stack 模型 id：`ccs-<key>/<model>`。
+const CODEX_PREFIX: &str = "ccs-";
+const CODEX_SEPARATOR: char = '/';
+/// 共存 app 的模型 id：`ccs-<app>-<key>/<model>`。Codex 不走这个格式。
 const GENERIC_PREFIX: &str = "ccs-";
 const GENERIC_SEPARATOR: char = '/';
 
@@ -110,6 +111,7 @@ pub fn encode(app: &AppType, key: &str, model: &str, one_m: bool) -> String {
             let marker = if one_m { ONE_M_MARKER_FOR_CLIENT } else { "" };
             format!("{CLAUDE_PREFIX}{key}{CLAUDE_SEPARATOR}{model}{marker}")
         }
+        AppType::Codex => format!("{CODEX_PREFIX}{key}{CODEX_SEPARATOR}{model}"),
         other => encode_generic(other, key, model),
     }
 }
@@ -119,21 +121,30 @@ pub fn encode_generic(app: &AppType, key: &str, model: &str) -> String {
     format!("{GENERIC_PREFIX}{}-{}{}{}", app.as_str(), key, GENERIC_SEPARATOR, model)
 }
 
-/// 用通用自描述 id 的 app（除 Claude 外的全部）：请求都是 openai 兼容，走同一批端点，
-/// 模型名里带 app 段就能在同一个入口上路由。
+/// 共存 app 才用 `ccs-<app>-<key>/<model>`。Codex 用自己的 `ccs-<key>/<model>`。
 pub fn uses_generic_stack(app: &AppType) -> bool {
-    matches!(app, AppType::Codex | AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::Pi | AppType::Mcode)
+    matches!(
+        app,
+        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::Pi | AppType::Mcode
+    )
 }
 
-/// 从通用 id（`ccs-<app>-<key>/<model>`）切出该 app 名。app 名与该 app 的 as_str 一致时
-/// 才返回 Some（key 里不会出现 `-<app>-`/`/` 的歧义：app 名不含 `/`）。
+/// 从 `ccs-<app>-<key>/<model>` 切出 app 名。按已知 app 名做前缀匹配，避免把 key 算进 app。
 fn generic_app_of(id: &str) -> Option<&str> {
     let rest = id.strip_prefix(GENERIC_PREFIX)?;
-    let (app, rest) = rest.split_once(GENERIC_SEPARATOR)?;
-    if rest.split(GENERIC_SEPARATOR).next().is_none() || app.is_empty() {
-        return None;
+    const NAMES: &[&str] = &["openclaw", "opencode", "hermes", "mcode", "pi"];
+    for name in NAMES {
+        let Some(after_name) = rest.strip_prefix(name) else {
+            continue;
+        };
+        let Some(after) = after_name.strip_prefix("-") else {
+            continue;
+        };
+        if after.contains(GENERIC_SEPARATOR) {
+            return Some(&rest[..name.len()]);
+        }
     }
-    Some(app)
+    None
 }
 
 /// 任意 openai 兼容客户端（或代理）在只拿到一个请求、不知道它来自哪个 app 时，可以靠
@@ -162,7 +173,7 @@ pub enum Decoded<'a> {
 }
 
 /// 按客户端的格式解码模型 id。Claude：`ccs-claude-<key>--<model>`（带可选 `[1M]`）；
-/// 其余 app：`ccs-<app>-<key>/<model>`（app 段必须与自己相符）。
+/// Codex：`ccs-<key>/<model>`；共存 app：`ccs-<app>-<key>/<model>`。
 pub fn decode<'a>(app: &AppType, id: &'a str) -> Decoded<'a> {
     let (rest, separator, one_m) = match app {
         AppType::Claude => {
@@ -171,6 +182,15 @@ pub fn decode<'a>(app: &AppType, id: &'a str) -> Decoded<'a> {
             };
             let stripped = strip_one_m_suffix_for_upstream(rest);
             (stripped, CLAUDE_SEPARATOR, stripped.len() != rest.len())
+        }
+        AppType::Codex => {
+            let Some(rest) = id.strip_prefix(CODEX_PREFIX) else {
+                return Decoded::Plain;
+            };
+            if !rest.contains(CODEX_SEPARATOR) {
+                return Decoded::Plain;
+            }
+            (rest, "/", false)
         }
         other if uses_generic_stack(other) => {
             // 通用 id：`ccs-<app>-<key>/<model>`，先切掉 `ccs-<app>-` 再按 `/` 分。
@@ -771,10 +791,23 @@ mod tests {
     }
 
     #[test]
+    fn codex_ids_round_trip() {
+        let codex = AppType::Codex;
+        let id = encode(&codex, "deepseek", "deepseek/deepseek-v4-pro", false);
+        assert_eq!(id, "ccs-deepseek/deepseek/deepseek-v4-pro");
+        assert_eq!(
+            decode(&codex, &id),
+            Decoded::Stack {
+                key: "deepseek",
+                model: "deepseek/deepseek-v4-pro",
+                one_m: false
+            }
+        );
+    }
+
+    #[test]
     fn generic_ids_round_trip_and_carry_their_app() {
-        // 除 Claude 外全部 app 用同一个自描述格式；id 里的 app 段让代理选 Stack。
         for app in [
-            AppType::Codex,
             AppType::OpenCode,
             AppType::OpenClaw,
             AppType::Hermes,
@@ -800,9 +833,9 @@ mod tests {
                 Decoded::Plain
             ));
         }
-        // app 段必须与自己相符，否则按普通模型名处理。
+        // Codex 的官方 id 没有 app 段，共存 app 不能把它当成自己的发布 id。
         assert!(matches!(
-            decode(&AppType::Codex, "ccs-opencode-deepseek/m"),
+            decode(&AppType::OpenCode, "ccs-deepseek/deepseek-v4-pro"),
             Decoded::Plain
         ));
     }
@@ -814,7 +847,8 @@ mod tests {
         assert_eq!(decode(&claude, "kimi-k3"), Decoded::Plain);
         // 路由那家自己的 `vendor/…` 不被同名的 Stack key 截走。
         assert_eq!(decode(&codex, "deepseek/deepseek-v4-pro"), Decoded::Plain);
-        assert_eq!(decode(&codex, "ccs-codex-without-separator"), Decoded::Plain);
+        assert_eq!(decode(&codex, "ccs-without-separator"), Decoded::Plain);
+        assert_eq!(decode(&AppType::GrokBuild, "ccs-k/m"), Decoded::Plain);
         assert_eq!(
             decode(&AppType::ClaudeDesktop, "ccs-claude-k--m"),
             Decoded::Plain

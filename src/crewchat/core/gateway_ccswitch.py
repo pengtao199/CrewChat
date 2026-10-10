@@ -328,18 +328,17 @@ class CcSwitchGateway:
         }
 
     STACK_APPS = ("claude", "codex")
-    REGISTER_APPS = ("opencode", "openclaw", "hermes", "pi", "mcode")
+    REGISTER_APPS = ("opencode",)
     ROUTE_APPS = ("gemini", "grok")
 
     def activate(self, app: str, provider: Provider) -> str | None:
-        """把通用 provider 投影给该 CLI，并让请求经反代用上它。
+        """把通用 provider 投影进网关，让这一次请求经反代用上它。
 
-        按 cc-switch 官方分三档：
-        - **Stack**（claude/codex）：`/stack/route`，cc-switch 改写 CLI 配置 + 发布 id；
-        - **共存**（opencode/openclaw/hermes/pi/mcode）：`/stack/register`，cc-switch 只
-          登记 Stack 成员、不改写 CLI 配置——配置由身体侧每次 spawn 时自己生成；
-        - **路由**（gemini/grok）：`/enter`，cc-switch 改写 CLI 配置，路由目标由反代
-          当前路由决定，不返回发布 id（单供应商语义）。
+        - Claude / Codex：`/stack/route` 只登记 Stack 并返回发布 id。进程配置由身体
+          写到临时目录，这里不改 `~/.claude` / `~/.codex`。
+        - OpenCode：`/stack/register` 记下当前路由。`modelID` 是否原样上送还没证实，
+          所以返回 None，身体继续用大脑自己的模型名。
+        - Gemini / Grok：`/enter`，官方路由模式，一条 CLI 一个当前供应商，返回 None。
         """
         if not self.ensure_running():
             raise RuntimeError("网关未就绪")
@@ -361,7 +360,7 @@ class CcSwitchGateway:
                 timeout=60,
             )
             resp.raise_for_status()
-            return resp.json().get("model_id")
+            return None
         if app in self.ROUTE_APPS:
             httpx.post(f"{self.control}/enter", json={"app": app, "route": route}, timeout=30).raise_for_status()
             return None

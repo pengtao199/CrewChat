@@ -888,20 +888,58 @@ fn decode_codex_request_body(
 // Codex API 处理器
 // ============================================================================
 
-/// 处理 /v1/chat/completions 请求（OpenAI Chat Completions API - Codex CLI）
-/// openai 兼容入口上的请求属于哪个 app。两级推断，不做「猜是某个 app」的兜底：
-/// 1. 模型 id 自带的 app 段（`ccs-<app>-…`，经登记的 Stack 身体会带它）；
-/// 2. 路径段（`/<app>/v1/chat/completions`；`/v1/chat/completions` 这种没有 app 段的不算）。
-/// 都推不出返回 None，调用方拒绝该请求。
-fn chat_app_of(path: &str, body: &Value) -> Option<AppType> {
-    body.get("model")
+/// openai 兼容入口上的请求属于哪个 app。
+/// 1. 模型 id 自带的 app 段（`ccs-<app>-…`）；
+/// 2. 路径段（`/<app>/v1/chat/completions`）；
+/// 3. 没有 app 段的 `/v1/chat/completions` 仍是 Codex。
+fn chat_app_of(path: &str, body: &Value) -> AppType {
+    if let Some(app) = body
+        .get("model")
         .and_then(Value::as_str)
         .and_then(crate::mode::stack::app_of_stack_id)
-        .or_else(|| {
-            let mut segments = path.trim_start_matches('/').split('/');
-            let first = segments.next()?;
-            (segments.next() == Some("v1")).then(|| first.parse::<AppType>().ok()).flatten()
-        })
+    {
+        return app;
+    }
+    let mut segments = path.trim_start_matches('/').split('/');
+    let first = segments.next().unwrap_or("");
+    if segments.next() == Some("v1") {
+        if let Ok(app) = first.parse::<AppType>() {
+            return app;
+        }
+    }
+    AppType::Codex
+}
+
+/// 官方四家之外的共存 app（OpenCode 等）不进 `supports_local_proxy`，`provider_in_use`
+/// 看不到它们的当前路由。路径已经指出 app 时，用状态文件里的 `proxy_route` 和请求体
+/// 里的普通模型名组一条目标，转发时才换得上真实 key。
+fn coexistence_target(
+    state: &ProxyState,
+    app: &AppType,
+    model: &str,
+) -> Option<crate::mode::stack::StackTarget> {
+    if app.supports_local_proxy() || model.is_empty() {
+        return None;
+    }
+    let mode = crate::mode::state::mode_state(
+        &crate::live::engine::DeviceStore::for_device(),
+        app.as_str(),
+    )
+    .ok()?;
+    if !mode.is_proxy() {
+        return None;
+    }
+    let route = mode.proxy_route.as_deref()?;
+    let provider = state
+        .db
+        .get_provider_by_id(route, app.as_str())
+        .ok()
+        .flatten()?;
+    Some(crate::mode::stack::StackTarget {
+        provider,
+        upstream_model: model.to_string(),
+        original_model: model.to_string(),
+    })
 }
 
 pub async fn handle_chat_completions(
@@ -921,18 +959,19 @@ pub async fn handle_chat_completions(
     let body_bytes = decode_codex_request_body(&mut headers, body_bytes)?;
     let mut body: Value = serde_json::from_slice(&body_bytes)
         .map_err(|e| ProxyError::Internal(format!("Failed to parse request body: {e}")))?;
-    // openai 兼容入口上的请求属于哪个 app（`chat_app_of` 的两级推断）；推不出就拒。
-    let Some(chat_app) = chat_app_of(uri.path(), &body) else {
-        return Err(ProxyError::InvalidRequest(
-            "请求既没有带 app 段的 Stack 模型 id（ccs-<app>-…），路径也指定不了 app".into(),
-        ));
-    };
-    // Stack 模型 id（`ccs-<app>-<key>/<model>`）逐请求路由；没有则是普通模型名，
-    // 照旧按该 app 的当前路由转发。
+    let chat_app = chat_app_of(uri.path(), &body);
+    // Stack 发布 id 逐请求路由。普通模型名在官方四家走当前路由；共存 app 用登记的
+    // proxy_route，请求体里的模型名原样发给上游。
     let stack = match resolve_stack_target(&state, &chat_app, &mut body) {
         Ok(stack) => stack,
         Err(rejected) => return Ok(*rejected),
     };
+    let plain_model = body
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let stack = stack.or_else(|| coexistence_target(&state, &chat_app, &plain_model));
 
     let mut ctx = RequestContext::new(
         &state,

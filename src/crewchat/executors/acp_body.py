@@ -19,6 +19,7 @@ import asyncio
 import json
 import os
 import shutil
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -53,15 +54,39 @@ def _proxy_base_with_app(app_id: str = "") -> str:
     return f"{base}/{app_id}/v1" if app_id else f"{base}/v1"
 
 
-def _gateway_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
-    """把 openai 兼容的一族（openclaw/hermes/pi/mcode）指向反代、用发布 id。
+def _cli_homes_root() -> Path:
+    root = Settings().data_dir / "cli-homes"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
-    身体**只**拿到网关发布的模型 id（`provider.model` 已被 `Session` 换成
-    `ccs-<app>-<key>/<model>`），凭据用占位符——明文 key 只存在于网关侧的 provider 行里。
-    反代按路径段（`/<app>/v1/...`）确定 app，路由到该 app 的当前供应商。
-    """
-    env["OPENAI_BASE_URL"] = _proxy_base_with_app(req.app_id)
-    env["OPENAI_API_KEY"] = PROXY_TOKEN
+
+def _fresh_home(kind: str) -> Path:
+    return Path(tempfile.mkdtemp(prefix=f"{kind}-", dir=_cli_homes_root()))
+
+
+def _release_homes(env: dict[str, str]) -> None:
+    """删掉这一次进程的临时配置目录。只动 `cli-homes` 下面的路径。"""
+    root = _cli_homes_root().resolve()
+    for key in ("CLAUDE_CONFIG_DIR", "CODEX_HOME"):
+        raw = env.get(key)
+        if not raw:
+            continue
+        path = Path(raw).resolve()
+        if path.is_relative_to(root):
+            shutil.rmtree(path, ignore_errors=True)
+
+
+def _scrub_secret(env: dict[str, str], secret: str) -> None:
+    """子进程环境里不留真实 key。父进程已经导出的同值也去掉。"""
+    if not secret:
+        return
+    for key in list(env):
+        if env[key] == secret:
+            del env[key]
+
+
+def _toml_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _opencode_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
@@ -85,33 +110,68 @@ def _opencode_env(provider: Provider | None, req: ExecRequest, env: dict[str, st
 
 
 def _claude_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
-    """claude 走反代：端点 + 发布模型 id + 占位凭据。
+    """这一次 Claude 进程用自己的 `CLAUDE_CONFIG_DIR`，不写用户的 `~/.claude`。
 
-    claude 默认用自己那家（`claude-opus-5-5`），网关没这条路由直接 503。`provider.model`
-    此时已是 `Gateway.activate` 的发布 id（`ccs-claude-…`）。
+    `provider.model` 已是发布 id（`ccs-claude-…`）。凭据只放占位符，真实 key 留在网关。
     """
-    env["ANTHROPIC_BASE_URL"] = _proxy_base().removesuffix("/v1")
+    del req  # 配置不靠 app 段：Claude 走 `/v1/messages`，反代按 Claude 处理。
+    home = _fresh_home("claude")
+    base = _proxy_base().removesuffix("/v1")
+    model = provider.model if provider is not None and provider.model else ""
+    settings = {
+        "env": {
+            "ANTHROPIC_BASE_URL": base,
+            "ANTHROPIC_AUTH_TOKEN": PROXY_TOKEN,
+            "ANTHROPIC_MODEL": model,
+        }
+    }
+    (home / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
+    env["CLAUDE_CONFIG_DIR"] = str(home)
+    env["ANTHROPIC_BASE_URL"] = base
     env["ANTHROPIC_AUTH_TOKEN"] = PROXY_TOKEN
-    if provider is not None and provider.model:
-        env["ANTHROPIC_MODEL"] = provider.model
+    if model:
+        env["ANTHROPIC_MODEL"] = model
+
+
+def _codex_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
+    """这一次 Codex 进程用自己的 `CODEX_HOME`，不写用户的 `~/.codex`。
+
+    `config.toml` 的 `model` 是发布 id（`ccs-<key>/<model>`），`base_url` 指反代 `/v1`
+    （Responses）。凭据是占位符，转发时由网关换成真实 key。
+    """
+    del req
+    home = _fresh_home("codex")
+    model = provider.model if provider is not None and provider.model else ""
+    toml = (
+        f'model = "{_toml_string(model)}"\n'
+        'model_provider = "custom"\n'
+        "\n"
+        "[model_providers.custom]\n"
+        'name = "CrewChat"\n'
+        f'base_url = "{_proxy_base()}"\n'
+        'wire_api = "responses"\n'
+        f'experimental_bearer_token = "{PROXY_TOKEN}"\n'
+        "requires_openai_auth = false\n"
+    )
+    (home / "config.toml").write_text(toml, encoding="utf-8")
+    env["CODEX_HOME"] = str(home)
 
 
 #: 会讲 ACP 的 CLI → 启动方式、是否需要网关、以及它自己那点额外环境。
-#: 加一个 CLI 就是加一行。全部 CLI 都经 cc-switch 反代（`needs_gateway=True`）：`Session`
-#: 先 `Gateway.activate` 拿到发布模型 id，再由 env 钩子把端点指向反代、用占位凭据。
-#: 身体因此不碰明文 key，真相源只在网关那一侧。
+#: Claude / Codex 经网关拿到发布 id，配置写进这一次进程的临时目录。
+#: OpenCode 经网关登记当前路由，配置走 `OPENCODE_CONFIG_CONTENT`。
+#: Gemini / Grok 走官方 `/enter`（一条当前供应商），不套 OpenAI 环境变量。
+#: Hermes / Pi / Mcode / OpenClaw 本计划不接管。
 ACP_CLIS: dict[str, dict[str, Any]] = {
     "opencode": {"label": "OpenCode", "command": ["opencode", "acp"], "needs_gateway": True, "env": _opencode_env},
-    "openclaw": {"label": "OpenClaw", "command": ["openclaw", "acp"], "needs_gateway": True, "env": _gateway_env},
+    "openclaw": {"label": "OpenClaw", "command": ["openclaw", "acp"], "needs_gateway": False},
     "claude": {"label": "Claude Code", "command": ["claude-agent-acp"], "needs_gateway": True, "env": _claude_env},
-    "codex": {"label": "Codex CLI", "command": ["codex-acp"], "needs_gateway": True, "env": _gateway_env},
-    # 其余是本机（或用户装后）有 acp 入口的 CLI。没装就显示为不可用，装了即可选。
-    # 命令取自 ACP 官方注册表与各 CLI 文档，见 AGENTS/bodies.md。
-    "gemini": {"label": "Gemini CLI", "command": ["gemini", "--acp"], "needs_gateway": True, "env": _gateway_env},
-    "grok": {"label": "Grok Build", "command": ["grok", "agent", "stdio"], "needs_gateway": True, "env": _gateway_env},
-    "hermes": {"label": "Hermes Agent", "command": ["hermes", "acp"], "needs_gateway": True, "env": _gateway_env},
-    "pi": {"label": "Pi", "command": ["pi-acp"], "needs_gateway": True, "env": _gateway_env},
-    "mcode": {"label": "MiniMax Code", "command": ["mcode", "acp"], "needs_gateway": True, "env": _gateway_env},
+    "codex": {"label": "Codex CLI", "command": ["codex-acp"], "needs_gateway": True, "env": _codex_env},
+    "gemini": {"label": "Gemini CLI", "command": ["gemini", "--acp"], "needs_gateway": True},
+    "grok": {"label": "Grok Build", "command": ["grok", "agent", "stdio"], "needs_gateway": True},
+    "hermes": {"label": "Hermes Agent", "command": ["hermes", "acp"], "needs_gateway": False},
+    "pi": {"label": "Pi", "command": ["pi-acp"], "needs_gateway": False},
+    "mcode": {"label": "MiniMax Code", "command": ["mcode", "acp"], "needs_gateway": False},
 }
 
 
@@ -135,31 +195,38 @@ def _mcp_entry(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 
+def _opencode_wire_model(model: str) -> tuple[str, str]:
+    """目录短名，以及这一次发给网关的模型名。
+
+    当前路由下发给网关的是大脑自己的模型名。若手里仍是 `ccs-…` 发布 id，只留下
+    `/` 后面的上游名。`modelID` 是否原样出现在请求体里，还没有用回显 server 证实。
+    """
+    wire = model.split("/", 1)[1] if model.startswith("ccs-") and "/" in model else model
+    short = wire.split("/")[-1] if "/" in wire else wire
+    return short, wire
+
+
 def _inline_config(provider: Provider | None, skills: list[str], mcps: list[str], app_id: str = "") -> str:
     """为这一次运行生成 opencode 配置，不继承用户全局配置。
 
-    经网关时 `provider.model` 是发布 id（`ccs-opencode-<key>/<model>`）。opencode 的模型
-    目录只从全局配置 + models.dev + auth.json 构建，`OPENCODE_CONFIG_CONTENT` 不影响目录——
-    所以用**已在目录里的 provider 名**（`provider.id`），只覆盖 baseURL 指向反代（带 app
-    段），模型选目录里已有的那条。反代按路径段（`/opencode/v1/...`）确定 app，路由到当前
-    供应商。
+    provider 名固定为 `gw`，避免和用户目录里的供应商撞名。`baseURL` 指向
+    `/opencode/v1`，`apiKey` 是占位符。顶层 `model` 是目录短名，`modelID` 是发给
+    网关的值。反代按路径认出 OpenCode，再按当前路由换上真实 key。
     """
     cfg: dict[str, Any] = {"$schema": "https://opencode.ai/config.json"}
 
-    if provider is not None and provider.id:
-        # 从发布 id 提取裸模型名：`ccs-opencode-<key>/<model>` → `<model>`
-        plain_model = provider.model.split("/")[-1] if "/" in provider.model else provider.model
-        model_key = f"{provider.id}/{plain_model}"
-        cfg["model"] = model_key
+    if provider is not None and provider.model:
+        short, wire = _opencode_wire_model(provider.model)
+        cfg["model"] = f"gw/{short}"
         cfg["provider"] = {
-            provider.id: {
+            "gw": {
                 "npm": "@ai-sdk/openai-compatible",
-                "name": provider.name or provider.id,
+                "name": provider.name or "gw",
                 "options": {
-                    "baseURL": _proxy_base_with_app(app_id),
+                    "baseURL": _proxy_base_with_app(app_id or "opencode"),
                     "apiKey": PROXY_TOKEN,
                 },
-                "models": {plain_model: {"name": plain_model}},
+                "models": {short: {"name": short, "modelID": wire}},
             }
         }
 
@@ -296,7 +363,7 @@ class AcpBody(Executor):
 
         env = dict(os.environ)
         if provider is not None and provider.api_key:
-            env.setdefault(provider.env_key(), provider.api_key)
+            _scrub_secret(env, provider.api_key)
         if self.env_hook is not None:
             self.env_hook(provider, req, env)
 
@@ -339,6 +406,8 @@ class AcpBody(Executor):
                 _accumulate(reply, usage)
         except Exception as exc:  # noqa: BLE001 — 任何失败都要变成一次可读的 error
             error = f"{type(exc).__name__}: {exc}"
+        finally:
+            _release_homes(env)
 
         return ExecResult(
             text="".join(text_parts).strip(),
@@ -383,15 +452,15 @@ async def _select_model(conn: Any, session_id: str, config_options: Any, provide
     """把会话的模型选成该 agent 的大脑。
 
     ACP 把"用哪个模型"做成一个配置项，agent 默认用它自己那家（opencode 默认
-    openrouter）。不选，请求就落到别人的额度上。候选值按优先级：
-    `<provider>/<plain_model>`（内联配置的 catalog id）、
-    `<provider>/<full_model>`（直连回退）、`ccs-…`（claude/codex 发布 id）。
+    openrouter）。不选，请求就落到别人的额度上。候选值按优先级：`gw/<短名>`
+    （OpenCode 内联目录）、`<provider>/<短名>`、发布 id。
     """
     if provider is None or not provider.model:
         return
-    plain = provider.model.split("/")[-1] if "/" in provider.model else provider.model
+    short, _wire = _opencode_wire_model(provider.model)
     candidates = [
-        f"{provider.id}/{plain}",
+        f"gw/{short}",
+        f"{provider.id}/{short}",
         f"{provider.id}/{provider.model}",
         provider.model,
     ]

@@ -133,9 +133,9 @@ struct StackRouteBody {
 
 /// [crewchat] 把某 CLI 的一家供应商加入 Stack 名单，返回该模型的**发布 id**。
 ///
-/// Stack 模式下每个发布 id 自带供应商（claude `ccs-claude-<key>--<model>`、
-/// codex `ccs-<key>/<model>`），代理按 id **逐请求**路由 —— 因此同一个 CLI 能同时
-/// 用多家/多模型，而不是被一条「当前路由」锁死。这正是「一个引擎跑多个模型」。
+/// 只登记状态（代理 + Stack 开），不调用 `enter_with_route` / `set_stack_member`：
+/// 那两条会把 `~/.claude` 与 `~/.codex` 写成反代配置。进程自己的配置由编排层写到
+/// 临时目录。发布 id 仍是 claude `ccs-claude-<key>--<model>`、codex `ccs-<key>/<model>`。
 async fn stack_route(
     State(core): State<Arc<Core>>,
     Json(body): Json<StackRouteBody>,
@@ -144,31 +144,9 @@ async fn stack_route(
     if !cc_switch_lib::mode::stack::supports_stack(&app) {
         return Err(format!("{} 不支持 Stack 模式", app.as_str()));
     }
-    let active = controller::stack_views(&core.state, &app)
-        .map(|view| view.active)
-        .unwrap_or(false);
-    // 每次都收敛一次，不靠「首次进入」这个一次性副作用。以前只在 `!active` 时写 CLI
-    // 配置：只要记账说已经在代理模式，之后就只更新名单、再也不校验盘上的文件。配置一旦
-    // 被客户端刷新或被别的程序改回，就永远补不回来——多 CLI 并行时必然出现「一个能用、
-    // 一个一直报未登录」。写盘本身幂等（write_proxy 会拿盘上实际内容判收敛），所以
-    // 多这一次没有副作用。
-    controller::enter_with_route(&core.state, &app, true, Some(&body.provider_id)).await?;
-    if !active {
-        log::info!("[STACK] {} 首次进入聚合模式", app.as_str());
-    }
-    // 其余家：加入名单（幂等；默认那家已在名单里）。
-    controller::set_stack_member(&core.state, &app, &body.provider_id, true)
-        .await
-        .map_err(|error| error.message)?;
-    let stack = cc_switch_lib::mode::state::stack(
-        &cc_switch_lib::live::engine::DeviceStore::for_device(),
-        app.as_str(),
-    )
-    .map_err(|error| error.to_string())?;
-    let key = stack
-        .key_of(&body.provider_id)
-        .ok_or_else(|| format!("供应商不在 Stack 名单: {}", body.provider_id))?;
-    let model_id = cc_switch_lib::mode::stack::encode(&app, key, &body.model, false);
+    let model_id =
+        controller::register_stack_member(&core.state, &app, &body.provider_id, &body.model)
+            .await?;
     Ok(Json(serde_json::json!({ "ok": true, "model_id": model_id })))
 }
 
