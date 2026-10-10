@@ -46,21 +46,35 @@ class Executor(ABC):
 
 ## 现有身体
 
-| id | 实现方式 | 自带大脑 | 经网关 | 记忆 |
-| --- | --- | --- | --- | --- |
-| `llm` | `openai` SDK 直连端点 | 否（必须配大脑） | 否（直连） | 由会话上下文提供 |
-| `opencode` | ACP（`opencode acp`） | 是 | 否（env 自注入） | ACP session |
-| `openclaw` | ACP（`openclaw acp`） | 是 | 否 | ACP session |
-| `claude` | ACP（`@zed-industries/claude-code-acp` 桥） | 是 | 否 | ACP session |
-| `codex` | ACP（`@zed-industries/codex-acp` 桥） | 是 | 否 | ACP session |
-
 **所有 CLI 身体统一走 ACP**（`executors/acp_body.py`）。加一个 CLI = 在 `ACP_CLIS`
 加一行它的 acp 启动命令，不写适配器、不逐个实测。bespoke 的 `claude/codex/opencode`
 适配器已归档到 `executors/archive/`（各自解析一个 CLI 的私有 JSON，违反本文件"不自行
 发明协议"的禁止项）。
 
-模型选择也走 ACP：会话建好后，从 `config_options` 里找出提供了该 agent 大脑的那个项并
-设过去——不设就会跑到 agent 自带的默认模型上。
+| id | acp 启动命令 | 经网关 | 记忆 |
+| --- | --- | --- | --- |
+| `opencode` | `opencode acp` | 否（env 自注入） | ACP session |
+| `openclaw` | `openclaw acp` | 否 | ACP session |
+| `claude` | `claude-agent-acp` | **是** | ACP session |
+| `codex` | `codex-acp` | **是** | ACP session |
+| `gemini` | `gemini --acp` | 否 | ACP session |
+| `grok` | `grok agent stdio` | 否 | ACP session |
+| `hermes` | `hermes acp` | 否 | ACP session |
+| `pi` | `pi-acp` | 否 | ACP session |
+| `mcode` | `mcode acp` | 否 | ACP session |
+| `llm` | （非 CLI）`openai` SDK 直连 | 否 | 会话上下文 |
+
+命令取自 ACP 官方注册表（`agentclientprotocol.com/get-started/agents`）与各 CLI 文档。
+没装的 CLI 显示为不可用，装了即可选——`available()` 只做 `which(命令[0])`。
+
+**经网关**（`needs_gateway=True`）的身体由 `Session` 先 `Gateway.activate` 拿到发布
+模型 id 并写全局客户端配置指向反代，再由该 CLI 的 env 钩子把 id 注进去（claude 用
+`ANTHROPIC_MODEL`）。不注入的话 CLI 会用它自己那家模型（claude 默认 `claude-opus-5-5`），
+网关没有这条路由，直接 503。
+
+模型选择：会话建好后，从 ACP 的 `config_options` 里找出提供了该 agent 大脑的那个项并
+设过去——对 `opencode` 这类把大脑列进选项的 CLI 生效；`claude/codex` 的选项只有自家
+模型别名，所以改由上面的 env 注入。
 
 ## 禁止项
 

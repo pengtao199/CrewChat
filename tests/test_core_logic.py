@@ -367,3 +367,18 @@ def test_acp_model_option_lookup_handles_flat_and_grouped() -> None:
 
     grouped = SimpleNamespace(options=[SimpleNamespace(options=[SimpleNamespace(value="x/y")])])
     assert "x/y" in _select_values(grouped)
+
+
+def test_every_scanned_tool_is_an_acp_body() -> None:
+    """Every CLI the engines page scans must have a body, or the two disagree.
+
+    cc-switch scans a fixed tool set; the composer's picker reads the body
+    registry. If a scanned tool has no body, the engines page shows it but the
+    picker does not — exactly the "engines page has many, picker has three" gap.
+    """
+    from crewchat.executors import list_executors
+    from crewchat.executors.acp_body import ACP_CLIS
+
+    scanned = {"claude", "codex", "gemini", "grok", "opencode", "openclaw", "hermes", "pi", "mcode"}
+    assert scanned <= set(ACP_CLIS)
+    assert scanned <= {e["id"] for e in list_executors()}

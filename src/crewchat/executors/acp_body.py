@@ -46,14 +46,37 @@ def _opencode_env(provider: Provider | None, req: ExecRequest, env: dict[str, st
     env.setdefault("OPENCODE_DISABLE_AUTOUPDATE", "1")
 
 
-#: 会讲 ACP 的 CLI → 启动方式与它自己那点额外环境。加一个 CLI 就是加一行。
-#: `npx` 那两个是 Zed 官方 ACP 桥（claude/codex 本体还没有原生 acp 子命令），
-#: 首次运行由 npx 拉取。所有条目都只是"启动命令不同"，协议完全一样。
+def _claude_env(provider: Provider | None, req: ExecRequest, env: dict[str, str]) -> None:
+    """把 claude 的模型设成网关发布的 id。
+
+    claude 默认用自己那家（`claude-opus-5-5`），网关没有这条路由，直接 503。
+    `provider.model` 此时已是 `Gateway.activate` 返回的发布 id（`ccs-claude-…`），
+    告诉 claude 用它，请求才会经反代路由到该 agent 的大脑。
+    """
+    if provider is not None and provider.model:
+        env["ANTHROPIC_MODEL"] = provider.model
+
+
+#: 会讲 ACP 的 CLI → 启动方式、是否需要网关、以及它自己那点额外环境。
+#: 加一个 CLI 就是加一行。`needs_gateway=True` 的身体由 `Session` 先 `activate`
+#: 拿到发布模型 id（写全局客户端配置指向反代），再交给下面的 env 钩子注入。
 ACP_CLIS: dict[str, dict[str, Any]] = {
     "opencode": {"label": "OpenCode", "command": ["opencode", "acp"], "env": _opencode_env},
     "openclaw": {"label": "OpenClaw", "command": ["openclaw", "acp"]},
-    "claude": {"label": "Claude Code", "command": ["npx", "-y", "@zed-industries/claude-code-acp"]},
-    "codex": {"label": "Codex CLI", "command": ["npx", "-y", "@zed-industries/codex-acp"]},
+    "claude": {
+        "label": "Claude Code",
+        "command": ["claude-agent-acp"],
+        "needs_gateway": True,
+        "env": _claude_env,
+    },
+    "codex": {"label": "Codex CLI", "command": ["codex-acp"], "needs_gateway": True},
+    # 其余是本机（或用户装后）有 acp 入口的 CLI。没装就显示为不可用，装了即可选。
+    # 命令取自 ACP 官方注册表与各 CLI 文档，见 AGENTS/bodies.md。
+    "gemini": {"label": "Gemini CLI", "command": ["gemini", "--acp"]},
+    "grok": {"label": "Grok Build", "command": ["grok", "agent", "stdio"]},
+    "hermes": {"label": "Hermes Agent", "command": ["hermes", "acp"]},
+    "pi": {"label": "Pi", "command": ["pi-acp"]},
+    "mcode": {"label": "MiniMax Code", "command": ["mcode", "acp"]},
 }
 
 
@@ -342,6 +365,7 @@ def register_acp_bodies() -> None:
                 "id": cli_id,
                 "label": spec.get("label", cli_id),
                 "command": list(spec["command"]),
+                "needs_gateway": bool(spec.get("needs_gateway", False)),
                 # staticmethod：否则取 `self.env_hook` 会把它当方法绑定，多传一个 self。
                 "env_hook": staticmethod(spec["env"]) if spec.get("env") else None,
             },
