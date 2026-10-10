@@ -49,12 +49,18 @@ class Executor(ABC):
 | id | 实现方式 | 自带大脑 | 经网关 | 记忆 |
 | --- | --- | --- | --- | --- |
 | `llm` | `openai` SDK 直连端点 | 否（必须配大脑） | 否（直连） | 由会话上下文提供 |
-| `codex` | `openai-codex-sdk` | 是 | **是**（Stack） | SDK thread |
-| `claude` | `claude-agent-sdk` | 是 | **是**（Stack） | SDK session |
-| `opencode` | 官方 `opencode run` CLI | 是 | 否（env + `--model` 自注入） | `--session` |
+| `opencode` | ACP（`opencode acp`） | 是 | 否（env 自注入） | ACP session |
+| `openclaw` | ACP（`openclaw acp`） | 是 | 否 | ACP session |
+| `claude` | ACP（`@zed-industries/claude-code-acp` 桥） | 是 | 否 | ACP session |
+| `codex` | ACP（`@zed-industries/codex-acp` 桥） | 是 | 否 | ACP session |
 
-「经网关」的身体读全局客户端配置（无法逐次覆盖），由 `Gateway.activate` 挂到反代并用返回的
-**Stack 模型 id** 逐请求路由；「否」的身体每次自己注入端点，不碰全局配置，天然可多开。
+**所有 CLI 身体统一走 ACP**（`executors/acp_body.py`）。加一个 CLI = 在 `ACP_CLIS`
+加一行它的 acp 启动命令，不写适配器、不逐个实测。bespoke 的 `claude/codex/opencode`
+适配器已归档到 `executors/archive/`（各自解析一个 CLI 的私有 JSON，违反本文件"不自行
+发明协议"的禁止项）。
+
+模型选择也走 ACP：会话建好后，从 `config_options` 里找出提供了该 agent 大脑的那个项并
+设过去——不设就会跑到 agent 自带的默认模型上。
 
 ## 禁止项
 

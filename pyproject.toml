@@ -9,6 +9,7 @@ authors = [
 ]
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "agent-client-protocol>=0.12.1",
     "claude-agent-sdk>=0.2.164",
     "crewai>=1.15.25",
     "fastapi>=0.143.0",

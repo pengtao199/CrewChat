@@ -50,8 +50,12 @@ class AgentSpec(BaseModel):
         return self.body != "llm"
 
     def resolve_cwd(self, workspace: Path) -> Path:
-        """该 Agent 的执行目录：显式 cwd 优先，否则用项目工作区。"""
-        return Path(self.cwd).expanduser() if self.cwd else workspace
+        """该 Agent 的执行目录：显式 cwd 优先，否则用项目工作区。
+
+        一定是**绝对路径**：CLI 会拿它做 realPath / 建索引，相对路径会被当成"相对
+        它自己"解析（opencode ACP 就是这么报 `Invalid path` 的）。
+        """
+        return (Path(self.cwd).expanduser() if self.cwd else workspace).resolve()
 
     def persona(self) -> str:
         parts = [p.strip() for p in (self.role, self.goal, self.backstory) if p and p.strip()]

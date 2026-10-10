@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from types import SimpleNamespace
 
 from crewchat.api.store import Store
 from crewchat.core import config
 from crewchat.core.models import AgentSpec
 from crewchat.executors import base as exec_base
 from crewchat.executors.base import ExecResult, TokenUsage, _int
-from crewchat.executors.claude_body import _usage_from_result
-from crewchat.executors.opencode_body import _accumulate_usage, _parse
 from crewchat.orchestration import session as session_mod
 from crewchat.orchestration.session import Session
 
@@ -41,74 +38,6 @@ def test_token_usage_emptiness_and_dict() -> None:
 
 
 # ---- opencode 解析 ------------------------------------------------------------
-
-
-def test_opencode_parses_step_finish() -> None:
-    line = (
-        '{"type":"step_finish","part":{"type":"step-finish","id":"p1","cost":0.5,'
-        '"tokens":{"input":10,"output":2,"reasoning":1,"cache":{"read":3,"write":4}}}}'
-    )
-    parsed = _parse(line)
-    assert parsed is not None
-    kind, payload, _ = parsed
-    assert kind == "usage"
-    assert payload["cost"] == 0.5
-    assert payload["tokens"]["input"] == 10
-
-
-def test_opencode_accumulates_usage() -> None:
-    usage = TokenUsage()
-    _accumulate_usage(usage, {"tokens": {"input": 10, "output": 2, "reasoning": 1, "cache": {"read": 3, "write": 4}}})
-    _accumulate_usage(usage, {"tokens": {"input": 5, "output": 1}})
-    assert usage.to_dict() == {
-        "input_tokens": 15,
-        "output_tokens": 3,
-        "cache_read_tokens": 3,
-        "cache_creation_tokens": 4,
-        "reasoning_tokens": 1,
-    }
-
-
-# ---- claude 解析 --------------------------------------------------------------
-
-
-def test_claude_usage_prefers_model_usage() -> None:
-    result = SimpleNamespace(
-        model_usage={
-            "claude-sonnet-4": {
-                "inputTokens": 10,
-                "outputTokens": 2,
-                "cacheReadInputTokens": 3,
-                "cacheCreationInputTokens": 4,
-            }
-        },
-        usage=None,
-    )
-    usage = _usage_from_result(result)
-    assert usage.to_dict() == {
-        "input_tokens": 10,
-        "output_tokens": 2,
-        "cache_read_tokens": 3,
-        "cache_creation_tokens": 4,
-        "reasoning_tokens": 0,
-    }
-
-
-def test_claude_usage_falls_back_to_usage_dict() -> None:
-    result = SimpleNamespace(
-        model_usage={},
-        usage={
-            "input_tokens": 7,
-            "output_tokens": 1,
-            "cache_read_input_tokens": 2,
-            "cache_creation_input_tokens": 3,
-        },
-    )
-    usage = _usage_from_result(result)
-    assert (usage.input_tokens, usage.output_tokens) == (7, 1)
-    assert (usage.cache_read_tokens, usage.cache_creation_tokens) == (2, 3)
-
-
 # ---- 落库与聚合 ---------------------------------------------------------------
 
 
