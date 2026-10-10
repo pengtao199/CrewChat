@@ -12,12 +12,11 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AionScrollArea from '@/renderer/components/base/AionScrollArea';
 import EmptyState from '@/renderer/components/base/EmptyState';
-import SettingsCardList from '@/renderer/components/base/SettingsCardList';
 import SettingsCardRow from '@/renderer/components/base/SettingsCardRow';
 import StatusBadge from '@/renderer/components/base/StatusBadge';
 import DataLocationNote from '@/renderer/components/settings/DataLocationNote';
 import SettingsPageHeader from '@/renderer/pages/settings/components/SettingsPageHeader';
-import ModelDetailModal, { ModelMeta, ModelTags, tagColor, tagLabel } from '@/renderer/pages/settings/components/ModelDetailModal';
+import ModelDetailModal, { ModelMeta, ModelTags, tagLabel } from '@/renderer/pages/settings/components/ModelDetailModal';
 import AddPlatformModal from '@/renderer/pages/settings/components/AddPlatformModal';
 import EditModeModal from '@/renderer/pages/settings/components/EditModeModal';
 import { useProvidersQuery } from '@/renderer/hooks/agent/useModelProviderList';
@@ -40,7 +39,7 @@ const ModelModalContent: React.FC = () => {
 
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState<ModelTag | 'all'>('all');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [detail, setDetail] = useState<{ provider: IProvider; model: IModelView } | null>(null);
   const [busy, setBusy] = useState('');
 
@@ -72,7 +71,26 @@ const ModelModalContent: React.FC = () => {
   });
 
   const [editProviderCtrl, editProviderModal] = EditModeModal.useModal({
-    onChange: () => refresh(),
+    onChange: (provider, keys) => {
+      void (async () => {
+        setBusy(provider.id);
+        try {
+          await ipcBridge.mode.updateProvider.invoke({
+            id: provider.id,
+            name: provider.name,
+            base_url: provider.base_url,
+            is_full_url: provider.is_full_url,
+            keys,
+          });
+          message.success(t('settings.models.saved'));
+          refresh();
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : String(err));
+        } finally {
+          setBusy('');
+        }
+      })();
+    },
   });
 
   /** 单个模型启停。 */
@@ -181,9 +199,8 @@ const ModelModalContent: React.FC = () => {
               <div className='mt-4px text-12px opacity-70'>{t('settings.models.noProvidersHint')}</div>
             </EmptyState>
           ) : (
-            <SettingsCardList className='gap-0'>
-              {/* 工具条：搜索 + 标签筛选。与列表内容同 padding，属于这个容器的一部分。 */}
-              <div className='flex flex-col gap-8px pb-10px'>
+            <div className='flex flex-col gap-12px'>
+              <div className='flex flex-col gap-10px rounded-12px border border-solid border-border-2 bg-2 px-14px py-12px'>
                 <Input
                   size='small'
                   allowClear
@@ -191,45 +208,48 @@ const ModelModalContent: React.FC = () => {
                   placeholder={t('settings.models.searchPlaceholder')}
                   onChange={setSearch}
                 />
-                <div className='flex flex-wrap items-center gap-6px'>
+                <div className='flex flex-wrap items-center gap-8px'>
                   <span className='text-12px text-t-secondary tabular-nums'>
                     {hasFilters
                       ? t('settings.models.filtered', { shown: filteredTotal(providers, filterModels), total: totalModels })
                       : t('settings.models.totalModels', { total: totalModels, enabled: totalEnabled })}
                   </span>
                   <span className='text-t-tertiary'>|</span>
-                  <FilterChip active={tagFilter === 'all'} onClick={() => setTagFilter('all')} label={t('settings.models.filterAll')} />
+                  <Button size='mini' type={tagFilter === 'all' ? 'primary' : 'text'} onClick={() => setTagFilter('all')}>
+                    {t('settings.models.filterAll')}
+                  </Button>
                   {availableTags.map(([tag, count]) => (
-                    <FilterChip
+                    <Button
                       key={tag}
-                      active={tagFilter === tag}
+                      size='mini'
+                      type={tagFilter === tag ? 'primary' : 'text'}
                       onClick={() => setTagFilter(tagFilter === tag ? 'all' : tag)}
-                      label={`${tagLabel(tag, t)} ${count}`}
-                      color={tagColor(tag)}
-                    />
+                    >
+                      {`${tagLabel(tag, t)} ${count}`}
+                    </Button>
                   ))}
                 </div>
               </div>
 
               {providers.map((provider) => {
-                const expanded = collapsed[provider.id] ?? true;
                 const shown = filterModels(provider);
+                if (hasFilters && shown.length === 0) return null;
+                const expanded = hasFilters ? true : (openGroups[provider.id] ?? false);
                 const enabledCount = provider.models.filter((m) => m.enabled).length;
                 const providerBusy = busy.startsWith(`${provider.id}:`);
 
                 return (
-                  <div key={provider.id} className='border-t border-solid border-border-2'>
-                    {/* 供应商头：模型数与 Key 数常显 */}
+                  <div key={provider.id} className='rounded-12px border border-solid border-border-2 bg-2 px-14px py-4px'>
                     <div className='flex items-center justify-between gap-12px py-10px'>
                       <div
                         role='button'
                         tabIndex={0}
-                        className='flex min-w-0 cursor-pointer items-center gap-6px rounded-6px px-6px py-2px hover:bg-fill-2'
-                        onClick={() => setCollapsed((prev) => ({ ...prev, [provider.id]: !expanded }))}
+                        className='flex min-w-0 cursor-pointer items-center gap-8px rounded-8px px-6px py-4px hover:bg-fill-2'
+                        onClick={() => setOpenGroups((prev) => ({ ...prev, [provider.id]: !expanded }))}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setCollapsed((prev) => ({ ...prev, [provider.id]: !expanded }));
+                            setOpenGroups((prev) => ({ ...prev, [provider.id]: !expanded }));
                           }
                         }}
                       >
@@ -328,7 +348,7 @@ const ModelModalContent: React.FC = () => {
               })}
 
               <DataLocationNote path='.data/providers.jsonc' shared />
-            </SettingsCardList>
+            </div>
           )}
         </div>
       </AionScrollArea>
@@ -344,25 +364,6 @@ const ModelModalContent: React.FC = () => {
     </div>
   );
 };
-
-/** 筛选标签胶囊。 */
-const FilterChip: React.FC<{ active: boolean; onClick: () => void; label: string; color?: string }> = ({
-  active,
-  onClick,
-  label,
-  color,
-}) => (
-  <button
-    type='button'
-    onClick={onClick}
-    className={`cursor-pointer rounded-4px border border-solid px-6px py-1px text-12px transition-colors ${
-      active ? 'border-primary-6 bg-primary-1 text-primary-6' : 'border-transparent text-t-secondary hover:bg-fill-2'
-    }`}
-    style={!active && color ? { color: `var(--${color}-6)` } : undefined}
-  >
-    {label}
-  </button>
-);
 
 /** 当前筛选下可见的模型总数。 */
 const filteredTotal = (providers: IProvider[], filter: (p: IProvider) => IModelView[]): number =>

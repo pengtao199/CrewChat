@@ -10,7 +10,7 @@
  * worker.
  */
 
-import { Button, Input, Message, Modal, Select, Switch } from '@arco-design/web-react';
+import { Button, Input, Message, Modal, Select, Switch, Tooltip } from '@arco-design/web-react';
 import { Delete, FolderClose, Plus, Refresh } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -58,8 +58,8 @@ const Field: React.FC<{ label: string; hint?: string; children: React.ReactNode 
 );
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className='flex flex-col gap-12px rounded-12px border border-border-2 bg-2 p-14px'>
-    <span className='text-13px font-medium text-t-primary'>{title}</span>
+  <div className='flex flex-col gap-14px rounded-12px border border-solid border-border-2 bg-2 p-16px'>
+    <span className='text-14px font-medium text-t-primary'>{title}</span>
     {children}
   </div>
 );
@@ -85,6 +85,9 @@ const AgentComposerContent: React.FC = () => {
   const [models, setModels] = useState<string[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [agentsDir, setAgentsDir] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createId, setCreateId] = useState('');
+  const [createName, setCreateName] = useState('');
 
   /** brain 只写了端点时补上默认模型，否则模型下拉是空的。 */
   const normalize = useCallback((spec: AgentSpec, opts: ComposerOptions | null): AgentSpec => {
@@ -173,18 +176,50 @@ const AgentComposerContent: React.FC = () => {
   };
 
   const pickAgent = (spec: AgentSpec) => {
-    if (dirty && !window.confirm(t('settings.agentComposer.unsavedSwitch'))) return;
-    setSelected(spec.id);
-    setDraft(normalize(spec, options));
-    setDirty(false);
+    if (spec.id === selected) return;
+    const apply = () => {
+      setSelected(spec.id);
+      setDraft(normalize(spec, options));
+      setDirty(false);
+    };
+    if (!dirty) {
+      apply();
+      return;
+    }
+    Modal.confirm({
+      title: t('settings.agentComposer.discardTitle'),
+      content: t('settings.agentComposer.discardBody'),
+      onOk: apply,
+    });
   };
 
-  const create = () => {
-    const id = window.prompt(t('settings.agentComposer.idPrompt'), 'my-agent');
-    if (!id) return;
+  const openCreate = () => {
+    const show = () => {
+      setCreateId('');
+      setCreateName('');
+      setCreateOpen(true);
+    };
+    if (!dirty) {
+      show();
+      return;
+    }
+    Modal.confirm({
+      title: t('settings.agentComposer.discardTitle'),
+      content: t('settings.agentComposer.discardBody'),
+      onOk: show,
+    });
+  };
+
+  const confirmCreate = () => {
+    const id = createId.trim();
+    if (!id) {
+      Message.error(t('settings.agentComposer.idRequired'));
+      return;
+    }
     setSelected(id);
-    setDraft({ ...EMPTY, id, name: id });
+    setDraft({ ...EMPTY, id, name: createName.trim() || id });
     setDirty(true);
+    setCreateOpen(false);
   };
 
   const save = async () => {
@@ -232,7 +267,26 @@ const AgentComposerContent: React.FC = () => {
   };
 
   const bodyInfo = options?.bodies.find((b) => b.id === draft.body);
-  const composedPrompt = [draft.role, draft.goal, draft.backstory].filter(Boolean).join('\n');
+  const modelId = draft.brain.split('/')[1] ?? '';
+  const modelChoices = useMemo(() => {
+    const rows = (provider?.models ?? [])
+      .filter((model) => model.enabled || model.id === modelId)
+      .map((model) => ({ id: model.id, label: model.label || model.id }));
+    if (modelId && !rows.some((row) => row.id === modelId)) {
+      rows.unshift({ id: modelId, label: modelId });
+    }
+    for (const id of models) {
+      if (id && !rows.some((row) => row.id === id)) rows.push({ id, label: id });
+    }
+    return rows;
+  }, [provider, modelId, models]);
+  const describeAgent = (agent: AgentSpec) => {
+    const body = options?.bodies.find((item) => item.id === agent.body)?.label || agent.body;
+    const [pid, mid] = agent.brain.split('/');
+    const brain = options?.providers.find((item) => item.id === pid);
+    const model = brain?.models.find((item) => item.id === mid);
+    return [body, brain?.name, model?.label || mid].filter(Boolean).join(' · ') || '—';
+  };
   const c = 'settings.agentComposer';
 
   const bodyStatus = !bodyInfo ? null : bodyInfo.available ? (
@@ -251,7 +305,7 @@ const AgentComposerContent: React.FC = () => {
             <Button size='small' icon={<Refresh />} onClick={() => void load()}>
               {t(`${c}.refresh`)}
             </Button>
-            <Button size='small' type='outline' icon={<Plus />} onClick={create}>
+            <Button size='small' type='outline' icon={<Plus />} onClick={openCreate}>
               {t(`${c}.new`)}
             </Button>
             <Button size='small' status='danger' icon={<Delete />} disabled={!selected} onClick={confirmDelete}>
@@ -265,23 +319,30 @@ const AgentComposerContent: React.FC = () => {
       />
 
       <div className='flex items-start gap-16px'>
-        <div className='flex w-260px shrink-0 flex-col gap-8px'>
+        <div className='sticky top-0 flex w-280px max-h-[calc(100vh-148px)] shrink-0 flex-col gap-8px overflow-auto'>
           <SettingsCardList>
             {loading ? (
               <EmptyState>…</EmptyState>
             ) : agents.length ? (
-              agents.map((agent) => (
+              agents.map((agent) => {
+                const summary = describeAgent(agent);
+                return (
                 <SettingsCardRow
                   key={agent.id}
                   testId={`agent-composer-row-${agent.id}`}
                   icon={agent.emoji}
                   title={agent.name || agent.id}
-                  subtitle={`${agent.body} · ${agent.brain || '—'}`}
+                  subtitle={
+                    <Tooltip content={summary}>
+                      <span>{summary}</span>
+                    </Tooltip>
+                  }
                   badges={!agent.enabled ? <StatusBadge tone='neutral' label={t(`${c}.disabled`)} /> : undefined}
                   selected={selected === agent.id}
                   onClick={() => pickAgent(agent)}
                 />
-              ))
+                );
+              })
             ) : (
               <EmptyState>{t(`${c}.empty`)}</EmptyState>
             )}
@@ -297,25 +358,25 @@ const AgentComposerContent: React.FC = () => {
           </div>
 
           <Section title={t(`${c}.identity`)}>
-            <div className='flex gap-8px'>
-              <Input
-                className='w-80px'
-                value={draft.emoji}
-                onChange={(value) => update({ emoji: value })}
-                placeholder='🧭'
-              />
-              <Input
-                value={draft.name}
-                onChange={(value) => update({ name: value })}
-                placeholder={t(`${c}.namePlaceholder`)}
-              />
-              <Input
-                className='w-180px'
-                value={draft.id}
-                disabled={Boolean(selected)}
-                onChange={(value) => update({ id: value })}
-                placeholder={t(`${c}.idLabel`)}
-              />
+            <div className='grid grid-cols-[96px_minmax(0,1fr)_180px] gap-12px'>
+              <Field label={t(`${c}.emojiLabel`)}>
+                <Input value={draft.emoji} onChange={(value) => update({ emoji: value })} placeholder='🧭' />
+              </Field>
+              <Field label={t(`${c}.nameLabel`)}>
+                <Input
+                  value={draft.name}
+                  onChange={(value) => update({ name: value })}
+                  placeholder={t(`${c}.namePlaceholder`)}
+                />
+              </Field>
+              <Field label={t(`${c}.idLabel`)}>
+                <Input
+                  value={draft.id}
+                  disabled={Boolean(selected)}
+                  onChange={(value) => update({ id: value })}
+                  placeholder={t(`${c}.idLabel`)}
+                />
+              </Field>
             </div>
             <div className='flex items-center gap-8px'>
               <Switch checked={draft.enabled} onChange={(enabled) => update({ enabled })} />
@@ -359,12 +420,12 @@ const AgentComposerContent: React.FC = () => {
                   }}
                   onChange={(model) => update({ brain: `${providerId}/${model}` })}
                 >
-                  {models.map((m) => (
-                    <Select.Option key={m} value={m}>
-                      {m}
+                  {modelChoices.map((model) => (
+                    <Select.Option key={model.id} value={model.id}>
+                      {model.label}
                     </Select.Option>
                   ))}
-                  {!models.length && !modelsLoading ? (
+                  {!modelChoices.length && !modelsLoading ? (
                     <Select.Option value='' disabled>
                       {t(`${c}.noModels`)}
                     </Select.Option>
@@ -449,7 +510,7 @@ const AgentComposerContent: React.FC = () => {
             <span className='text-11px text-t-tertiary'>{t(`${c}.memoryHint`)}</span>
           </Section>
 
-          <Section title={t(`${c}.rulesPreview`)}>
+          <Section title={t(`${c}.rules`)}>
             <Field label={t(`${c}.role`)} hint={t(`${c}.roleHint`)}>
               <Input.TextArea
                 value={draft.role}
@@ -471,19 +532,29 @@ const AgentComposerContent: React.FC = () => {
                 autoSize={{ minRows: 2, maxRows: 5 }}
               />
             </Field>
-            <div className='flex flex-col gap-6px'>
-              <span className='text-11px text-t-tertiary'>{t(`${c}.rulesPreviewHint`)}</span>
-              <Input.TextArea
-                value={composedPrompt || t(`${c}.rulesEmpty`)}
-                readOnly
-                autoSize={{ minRows: 2, maxRows: 6 }}
-              />
-            </div>
           </Section>
 
           <DataLocationNote path={agentsDir ? `${agentsDir}/${draft.id || '…'}.jsonc` : '…'} />
         </div>
       </div>
+
+      <Modal
+        title={t(`${c}.create`)}
+        visible={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        onOk={confirmCreate}
+        okText={t(`${c}.createConfirm`)}
+        unmountOnExit
+      >
+        <div className='flex flex-col gap-14px'>
+          <Field label={t(`${c}.createId`)} hint={t(`${c}.idPrompt`)}>
+            <Input value={createId} onChange={setCreateId} placeholder='my-agent' />
+          </Field>
+          <Field label={t(`${c}.createName`)}>
+            <Input value={createName} onChange={setCreateName} placeholder={t(`${c}.namePlaceholder`)} />
+          </Field>
+        </div>
+      </Modal>
     </div>
   );
 };

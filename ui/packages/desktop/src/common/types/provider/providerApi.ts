@@ -49,6 +49,22 @@ export interface IModelView {
   price: IModelPrice;
 }
 
+/** One account key. The list endpoint never includes the secret. */
+export interface IProviderKey {
+  id: string;
+  remark: string;
+  is_default: boolean;
+  has_secret: boolean;
+}
+
+/** Sent when saving. Omit `secret` to keep the stored value. */
+export interface IProviderKeyInput {
+  id: string;
+  remark: string;
+  is_default: boolean;
+  secret?: string;
+}
+
 /** A provider (brain-pool entry). `api_key` is always masked on the wire. */
 export interface IProvider {
   id: string;
@@ -58,8 +74,10 @@ export interface IProvider {
   /** Masked placeholder when a key is set; empty string when not. */
   api_key: string;
   has_key: boolean;
-  /** Number of usable keys (multi-key is newline/comma separated). */
+  /** Number of usable keys. */
   key_count: number;
+  /** Accounts under this provider. Absent on older payloads. */
+  keys?: IProviderKey[];
   model: string;
   models: IModelView[];
   model_count: number;
@@ -114,6 +132,7 @@ export interface CreateProviderRequest {
   name: string;
   base_url: string;
   api_key: string;
+  keys?: IProviderKeyInput[];
   api_format?: string;
   enabled?: boolean;
   is_full_url?: boolean;

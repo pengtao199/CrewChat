@@ -30,6 +30,7 @@ import {
 } from '@/renderer/utils/model/modelPlatforms';
 import { ProviderLogo } from '@/renderer/components/agent/ThemedLogo';
 import type { DeepLinkAddProviderDetail } from '@/renderer/hooks/system/useDeepLink';
+import ProviderKeyList, { draftsFromKeys, keyInputsFromDrafts, type KeyDraft } from './ProviderKeyList';
 
 /**
  * Protocol icon configurations
@@ -216,6 +217,7 @@ const AddPlatformModal = ModalHOC<{
   const base_url = Form.useWatch('base_url', form);
   const api_key = Form.useWatch('api_key', form);
   // 探测结果：提交前用来确认端点与密钥可用
+  const [keyDrafts, setKeyDrafts] = useState<KeyDraft[]>(() => draftsFromKeys(undefined));
   const [probeState, setProbeState] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
   const [probedCount, setProbedCount] = useState(0);
   const [probeError, setProbeError] = useState('');
@@ -302,6 +304,17 @@ const AddPlatformModal = ModalHOC<{
       setImageInput('auto');
       setOpenAiApiMode('auto');
       setIsFullUrl(false);
+      const freshKeys = draftsFromKeys(undefined);
+      if (deepLinkData?.api_key) {
+        freshKeys[0] = {
+          ...freshKeys[0],
+          secret: deepLinkData.api_key,
+          dirty: true,
+          has_secret: true,
+          visible: false,
+        };
+      }
+      setKeyDrafts(freshKeys);
 
       // Pre-fill from deep link data (aionui:// protocol)
       if (deepLinkData?.base_url || deepLinkData?.api_key) {
@@ -314,6 +327,11 @@ const AddPlatformModal = ModalHOC<{
       }
     }
   }, [modalProps.visible, deepLinkData]);
+
+  useEffect(() => {
+    const chosen = keyDrafts.find((row) => row.is_default) ?? keyDrafts[0];
+    form.setFieldValue('api_key', chosen?.secret ?? '');
+  }, [form, keyDrafts]);
 
   useEffect(() => {
     if (platform?.includes('gemini')) {
@@ -366,6 +384,10 @@ const AddPlatformModal = ModalHOC<{
   }, [base_url, api_key]);
 
   const handleSubmit = () => {
+    if (!isBedrock && keyInputsFromDrafts(keyDrafts).length === 0) {
+      message.warning(t('settings.models.keyRequired'));
+      return;
+    }
     form
       .validate()
       .then((values) => {
@@ -382,6 +404,7 @@ const AddPlatformModal = ModalHOC<{
           // Prefer user input base_url, fallback to platform preset
           base_url: isBedrock ? '' : values.base_url || selectedPlatform?.base_url || '',
           api_key: isBedrock ? '' : values.api_key,
+          keys: isBedrock ? undefined : keyInputsFromDrafts(keyDrafts),
           is_full_url: isFullUrl,
         };
 
@@ -511,34 +534,30 @@ const AddPlatformModal = ModalHOC<{
             </div>
           )}
 
-          {/* API Key */}
-          <Form.Item
-            hidden={isBedrock}
-            label={t('settings.apiKey')}
-            required={!isBedrock}
-            rules={[{ required: !isBedrock }]}
-            field={'api_key'}
-            extra={
-              <div className='space-y-2px'>
-                <div className='text-11px text-t-secondary mt-2 leading-4'>{t('settings.multiApiKeyTip')}</div>
-                {/* 协议检测状态 / Protocol detection status */}
-                {shouldShowDetectionResult && (
-                  <ProtocolDetectionStatus
-                    isDetecting={protocolDetection.isDetecting}
-                    result={protocolDetection.result}
-                    currentPlatform={platformValue}
-                    onSwitchPlatform={handleSwitchPlatform}
-                  />
-                )}
-              </div>
-            }
-          >
-            <Input
-              onBlur={() => {
-                void modelListState.mutate();
-              }}
-            />
+          <Form.Item field='api_key' hidden>
+            <Input />
           </Form.Item>
+          {!isBedrock && (
+            <div className='mb-16px flex flex-col gap-8px'>
+              <div className='flex flex-col gap-2px'>
+                <span className='text-13px font-medium text-t-primary'>{t('settings.apiKey')}</span>
+                <span className='text-12px leading-5 text-t-tertiary'>{t('settings.models.keyAccountsHint')}</span>
+              </div>
+              <ProviderKeyList
+                drafts={keyDrafts}
+                onChange={setKeyDrafts}
+                onReveal={async () => ''}
+              />
+              {shouldShowDetectionResult && (
+                <ProtocolDetectionStatus
+                  isDetecting={protocolDetection.isDetecting}
+                  result={protocolDetection.result}
+                  currentPlatform={platformValue}
+                  onSwitchPlatform={handleSwitchPlatform}
+                />
+              )}
+            </div>
+          )}
 
           {/* 模型不需要人工枚举：保存时后端会自动抓取该端点的全部模型。
               这里只做一次探测预览，让用户在提交前确认端点与密钥可用。 */}

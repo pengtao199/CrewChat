@@ -19,10 +19,11 @@ import SettingsCardList from '@/renderer/components/base/SettingsCardList';
 import SettingsCardRow from '@/renderer/components/base/SettingsCardRow';
 import StatusBadge, { type StatusTone } from '@/renderer/components/base/StatusBadge';
 import { resolveAgentAvatar, useAgentLogos } from '@/renderer/utils/model/agentLogo';
-import { Avatar, Button, Message, Tag } from '@arco-design/web-react';
+import { Avatar, Button, Message, Tag, Tooltip } from '@arco-design/web-react';
 import { Refresh, Terminal } from '@icon-park/react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import SettingsPageHeader from '../components/SettingsPageHeader';
 import {
@@ -45,6 +46,7 @@ type EngineTab = 'installed' | 'not_installed';
 
 const LocalAgents: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const logos = useAgentLogos();
   const [busy, setBusy] = useState<string | null>(null);
   const [tab, setTab] = useState<EngineTab>('installed');
@@ -115,11 +117,16 @@ const LocalAgents: React.FC = () => {
 
   const subtitleFor = (engine: EngineView) => {
     if (!engine.installed) return t('settings.engines.notInstalledHint');
-    const head = [engine.source, engine.version].filter((part) => !!part).join('  ·  ');
+    const head = [engine.source, engine.version].filter((part) => !!part).join(' · ');
     const fresh =
       engine.has_update && engine.latest_version ? `  ${t('settings.engines.newVersion', { version: engine.latest_version })}` : '';
-    const tail = engine.path ? `  ·  ${engine.path}` : '';
-    return `${head}${fresh}${tail}`;
+    const text = `${head}${fresh}`;
+    if (!engine.path) return text;
+    return (
+      <Tooltip content={engine.path}>
+        <span>{text}</span>
+      </Tooltip>
+    );
   };
 
   const statusTip = (engine: EngineView) => {
@@ -189,6 +196,7 @@ const LocalAgents: React.FC = () => {
                 key={engine.id}
                 testId={`engine-row-${engine.id}`}
                 icon={avatarFor(engine)}
+                onClick={() => navigate(`/settings/engines/${engine.id}/repair`)}
                 title={
                   <span className='flex min-w-0 items-center gap-8px'>
                     <span className='truncate'>{engine.name}</span>

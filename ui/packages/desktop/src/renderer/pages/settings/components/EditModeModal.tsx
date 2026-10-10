@@ -1,15 +1,20 @@
 import type { IProvider } from '@/common/config/storage';
+import type { IProviderKeyInput } from '@/common/types/provider/providerApi';
 import ModalHOC from '@/renderer/utils/ui/ModalHOC';
 import { Form, Input, Message, Select, Tag } from '@arco-design/web-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import AionModal from '@/renderer/components/base/AionModal';
 import { ipcBridge } from '@/common';
 import useModeModeList from '@renderer/hooks/agent/useModeModeList';
+import ProviderKeyList, { draftsFromKeys, keyInputsFromDrafts, type KeyDraft } from './ProviderKeyList';
 import { getProviderLogo } from '@/renderer/utils/model/modelPlatforms';
 import { ProviderLogo } from '@/renderer/components/agent/ThemedLogo';
 
-const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): void }>(
+const EditModeModal = ModalHOC<{
+  data?: IProvider;
+  onChange(data: IProvider, keys: IProviderKeyInput[]): void;
+}>(
   ({ modalProps, modalCtrl, ...props }) => {
     const { t } = useTranslation();
     const { data } = props;
@@ -40,6 +45,15 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
     // succeeds but a currently selected model is absent from the new list. It
     // never mutates the selection — the user keeps whatever they picked.
     const [modelsMissingAfterRefresh, setModelsMissingAfterRefresh] = useState<string[]>([]);
+    const [keyDrafts, setKeyDrafts] = useState<KeyDraft[]>(() => draftsFromKeys(data?.keys));
+    const wasVisible = useRef(false);
+
+    useEffect(() => {
+      if (modalProps.visible && !wasVisible.current) {
+        setKeyDrafts(draftsFromKeys(data?.keys));
+      }
+      wasVisible.current = Boolean(modalProps.visible);
+    }, [modalProps.visible, data?.keys, data?.id]);
 
     // For Bedrock, don't pass bedrock_config to avoid auto-refresh on input changes
     // We'll build it dynamically in onFocus
@@ -131,10 +145,15 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
         onOk={async () => {
           try {
             const values = await form.validate();
+            const keys = keyInputsFromDrafts(keyDrafts);
+            if (!isBedrock && keys.length === 0) {
+              message.warning(t('settings.models.keyRequired'));
+              return;
+            }
             // 模型不在这里改：供应商弹窗只管端点/密钥，模型由模型详情面板单独维护。
+            // 不把列表里的掩码 api_key 原样交回去。
             const updatedProvider: IProvider = { ...data, ...values };
-
-            props.onChange(updatedProvider);
+            props.onChange(updatedProvider, keys);
             modalCtrl.close();
           } catch {
             // Validation failed — Arco Form highlights invalid fields automatically
@@ -186,16 +205,23 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
               </div>
             )}
 
-            <Form.Item
-              hidden={isBedrock}
-              label={t('settings.apiKey')}
-              required={!isBedrock}
-              rules={[{ required: !isBedrock }]}
-              field={'api_key'}
-              extra={<div className='text-11px text-t-secondary mt-2'>💡 {t('settings.multiApiKeyEditTip')}</div>}
-            >
-              <Input.TextArea rows={4} placeholder={t('settings.apiKeyPlaceholder')} />
-            </Form.Item>
+            {!isBedrock && (
+              <div className='mb-16px flex flex-col gap-8px'>
+                <div className='flex flex-col gap-2px'>
+                  <span className='text-13px font-medium text-t-primary'>{t('settings.apiKey')}</span>
+                  <span className='text-12px leading-5 text-t-tertiary'>{t('settings.models.keyAccountsHint')}</span>
+                </div>
+                <ProviderKeyList
+                  drafts={keyDrafts}
+                  onChange={setKeyDrafts}
+                  onReveal={async (keyId) => {
+                    if (!data?.id) return '';
+                    const revealed = await ipcBridge.mode.revealProviderKey.invoke({ id: data.id, key_id: keyId });
+                    return revealed.secret || revealed.api_key || '';
+                  }}
+                />
+              </div>
+            )}
 
             {/* AWS Bedrock Authentication Method */}
             <Form.Item

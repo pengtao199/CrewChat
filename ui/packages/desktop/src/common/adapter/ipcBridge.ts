@@ -1127,7 +1127,9 @@ export const mode = {
   /**
    * Reveal the stored key on demand. The list endpoint only ever returns a mask.
    */
-  revealProviderKey: httpGet<{ api_key: string }, { id: string }>((p) => `/api/providers/${p.id}/secret`),
+  revealProviderKey: httpGet<{ id: string; secret: string; api_key: string }, { id: string; key_id?: string }>(
+    (p) => `/api/providers/${p.id}/secret${p.key_id ? `?key_id=${encodeURIComponent(p.key_id)}` : ''}`
+  ),
   /**
    * Add or update one model on a provider (POST with a matching `id` overwrites).
    */

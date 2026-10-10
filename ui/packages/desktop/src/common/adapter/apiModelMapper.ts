@@ -79,6 +79,7 @@ export function fromApiModel(raw: ApiProviderWithModel): TProviderWithModel {
     model_count: 0,
     key_count: 0,
     has_key: false,
+    keys: [],
     model: '',
     api_format: 'openai_chat',
     extra_headers: {},
