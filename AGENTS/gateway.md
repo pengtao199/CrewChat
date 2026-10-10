@@ -20,7 +20,7 @@
 
 1. **三种线格式互转**，且 **codex 路径会解析它自己的私有工具形状**（`namespace` / `web_search`），
    按上游能力摊平或转译 —— 正是"某 CLI 发出第三方网关不认的工具"这类问题的通用解法。
-2. **供应商（provider）管理 + 每 CLI 一个"当前通道"**。
+2. **供应商（provider）管理**。选型时它自带「每 CLI 一个当前通道」；CrewChat 在此之上用发布 id 做逐请求路由，见下文「进程配置」。
 3. **协议差异靠 provider 的 `apiFormat` 表达**（`openai_responses` / `openai_chat` / `anthropic`），
    不靠试错。
 

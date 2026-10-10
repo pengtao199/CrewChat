@@ -24,8 +24,8 @@
 | --- | --- | --- | --- |
 | **L0** 基础 | `core/` | `config` `models` | 纯数据与配置，不知道任何实现 |
 | **L1** 基础设施 | `core/` | `providers` `projects` `diagnostics` `cli_overrides` `gateway` | 大脑池、项目、机器探测、模型网关接入 |
-| **L2** 执行 | `executors/` | `base` + 每个身体一个文件 | 不知道编排与会话 |
-| **L3** 编排 | `orchestration/` | `session`（群聊将新增 `group`） | 会话运行 |
+| **L2** 执行 | `executors/` | `base`、`llm_body`、`acp_body` | 不知道编排与会话 |
+| **L3** 编排 | `orchestration/` | `session`、`group` | 会话运行；群聊的共享上下文在 `group.py` |
 | **L4** 契约 | `api/` | 见下 | 只做请求解析与形状转换 |
 
 L0 与 L1 共用 `core/`（都是"不执行、不通讯"的底层）；层判定按文件：`config`/`models` 属 L0，其余属 L1。
@@ -56,12 +56,11 @@ src/crewchat/
 │   └── engines_ccswitch.py     cc-switch 引擎工具适配器（扫描/安装/更新）
 ├── executors/              L2 身体
 │   ├── base.py                 Executor 契约与注册表
-│   ├── llm_body.py             openai SDK
-│   ├── codex_body.py           openai-codex-sdk
-│   ├── claude_body.py          claude-agent-sdk
-│   └── opencode_body.py        官方 opencode CLI
+│   ├── llm_body.py             openai SDK，直连大脑池
+│   └── acp_body.py             全部 CLI 身体（ACP）
 ├── orchestration/          L3
-│   └── session.py              Session、stream_ask、session_for
+│   ├── session.py              Session、stream_ask、session_for
+│   └── group.py                群聊共享上下文（阶段 1）
 └── api/                    L4
     ├── app.py                  应用装配、静态托管、501 兜底
     ├── auth.py                 本地单用户鉴权
@@ -92,7 +91,7 @@ src/crewchat/
 | 多 Agent 协作 | **自建** `orchestration/group.py`（共享上下文 + 路由 + 委派 + 确定性循环） | 见下 |
 | 配置解析 | `crewai.project.json_loader.load_jsonc_file` | JSONC 带注释与尾逗号，标准库不支持 |
 
-**为什么协作不用 crewai 的执行引擎**（实测，见 `docs/plans/multi-agent-collaboration.md`）：
+**为什么协作不用 crewai 的执行引擎**（实测，记录在 `docs/plans/archive/multi-agent-collaboration.md`）：
 
 - `crewai.LLM(model='claude')` 不报错但**静默落到 OpenAI**（401）—— 它只能驱动 chat-completions
   provider，驱动不了我们的 CLI 身体。

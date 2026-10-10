@@ -1,6 +1,6 @@
 # CrewChat 项目规则
 
-多 Agent 协作桌面应用。Python 后端（crewai 编排 + 身体抽象）+ fork 自 AionUi 的前端外壳 + LiteLLM 网关。
+多 Agent 协作桌面应用。Python 后端（自建编排 + 身体抽象）+ fork 自 AionUi 的前端外壳 + cc-switch 网关（`ccsw-proxy`）。
 
 ## 执行入口
 

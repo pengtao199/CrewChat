@@ -36,7 +36,7 @@
 - **Agent 全局，与工作区解耦**：agent 是「公司的人」，定义存 `.data/agents/`（`settings.agents_home`），**不归任何项目**；团队的多个 agent 可在不同工作区协作。旧仓库内 `config/agents` 首次访问时一次性迁入（`.data/.agents-migrated` 标记，只做一次）。
 - **会话的工作区可选（cwd 三态）**：绑了工作区 → 用该 `project.path`；没绑 → 每会话一个沙盒目录 `.data/workspaces/<session_key>`（避免并发互踩）。侧栏把未绑定的会话显示在「会话工作区」分组下。
 - **项目是一等公民、工作区就是项目目录**：`Project.path`（一个文件夹）既是 agent 的执行 cwd，也是这个项目的协作工作区（agent 定义是全局的，不归项目）。**会话可选归属一个项目**（`conversations.project_id` 可空）：`api/chat.py` 按会话的项目建 Session，未绑定时用每会话沙盒。项目列表存 `.data/projects.json`（经 `core/projects.py` 读写），不在客户端用 `extra.workspace` 当真相源。
-- **用量统计归我们、且只算我们发起的**：用量由身体运行时上报（`ExecResult.usage`）、`api/chat.py` 落进 `.data/crewchat.db` 的 `usage_events`。**不读 cc-switch 的库**——它的用量掺了用户在终端里裸跑 CLI 的消耗。`llm` 是内置 API 客户端、不是 CLI 身体，不计入；只有 CLI 身体（codex / claude / opencode）产生了用量才落库。
+- **用量统计归我们、且只算我们发起的**：用量由身体运行时上报（`ExecResult.usage`）、`api/chat.py` 落进 `.data/crewchat.db` 的 `usage_events`。**不读 cc-switch 的库**——它的用量掺了用户在终端里裸跑 CLI 的消耗。`llm` 是内置 API 客户端、不是 CLI 身体，不计入；只有 CLI 身体产生了用量才落库。
 
 ## 具体规则
 
