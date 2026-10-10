@@ -1,8 +1,8 @@
 import { ipcBridge } from '@/common';
 import type { ChatFileRef } from '@/common/types/chatFile';
 import type { IConversationMcpStatus, IProvider, TChatConversation, TProviderWithModel } from '@/common/config/storage';
-import { Message, Spin } from '@arco-design/web-react';
-import React, { Suspense, useCallback } from 'react';
+import { Message } from '@arco-design/web-react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAionrsModelSelection } from '@/renderer/pages/conversation/platforms/aionrs/useAionrsModelSelection';
 import { isLegacyReadOnlyConversationType } from '@/renderer/pages/conversation/utils/conversationRuntime';
@@ -19,12 +19,9 @@ import TeamChatEmptyState from './TeamChatEmptyState';
 import { useTeamTabs } from '@/renderer/pages/team/hooks/TeamTabsContext';
 import { usePresetAgentInfo } from '@/renderer/hooks/agent/usePresetAgentInfo';
 import { resolveConversationBackend } from '@/renderer/pages/conversation/utils/conversationAgentIdentity';
-
-const AcpChat = React.lazy(() => import('@/renderer/pages/conversation/platforms/acp/AcpChat'));
-const AionrsChat = React.lazy(() => import('@/renderer/pages/conversation/platforms/aionrs/AionrsChat'));
-const LegacyReadOnlyConversation = React.lazy(
-  () => import('@/renderer/pages/conversation/platforms/legacy/LegacyReadOnlyConversation')
-);
+import AcpChat from '@/renderer/pages/conversation/platforms/acp/AcpChat';
+import AionrsChat from '@/renderer/pages/conversation/platforms/aionrs/AionrsChat';
+import LegacyReadOnlyConversation from '@/renderer/pages/conversation/platforms/legacy/LegacyReadOnlyConversation';
 
 // Narrow to Aionrs conversations so model field is always available
 type AionrsConversation = Extract<TChatConversation, { type: 'aionrs' }>;
@@ -292,7 +289,7 @@ const TeamChatView: React.FC<TeamChatViewProps> = ({
     }
   })();
 
-  return <Suspense fallback={<Spin loading className='flex flex-1 items-center justify-center' />}>{content}</Suspense>;
+  return content;
 };
 
 export default TeamChatView;

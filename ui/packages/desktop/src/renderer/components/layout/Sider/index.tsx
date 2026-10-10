@@ -1,5 +1,5 @@
 import classNames from 'classnames';
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePreviewContext } from '@renderer/pages/conversation/Preview/context/PreviewContext';
 import { cleanupSiderTooltips, getSiderTooltipProps } from '@renderer/utils/ui/siderTooltip';
@@ -9,9 +9,8 @@ import { useThemeContext } from '@renderer/hooks/context/ThemeContext';
 import { SiderSearchEntry, SiderScheduledEntry } from './SiderNav';
 import SiderFooter from './SiderFooter';
 import siderStyles from './Sider.module.css';
-
-const WorkspaceGroupedHistory = React.lazy(() => import('@renderer/pages/conversation/GroupedHistory'));
-const SettingsSider = React.lazy(() => import('@renderer/pages/settings/components/SettingsSider'));
+import WorkspaceGroupedHistory from '@renderer/pages/conversation/GroupedHistory';
+import SettingsSider from '@renderer/pages/settings/components/SettingsSider';
 
 interface SiderProps {
   onSessionClick?: () => void;
@@ -112,9 +111,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
       {/* Main content area */}
       <div className='flex-1 min-h-0 overflow-hidden'>
         {isSettings ? (
-          <Suspense fallback={<div className='size-full' />}>
-            <SettingsSider collapsed={collapsed} tooltipEnabled={tooltipEnabled} />
-          </Suspense>
+          <SettingsSider collapsed={collapsed} tooltipEnabled={tooltipEnabled} />
         ) : (
           <div className='size-full flex flex-col gap-2px'>
             {/* Search entry — desktop moves this into the titlebar toolbar;
@@ -130,13 +127,11 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
             )}
             {/* Scrollable content: pinned → projects → sessions (both always shown) */}
             <div className={classNames('flex-1 min-h-0 overflow-y-auto', siderStyles.scrollArea)}>
-              <Suspense fallback={<div className='min-h-200px' />}>
-                <WorkspaceGroupedHistory
-                  {...workspaceHistoryProps}
-                  onNewSession={handleNewChat}
-                  afterPinnedContent={null}
-                />
-              </Suspense>
+              <WorkspaceGroupedHistory
+                {...workspaceHistoryProps}
+                onNewSession={handleNewChat}
+                afterPinnedContent={null}
+              />
             </div>
             {/* Divider + secondary entries (Agents / Scheduled), fixed above the footer */}
             <div

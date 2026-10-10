@@ -1,38 +1,33 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import AppLoader from '@renderer/components/layout/AppLoader';
 import DocumentTitle from '@renderer/components/layout/DocumentTitle';
 import { useCrossSessionRateLimitNotice } from '@/renderer/hooks/system/useCrossSessionRateLimitNotice';
 import { useAuth } from '@renderer/hooks/context/AuthContext';
 import { TEAM_MODE_ENABLED } from '@/common/config/constants';
-const Conversation = React.lazy(() => import('@renderer/pages/conversation'));
-const Guid = React.lazy(() => import('@renderer/pages/guid'));
-const EngineSettings = React.lazy(() => import('@renderer/pages/settings/EngineSettings'));
+import Conversation from '@renderer/pages/conversation';
+import Guid from '@renderer/pages/guid';
+import EngineSettings from '@renderer/pages/settings/EngineSettings';
 // [crewchat] 独立于上游的 Agent 编排页
-const AgentComposer = React.lazy(() => import('@renderer/pages/settings/AgentComposer'));
-const AgentRepairPage = React.lazy(() => import('@renderer/pages/settings/EngineSettings/AgentRepairPage'));
-const SkillsSettings = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillsHubSettings'));
-const SkillDetailPage = React.lazy(() => import('@renderer/pages/settings/SkillsSettings/SkillDetailPage'));
-const ToolsSettings = React.lazy(() => import('@renderer/pages/settings/ToolsSettings'));
+import AgentComposer from '@renderer/pages/settings/AgentComposer';
+import AgentRepairPage from '@renderer/pages/settings/EngineSettings/AgentRepairPage';
+import SkillsSettings from '@renderer/pages/settings/SkillsSettings/SkillsHubSettings';
+import SkillDetailPage from '@renderer/pages/settings/SkillsSettings/SkillDetailPage';
+import ToolsSettings from '@renderer/pages/settings/ToolsSettings';
 // [crewchat] 用量统计页（只统计经本 app 发起的 CLI 身体消耗）
-const UsageSettings = React.lazy(() => import('@renderer/pages/settings/UsageSettings'));
-const AppearanceSettings = React.lazy(() => import('@renderer/pages/settings/AppearanceSettings'));
-const ModeSettings = React.lazy(() => import('@renderer/pages/settings/ModeSettings'));
-const SystemSettings = React.lazy(() => import('@renderer/pages/settings/SystemSettings'));
-const WebuiSettings = React.lazy(() => import('@renderer/pages/settings/WebuiSettings'));
-const PetSettings = React.lazy(() => import('@renderer/pages/settings/PetSettings'));
-const ArchivedSettings = React.lazy(() => import('@renderer/pages/settings/ArchivedSettings'));
-const ExtensionSettingsPage = React.lazy(() => import('@renderer/pages/settings/ExtensionSettingsPage'));
-const ComponentsShowcase = React.lazy(() => import('@renderer/pages/TestShowcase'));
-const ScheduledTasksPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage'));
-const TaskDetailPage = React.lazy(() => import('@renderer/pages/cron/ScheduledTasksPage/TaskDetailPage'));
-const TeamIndex = React.lazy(() => import('@renderer/pages/team'));
+import UsageSettings from '@renderer/pages/settings/UsageSettings';
+import AppearanceSettings from '@renderer/pages/settings/AppearanceSettings';
+import ModeSettings from '@renderer/pages/settings/ModeSettings';
+import SystemSettings from '@renderer/pages/settings/SystemSettings';
+import WebuiSettings from '@renderer/pages/settings/WebuiSettings';
+import PetSettings from '@renderer/pages/settings/PetSettings';
+import ArchivedSettings from '@renderer/pages/settings/ArchivedSettings';
+import ExtensionSettingsPage from '@renderer/pages/settings/ExtensionSettingsPage';
+import ComponentsShowcase from '@renderer/pages/TestShowcase';
+import ScheduledTasksPage from '@renderer/pages/cron/ScheduledTasksPage';
+import TaskDetailPage from '@renderer/pages/cron/ScheduledTasksPage/TaskDetailPage';
+import TeamIndex from '@renderer/pages/team';
 
-const withRouteFallback = (Component: React.LazyExoticComponent<React.ComponentType>) => (
-  <Suspense fallback={<AppLoader />}>
-    <Component />
-  </Suspense>
-);
+const withRouteFallback = (Component: React.ComponentType) => <Component />;
 
 /**
  * Legacy `/settings/capabilities?tab=tools` deep links now map to the standalone

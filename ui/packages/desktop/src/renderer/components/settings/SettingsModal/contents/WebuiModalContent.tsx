@@ -19,9 +19,11 @@ import ChannelTelegramLogo from '@/renderer/assets/channel-logos/telegram.svg';
 import ChannelWecomLogo from '@/renderer/assets/channel-logos/wecom.svg';
 import ChannelWeixinLogo from '@/renderer/assets/channel-logos/weixin.svg';
 import { isElectronDesktop } from '@/renderer/utils/platform';
+import { QRCodeSVG } from 'qrcode.react';
+import ChannelModalContent from './channels/ChannelModalContent';
 import { Button, Form, Input, Message, Switch, Tabs, Tooltip } from '@arco-design/web-react';
 import { CheckOne, Communication, Copy, Earth, EditTwo, Refresh } from '@icon-park/react';
-import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatTime } from '@/renderer/services/i18n/format';
 import { useSettingsViewMode } from '../settingsViewContext';
@@ -57,12 +59,6 @@ const CHANNEL_LOGOS = [
   { src: ChannelSlackLogo, alt: 'Slack' },
   { src: ChannelDiscordLogo, alt: 'Discord' },
 ] as const;
-
-const ChannelModalContentLazy = React.lazy(() => import('./channels/ChannelModalContent'));
-const QRCodeSVGLazy = React.lazy(async () => {
-  const mod = await import('qrcode.react');
-  return { default: mod.QRCodeSVG };
-});
 
 const DESKTOP_WEBUI_ENABLED_KEY = 'webui.desktop.enabled';
 const DESKTOP_WEBUI_ALLOW_REMOTE_KEY = 'webui.desktop.allowRemote';
@@ -561,9 +557,7 @@ const WebuiModalContent: React.FC = () => {
         <AionScrollArea className='flex-1 min-h-0 pb-16px' disableOverflow={isPageMode}>
           <div className='space-y-16px'>
             <h2 className='text-20px font-500 text-t-primary m-0'>{t('settings.channels', 'Channels')}</h2>
-            <Suspense fallback={<div className='text-13px text-t-secondary'>{t('common.loading')}</div>}>
-              <ChannelModalContentLazy />
-            </Suspense>
+            <ChannelModalContent />
           </div>
         </AionScrollArea>
       </div>
@@ -748,15 +742,7 @@ const WebuiModalContent: React.FC = () => {
                     </div>
                   ) : qrUrl ? (
                     <div className='p-8px bg-white rd-8px'>
-                      <Suspense
-                        fallback={
-                          <div className='w-140px h-140px flex items-center justify-center'>
-                            <span className='text-14px text-t-tertiary'>{t('common.loading')}</span>
-                          </div>
-                        }
-                      >
-                        <QRCodeSVGLazy value={qrUrl} size={140} level='M' />
-                      </Suspense>
+                      <QRCodeSVG value={qrUrl} size={140} level='M' />
                     </div>
                   ) : (
                     <div className='w-140px h-140px flex items-center justify-center'>
@@ -850,11 +836,7 @@ const WebuiModalContent: React.FC = () => {
         webuiPanel
       ) : (
         <div className='flex-1 min-h-0'>
-          <Suspense
-            fallback={<div className='px-[12px] md:px-[28px] text-13px text-t-secondary'>{t('common.loading')}</div>}
-          >
-            <ChannelModalContentLazy />
-          </Suspense>
+          <ChannelModalContent />
         </div>
       )}
 
