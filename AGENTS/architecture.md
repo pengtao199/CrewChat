@@ -60,7 +60,7 @@ src/crewchat/
 │   └── acp_body.py             全部 CLI 身体（ACP）
 ├── orchestration/          L3
 │   ├── session.py              Session、stream_ask、session_for
-│   └── group.py                群聊共享上下文（阶段 1）
+│   └── group.py                群聊共享上下文、显式委派与规划
 └── api/                    L4
     ├── app.py                  应用装配、静态托管、501 兜底
     ├── auth.py                 本地单用户鉴权
