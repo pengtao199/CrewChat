@@ -17,7 +17,7 @@ import { type TFunction } from 'i18next';
 import type { NavigateFunction } from 'react-router-dom';
 import { mutate as swrMutate } from 'swr';
 import { getConversationCreateErrorMessage } from '@/renderer/pages/conversation/utils/conversationCreateError';
-import { buildGroupRoster } from '../utils/groupRoster';
+import { buildGroupRoster, isGroupCrew, uniqueWorkers } from '../utils/groupRoster';
 
 export type GuidSendDeps = {
   // Input state
@@ -33,8 +33,7 @@ export type GuidSendDeps = {
   // Agent state
   selectedAgentId: string | null;
   selectedAgentBackend: string;
-  chatMode?: 'single' | 'group';
-  workerIds?: string[];
+  crewIds?: string[];
   managerReady?: boolean;
   selectedMode: string;
   selectedAcpModel: string | null;
@@ -83,8 +82,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     loading,
     selectedAgentId,
     selectedAgentBackend,
-    chatMode = 'single',
-    workerIds = [],
+    crewIds = [],
     managerReady = false,
     selectedMode,
     selectedAcpModel,
@@ -110,9 +108,10 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   const { workspaces, create: createWorkspace } = useWorkspaces();
 
   const handleSend = useCallback(async () => {
-    const isGroup = chatMode === 'group';
+    const crew = uniqueWorkers(crewIds);
+    const isGroup = isGroupCrew(crew);
     if (isGroup) {
-      if (!dir || workerIds.length === 0 || !managerReady) return;
+      if (!dir || !managerReady) return;
     } else if (!selectedAgentId) {
       return;
     }
@@ -195,7 +194,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
 
     const groupExtra = isGroup
       ? {
-          team_agent_ids: buildGroupRoster(workerIds),
+          team_agent_ids: buildGroupRoster(crew),
           leader_agent_id: 'crewchat-manager',
         }
       : {};
@@ -320,8 +319,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
     dir,
     selectedAgentId,
     selectedAgentBackend,
-    chatMode,
-    workerIds,
+    crewIds,
     managerReady,
     selectedMode,
     selectedAcpModel,
@@ -383,7 +381,7 @@ export const useGuidSend = (deps: GuidSendDeps): GuidSendResult => {
   // sending a message, so the gate only blocks while loading or with no agent.
   const isButtonDisabled =
     loading ||
-    (chatMode === 'group' ? !dir || workerIds.length === 0 || !managerReady : !selectedAgentId);
+    (isGroupCrew(crewIds) ? !dir || !managerReady : !selectedAgentId);
 
   return {
     handleSend,

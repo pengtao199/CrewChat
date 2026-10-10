@@ -685,6 +685,7 @@ export type I18nKey =
   | 'conversation.explorer.search.searching'
   | 'conversation.explorer.tabs.changes'
   | 'conversation.explorer.tabs.files'
+  | 'conversation.group.addMember'
   | 'conversation.group.configure'
   | 'conversation.group.createError.disabledAgent'
   | 'conversation.group.createError.leaderNotManager'

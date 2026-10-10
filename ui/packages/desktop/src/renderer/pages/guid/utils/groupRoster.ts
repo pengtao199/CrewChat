@@ -14,3 +14,7 @@ export function uniqueWorkers(ids: string[]): string[] {
 export function buildGroupRoster(workerIds: string[]): string[] {
   return [MANAGER_ID, ...uniqueWorkers(workerIds)];
 }
+
+export function isGroupCrew(ids: string[]): boolean {
+  return uniqueWorkers(ids).length >= 2;
+}

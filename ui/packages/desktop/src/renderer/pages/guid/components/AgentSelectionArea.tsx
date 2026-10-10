@@ -6,7 +6,7 @@
 
 import styles from '../index.module.css';
 import { agentRuntimeKey, type Agent } from '@/common/types/agent/agentTypes';
-import { Down, Robot } from '@icon-park/react';
+import { CloseSmall, Down, Plus, Robot } from '@icon-park/react';
 import { Button } from '@arco-design/web-react';
 import { AionSearchInput } from '@/renderer/components/base';
 import { useAgentOrder } from '@/renderer/hooks/agent/useAgentOrder';
@@ -56,20 +56,35 @@ export function hasTruncatedAgentLabels(root: HTMLElement | null): boolean {
   );
 }
 
+type PinnedAgent = {
+  id: string;
+  name: string;
+  avatar?: string;
+  locked?: boolean;
+};
+
+export type AgentPickSource = 'bar' | 'overflow';
+
 type AgentSelectionAreaProps = {
   selectedAgentId?: string | null;
+  selectedAgentIds?: string[];
   agents: Agent[];
   localeKey: string;
   maxVisibleAgents?: number;
-  onSelectAgent: (agentId: string) => void;
+  onSelectAgent: (agentId: string, source?: AgentPickSource) => void;
+  pinned?: PinnedAgent;
+  addLabel?: string;
 };
 
 const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
   selectedAgentId,
+  selectedAgentIds,
   agents,
   localeKey,
   maxVisibleAgents = 4,
   onSelectAgent,
+  pinned,
+  addLabel,
 }) => {
   const { t } = useTranslation();
   const { agentOrder } = useAgentOrder();
@@ -81,6 +96,9 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
   const hoverOpenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedId = selectedAgentId || undefined;
+  const selectedIds = selectedAgentIds ?? (selectedId ? [selectedId] : []);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const isGroup = selectedIds.length >= 2;
   const widthVisibleLimit = Math.min(Math.max(1, maxVisibleAgents), resolveAgentVisibleLimit(availableWidth));
   const [adaptiveVisibleLimit, setAdaptiveVisibleLimit] = useState(widthVisibleLimit);
   const visibleLimit = Math.min(widthVisibleLimit, adaptiveVisibleLimit);
@@ -91,7 +109,7 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
 
   useEffect(() => {
     setAdaptiveVisibleLimit(widthVisibleLimit);
-  }, [enabledAgents, selectedId, widthVisibleLimit]);
+  }, [enabledAgents, selectedId, selectedIds, widthVisibleLimit]);
 
   const clearHoverTimers = () => {
     if (hoverOpenTimer.current) {
@@ -167,7 +185,18 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
     return () => window.removeEventListener('resize', updateAvailableWidth);
   }, []);
 
+  const selectedAgents = useMemo(
+    () =>
+      selectedIds
+        .map((id) => enabledAgents.find((agent) => agent.id === id))
+        .filter((agent): agent is Agent => Boolean(agent)),
+    [enabledAgents, selectedIds]
+  );
+
   const visibleAgents = useMemo(() => {
+    if (isGroup) {
+      return selectedAgents;
+    }
     if (enabledAgents.length <= visibleLimit || !selectedId) {
       return enabledAgents.slice(0, visibleLimit);
     }
@@ -178,7 +207,7 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
     }
 
     return [...enabledAgents.slice(0, visibleLimit - 1), enabledAgents[selectedIndex]];
-  }, [enabledAgents, selectedId, visibleLimit]);
+  }, [enabledAgents, isGroup, selectedAgents, selectedId, visibleLimit]);
 
   useLayoutEffect(() => {
     if (visibleLimit <= 1 || !hasTruncatedAgentLabels(containerRef.current)) {
@@ -188,11 +217,14 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
     setAdaptiveVisibleLimit((currentLimit) => Math.max(1, Math.min(currentLimit, visibleLimit) - 1));
   }, [visibleAgents, visibleLimit]);
 
-  const hasOverflow = enabledAgents.length > visibleAgents.length;
   const overflowAgents = useMemo(() => {
+    if (isGroup) {
+      return enabledAgents.filter((agent) => !selectedIdSet.has(agent.id));
+    }
     const visibleIds = new Set(visibleAgents.map((agent) => agent.id));
     return enabledAgents.filter((agent) => !visibleIds.has(agent.id));
-  }, [enabledAgents, visibleAgents]);
+  }, [enabledAgents, isGroup, selectedIdSet, visibleAgents]);
+  const hasOverflow = overflowAgents.length > 0;
   const overflowColumns = widthVisibleLimit;
   // Search only earns its row when the unfiltered list is long enough to scan.
   const showOverflowSearch = Math.ceil(overflowAgents.length / overflowColumns) > 5;
@@ -219,11 +251,34 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
     );
   }, [agentSearchTextById, localeKey, overflowAgents, search, showOverflowSearch]);
 
-  if (enabledAgents.length === 0) return null;
+  if (enabledAgents.length === 0 && !pinned) return null;
 
-  const renderAgentPill = (agent: Agent, testId: string, fullWidth = false) => {
+  const isAgentSelected = (agentId: string) => selectedIdSet.has(agentId);
+
+  const renderPinnedPill = () => {
+    if (!pinned) return null;
+    return (
+      <span
+        key={pinned.id}
+        data-testid={`preset-pill-${pinned.id}`}
+        data-agent-id={pinned.id}
+        data-agent-selected='true'
+        className='inline-flex min-w-0 h-auto items-center gap-6px rounded-999px px-12px py-8px text-13px font-600 text-t-primary shadow-sm'
+        style={{ background: 'var(--bg-base, #fff)' }}
+      >
+        <span className='inline-flex h-20px w-20px items-center justify-center overflow-hidden rounded-999px bg-fill-2'>
+          <span className={styles.agentCardEmoji}>{pinned.avatar || '🧭'}</span>
+        </span>
+        <span data-agent-label='true' className='min-w-0 max-w-180px truncate whitespace-nowrap'>
+          {pinned.name}
+        </span>
+      </span>
+    );
+  };
+
+  const renderAgentPill = (agent: Agent, testId: string, source: AgentPickSource, fullWidth = false) => {
     const avatar = resolveAgentAvatar(agent.avatar);
-    const isSelected = selectedId === agent.id;
+    const isSelected = isAgentSelected(agent.id);
     const label = agent.name_i18n?.[localeKey] || agent.name;
 
     return (
@@ -243,7 +298,7 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
         }`}
         style={isSelected ? { background: 'var(--bg-base, #fff)' } : { background: 'transparent' }}
         onClick={() => {
-          onSelectAgent(agent.id);
+          onSelectAgent(agent.id, source);
           setMoreVisible(false);
         }}
       >
@@ -259,6 +314,7 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
         <span data-agent-label='true' className='min-w-0 max-w-180px truncate whitespace-nowrap'>
           {label}
         </span>
+        {isGroup && isSelected ? <CloseSmall theme='outline' size={12} /> : null}
       </Button>
     );
   };
@@ -286,7 +342,7 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
       >
         {filteredOverflowAgents.map((agent) => (
           <div key={agent.id} className='min-w-0'>
-            {renderAgentPill(agent, `agent-overflow-${agent.id}`, true)}
+            {renderAgentPill(agent, `agent-overflow-${agent.id}`, 'overflow', true)}
           </div>
         ))}
       </div>
@@ -298,22 +354,30 @@ const AgentSelectionArea: React.FC<AgentSelectionAreaProps> = ({
       <div className='flex w-full justify-center'>
         <div
           ref={barRef}
-          className='relative inline-flex max-w-full items-center rounded-999px px-6px py-6px'
+          className={`relative inline-flex max-w-full items-center px-6px py-6px ${
+            isGroup ? 'rounded-16px' : 'rounded-999px'
+          }`}
           style={{ background: 'var(--color-guid-agent-bar, var(--aou-2))' }}
-          onMouseEnter={hasOverflow ? handleBarMouseEnter : undefined}
-          onMouseLeave={hasOverflow ? handleBarMouseLeave : undefined}
+          onMouseEnter={!isGroup && hasOverflow ? handleBarMouseEnter : undefined}
+          onMouseLeave={!isGroup && hasOverflow ? handleBarMouseLeave : undefined}
         >
-          <div className='flex min-w-0 max-w-full items-center gap-6px'>
-            {visibleAgents.map((agent) => renderAgentPill(agent, `preset-pill-${agent.id}`))}
+          <div className='flex min-w-0 max-w-720px flex-wrap items-center justify-start gap-6px'>
+            {renderPinnedPill()}
+            {visibleAgents.map((agent) => renderAgentPill(agent, `preset-pill-${agent.id}`, 'bar'))}
             {hasOverflow ? (
               <Button
                 data-testid='agent-more-btn'
                 type='text'
-                className={`!ms-6px !inline-flex !h-34px !shrink-0 !items-center !gap-4px !rounded-999px !border-none !px-12px !py-8px !text-13px !text-t-secondary opacity-75 transition-opacity hover:opacity-100 ${styles.agentSelectorInactive}`}
+                className={`!inline-flex !h-34px !shrink-0 !items-center !gap-4px !rounded-999px !border-none !px-12px !py-8px !text-13px !text-t-secondary opacity-75 transition-opacity hover:opacity-100 ${styles.agentSelectorInactive}`}
                 onClick={() => setMoreVisible((visible) => !visible)}
               >
-                <span>{t('common.more', { defaultValue: 'More' })}</span>
-                <Down theme='outline' size={14} />
+                {isGroup ? <Plus theme='outline' size={14} /> : null}
+                <span>
+                  {isGroup
+                    ? addLabel || t('conversation.group.addMember')
+                    : t('common.more', { defaultValue: 'More' })}
+                </span>
+                {isGroup ? null : <Down theme='outline' size={14} />}
               </Button>
             ) : null}
           </div>
