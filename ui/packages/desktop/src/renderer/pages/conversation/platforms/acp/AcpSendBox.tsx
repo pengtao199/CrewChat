@@ -247,6 +247,13 @@ const AcpSendBox: React.FC<{
   };
   const isCancelling = runtimeView.state === 'cancelling';
   const isBusy = isCancelling || commandQueueRuntimeGate.isProcessing || !commandQueueRuntimeGate.canSendMessage;
+  const speakerStatus = useMemo(() => {
+    if (!runtimeView.speaking) return undefined;
+    const queued = runtimeView.queued.length;
+    return queued > 0
+      ? `${runtimeView.speaking} · ${t('conversation.turn.queued', { defaultValue: '{{count}} more', count: queued })}`
+      : runtimeView.speaking;
+  }, [runtimeView.queued.length, runtimeView.speaking, t]);
 
   // Register handler for adding text from preview panel to sendbox
   useEffect(() => {
@@ -796,7 +803,7 @@ Please check your local CLI tool authentication status`,
       />
       <ThoughtDisplay
         running={teamRuntime?.loading ?? (aiProcessing && !hasThinkingMessage)}
-        statusText={teamRuntime?.statusText}
+        statusText={teamRuntime?.statusText ?? speakerStatus}
         externalElapsedSource={Boolean(teamRuntime) || turnStartedAtMs != null}
         startedAtMs={teamRuntime ? (teamRuntime.startedAtMs ?? null) : turnStartedAtMs}
         onStop={effectiveHandleStop}

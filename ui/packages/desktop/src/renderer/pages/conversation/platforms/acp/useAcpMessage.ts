@@ -12,6 +12,7 @@ import type { SlashCommandItem } from '@/common/chat/slash/types';
 import type { IResponseMessage } from '@/common/adapter/ipcBridge';
 import type { TokenUsageBreakdown, TokenUsageData } from '@/common/config/storage';
 import { useMergeLiveMessage } from '@/renderer/pages/conversation/Messages/hooks';
+import { speakerChanged } from '@/renderer/pages/conversation/runtime/conversationRuntimeViewStore';
 import { logStreamTerminalObserved } from '@/renderer/pages/conversation/runtime/useConversationRuntimeView';
 import { getConversationOrNull } from '@/renderer/pages/conversation/utils/conversationCache';
 import { isConversationProcessing } from '@/renderer/pages/conversation/utils/conversationRuntime';
@@ -358,6 +359,11 @@ export const useAcpMessage = (
         case 'finish':
           {
             logStreamTerminalObserved(conversation_id, message.turn_id, 'acp', message.type);
+            // A group turn sends one finish per speaker. Only the last one ends
+            // the turn; earlier finishes just close that agent's bubble.
+            if (message.turn_complete === false) {
+              break;
+            }
             // Mark turn as finished to prevent auto-recover from late messages
             turnFinishedRef.current = true;
             // Immediate state reset (notification is handled by centralized hook)
@@ -385,6 +391,10 @@ export const useAcpMessage = (
           break;
         case 'text':
         case 'content': {
+          const senderName = (message.data as { senderName?: string } | undefined)?.senderName;
+          if (senderName) {
+            speakerChanged(conversation_id, senderName);
+          }
           // First content token — AI has started responding, clear processing indicator
           if (!hasContentInTurnRef.current) {
             hasContentInTurnRef.current = true;
