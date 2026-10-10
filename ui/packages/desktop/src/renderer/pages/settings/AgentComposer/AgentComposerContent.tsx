@@ -93,7 +93,7 @@ const AgentComposerContent: React.FC = () => {
   const normalize = useCallback((spec: AgentSpec, opts: ComposerOptions | null): AgentSpec => {
     const [providerId, model] = spec.brain.split('/');
     if (!providerId || model) return spec;
-    const provider = opts?.providers.find((p) => p.id === providerId);
+    const provider = opts?.providers?.find((p) => p.id === providerId);
     return provider ? { ...spec, brain: `${providerId}/${provider.model}` } : spec;
   }, []);
 
@@ -108,7 +108,7 @@ const AgentComposerContent: React.FC = () => {
       if (intent?.createAgent) {
         setSelected('');
         // 身体默认选第一个装好的 CLI，省得新 Agent 从一个跑不起来的身体开始。
-        const firstCli = opts.bodies.find((b) => b.available)?.id ?? opts.bodies[0]?.id ?? '';
+        const firstCli = opts.bodies?.find((b) => b.available)?.id ?? opts.bodies?.[0]?.id ?? '';
         setDraft({ ...EMPTY, id: '', name: '', body: firstCli });
         setDirty(false);
         navigate(location.pathname, { replace: true, state: null });
@@ -138,7 +138,7 @@ const AgentComposerContent: React.FC = () => {
 
   const providerId = draft.brain.split('/')[0] ?? '';
   const provider = useMemo(
-    () => options?.providers.find((p) => p.id === providerId) ?? null,
+    () => options?.providers?.find((p) => p.id === providerId) ?? null,
     [options, providerId]
   );
 
@@ -226,7 +226,7 @@ const AgentComposerContent: React.FC = () => {
     if (!draft.id) return void Message.error(t('settings.agentComposer.idRequired'));
     if (!draft.body) return void Message.error(t('settings.agentComposer.bodyRequired'));
     // 自带登录的身体可以不配大脑（用 CLI 自己的）；其余必须有端点。
-    const chosen = options?.bodies.find((b) => b.id === draft.body);
+    const chosen = options?.bodies?.find((b) => b.id === draft.body);
     if (chosen && !chosen.has_builtin_brain && !draft.brain) {
       return void Message.error(t('settings.agentComposer.brainRequired'));
     }
@@ -266,7 +266,7 @@ const AgentComposerContent: React.FC = () => {
     });
   };
 
-  const bodyInfo = options?.bodies.find((b) => b.id === draft.body);
+  const bodyInfo = options?.bodies?.find((b) => b.id === draft.body);
   const modelId = draft.brain.split('/')[1] ?? '';
   const modelChoices = useMemo(() => {
     const rows = (provider?.models ?? [])
@@ -281,10 +281,10 @@ const AgentComposerContent: React.FC = () => {
     return rows;
   }, [provider, modelId, models]);
   const describeAgent = (agent: AgentSpec) => {
-    const body = options?.bodies.find((item) => item.id === agent.body)?.label || agent.body;
-    const [pid, mid] = agent.brain.split('/');
-    const brain = options?.providers.find((item) => item.id === pid);
-    const model = brain?.models.find((item) => item.id === mid);
+    const body = options?.bodies?.find((item) => item.id === agent.body)?.label || agent.body;
+    const [pid, mid] = (agent.brain || '').split('/');
+    const brain = options?.providers?.find((item) => item.id === pid);
+    const model = brain?.models?.find((item) => item.id === mid);
     return [body, brain?.name, model?.label || mid].filter(Boolean).join(' · ') || '—';
   };
   const c = 'settings.agentComposer';
@@ -395,7 +395,7 @@ const AgentComposerContent: React.FC = () => {
                   value={providerId || undefined}
                   placeholder={t(`${c}.pickEndpoint`)}
                   onChange={(id) => {
-                    const picked = options?.providers.find((p) => p.id === id);
+                    const picked = options?.providers?.find((p) => p.id === id);
                     update({ brain: picked ? `${id}/${picked.model}` : id });
                   }}
                 >
