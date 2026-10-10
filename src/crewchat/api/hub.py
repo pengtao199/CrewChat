@@ -167,6 +167,38 @@ def finish_frame(
     return frame
 
 
+def thinking_frame(
+    conversation_id: str,
+    msg_id: str,
+    content: str,
+    turn_id: str | None = None,
+    *,
+    status: str = "thinking",
+    sender: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """One agent's thinking / reasoning stream.
+
+    Shape matches the renderer's `thinking` branch: `data.content` is the
+    accumulated thought, `data.status` is `thinking` until a later text frame
+    closes the card.
+    """
+    data: dict[str, Any] = {"content": content, "status": status}
+    if sender:
+        data.update(sender)
+    frame: dict[str, Any] = {
+        "type": "thinking",
+        "data": data,
+        "msg_id": msg_id,
+        "conversation_id": conversation_id,
+        "created_at": int(time.time() * 1000),
+        "status": "work",
+        "replace": True,
+    }
+    if turn_id:
+        frame["turn_id"] = turn_id
+    return frame
+
+
 def error_frame(conversation_id: str, msg_id: str, message: str) -> dict[str, Any]:
     return {
         "type": "error",

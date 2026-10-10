@@ -36,6 +36,7 @@ from .hub import (
     finish_frame,
     hub,
     text_frame,
+    thinking_frame,
     tool_frame,
     turn_completed_frame,
     user_created_frame,
@@ -205,6 +206,7 @@ async def _run_turn(
             reply_msg_id = uuid.uuid4().hex
             sender = _sender(spec, group)
             buffer: list[str] = []
+            thought: list[str] = []
             usage: dict[str, Any] = {}
             error_text = ""
 
@@ -217,7 +219,19 @@ async def _run_turn(
             )
 
             async for event in session.stream_ask(spec, prompt, f"conv:{conversation_id}"):
-                if event.kind == "delta" and event.text:
+                if event.kind == "thinking" and event.text:
+                    thought.append(event.text)
+                    await hub.broadcast(
+                        "message.stream",
+                        thinking_frame(
+                            conversation_id,
+                            reply_msg_id,
+                            "".join(thought),
+                            turn_id,
+                            sender=sender,
+                        ),
+                    )
+                elif event.kind == "delta" and event.text:
                     buffer.append(event.text)
                     await hub.broadcast(
                         "message.stream",

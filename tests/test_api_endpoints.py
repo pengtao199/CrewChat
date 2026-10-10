@@ -59,7 +59,7 @@ def test_agent_enabled_persists(client) -> None:  # type: ignore[no-untyped-def]
     c, _ = client
     created = c.put(
         f"{PREFIX}/crewchat/agents/demo",
-        json={"id": "demo", "name": "Demo", "body": "llm", "brain": "p/m", "enabled": False},
+        json={"id": "demo", "name": "Demo", "body": "opencode", "brain": "p/m", "enabled": False},
     )
     assert created.status_code == 200, created.text
     assert created.json()["enabled"] is False
@@ -315,7 +315,7 @@ def test_gateway_model_routes_cli_body(monkeypatch) -> None:  # type: ignore[no-
     assert session._gateway_model(spec, provider, True) == "ccs-claude-p--m"  # cached
     assert calls == [("claude", "p", "m")]
 
-    # A body that self-configures per run (opencode/llm) is never routed globally.
+    # A body that self-configures per run (opencode) is never routed globally.
     assert session._gateway_model(AgentSpec(id="b", body="opencode", brain="p/m"), provider, False) is None
     # no brain → leave the CLI's own login alone.
     assert session._gateway_model(spec, None, True) is None
@@ -560,8 +560,8 @@ def test_manager_without_plan_does_not_run_members(client, monkeypatch) -> None:
     c, _ = client
     c.post(f"{PREFIX}/conversations", json={"id": "conv-lead", "name": "lead"})
 
-    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="llm", brain="p/m")
-    worker = AgentSpec(id="coder", name="Coder", body="llm", brain="p/m")
+    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="opencode", brain="p/m")
+    worker = AgentSpec(id="coder", name="Coder", body="opencode", brain="p/m")
     specs = [leader, worker]
     called: list[str] = []
     by_id = {spec.id: spec for spec in specs}
@@ -598,8 +598,8 @@ def test_manager_plan_runs_members_then_summarizes(client, monkeypatch) -> None:
     c, _ = client
     c.post(f"{PREFIX}/conversations", json={"id": "conv-mgr", "name": "mgr"})
 
-    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="llm", brain="p/m")
-    worker = AgentSpec(id="coder", name="Coder", body="llm", brain="p/m")
+    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="opencode", brain="p/m")
+    worker = AgentSpec(id="coder", name="Coder", body="opencode", brain="p/m")
     specs = [leader, worker]
     prompts: list[tuple[str, str]] = []
     replies = {
@@ -654,8 +654,8 @@ def test_manager_summary_includes_a_failed_member(client, monkeypatch) -> None: 
     c, _ = client
     c.post(f"{PREFIX}/conversations", json={"id": "conv-fail", "name": "fail"})
 
-    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="llm", brain="p/m")
-    worker = AgentSpec(id="coder", name="Coder", body="llm", brain="p/m")
+    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="opencode", brain="p/m")
+    worker = AgentSpec(id="coder", name="Coder", body="opencode", brain="p/m")
     specs = [leader, worker]
     prompts: list[str] = []
     replies = {MANAGER_ID: deque(['plan(owner="Coder", task="改文件", done="有 diff")', "成员失败了"])}
@@ -749,7 +749,7 @@ def test_send_broadcasts_user_message_and_turn_completion(client, monkeypatch) -
     c, _ = client
     c.post(f"{PREFIX}/conversations", json={"id": "conv-s", "name": "send"})
 
-    specs = [AgentSpec(id="a", body="llm", brain="p/m")]
+    specs = [AgentSpec(id="a", body="opencode", brain="p/m")]
     sent: list[tuple[str, dict]] = []
 
     class _Hub:
@@ -791,7 +791,7 @@ def test_reply_carries_agent_identity_for_reload(client, monkeypatch) -> None:  
     c, _ = client
     c.post(f"{PREFIX}/conversations", json={"id": "conv-i", "name": "id"})
 
-    specs = [AgentSpec(id="solo", body="llm", brain="p/m")]
+    specs = [AgentSpec(id="solo", body="opencode", brain="p/m")]
     sent: list[dict] = []
 
     class _Hub:
@@ -810,13 +810,56 @@ def test_reply_carries_agent_identity_for_reload(client, monkeypatch) -> None:  
     texts = [f for f in sent if f.get("type") == "text"]
     assert texts and texts[0]["data"]["senderName"] == specs[0].display
     assert texts[0]["data"]["senderAgentId"] == "solo"
-    assert texts[0]["data"]["senderAgentType"] == "llm"
+    assert texts[0]["data"]["senderAgentType"] == "opencode"
     # A 1:1 reply is not a teammate reply.
     assert texts[0]["data"]["teammateMessage"] is False
 
     row = c.get(f"{PREFIX}/conversations/conv-i/messages").json()["items"][0]
     assert row["content"]["senderAgentId"] == "solo"
-    assert row["content"]["senderAgentType"] == "llm"
+    assert row["content"]["senderAgentType"] == "opencode"
+
+
+def test_thinking_is_broadcast_before_text(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Reasoning chunks must reach the socket as `thinking` frames."""
+    import asyncio
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-th", "name": "think"})
+
+    specs = [AgentSpec(id="solo", body="opencode", brain="p/m")]
+    sent: list[dict] = []
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            sent.append(data)
+
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    monkeypatch.setattr(
+        chat_mod,
+        "_for_conversation",
+        lambda _cid: (
+            _fake_session(
+                specs,
+                {"solo": [_event("thinking", text="先拆任务"), _event("delta", text="好")]},
+            ),
+            specs,
+        ),
+    )
+    chat_mod._running.clear()
+    chat_mod._speaker_state.clear()
+
+    asyncio.run(chat_mod._run_turn("conv-th", specs, "hi", "t-th"))
+
+    kinds = [f.get("type") for f in sent]
+    assert "thinking" in kinds
+    thought = next(f for f in sent if f.get("type") == "thinking")
+    assert thought["data"]["content"] == "先拆任务"
+    assert thought["data"]["status"] == "thinking"
+    assert thought["data"]["senderAgentId"] == "solo"
+    assert kinds.index("thinking") < kinds.index("text")
 
 
 def test_tool_frame_carries_input_and_output() -> None:  # type: ignore[no-untyped-def]
@@ -865,7 +908,7 @@ def test_manager_restore_does_not_overwrite(client) -> None:  # type: ignore[no-
 
     edited = c.put(
         f"{PREFIX}/crewchat/agents/crewchat-manager",
-        json={"name": "室长", "body": "llm", "brain": "p/m", "enabled": True},
+        json={"name": "室长", "body": "opencode", "brain": "p/m", "enabled": True},
     )
     assert edited.status_code == 200, edited.text
     again = c.post(f"{PREFIX}/crewchat/agents/manager/restore").json()
@@ -876,7 +919,7 @@ def test_manager_restore_does_not_overwrite(client) -> None:  # type: ignore[no-
 
 def test_create_conversation_binds_single_agent(client) -> None:  # type: ignore[no-untyped-def]
     c, _ = client
-    c.put(f"{PREFIX}/crewchat/agents/coder", json={"name": "Coder", "body": "llm", "brain": "p/m"})
+    c.put(f"{PREFIX}/crewchat/agents/coder", json={"name": "Coder", "body": "opencode", "brain": "p/m"})
     created = c.post(
         f"{PREFIX}/conversations",
         json={"id": "solo-1", "name": "solo", "agent": {"id": "coder"}},
@@ -895,7 +938,7 @@ def test_create_group_requires_project_and_ready_manager(client, tmp_path) -> No
     project_id = c.post(
         f"{PREFIX}/crewchat/projects", json={"name": "g", "path": str(workspace)}
     ).json()["id"]
-    c.put(f"{PREFIX}/crewchat/agents/coder", json={"name": "Coder", "body": "llm", "brain": "p/m"})
+    c.put(f"{PREFIX}/crewchat/agents/coder", json={"name": "Coder", "body": "opencode", "brain": "p/m"})
 
     missing_project = c.post(
         f"{PREFIX}/conversations",
@@ -921,7 +964,7 @@ def test_create_group_requires_project_and_ready_manager(client, tmp_path) -> No
 
     c.put(
         f"{PREFIX}/crewchat/agents/crewchat-manager",
-        json={"name": "管理员", "body": "llm", "brain": "p/m", "enabled": True},
+        json={"name": "管理员", "body": "opencode", "brain": "p/m", "enabled": True},
     )
     unknown = c.post(
         f"{PREFIX}/conversations",
