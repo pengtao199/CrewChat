@@ -142,6 +142,37 @@ def plan_steps(specs: list[AgentSpec], content: str) -> list[TurnStep]:
     return [TurnStep(spec=spec, kind="roster", task=content) for spec in specs]
 
 
+def lead_steps(leader: AgentSpec, content: str) -> list[TurnStep]:
+    """A managed group starts with the leader. Members join only through a plan."""
+    return [TurnStep(spec=leader, kind="lead", task=content)]
+
+
+def strip_control_calls(text: str) -> str:
+    """Drop plan() / handoff() lines so the bubble keeps the prose, not the protocol."""
+    kept: list[str] = []
+    for line in text.splitlines():
+        if _PLAN_CALL.search(line) or _HANDOFF_CALL.search(line):
+            continue
+        kept.append(line)
+    return "\n".join(kept).strip()
+
+
+def format_outcomes(outcomes: list[tuple[str, str, str]], *, limit: int = PER_OUTPUT_LIMIT) -> str:
+    """What each speaker did, for the leader's last pass."""
+    if not outcomes:
+        return ""
+    lines = ["各步结果："]
+    for name, status, detail in outcomes:
+        if status == "ok":
+            body = _clip(detail, limit)
+            lines.append(f"- {name}：完成\n{body}" if body else f"- {name}：完成")
+        elif status == "error":
+            lines.append(f"- {name}：失败（{_clip(detail, 400)}）")
+        else:
+            lines.append(f"- {name}：无产出")
+    return "\n".join(lines)
+
+
 def accept_handoff(
     steps: list[TurnStep],
     index: int,
@@ -184,6 +215,7 @@ def build_handoff_prompt(
     requester: str,
     *,
     limit: int = PER_OUTPUT_LIMIT,
+    outcomes: list[tuple[str, str, str]] | None = None,
 ) -> str:
     """Prompt for an agent who was handed a subtask.
 
@@ -209,6 +241,10 @@ def build_handoff_prompt(
         f"{who} 把一个子任务交给你。只做这件子任务，不要重答用户的原话，不要再写 handoff 或 plan。\n\n"
         f"子任务：\n{task}"
     )
+    if outcomes:
+        formatted = format_outcomes(outcomes, limit=limit)
+        if formatted:
+            parts.append(formatted)
     return "\n\n".join(parts)
 
 

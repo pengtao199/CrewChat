@@ -386,6 +386,24 @@ def test_plan_runs_in_dependency_order_and_drops_unknown_owners() -> None:
     assert "负责人" in steps[-1].task
 
 
+def test_lead_steps_start_with_the_manager_only() -> None:
+    from crewchat.core.agent_presets import MANAGER_ID
+    from crewchat.core.models import AgentSpec
+    from crewchat.orchestration.group import lead_steps, strip_control_calls
+
+    leader = AgentSpec(id=MANAGER_ID, name="管理员")
+    steps = lead_steps(leader, "拆这个任务")
+    assert [(step.spec.id, step.kind, step.task) for step in steps] == [
+        (MANAGER_ID, "lead", "拆这个任务")
+    ]
+    assert (
+        strip_control_calls(
+            '先说明意图\nplan(owner="甲", task="写", done="有文件")\n然后等他们。'
+        )
+        == "先说明意图\n然后等他们。"
+    )
+
+
 def test_group_prompt_truncates_oversized_prior_output() -> None:
     """A long upstream reply must not be pasted whole into the next speaker."""
     from crewchat.core.models import AgentSpec

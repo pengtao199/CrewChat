@@ -17,15 +17,18 @@ from fastapi.responses import JSONResponse
 
 from ..core.models import AgentSpec
 from ..orchestration import session_for
+from ..core.agent_presets import MANAGER_ID
 from ..orchestration.group import (
     accept_handoff,
     apply_plan,
     build_handoff_prompt,
     build_prompt,
+    lead_steps,
     parse_handoff,
     parse_plan,
     plan_steps,
     resolve_handoff,
+    strip_control_calls,
 )
 from .conversations import ensure_conversation, persist_turn
 from .hub import (
@@ -171,9 +174,11 @@ async def _run_turn(
     group = len(specs) > 1
     #: (display, output) of the agents that already spoke, fed forward in order.
     prior: list[tuple[str, str]] = []
+    outcomes: list[tuple[str, str, str]] = []
+    leader = next((spec for spec in specs if spec.id == MANAGER_ID), None)
     # One extra pass per agent is enough for a handoff back; beyond that the
     # queue stops so two agents cannot delegate forever.
-    steps = plan_steps(specs, content)
+    steps = lead_steps(leader, content) if group and leader is not None else plan_steps(specs, content)
     max_steps = max(len(specs) * 2, 1)
 
     try:
@@ -185,7 +190,14 @@ async def _run_turn(
             step = steps[index]
             spec = step.spec
             if group and step.kind == "handoff":
-                prompt = build_handoff_prompt(spec, specs, step.task, prior, step.requester)
+                prompt = build_handoff_prompt(
+                    spec,
+                    specs,
+                    step.task,
+                    prior,
+                    step.requester,
+                    outcomes=outcomes if spec.id == MANAGER_ID else None,
+                )
             elif group:
                 prompt = build_prompt(spec, specs, step.task, prior)
             else:
@@ -194,6 +206,7 @@ async def _run_turn(
             sender = _sender(spec, group)
             buffer: list[str] = []
             usage: dict[str, Any] = {}
+            error_text = ""
 
             # Tell the UI who is about to speak and who is still queued.
             _broadcast_speaker(
@@ -231,6 +244,7 @@ async def _run_turn(
                         ),
                     )
                 elif event.kind == "error" and event.text:
+                    error_text = event.text
                     await hub.broadcast(
                         "message.stream", error_frame(conversation_id, reply_msg_id, event.text)
                     )
@@ -252,11 +266,12 @@ async def _run_turn(
                         )
 
             text = "".join(buffer).strip()
-            if text:
+            visible = strip_control_calls(text)
+            if visible:
                 persist_turn(
                     conversation_id,
                     "assistant",
-                    text,
+                    visible,
                     spec.display,
                     metadata={
                         "agent_id": spec.id,
@@ -268,70 +283,86 @@ async def _run_turn(
                 # Feed this agent's output to the next speaker. Done only after the
                 # reply is complete (and only when non-empty) so a silent or failed
                 # agent does not inject an empty block downstream.
-                prior.append((spec.display, text))
-                if group:
-                    planned = apply_plan(
-                        steps,
-                        index,
-                        parse_plan(text),
-                        specs,
-                        spec,
-                        max_steps=max_steps,
-                    )
-                    if planned:
-                        for number, (owner, task) in enumerate(planned, 1):
-                            label = f"{number}. {owner.display}：{task.description}"
-                            await hub.broadcast(
-                                "message.stream",
-                                tool_frame(
-                                    conversation_id,
-                                    reply_msg_id,
-                                    "plan",
-                                    "completed",
-                                    turn_id,
-                                    f"plan-{reply_msg_id}-{number}",
-                                    {"to": owner.display, "task": label},
-                                    task.expected_output or "已排入",
-                                ),
-                            )
-                    else:
-                        requested = parse_handoff(text)
-                        target = (
-                            resolve_handoff(requested[0], specs, spec.id)
-                            if requested is not None
-                            else None
-                        )
-                        if (
-                            requested is not None
-                            and target is not None
-                            and accept_handoff(
-                                steps,
-                                index,
-                                target,
-                                requested[1],
-                                spec.display,
-                                max_steps=max_steps,
-                            )
-                        ):
-                            await hub.broadcast(
-                                "message.stream",
-                                tool_frame(
-                                    conversation_id,
-                                    reply_msg_id,
-                                    "handoff",
-                                    "completed",
-                                    turn_id,
-                                    f"handoff-{reply_msg_id}",
-                                    {"to": target.display, "task": requested[1]},
-                                    f"交给 {target.display}",
-                                ),
-                            )
-                    _broadcast_speaker(
+                prior.append((spec.display, visible))
+                await hub.broadcast(
+                    "message.stream",
+                    text_frame(
                         conversation_id,
+                        reply_msg_id,
+                        visible,
                         turn_id,
-                        spec.display,
-                        [pending.spec.display for pending in steps[index + 1 :]],
+                        sender=sender,
+                    ),
+                )
+            if visible:
+                outcomes.append((spec.display, "ok", visible))
+            elif error_text:
+                outcomes.append((spec.display, "error", error_text))
+            else:
+                outcomes.append((spec.display, "empty", ""))
+            if group and text:
+                planned = apply_plan(
+                    steps,
+                    index,
+                    parse_plan(text),
+                    specs,
+                    spec,
+                    max_steps=max_steps,
+                )
+                if planned:
+                    for number, (owner, task) in enumerate(planned, 1):
+                        label = f"{number}. {owner.display}：{task.description}"
+                        await hub.broadcast(
+                            "message.stream",
+                            tool_frame(
+                                conversation_id,
+                                reply_msg_id,
+                                "plan",
+                                "completed",
+                                turn_id,
+                                f"plan-{reply_msg_id}-{number}",
+                                {"to": owner.display, "task": label},
+                                task.expected_output or "已排入",
+                            ),
+                        )
+                elif step.kind != "lead":
+                    requested = parse_handoff(text)
+                    target = (
+                        resolve_handoff(requested[0], specs, spec.id)
+                        if requested is not None
+                        else None
                     )
+                    if (
+                        requested is not None
+                        and target is not None
+                        and accept_handoff(
+                            steps,
+                            index,
+                            target,
+                            requested[1],
+                            spec.display,
+                            max_steps=max_steps,
+                        )
+                    ):
+                        await hub.broadcast(
+                            "message.stream",
+                            tool_frame(
+                                conversation_id,
+                                reply_msg_id,
+                                "handoff",
+                                "completed",
+                                turn_id,
+                                f"handoff-{reply_msg_id}",
+                                {"to": target.display, "task": requested[1]},
+                                f"交给 {target.display}",
+                            ),
+                        )
+                _broadcast_speaker(
+                    conversation_id,
+                    turn_id,
+                    spec.display,
+                    [pending.spec.display for pending in steps[index + 1 :]],
+                )
             await hub.broadcast(
                 "message.stream",
                 finish_frame(

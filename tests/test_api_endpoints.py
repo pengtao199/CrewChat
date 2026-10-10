@@ -547,6 +547,139 @@ def test_leader_plan_runs_the_second_step_with_the_first_output(client, monkeypa
     ]
 
 
+def test_manager_without_plan_does_not_run_members(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import asyncio
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.agent_presets import MANAGER_ID
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-lead", "name": "lead"})
+
+    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="llm", brain="p/m")
+    worker = AgentSpec(id="coder", name="Coder", body="llm", brain="p/m")
+    specs = [leader, worker]
+    called: list[str] = []
+    by_id = {spec.id: spec for spec in specs}
+
+    class _Session:
+        specs = by_id
+
+        async def stream_ask(self, spec, prompt, memory_key):  # type: ignore[no-untyped-def]
+            called.append(spec.id)
+            yield _event("delta", text="这题我自己就能答：42")
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            return None
+
+    monkeypatch.setattr(chat_mod, "_for_conversation", lambda _cid: (_Session(), specs))
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    chat_mod._running.clear()
+    asyncio.run(chat_mod._run_turn("conv-lead", specs, "多少？", "t-lead"))
+    assert called == [MANAGER_ID]
+    rows = c.get(f"{PREFIX}/conversations/conv-lead/messages").json()["items"]
+    assert [row["metadata"]["agent_id"] for row in rows] == [MANAGER_ID]
+    assert "42" in rows[0]["content"]["content"]
+
+
+def test_manager_plan_runs_members_then_summarizes(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import asyncio
+    from collections import deque
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.agent_presets import MANAGER_ID
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-mgr", "name": "mgr"})
+
+    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="llm", brain="p/m")
+    worker = AgentSpec(id="coder", name="Coder", body="llm", brain="p/m")
+    specs = [leader, worker]
+    prompts: list[tuple[str, str]] = []
+    replies = {
+        MANAGER_ID: deque(
+            [
+                '先拆开。\nplan(owner="Coder", task="只回答海星", done="只有海星")',
+                "汇总：Coder 回答了海星",
+            ]
+        ),
+        "coder": deque(["海星"]),
+    }
+    by_id = {spec.id: spec for spec in specs}
+
+    class _Session:
+        specs = by_id
+
+        async def stream_ask(self, spec, prompt, memory_key):  # type: ignore[no-untyped-def]
+            prompts.append((spec.id, prompt))
+            yield _event("delta", text=replies[spec.id].popleft())
+
+    sent: list[dict] = []
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            sent.append(data)
+
+    monkeypatch.setattr(chat_mod, "_for_conversation", lambda _cid: (_Session(), specs))
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    chat_mod._running.clear()
+    asyncio.run(chat_mod._run_turn("conv-mgr", specs, "用户原话不要复述", "t-mgr"))
+
+    assert [spec_id for spec_id, _ in prompts] == [MANAGER_ID, "coder", MANAGER_ID]
+    assert "只回答海星" in prompts[1][1]
+    assert "用户原话不要复述" not in prompts[1][1]
+    assert "各步结果" in prompts[2][1]
+    assert "海星" in prompts[2][1]
+
+    rows = c.get(f"{PREFIX}/conversations/conv-mgr/messages").json()["items"]
+    lead = next(row for row in rows if row["metadata"]["agent_id"] == MANAGER_ID)
+    assert "plan(" not in lead["content"]["content"]
+    assert "先拆开" in lead["content"]["content"]
+
+
+def test_manager_summary_includes_a_failed_member(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import asyncio
+    from collections import deque
+
+    from crewchat.api import chat as chat_mod
+    from crewchat.core.agent_presets import MANAGER_ID
+    from crewchat.core.models import AgentSpec
+
+    c, _ = client
+    c.post(f"{PREFIX}/conversations", json={"id": "conv-fail", "name": "fail"})
+
+    leader = AgentSpec(id=MANAGER_ID, name="管理员", body="llm", brain="p/m")
+    worker = AgentSpec(id="coder", name="Coder", body="llm", brain="p/m")
+    specs = [leader, worker]
+    prompts: list[str] = []
+    replies = {MANAGER_ID: deque(['plan(owner="Coder", task="改文件", done="有 diff")', "成员失败了"])}
+    by_id = {spec.id: spec for spec in specs}
+
+    class _Session:
+        specs = by_id
+
+        async def stream_ask(self, spec, prompt, memory_key):  # type: ignore[no-untyped-def]
+            if spec.id == MANAGER_ID:
+                prompts.append(prompt)
+                yield _event("delta", text=replies[MANAGER_ID].popleft())
+                return
+            yield _event("error", text="引擎未安装")
+
+    class _Hub:
+        async def broadcast(self, name, data):
+            return None
+
+    monkeypatch.setattr(chat_mod, "_for_conversation", lambda _cid: (_Session(), specs))
+    monkeypatch.setattr(chat_mod, "hub", _Hub())
+    chat_mod._running.clear()
+    asyncio.run(chat_mod._run_turn("conv-fail", specs, "改一处", "t-fail"))
+    assert any("失败" in prompt for prompt in prompts)
+    assert any("引擎未安装" in prompt for prompt in prompts)
+
+
 def test_cancel_does_not_run_a_queued_handoff(client, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     """Cancelling the turn drops the queue. The delegate must not start."""
     import asyncio
