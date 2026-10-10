@@ -51,7 +51,8 @@ def test_agents_options_serializes(client) -> None:  # type: ignore[no-untyped-d
     body = r.json()
     assert set(body) >= {"providers", "bodies", "skills", "mcps", "plugins"}
     for provider in body["providers"]:
-        assert {"id", "name", "model", "base_url", "has_key"} <= set(provider)
+        assert {"id", "name", "model", "base_url", "has_key", "models"} <= set(provider)
+        assert isinstance(provider["models"], list)
 
 
 def test_agent_enabled_persists(client) -> None:  # type: ignore[no-untyped-def]

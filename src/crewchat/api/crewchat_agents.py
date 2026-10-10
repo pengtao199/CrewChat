@@ -97,7 +97,8 @@ async def agent_options() -> dict[str, Any]:
     settings = get_settings()
     providers = load_providers(settings)
     return {
-        # 只回调用方真正要用的字段；模型列表走 /api/providers/fetch-models（按端点实时拉取）。
+        # 只回调用方真正要用的字段。模型带上已保存的展示名，列表副标题不用再猜 id。
+        # 下拉打开时仍可走 /api/providers/fetch-models 补实时列表。
         "providers": [
             {
                 "id": p.id,
@@ -105,6 +106,10 @@ async def agent_options() -> dict[str, Any]:
                 "model": p.model,
                 "base_url": p.base_url,
                 "has_key": p.has_key(),
+                "models": [
+                    {"id": m.id, "label": m.label, "enabled": m.enabled}
+                    for m in p.models
+                ],
             }
             for p in providers
         ],
