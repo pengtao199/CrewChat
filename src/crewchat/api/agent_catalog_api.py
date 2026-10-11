@@ -112,7 +112,6 @@ def to_detail(spec, index: int) -> dict[str, Any]:
         "prompts": {"recommended": [], "recommended_i18n": {}},
         "defaults": {
             "model": _scalar(model_value),
-            "permission": _scalar(None, "auto"),
             "thought_level": _scalar(None, "auto"),
             "skills": _list_default(spec.skills),
             "mcps": _list_default(spec.mcps),
