@@ -171,6 +171,37 @@ export function ccrSaveConfig(config: CcrConfig): Promise<unknown> {
   return ccrCall("saveConfig", [config])
 }
 
+/** Apply CCR's agent profiles — writes each bound CLI's own config. */
+export function ccrApplyProfile(): Promise<unknown> {
+  return ccrCall("applyProfile")
+}
+
+/**
+ * [crewchat] The CCR profile agent kinds this fork can bind a CLI body to.
+ * Everything else (gemini, hermes, cursor, cline, deepseek, …) is outside
+ * CCR's profile registry and shows as "CCR 暂不支持" on the Agents settings
+ * page. Keys are Codeg `AgentType`s.
+ */
+export const CCR_AGENT_KIND_BY_BODY: Record<string, string> = {
+  claude_code: "claude-code",
+  codex: "codex",
+  grok: "grok",
+  open_code: "opencode",
+  pi: "pi",
+  kimi_code: "kimi",
+}
+
+export function ccrAgentKindForBody(body: string): string | null {
+  return CCR_AGENT_KIND_BY_BODY[body] ?? null
+}
+
+/** Read CCR's configured agent profiles; [] tolerates configs without any. */
+export async function ccrGetProfiles(): Promise<CcrProfileSummary[]> {
+  const config = await ccrGetConfig(1)
+  const profiles = config.profile?.profiles
+  return Array.isArray(profiles) ? profiles : []
+}
+
 export function ccrGetProviderPresets(): Promise<CcrProviderPreset[]> {
   return ccrCall<CcrProviderPreset[]>("getProviderPresets")
 }
