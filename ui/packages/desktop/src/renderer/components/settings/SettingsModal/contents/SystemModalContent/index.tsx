@@ -25,6 +25,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { useSettingsViewMode } from '../../settingsViewContext';
+import AutoApprovePermissionsRow from './AutoApprovePermissionsRow';
 import BrowserNotificationGrant from './BrowserNotificationGrant';
 import DevSettings from './DevSettings';
 import BrowserDataSection from './BrowserDataSection';
@@ -507,6 +508,8 @@ const SystemModalContent: React.FC = () => {
                   {item.component}
                 </PreferenceRow>
               ))}
+              {/* [crewchat] 唯一的权限开关：自动批准所有权限请求 */}
+              <AutoApprovePermissionsRow />
             </div>
             {/* Notification settings with collapsible sub-options */}
             <Collapse
