@@ -62,6 +62,12 @@
 | `src/components/settings/acp-agent-settings.provider-rebind.test.tsx` | **删除**（上游文件） | 专测「模型供应商」模式的 rebind 往返——入口已隐藏，行为不可达 |
 | `src/components/settings/acp-agent-settings.fable-model.test.tsx` | 摘除 bound-provider 用例并清理其专用助手（`provider` / `choose`） | 同上；保留的直接编辑用例不受影响 |
 | `src/i18n/messages/*.json`（10 语言） | 新增 `AgentRoles` 命名空间与导航 `agent_roles` 文案；`SettingsShell` 增分组头 / 返回键，改名（智能体→CLI 智能体、协作→多智能体协同，en/zh 系）；设置页内文案对齐（Agents 页标题改「CLI 智能体」、协作/外观页标题对齐、浏览器导航简化、终端描述勘误，en/zh 系）；`AcpAgentSettings` 增 `list` 子键（分组 / 徽章 / 提示，10 语言） | 同上 |
+| `src/components/settings/agent-readiness-card.tsx`（新增） | CLI 页就绪卡：安装 / 启用 / 模型三行状态 + CCR 绑定行（已绑定 / 可绑定 / 暂不支持 / 不可达）＋ 重新应用 / 绑定到 CCR / 重试 ＋「要换模型？去 Agents 页」链接 ＋ 高级折叠开关；四态与安装/升级/折叠均有独立测试 | 把「生效链路」从藏着变成亮着（就绪卡是 CLI 页默认视图） |
+| `src/components/settings/use-agent-ccr-binding.ts`（新增） | CCR 绑定 hook：读 profile 列表；三种写——建缺失 profile（`model` 留空、`scope: ccr`，与 CCR UI 新建一致）、apply、失败重试 | 绑定逻辑从 1.28 万行的上游页面文件里拆出，缩小升级重放面 |
+| `src/components/settings/acp-agent-settings.tsx` | 详情面板改为「就绪卡 ＋ 高级折叠」：默认视图只留就绪卡；原 checks / 环境变量 / 各 CLI 配置管理 / 原生配置编辑器收进默认收起的「高级」区（`hidden` 切换，原内容与草稿状态零重排地保留）；就绪卡渲染 `AgentReadinessCard`、数据用 `useAgentCcrBinding` | 「三处都能碰模型」的迷路：CLI 页只回答「能不能跑 ＋ 是否已绑定 CCR」；模型字段退居高级、以 CCR profile 为准 |
+| `src/lib/ccr.ts` | 增 `buildCcrProfileForKind` / `pickCcrProfileForKind` / `uniqueCcrProfileId` / `CCR_PROFILE_DISPLAY_NAMES`（profile 形状与 CCR UI 的规范化一致：`scope: ccr`、`model` 留空） | 绑定卡的「建缺失 profile」写入 |
+| `src/lib/ccr.test.ts`、`src/components/settings/agent-readiness-card.test.tsx`（新增） | profile 构造 / 选择 / id 去重，以及就绪卡四态、安装/升级按钮、日志与折叠交互的用例 | 同上 |
+| `src/i18n/messages/*.json`（10 语言） | `AcpAgentSettings` 增 `readiness` 子键（就绪卡状态 / CCR 绑定 / 高级与操作文案；中英繁实翻，其余语言沿用英文） | 同上 |
 
 ## 构建与开发
 
