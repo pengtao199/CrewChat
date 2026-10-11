@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-12 (Asia/Shanghai)
-Status: In Progress（Phase 0 执行中）。0.0 / 0.1 / 0.2 已完成；0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）；0.4 待收口。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 0 已收口，进入 Phase 1 前的检查点）。0.0 / 0.1 / 0.2 / 0.4 已完成；0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -53,7 +53,7 @@ Status: In Progress（Phase 0 执行中）。0.0 / 0.1 / 0.2 已完成；0.3 路
 - **0.1 委派通电** ✅ 2026-10-12：server 启动环境带 `CODEG_MCP_BIN`（起法固化进 `codeg/NOTICE.md`）；「多智能体协同」打开（enabled，depth 2）；真机跑通一轮 delegate——子代理结果回传、卡 / 抽屉 / 状态 / 取消全部实测通过（证据见 Current Facts）。
 - **0.2 就绪徽章** ✅ 2026-10-12：花名册每行按角色引擎显示 CCR 绑定四态；未就绪 → 模型区置灰 + 跳转 CLI 页（`?agent=` 预选）；渲染实测两态。
 - **0.3 模型注入（Agent Host 配方 v1）** 🟡 2026-10-12（路由注入完成；模型通道就绪、受 claude 启动期确认机制限制——实测笔记见下，生产化随 3.1）：独立模块 `codeg/src-tauri/src/agent_host.rs`——env 只做路由（BASE_URL 三件套 / gateway discovery / compat / NO_PROXY），模型经 ACP `session/set_config_option("model", <网关虚拟 ID>)` 在 `spawn_agent` 统一接线（`agent_defaults` 显式值优先、`or_insert`；虚拟 ID 由配方查询网关 `/v1/models` 精确解析——profile 的 key + claude UA、hex 匹配、优先 `[1m]` 变体；不在列表 → 只保留路由注入，不打断会话）。回退开关 `CODEG_AGENT_HOST_INJECT=0`（默认开；关掉即完全恢复原行为）。→ request-log 实测：会话经网关 200（路由注入生效，关注入回落全局配置）；**per-session 模型**的可行路径已实测找到（隔离 `CLAUDE_CONFIG_DIR`，请求日志出现目标模型），其生产化并入 3.1（依赖链：3.1 → 0.3）。
-- **0.4 小收尾**（进行中）：`zz-permtest-*` 清理 ✅（3 个测试遗留文件已删）；未推送提交整理 ✅——自 `62104f0`（vendor Codeg）起本地共 41 个提交，均按主题单独立意；抽查无密钥 / 构建产物混入（`.env` 在忽略清单；`git log -S "sk-"` 仅命中删除类提交）。
+- **0.4 小收尾** ✅ 2026-10-12：`zz-permtest-*` 清理（3 个测试遗留文件已删）；未推送提交整理——自 `62104f0`（vendor Codeg）起本地共 45 个提交，均按主题单独立意；抽查无密钥 / 构建产物混入（`.env` 在忽略清单；`git log -S "sk-"` 仅命中删除类提交）。
 
 ### Phase 1 · 团队闭环（协作 v1，核心）
 
