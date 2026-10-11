@@ -1,5 +1,5 @@
-import { ModelProviderSettings } from "@/components/settings/model-provider-settings"
+import { CcrModelSettings } from "@/components/settings/ccr-model-settings"
 
 export default function SettingsModelProvidersPage() {
-  return <ModelProviderSettings />
+  return <CcrModelSettings />
 }
