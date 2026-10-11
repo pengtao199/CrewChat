@@ -6,6 +6,8 @@
 | --- | --- | --- |
 | [多 Agent 单会话](multi-agent-conversations.md) | In Progress | Guid 多选进入同一会话；内置管理员规划、委派、汇总。不重做已归档的协作循环 |
 | [设置页：Agents、引擎、模型](settings-pages.md) | Implemented | 这三个设置页的界面和交互。代码已落地，浏览器逐项点击还没走完 |
+| [CLI 输出噪音](cli-output-noise.md) | Analyzed | 模型元数据警告混进正文。诊断信息不该落进 assistant 正文，不改流式契约 |
+| [权限系统](permissions.md) | Implemented | 一个全局开关「自动批准所有权限请求」（默认打开）。管道已通，**但没有 CLI 会真的发问** |
 
 ## 归档
 

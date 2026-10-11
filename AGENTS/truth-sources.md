@@ -23,6 +23,7 @@
 | MCP 服务 | `~/.agents/mcp.json` | JSON | **是** | — |
 | 插件 | `~/.agents/plugins/*` | 目录 | **是** | — |
 | 本地覆盖（CLI 参数等） | `.data/overrides.json` | JSON | 否 | 否 |
+| 权限：全局「自动批准所有权限请求」开关 | `.data/permissions.jsonc` | JSONC | 否 | 否 |
 
 ## 原则
 
@@ -33,6 +34,7 @@
 - **网关库是派生物**：网关里按 CLI 分的那几份 provider 由通用 provider **投影**而来（`core/gateway.py` 的 `Store.project_provider()`），删了能重建。改通用 provider 是唯一的写入方式，不改网关库里的单条。
 - **核心复用、数据归我们**：网关复用 cc-switch 的核心（`ccsw-proxy`），但它的 home 由 `Settings.gateway_dir` 指定（默认 `.data/gateway/`，经 `CC_SWITCH_HOME` 注入），**绝不写用户本机的 `~/.cc-switch/`**。
 - **界面必须标注位置**：任何会写入文件的操作，界面要显示「保存到 → 路径」。
+- **权限只有一个全局开关**：`.data/permissions.jsonc` 的 `auto_approve_all`（默认打开）。打开时所有询问直接放行、不弹卡；关闭时每次询问都弹卡。判定只有一处：`core/permissions.py` 的 `decision()`，别在身体或 API 里各判一次。
 - **Agent 全局，与工作区解耦**：agent 是「公司的人」，定义存 `.data/agents/`（`settings.agents_home`），**不归任何项目**；团队的多个 agent 可在不同工作区协作。旧仓库内 `config/agents` 首次访问时一次性迁入（`.data/.agents-migrated` 标记，只做一次）。
 - **会话的工作区可选（cwd 三态）**：绑了工作区 → 用该 `project.path`；没绑 → 每会话一个沙盒目录 `.data/workspaces/<session_key>`（避免并发互踩）。侧栏把未绑定的会话显示在「会话工作区」分组下。
 - **项目是一等公民、工作区就是项目目录**：`Project.path`（一个文件夹）既是 agent 的执行 cwd，也是这个项目的协作工作区（agent 定义是全局的，不归项目）。**会话可选归属一个项目**（`conversations.project_id` 可空）：`api/chat.py` 按会话的项目建 Session，未绑定时用每会话沙盒。项目列表存 `.data/projects.json`（经 `core/projects.py` 读写），不在客户端用 `extra.workspace` 当真相源。

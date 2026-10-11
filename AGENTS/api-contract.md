@@ -42,6 +42,7 @@
 - **状态码有意义**：缺版本段 404 `api_version_required`、未登录 401、不存在 404、未实现 501、参数错 400。
 - **流式用累积 + replace**：文本增量帧发送完整累积文本并置 `replace: true`，否则前端会把每段追加成新行。
 - **终止帧类型固定**：一轮结束发送 `type: "finish"`，这是前端判定回合结束的类型。
+- **询问要能回到身体**：`permission` 帧的 `data.call_id` 与 `data.options[].value`（用 ACP 自己的 option kind，如 `allow_once` / `allow_always` / `reject_once`）必须原样透传；用户的选择经 `POST /conversations/{id}/confirmations/{call_id}/confirm` 回来唤醒挂起中的身体。找不到等待者（过期点击）也要 200，界面照样要收卡片。
 
 ## 具体规则
 
@@ -66,6 +67,8 @@
 | 管理员状态 / 恢复（`/api/crewchat/agents/manager`） | 已实现 |
 | 群聊中间 `finish`（`turn_complete: false`） | 已实现（只关该发言者气泡，不结束整轮） |
 | 思考流（`message.stream` type `thinking`，同「累积 + replace」） | 已实现 |
+| 权限询问（`permission` 帧 + `/confirmations/{call_id}/confirm`） | 已实现 |
+| 权限设置（自研 `/api/v1/crewchat/permissions`：`auto_approve` 全局开关，默认打开） | 已实现 |
 | 独立 Team API（`/api/teams/*`）、文件浏览其余端点、扩展、定时任务、远程连接 | 未实现（501） |
 
 ## 禁止项
