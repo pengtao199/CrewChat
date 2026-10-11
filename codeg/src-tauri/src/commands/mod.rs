@@ -10,6 +10,8 @@ pub mod browser;
 /// desktop-only: the shared codeg-mcp plumbing reads it in both runtimes.
 pub mod browser_tools;
 pub mod canvas;
+/// [crewchat] CCR 模型层的薄代理（模型设置页的后端通道）。
+pub mod ccr;
 pub mod chat_authoring;
 pub mod chat_channel;
 /// Files-onto-the-OS-clipboard. Only the command itself is desktop-gated; the

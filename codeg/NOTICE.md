@@ -22,7 +22,9 @@
 
 - 本目录用于**替换 CrewChat 现有的 `ui/` 外壳**：协作界面采用 Codeg 的 `@` 委派、
   并行子会话、Sub-agents 面板、worktree 任务等形态，不再继续补齐 AionUi fork 的细节。
-- **模型统一管理不在本目录内实现**：由外部网关（CCR / cc-switch）承担，Codeg 侧只做接入。
+- **模型统一管理：UI 在本目录内、内核在 `ccr/`**。设置页「模型」按 Codeg 风格重做
+  （`[crewchat]`），数据与动作全部经后端薄代理 `ccr_call` 访问 CCR；Codeg 自身
+  **不写入**任何 CLI 的模型配置（对应 Agent 的模型一律留 Default）。
 - 本仓库 Python 侧（`src/crewchat/`）的编排与网关内核暂时保留；若后续成为 Codeg 的
   自定义 ACP agent 或旁路服务，另立计划。
 
@@ -32,7 +34,11 @@
 
 | 文件 | 改动 | 原因 |
 | --- | --- | --- |
-| `src/test-setup.ts` | 文件末尾追加 `[crewchat]` 兜底：Node ≥ 25 下为 `localStorage` / `sessionStorage` 提供可用的 `Storage` 实例 | 本机 Node 26 上 Node 自带 Web Storage 全局与 vitest/jsdom 冲突，751 个用例失败`Node 24 基线全绿c；上游/CIe固定-Nodee24，暂u处理` | 文件末尾追加 `[crewchat]` 兜底：Node ≥ 25 下为 `localStorage` / `sessionStorage` 提供可用的 `Storage` 实例 | 本机 Node 26 上 Node 自带 Web Storage 全局与 vitest/jsdom 冲突，751 个用例失败（Node 24 基线全绿）；上游 CI 固定 Node 24，暂未处理 |
+| `src/test-setup.ts` | 文件末尾追加 `[crewchat]` 兜底：Node ≥ 25 下为 `localStorage` / `sessionStorage` 提供可用的 `Storage` 实例 | 本机 Node 26 上 Node 自带 Web Storage 全局与 vitest/jsdom 冲突，751 个用例失败（Node 24 基线全绿）；上游 CI 固定 Node 24，暂未处理 |
+| `src-tauri/src/commands/ccr.rs`（新增） | CCR 管理 RPC 薄代理：`ccr_call` / `ccr_health`，转发 `POST /api/ccr/rpc` | 模型层唯一内核是 CCR；Codeg 只做转发、不做模型写入 |
+| `src-tauri/src/web/handlers/ccr.rs`（新增） | web 模式处理器（`/api/ccr_health`、`/api/ccr_call`） | 同上（Codeg 双模式规范） |
+| `src-tauri/src/commands/mod.rs`、`src-tauri/src/web/handlers/mod.rs`、`src-tauri/src/web/router.rs`、`src-tauri/src/lib.rs` | 注册上述命令与路由 | 同上 |
+| `src/lib/api.ts` | 新增 `ccrCall` / `ccrHealth` 前端通道 | 同上 |
 
 ## 构建与开发
 

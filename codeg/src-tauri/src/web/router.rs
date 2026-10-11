@@ -1569,6 +1569,9 @@ pub fn build_router(
             "/delete_model_provider",
             post(handlers::model_provider::delete_model_provider),
         )
+        // ─── CCR model management（[crewchat] 模型层的唯一内核）───
+        .route("/ccr_health", post(handlers::ccr::ccr_health))
+        .route("/ccr_call", post(handlers::ccr::ccr_call))
         // ─── Quick Messages ───
         .route(
             "/quick_messages_list",
