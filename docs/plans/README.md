@@ -4,7 +4,8 @@
 
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
-| [Codeg / CCR 集成](codeg-ccr-integration.md) | In Progress | 工作台换成 `codeg/`、模型统一管理用 `ccr/`；源码固化、旧前端与旧网关（cc-switch）移除已完成；引擎状态页、用量页未完 |
+| [Agents 核心协作](agents-core-collaboration.md) | Planned | 聊天页做 Agents 核心改造；多 Agent 协作走 Codeg 原生委派增强（团队选择 / 管理员约束 / 成员模型注入 / 可见性）；花名册收敛与平台收尾随行 |
+| [Codeg / CCR 集成](codeg-ccr-integration.md) | In Progress | 工作台换成 `codeg/`、模型统一管理用 `ccr/`；源码固化、旧前端与旧网关（cc-switch）移除已完成；引擎状态页、用量页等续作并入 Agents 核心协作 |
 
 ## 归档
 

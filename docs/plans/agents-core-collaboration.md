@@ -1,0 +1,128 @@
+# Agents 核心协作（Codeg 原生委派增强）
+
+Updated: 2026-10-12 (Asia/Shanghai)
+Status: Planned。2026-10-12 登记；基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+
+## Goal（终态）
+
+工作台里：
+
+- **CLI 页只管「能不能跑」**：就绪卡（安装 / 启用 / CCR 绑定），模型字段收在「高级」，不做选择。
+- **Agents（花名册）是唯一选人入口**：用户选 1 个或多个 Agent 进项目会话。
+- 多 Agent 会话：**管理员先规划 → 按依赖委派给在场成员 → 汇总**；成员共享项目工作区。
+- 全过程由 Codeg 原生机制承载：流式 / 思考 / 工具 / 权限 / 取消 / 恢复 / 嵌套子会话沿用现成实现。
+- 每个成员用自己的模型（经 CCR）、技能与 MCP。
+
+路线：**Codeg 原生委派增强**（`codeg/src-tauri/src/acp/delegation/` 的 broker 已有异步任务、长轮询、取消级联、断点恢复、权限透传、用量回传）。不桥接 Python 编排；`src/crewchat` 冻结为参考（产品语义沿用：管理员先计划、串行执行防同工作区互写、成员创建后固定）。
+
+## Current Facts（2026-10-12）
+
+- `codeg/`：就绪卡（`agent-readiness-card.tsx` / `use-agent-ccr-binding.ts`）与 profile 读出/构造层（`src/lib/ccr.ts`）已提交；全量测试 602 文件 / 8903 用例通过；server 模式（3080）可用。
+- `ccr/`：v3.1.3 固化；开发实例 7 个 profile 均 `scope: ccr`，默认档 `mimo-v2.6-flash`（kilo=deepseek-v4.1-flash）。委托链路实测：仅 claude 经全局 `settings.json` 走网关；其余 CLI 由 Codeg 拉起时绕过 wrapper（`~/.claude-code-router/bin` 不在 PATH）。
+- 委派：`delegation.enabled` 默认 false；codeg-mcp 二进制在 `.data/codeg/bin/`，server 模式需 `CODEG_MCP_BIN`；委派 UI（卡 / 组卡 / 抽屉 / 后台条 / 悬浮面板）齐备。
+- 花名册：Codeg 侧 v1 页面（`.data/codeg/agent-roles.json`）；Python 侧 `.data/agents/*.jsonc`（10 份，冻结）。
+- 近期提交均未推送，待整理。
+
+## 开工拍板（默认值；无异议按默认执行）
+
+| # | 决策点 | 默认 | 备选 |
+| --- | --- | --- | --- |
+| 1 | 团队存储 | conversations 专用 JSON 列（leader + 成员） | 复用标签系统 |
+| 2 | 角色人格通道 | 自定义 agent 注册表加 `instructions` 字段 | 每角色技能包 |
+| 3 | v1 接续方式 | 管理员中介（任务文本带上文） | broker 自动附兄弟结果 |
+| 4 | 花名册落点 | Codeg 自定义 agent 注册表（扩展 brain/instructions）+ 一次性迁移、旧存储退役 | 保留 fork 独立表 |
+| 5 | 异步回流 | 短任务轮内长轮询；长任务后台 + 完成后一键汇总 | 全自动续跑 |
+| 6 | Python 编排 | 冻结为参考（不删不接） | 未来服务端/远程编排另开计划 |
+
+## 步骤计划
+
+### Phase 0 · 通电与收尾
+
+- **0.0 计划对齐**：`codeg-ccr-integration.md` 的未完成条目与本计划合并对齐（重复条目只留本计划）。→ 做到：计划索引无重复活跃条目。
+- **0.1 委派通电**：server 启动环境带 `CODEG_MCP_BIN=.data/codeg/bin/codeg-mcp`；打开「多智能体协同」；真机跑通一轮 delegate；修复固化进启动方式。→ 做到：真实会话成功派出子代理并取回结果；卡 / 抽屉 / 状态 / 取消全部工作。
+- **0.2 就绪徽章**：Agents 花名册每行按角色引擎显示 CCR 绑定四态；未就绪 → 模型区置灰 + 跳转 CLI 页。→ 做到：真机可见徽章与跳转。
+- **0.3 模型注入（Agent Host 配方 v1）**：claude / codex 先行；注入配方做成独立模块（供 3.1 复用）；接线 Codeg 会话拉起路径。→ 做到：CCR request-log 验证所选模型生效；不注入时行为不变（可回退）。
+- **0.4 小收尾**：未推送提交整理；`zz-permtest-*` 清理。→ 做到：工作区干净、提交账目清楚。
+
+### Phase 1 · 团队闭环（协作 v1，核心）
+
+- **1.1 团队数据契约**（后端）：会话携带 team（leader + 成员 + 项目）；创建 / 读取 / 重启回读一致；迁移 + 接口测试。→ 做到：API 层团队成立（UI 未上前可先用接口验收）。
+- **1.2 选团队建会话**（前端）：新建会话 = 选项目 + 从 Agents 多选成员（管理员默认加入、可更换）。→ 做到：真机建 3 人协作会话并回读一致。
+- **1.3 管理员知情 + 目标约束**：管理员上下文含「在场成员」帧（名字 / 职责 / 可派范围）；`delegate_to_agent` 仅允许团队成员，越界报错并列出可用名单。→ 做到：越界测试被拒；管理员按成员正常规划。
+- **1.4 会话头成员条**：成员实时状态（排队 / 运行 / 等权限 / 完成）。→ 做到：三态可视、刷新不丢。
+- **1.5 端到端实跑**：真实小任务由 2 个不同 CLI 的成员完成并汇总；可取消、可刷新恢复。→ **协作 v1 验收门槛**。
+
+### Phase 2 · 角色化（花名册一等公民）
+
+- **2.1 存储收敛**：角色入 Codeg 自定义 agent 注册表（+ `instructions` / brain 字段）；Agents 设置页读写新存储；`.data/agents` + `agent-roles.json` 一次性迁移（先备份、可回滚）后退役。→ 做到：单一写入方、单一真相源；设置页全功能。
+- **2.2 人格生效链路**：主会话与成员任务都注入 role / goal / backstory。→ 做到：有 / 无花名册角色的对照行为差异可见。
+- **2.3 技能 / MCP 归位**：角色可选技能（Codeg skills / experts 机制）与 MCP，成员会话按角色加载。→ 做到：一次「成员用技能干活」的验收会话。
+
+### Phase 3 · 成员模型与用量
+
+- **3.1 子代理模型注入**（依赖 0.3）：委派生成成员会话时应用该成员模型（配方 + `agent_defaults` 兜底）。→ 做到：同一任务两个成员走两个不同模型，request-log 为证。
+- **3.2 按成员用量**：委派卡与会话详情显示每成员 tokens / 成本。→ 做到：口径与用量文档一致。
+
+### Phase 4 · 体验增强
+
+- **4.1 卡内内联展开成员流**（复用 LiveTranscriptView）：不开抽屉也能看成员进度。→ 做到：可选展开，不影响现有卡与抽屉。
+- **4.2 @提及与团队联动**：输入 @ 时团队成员置顶高亮、非成员提示。→ 做到：@ 候选与团队一致。
+- **4.3 异步回流**：长任务完成有明确提示与「让管理员汇总」入口。→ 做到：后台任务不丢、有回来路。
+
+### Phase 5 · 平台收尾
+
+- **5.1 CCR 托管**：探活 → 接管 / 拉起 → 守护 → 状态卡。→ 做到：用户不再手动起 CCR；崩溃自动恢复。
+- **5.2 引擎状态页 / 用量页**收口。
+- **5.3 CLI 覆盖补齐**：gemini / hermes 连接器；opencode / pi profile 启用。
+- **5.4 打包**：dmg + 首次运行向导（供应商预设 → key → profiles）。
+
+### Phase 6 · 收口
+
+- **6.1 文档对齐**：README、`AGENTS/agent-model.md`、`bodies.md`、`gateway.md`、计划索引；Python 编排定位改写（参考 / 冻结）；本计划完成后移入 `archive/`。
+- **6.2 Python 侧处置**：冻结标注（不删），未来用途另开计划。
+- **6.3 持续**：三档法 + NOTICE 登记随每步走。
+
+## Non-Goals（不做清单）
+
+- 不桥接 Python 编排、不做前端直连 Python 的协作栈（已改判归档）。
+- 不重写 Codeg 聊天内核；不改上游核心机制（三档法）。
+- v1 不做扁平多气泡时间线（管理员叙事为准；4.1 为增强）。
+- 不在不可回退的状态下换代：每步可独立验收、可回退。
+
+## 执行约束（给执行 Agent）
+
+- 开工先按 `AGENTS/` 索引读对应规则（`ui.md` / `api-contract.md` / `agent-model.md` / `truth-sources.md` / `bodies.md` / `verification.md` / `upstream.md`）。
+- **拆分纪律（重要）**：触达大文件时**先把新逻辑做成独立模块 / 新文件，再接线**，不往大文件里持续堆内容。已明确的巨型文件：`settings/acp-agent-settings.tsx`、`acp/connection.rs`、`acp/delegation/broker.rs`、`conversations/conversation-detail-panel.tsx`。主文件只留小集成点（`[crewchat]` 标记范围尽量小）。可参考的已落地做法：就绪卡拆成 `agent-readiness-card.tsx` + `use-agent-ccr-binding.ts`，主文件只留挂载。
+- 每步独立小提交：一步一个主题，失败可单独回退；不把多步混进一个提交（见 `AGENTS/git.md`：分批提交、不推送）。
+- 验证顺序：prettier → eslint → tsc → vitest → build；Rust：cargo check / clippy / test；每步收口全量测试绿。
+- server 模式：3080 起法（`CCR_WEB_URL/TOKEN`、`CODEG_STATIC_DIR/DATA_DIR/HOST/PORT`）；前端改动重建 `codeg/out`。
+- 上游改动走三档法 + NOTICE 登记；计划与文档随步同步。
+- 每步收口门槛：全量测试绿 + 场景真机证据（截图 / request-log）+ 文档同步 + 工作区干净。
+
+### 关键地标（省去考古）
+
+| 面 | 落点 |
+| --- | --- |
+| 委派内核 | `codeg/src-tauri/src/acp/delegation/{broker,spawner,types}.rs`（1.3 约束落点：broker 前置检查） |
+| 提示帧注入 | `codeg/src-tauri/src/acp/agent_mentions.rs`（1.3 团队帧落点） |
+| 会话表 | `codeg/src-tauri/src/models/conversation.rs` + `db/entities/conversation.rs`（1.1 落点） |
+| 自定义 agent | `codeg/src-tauri/src/acp/custom_registry.rs`（2.1 落点） |
+| 委派卡 / 抽屉 | `codeg/src/components/message/{delegated-sub-thread,sub-agent-session-dialog}.tsx` |
+| 花名册页 / 就绪卡 | `codeg/src/components/settings/agent-roles/`、`agent-readiness-card.tsx` |
+| codeg-mcp 解析 | `codeg/src-tauri/src/acp/connection.rs`（`CODEG_MCP_BIN`） |
+| CCR 层 | `codeg/src/lib/ccr.ts` + `codeg/src-tauri/src/commands/ccr.rs` |
+
+## 风险与注意
+
+- 管理员必须显式配大脑（沿用既有产品决定，不做隐式回退）。
+- 越界委派必须清晰报错（体验关键，1.3 验收）。
+- 防双花名册回潮：2.1 完成后只保留一个可写入口。
+- 异步回流 v1 从简（拍板 #5），避免自动续跑引入难控循环。
+
+## Done Criteria
+
+- Phase 1：一次真实任务由 2+ 成员完成并汇总；取消 / 恢复可用。
+- Phase 2：花名册单真相源；角色人格与技能对成员生效。
+- Phase 3：同一任务多成员多模型，request-log 佐证。
+- Phase 5：CCR 托管、打包可用。
+- 全程：全量测试绿；文档（README / AGENTS / 本文件）与实现一致。
