@@ -27,7 +27,6 @@ from ..core.version import api_prefix, backend_version, version_info
 from . import (
     engines_api,
     crewchat_agents,
-    crewchat_permissions,
     crewchat_projects,
     crewchat_usage,
     chat,
@@ -127,7 +126,6 @@ def create_app() -> FastAPI:
         engines_api,
         agent_catalog_api,
         crewchat_agents,
-        crewchat_permissions,
         crewchat_projects,
         crewchat_usage,
         fs_api,

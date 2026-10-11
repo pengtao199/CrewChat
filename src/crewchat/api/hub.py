@@ -199,61 +199,6 @@ def thinking_frame(
     return frame
 
 
-def permission_frame(
-    conversation_id: str,
-    msg_id: str,
-    call_id: str,
-    title: str,
-    options: list[dict[str, Any]],
-    turn_id: str | None = None,
-    *,
-    action: str = "exec",
-    command_type: str = "",
-    sender: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """一次待用户确认的工具调用。
-
-    形状沿用历史约定（`data.description` 是给人看的一行，`data.options[]` 用
-    `{label, value}`）：`value` 用 ACP 自己的 option kind。调用方把选择回传给
-    `POST /api/conversations/{id}/confirmations/{call_id}/confirm`，后端据此唤醒
-    挂起中的身体。
-    """
-    data: dict[str, Any] = {
-        "id": call_id,
-        "call_id": call_id,
-        "title": title,
-        "description": title,
-        "options": options,
-        "conversation_id": conversation_id,
-    }
-    if action:
-        data["action"] = action
-    if command_type:
-        data["command_type"] = command_type
-    if sender:
-        data.update(sender)
-    frame: dict[str, Any] = {
-        "type": "permission",
-        "data": data,
-        "msg_id": msg_id,
-        "conversation_id": conversation_id,
-        "created_at": int(time.time() * 1000),
-        "status": "work",
-    }
-    if turn_id:
-        frame["turn_id"] = turn_id
-    return frame
-
-
-def confirmation_remove_frame(conversation_id: str, call_id: str) -> dict[str, Any]:
-    """这张权限卡已经有答案了（或超时），界面把它撤掉。"""
-    return {
-        "type": "confirmation.remove",
-        "data": {"conversation_id": conversation_id, "id": call_id},
-        "conversation_id": conversation_id,
-    }
-
-
 def error_frame(conversation_id: str, msg_id: str, message: str) -> dict[str, Any]:
     return {
         "type": "error",

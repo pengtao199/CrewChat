@@ -20,15 +20,12 @@ import json
 import os
 import shutil
 import time
-import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import acp
 
-from ..core import permissions
-from ..core.permissions import ToolRequest
 from ..core.providers import Provider
 from .base import ExecRequest, ExecResult, Executor, TokenUsage, register
 
@@ -97,54 +94,11 @@ class _AcpClient(acp.Client):
     async def request_permission(
         self, session_id: str, tool_call: Any, options: list[Any], **kwargs: Any
     ) -> acp.RequestPermissionResponse:
-        request = _tool_request(tool_call)
-        if permissions.decision(request) == "allow":
-            return _allow_response(options)
-        return await self._ask(request, options)
+        """权限审批已退役：产品面的权限卡在 Codeg（它托管自己的 ACP 会话）。
 
-    async def _ask(self, request: ToolRequest, options: list[Any]) -> acp.RequestPermissionResponse:
-        """把一次待决请求交给用户，等他点了再回 ACP。
-
-        用 ACP 自己的 option：把 CLI 给的选项原样转给界面，用户点了哪个就把哪个
-        `option_id` 交回去，这样 CLI 侧看到的语义不变。
+        Python 侧自跑身体时不再弹卡，兜底为放行（没有允许项则拒绝）。
         """
-        choices = [
-            {
-                "label": _option_label(o),
-                "value": _option_value(o),
-            }
-            for o in options
-        ]
-        if not choices:
-            return acp.RequestPermissionResponse(outcome=_deny_outcome())
-
-        call_id = request.call_id
-        loop = asyncio.get_running_loop()
-        future: asyncio.Future[str] = loop.create_future()
-        permissions.register_pending(call_id, future)
-
-        self._emit(
-            "permission",
-            {
-                "text": request.detail or request.tool,
-                "tool": request.tool,
-                "call_id": call_id,
-                "args": request.args,
-                "options": choices,
-            },
-        )
-        try:
-            chosen = await future
-        except asyncio.CancelledError:
-            permissions.resolve_pending(call_id, "reject_once")
-            return acp.RequestPermissionResponse(outcome=_deny_outcome())
-        finally:
-            permissions.resolve_pending(call_id, "")
-
-        chosen_id = _find_option_id(options, chosen)
-        if chosen_id is None or permissions.is_reject(chosen):
-            return acp.RequestPermissionResponse(outcome=_deny_outcome())
-        return acp.RequestPermissionResponse(outcome=_allow_outcome(chosen_id))
+        return _allow_response(options)
 
     async def read_text_file(
         self, session_id: str, path: str, line: int | None = None, limit: int | None = None, **kwargs: Any
@@ -199,8 +153,7 @@ def _accumulate(reply: Any, usage: TokenUsage) -> None:
 def _allow_outcome(option_id: str) -> Any:
     """`AllowedOutcome` 要两个字段：判别值 `selected` + 选中的 `option_id`。
 
-    只传 `option_id` 会在构造时就 pydantic 校验失败——这行以前写错一直没炸，是因为
-    从来没有 CLI 真的发来过 `session/request_permission`（见 `_ask`）。
+    只传 `option_id` 会在构造时就 pydantic 校验失败——改这里时注意。
     """
     return acp.schema.AllowedOutcome(outcome="selected", option_id=option_id)
 
@@ -210,49 +163,17 @@ def _deny_outcome() -> Any:
 
 
 def _option_value(option: Any) -> str:
-    """权限卡上这个选项的机器值：优先用 ACP 自己的 kind（前端两种分类器都认）。"""
+    """这个选项的机器值：用 ACP 自己的 kind。"""
     return str(getattr(option, "kind", "") or "")
 
 
-def _option_label(option: Any) -> str:
-    """选项的展示名。CLI 给了 name 就用，否则退回 kind。"""
-    name = getattr(option, "name", None)
-    kind = getattr(option, "kind", "")
-    if isinstance(name, str) and name.strip():
-        return name.strip()
-    return {
-        permissions.ALLOW_ONCE: "允许这一次",
-        permissions.ALLOW_ALWAYS: "总是允许",
-        permissions.REJECT_ONCE: "拒绝这一次",
-        permissions.REJECT_ALWAYS: "总是拒绝",
-    }.get(kind, kind or "允许")
-
-
-def _find_option_id(options: list[Any], value: str) -> str | None:
-    for option in options:
-        if _option_value(option) == value:
-            return getattr(option, "option_id", None)
-    return None
-
-
-def _tool_request(tool_call: Any) -> ToolRequest:
-    """把 ACP 的 `ToolCall` 压成一条待决请求（工具名 + 一行描述 + 入参）。"""
-    raw_input = getattr(tool_call, "raw_input", None)
-    args = raw_input if isinstance(raw_input, dict) else None
-    title = getattr(tool_call, "title", "") or ""
-    kind = getattr(tool_call, "kind", "") or ""
-    detail = title or kind or "tool"
-    return ToolRequest(
-        call_id=str(getattr(tool_call, "tool_call_id", "") or uuid.uuid4().hex),
-        tool=str(kind or title or "tool"),
-        detail=detail,
-        args=args,
-    )
+#: 兜底放行认的「允许」类选项（ACP 的 option kind）。
+_ALLOW_KINDS = ("allow_once", "allow_always")
 
 
 def _allow_response(options: list[Any]) -> acp.RequestPermissionResponse:
-    """旧的「一律放行」：挑一个允许项，没有就拒绝。"""
-    allow = next((o for o in options if _option_value(o) in (permissions.ALLOW_ONCE, permissions.ALLOW_ALWAYS)), None)
+    """兜底放行：挑一个允许项，没有就拒绝。"""
+    allow = next((o for o in options if _option_value(o) in _ALLOW_KINDS), None)
     if allow is None:
         return acp.RequestPermissionResponse(outcome=_deny_outcome())
     return acp.RequestPermissionResponse(outcome=_allow_outcome(getattr(allow, "option_id", "")))

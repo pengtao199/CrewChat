@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Literal
 
 from ..core.providers import Provider
 
-EventKind = Literal["delta", "thinking", "tool", "notice", "permission", "done", "error"]
+EventKind = Literal["delta", "thinking", "tool", "notice", "done", "error"]
 
 
 @dataclass(slots=True)

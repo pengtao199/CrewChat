@@ -422,3 +422,20 @@ def test_manager_restore_writes_once(tmp_path, monkeypatch) -> None:
     assert second["ready"] is True
     assert manager_reason(AgentSpec(id=MANAGER_ID, enabled=False, brain="p/m")) == "disabled"
     config.get_settings.cache_clear()
+
+
+# ---- 权限兜底（审批已退役，见 AGENTS/bodies.md） ------------------------------
+
+
+def test_permission_fallback_allows_once_and_denies_without_an_allow_option() -> None:
+    """退役后的兜底：挑得到「允许」类选项就放行，没有就拒绝（cancelled）。"""
+    from types import SimpleNamespace
+
+    from crewchat.executors.acp_body import _allow_response
+
+    allowed = _allow_response([SimpleNamespace(kind="allow_once", option_id="o1")])
+    assert allowed.outcome.outcome == "selected"
+    assert allowed.outcome.option_id == "o1"
+
+    denied = _allow_response([SimpleNamespace(kind="reject_once", option_id="o2")])
+    assert denied.outcome.outcome == "cancelled"

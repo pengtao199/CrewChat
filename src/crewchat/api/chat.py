@@ -12,10 +12,9 @@ import asyncio
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Body, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..core import permissions
 from ..core.models import AgentSpec
 from ..orchestration import session_for
 from ..core.agent_presets import MANAGER_ID
@@ -33,11 +32,9 @@ from ..orchestration.group import (
 )
 from .conversations import ensure_conversation, persist_turn
 from .hub import (
-    confirmation_remove_frame,
     error_frame,
     finish_frame,
     hub,
-    permission_frame,
     text_frame,
     thinking_frame,
     tool_frame,
@@ -57,7 +54,6 @@ def _running_runtime(turn_id: str, speaking: str = "", queued: list[str] | None 
         "has_task": True,
         "is_task": True,
         "is_processing": True,
-        "pending_confirmations": 0,
         "turn_id": turn_id,
         "supports_midturn_delivery": False,
         "speaking": speaking,
@@ -71,7 +67,6 @@ def _idle_runtime() -> dict[str, Any]:
         "can_send_message": True,
         "has_task": False,
         "is_processing": False,
-        "pending_confirmations": 0,
         "turn_id": None,
         "supports_midturn_delivery": True,
         "speaking": "",
@@ -258,21 +253,6 @@ async def _run_turn(
                             event.call_id,
                             event.args,
                             event.result,
-                        ),
-                    )
-                elif event.kind == "permission" and event.call_id:
-                    await hub.broadcast(
-                        "message.stream",
-                        permission_frame(
-                            conversation_id,
-                            reply_msg_id,
-                            event.call_id,
-                            event.text or event.tool,
-                            list(event.meta.get("options") or []),
-                            turn_id,
-                            action="exec" if event.tool.lower() in ("bash", "shell", "exec") else "tool",
-                            command_type=event.tool,
-                            sender=sender,
                         ),
                     )
                 elif event.kind == "error" and event.text:
@@ -509,31 +489,6 @@ async def slash_commands(conversation_id: str) -> list[Any]:
 @router.get("/api/conversations/{conversation_id}/usage")
 async def usage(conversation_id: str) -> None:
     return None
-
-
-@router.get("/api/conversations/{conversation_id}/confirmation")
-async def confirmations(conversation_id: str) -> list[Any]:
-    return []
-
-
-@router.post("/api/conversations/{conversation_id}/confirmations/{call_id}/confirm")
-async def confirm(conversation_id: str, call_id: str, body: Any = Body(default=None)) -> dict[str, Any]:
-    """用户在权限卡上点了某个选项，唤醒挂起中的身体。
-
-    `body` 的形状沿用历史约定：
-    `{data: {value}, always_allow}`。`value` 是 ACP 的 option kind
-    （`allow_once` / `allow_always` / `reject_*`）。
-
-    找不到对应的等待者（已超时、已被另一张卡回答、或这一轮根本不问）不算错误——
-    界面照样要把卡片收掉，所以这里一律返回 ok。
-    """
-    payload = body if isinstance(body, dict) else {}
-    data = payload.get("data")
-    value = str((data or {}).get("value") or payload.get("value") or "")
-
-    resolved = permissions.resolve_pending(call_id, value)
-    await hub.broadcast("message.stream", confirmation_remove_frame(conversation_id, call_id))
-    return {"ok": True, "call_id": call_id, "value": value, "resolved": resolved}
 
 
 @router.get("/api/conversations/{conversation_id}/terminals")

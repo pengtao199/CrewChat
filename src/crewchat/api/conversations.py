@@ -39,7 +39,6 @@ def idle_runtime() -> dict[str, Any]:
         "can_send_message": True,
         "has_task": False,
         "is_processing": False,
-        "pending_confirmations": 0,
         "turn_id": None,
         "supports_midturn_delivery": True,
     }
