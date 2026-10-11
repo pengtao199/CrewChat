@@ -53,8 +53,10 @@
 | `src-tauri/src/commands/mod.rs`、`src-tauri/src/web/handlers/mod.rs`、`src-tauri/src/web/router.rs`、`src-tauri/src/lib.rs` | 注册上述命令与路由 | 同上 |
 | `src/lib/agent-roles.ts`（新增） | 角色花名册类型与调用层 | 同上 |
 | `src/app/settings/agent-roles/page.tsx`、`src/components/settings/agent-roles/`（新增：settings / role-editor / search-multi-select / helpers / helpers.test） | 新「Agents」页：左右分栏（对齐 mcp 页）＋ 编辑器（人格 / 规则 / 身体 / 模型 / 本地 Skill / MCP 可搜索多选） | 本仓库的核心花名册 |
-| `src/components/settings/settings-shell.tsx` | 导航新增 `agent_roles` 项 | 同上 |
-| `src/i18n/messages/*.json`（10 语言） | 新增 `AgentRoles` 命名空间与导航 `agent_roles` 文案 | 同上 |
+| `src/components/settings/settings-shell.tsx` | 设置壳二次开发：设置**分组重排**（Agents / 能力 / 交互 / 系统）、标题栏新增**「返回工作区」**按钮、壳二次开发：导航**分组重排**（A | 导航以本仓库花名册为核心组织；web 模式设置是独立窗口，需要返回入口ge
+|n`src/components/settings/settings-shell.test.tsx` | 组顺序断言适配（原「协作在常规下」→ 逐组校验） | ts / 能力 / 交互 / 系统）、标题栏新增**「返回工作区」**按钮、新增 `agent_roles` 项 | 导航以本仓库花名册为核心组织；web 模式设置是独立窗口，需要返回入口 |
+| `src/components/settings/settings-shell.test.tsx` | 组顺序断言适配（原「协作在常规下」→ 逐组校验）；`SettingsShell` 增分组头 / 返回键，改名（智能体→CLI 智能体、协作→多智能体协同，en/zh 系） | 同上 |
+| `src/i18n/messages/*.json`（10 语言） | 新增 `AgentRoles` 命名空间与导航 `agent_roles` 文案；`SettingsShell` 增分组头 / 返回键，改名（智能体→CLI 智能体、协作→多智能体协同，en/zh 系）；设置页内文案对齐（Agents 页标题改「CLI 智能体」、协作/外观页标题对齐、浏览器导航简化、终端描述勘误，en/zh 系）；设置页内文案对齐（Agents 页标题改「CLI 智能体」、协作/外观页标题对齐、浏览器导航简化、终端描述勘误，en/zh 系） | 同上 |
 
 ## 构建与开发
 
