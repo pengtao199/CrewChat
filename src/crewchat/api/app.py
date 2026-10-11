@@ -27,8 +27,6 @@ from ..core.version import api_prefix, backend_version, version_info
 from . import (
     engines_api,
     crewchat_agents,
-    crewchat_engines,
-    crewchat_gateway,
     crewchat_permissions,
     crewchat_projects,
     crewchat_usage,
@@ -129,8 +127,6 @@ def create_app() -> FastAPI:
         engines_api,
         agent_catalog_api,
         crewchat_agents,
-        crewchat_engines,
-        crewchat_gateway,
         crewchat_permissions,
         crewchat_projects,
         crewchat_usage,
@@ -159,7 +155,6 @@ def create_app() -> FastAPI:
         cfg = current_settings()
         return {
             "language": cfg.language,
-            "codexProvider": cfg.codex_provider,
         }
 
     @app.get("/api/system/info")

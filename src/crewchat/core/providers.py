@@ -149,8 +149,8 @@ def keys_from_legacy(api_key: str) -> list[ProviderKey]:
 class Provider:
     """一个可复用的**通用**模型端点（大脑池条目）。Agent 通过 id 引用，不拥有它。
 
-    这是唯一真相源，存 `.data/providers.jsonc`。网关（cc-switch 核心）里的按 CLI
-    分的那几份 provider，是由这里**投影**出来的派生物，见 `core/gateway.py`。
+    这是唯一真相源，存 `.data/providers.jsonc`。逐 CLI 的网关投影已随 cc-switch
+    移除；模型统一管理由 CCR 承担（见 `ccr/` 与 `AGENTS/gateway.md`）。
     """
 
     def __init__(
@@ -191,7 +191,7 @@ class Provider:
         return f"{re.sub(r'[^0-9A-Za-z]', '_', self.id).upper()}_API_KEY"
 
     def _sync_default(self) -> None:
-        """`api_key` 始终是默认那一把的明文，供网关和直连使用。"""
+        """`api_key` 始终是默认那一把的明文。"""
         usable = [key for key in self.keys if key.secret.strip()]
         if not usable:
             self.api_key = ""
@@ -438,11 +438,3 @@ def resolve_brain(settings: Settings, spec: Any) -> Provider | None:
         provider = copy.copy(provider)
         provider.model = model
     return provider
-
-
-def apply_brain_env(settings: Settings, spec: Any) -> None:
-    """把大脑端点暴露给子进程（部分 CLI 通过环境变量读取上游）。"""
-    provider = resolve_brain(settings, spec)
-    if provider and provider.api_key:
-        os.environ.setdefault("OPENAI_API_KEY", provider.api_key)
-        os.environ.setdefault("OPENAI_BASE_URL", provider.base_url)

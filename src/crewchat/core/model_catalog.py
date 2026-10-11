@@ -1,196 +1,59 @@
-"""模型元数据适配器：能力判定与价格目录，复用 cc-switch 核心。
+"""模型元数据：静态知识 + 降级说明。
 
-我们不在 Python 侧重写这些判定。cc-switch 已有成熟的视觉能力登记表
-(`model_capabilities`) 与 models.dev 价格目录 (`model_pricing`)，我们通过
-headless 控制口调用它们，只做数据形状转换。
+历史上这里通过 cc-switch 的控制口（`ccsw-proxy`）拉取视觉能力登记表与
+models.dev 价格目录。**cc-switch 网关已随模型层统一到 CCR 而移除**，因此：
 
-控制口不可用时全部**降级为空**，绝不让模型页因为拿不到元数据而打不开。
+- 价格与实时能力判定不再由 Python 侧提供（改由 CCR / Codeg 侧承担）；
+- 本模块只保留与端点无关的**静态知识**：命名约定标签、常见上下文窗口；
+- 两个历史入口保留签名并显式降级，调用方（`providers_api`）无需改动。
 """
 
 from __future__ import annotations
 
-import threading
-import time
 from typing import Any
 
-import httpx
-
 from .config import Settings
-from .gateway import get_gateway
-from .providers import MODEL_TAGS, Model
 
-# 价格目录变化很慢（models.dev 按天更新），缓存久一点。
-_CATALOG_TTL = 12 * 3600.0
-# 拉取失败后的重试间隔。失败时**不能**把空结果按正常 TTL 缓存住，
-# 否则控制口晚起一会儿就会让价格整整 12 小时都是空的。
-_CATALOG_RETRY_TTL = 30.0
-
-_catalog: dict[str, Any] = {"ts": 0.0, "prices": {}}
-_catalog_lock = threading.Lock()
-
-
-def _refresh_catalog(settings: Settings) -> None:
-    control = _ready(settings)
-    with httpx.Client(timeout=15.0) as client:
-        response = client.get(f"{control}/models/catalog")
-        response.raise_for_status()
-        entries = response.json()
-
-    prices: dict[str, dict[str, Any]] = {}
-    for entry in entries or []:
-        model_id = str(entry.get("modelId") or entry.get("model_id") or "").strip()
-        if not model_id:
-            continue
-        prices[model_id] = {
-            "display_name": entry.get("displayName") or entry.get("display_name") or "",
-            "input": _to_float(entry.get("inputCostPerMillion") or entry.get("input_cost_per_million")),
-            "output": _to_float(entry.get("outputCostPerMillion") or entry.get("output_cost_per_million")),
-            "cache_read": _to_float(entry.get("cacheReadCostPerMillion") or entry.get("cache_read_cost_per_million")),
-            "cache_write": _to_float(
-                entry.get("cacheCreationCostPerMillion") or entry.get("cache_creation_cost_per_million")
-            ),
-        }
-
-    with _catalog_lock:
-        _catalog["prices"] = prices
-        _catalog["ts"] = time.monotonic()
-
-
-def _to_float(value: Any) -> float | None:
-    try:
-        return float(value) if value not in (None, "") else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _ready(settings: Settings) -> str:
-    """确保 cc-switch 控制进程在跑，返回控制口地址。"""
-    gateway = get_gateway(settings)
-    if not gateway.ensure_running():
-        raise RuntimeError("cc-switch 控制进程未就绪")
-    return gateway.control
-
-
-def _load_catalog(settings: Settings) -> dict[str, Any]:
-    with _catalog_lock:
-        prices = _catalog["prices"]
-        ts = _catalog["ts"]
-    ttl = _CATALOG_TTL if prices else _CATALOG_RETRY_TTL
-    if prices or (time.monotonic() - ts) < ttl:
-        return prices
-    try:
-        _refresh_catalog(settings)
-    except Exception:  # noqa: BLE001 - 元数据是锦上添花，拿不到就用缓存/空
-        with _catalog_lock:
-            # 只推进时间戳做退避，prices 保持为空，下个请求会再试。
-            _catalog["ts"] = time.monotonic()
-        return _catalog["prices"]
-    with _catalog_lock:
-        return dict(_catalog["prices"])
-
-
-def _fetch_capabilities(settings: Settings, models: list[str]) -> dict[str, bool | None]:
-    """判定模型的图像输入能力。None 表示 cc-switch 没有结论（fail-open）。"""
-    ids = [m for m in models if m]
-    if not ids:
-        return {}
-    try:
-        control = _ready(settings)
-        with httpx.Client(timeout=20.0) as client:
-            response = client.post(
-                f"{control}/models/capabilities",
-                json={"models": ids},
-            )
-            response.raise_for_status()
-            payload = response.json()
-    except Exception:  # noqa: BLE001
-        return {}
-
-    out: dict[str, bool | None] = {}
-    for item in payload.get("models", []):
-        out[str(item.get("model") or "")] = item.get("vision")
-    return out
+# ---------------------------------------------------------------------------
+# 兼容入口（显式降级）
+# ---------------------------------------------------------------------------
 
 
 def fetch_provider_models(settings: Settings, provider: Any) -> list[dict[str, Any]]:
-    """从供应商端点拉取可用模型（手动添加模型时的辅助，不是主路径）。
+    """历史入口：曾复用 cc-switch 的 `model_fetch` 拉取供应商模型。
 
-    复用 cc-switch 的 `model_fetch`：它有版本段 URL 阶梯（`/v4` vs `/v1`）和按
-    api_format 的鉴权头，比我们早先的 30 行实现完整得多。
+    cc-switch 已移除；模型发现请使用 CCR 的探活 / Codeg 的「获取可用模型」。
+    显式抛错让调用方把原因转成 502 / `success: false` 的消息，而不是静默空。
     """
-    control = _ready(settings)
-    body: dict[str, Any] = {
-        "base_url": provider.base_url,
-        "api_key": provider.api_key,
-        "is_full_url": provider.is_full_url,
-        "api_format": provider.api_format,
-    }
-    if provider.models_url_override:
-        body["models_url_override"] = provider.models_url_override
-    if provider.extra_headers:
-        body["request_headers"] = provider.extra_headers
-
-    with httpx.Client(timeout=40.0) as client:
-        response = client.post(f"{control}/models/fetch", json=body)
-        response.raise_for_status()
-        payload = response.json()
-
-    prices = _load_catalog(settings)
-    out: list[dict[str, Any]] = []
-    for item in payload or []:
-        model_id = str(item.get("id") or "").strip()
-        if not model_id:
-            continue
-        entry: dict[str, Any] = {"id": model_id}
-        if item.get("ownedBy") or item.get("owned_by"):
-            entry["owned_by"] = item.get("ownedBy") or item.get("owned_by")
-        if model_id in prices:
-            entry["price"] = prices[model_id]
-        out.append(entry)
-    return out
+    del settings, provider
+    raise RuntimeError(
+        "cc-switch 网关已移除；模型发现请改用 CCR（探活 / Agent Config）"
+    )
 
 
 def enrich_models(settings: Settings, model_ids: list[str]) -> dict[str, dict[str, Any]]:
-    """用 cc-switch 的能力判定与价格目录补全模型元数据。
+    """历史入口：曾用 cc-switch 补全 能力 / 价格 / 显示名。
 
-    返回 `{model_id: {"capabilities": {...}, "price": {...}, "display_name": ...,
-    "context_limit": ..., "tags": [...]}}`，只包含确实拿到的字段。
+    现在只做与端点无关的静态补全（已知上下文窗口）；其余字段不再提供，
+    调用方已有的 `.get(...)` 兜底会自然降级。
     """
-    if not model_ids:
-        return {}
-
-    vision = _fetch_capabilities(settings, model_ids)
-    prices = _load_catalog(settings)
-
+    del settings
     out: dict[str, dict[str, Any]] = {}
     for model_id in model_ids:
-        entry: dict[str, Any] = {}
-        if model_id in vision:
-            # 只在有明确结论时写 capabilities；None（未知）保持不写，交给 fail-open。
-            if vision[model_id] is not None:
-                entry["capabilities"] = {"vision": bool(vision[model_id])}
-        price = prices.get(model_id)
-        if price:
-            entry["price"] = {k: v for k, v in price.items() if v is not None}
-            if not entry["price"]:
-                entry.pop("price")
-        if model_id in prices and prices[model_id].get("display_name"):
-            entry["suggested_display_name"] = prices[model_id]["display_name"]
-        if entry:
-            out[model_id] = entry
+        limit = known_context_limit(model_id)
+        if limit:
+            out[model_id] = {"context_limit": limit}
     return out
 
 
 # ---------------------------------------------------------------------------
-# 自动打标签
+# 自动打标签（静态知识，与端点无关）
 # ---------------------------------------------------------------------------
 #
-# 用户不该手工给每个模型贴标签 —— 能力、价格、上下文都能从已有数据源推出来。
-# 判定顺序（先命中先用，越靠前越可靠）：
-#   1. cc-switch 视觉能力登记表 → vision
-#   2. models.dev 价格目录     → free（两端都为 0）
-#   3. 模型 id 命名约定        → 其余标签
-# 命名约定只作为**兜底**：cc-switch 判定与价格目录优先，避免和真实数据打架。
+# 用户不该手工给每个模型贴标签。判定顺序（先命中先用）：
+#   1. 命名约定（向量 / 视觉 / 推理 / 工具 / 快速 / 长上下文）
+#   2. 已知上下文窗口兜底
+#   3. 文本是所有模型的基础能力
 
 # 取模型 id 的末段：`nvidia/xxx:free` → `xxx:free`
 def _tail(model_id: str) -> str:
@@ -254,8 +117,8 @@ def known_context_limit(model_id: str) -> int | None:
 def infer_tags(model: Any, enriched: dict[str, Any] | None = None) -> list[str]:
     """给一个模型推导标签。
 
-    `enriched` 是 cc-switch 补全的结果（capabilities / price），有它就优先采信真实
-    数据源；没有则退回命名约定。用户手工打的标签由调用方合并进来，不在这里覆盖。
+    `enriched` 是历史补全结果的形状（capabilities / price），有就采信；
+    没有则退回命名约定。用户手工打的标签由调用方合并进来，不在这里覆盖。
     """
     enriched = enriched or {}
     tags: list[str] = []
@@ -264,14 +127,14 @@ def infer_tags(model: Any, enriched: dict[str, Any] | None = None) -> list[str]:
     if _has(model.id, "embed", "bge-", "gte-", "e5-", "jina-", "nomic-embed", "minilm"):
         return ["embedding"]
 
-    # 1. 视觉：cc-switch 的登记表结论优先于命名
+    # 1. 视觉：补全结论优先于命名
     vision = (enriched.get("capabilities") or {}).get("vision")
     if vision is None:
         vision = (model.capabilities or {}).get("vision")
     if vision is True:
         tags.append("vision")
 
-    # 2. 免费：models.dev 目录里两端都是 0（`:free` 后缀也算）
+    # 2. 免费：两端都为 0（`:free` 后缀也算）
     price = enriched.get("price") or model.price or {}
     input_cost, output_cost = price.get("input"), price.get("output")
     if _tail(model.id).endswith(":free"):
@@ -300,4 +163,6 @@ def infer_tags(model: Any, enriched: dict[str, Any] | None = None) -> list[str]:
         tags.append("text")
 
     # 固定顺序输出，保证 UI 稳定
+    from .providers import MODEL_TAGS
+
     return [t for t in MODEL_TAGS if t in tags]

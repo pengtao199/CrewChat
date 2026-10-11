@@ -1,7 +1,7 @@
 """Models: the brain pool the UI manages under Settings → 模型.
 
-唯一真相源是 `.data/providers.jsonc`（我们的通用 provider）。网关里按 CLI 分的那几份
-provider 是由这里**投影**出来的派生物，见 `core/gateway.py`。
+唯一真相源是 `.data/providers.jsonc`（我们的通用 provider）。逐 CLI 的网关投影已随
+cc-switch 移除；模型统一管理由 CCR 承担。
 """
 
 from __future__ import annotations
@@ -39,9 +39,9 @@ def _masked(p: Provider) -> str:
 def model_to_api(m: Model, enriched: dict[str, Any] | None = None) -> dict[str, Any]:
     """模型对外形状。
 
-    标签是**自动推导**的（cc-switch 能力判定 + models.dev 价格 + 命名约定），
-    用户手工打的标签合并进来。推导结果不落盘 —— 真相源只存用户显式设过的标签，
-    这样换价格源或升级 cc-switch 时标签会自动跟着变，不会留下陈旧数据。
+    标签是**自动推导**的（命名约定 + 已知上下文窗口），用户手工打的标签合并进来。
+    推导结果不落盘 —— 真相源只存用户显式设过的标签，这样推导规则升级时标签会自动
+    跟着变，不会留下陈旧数据。
     """
     enriched = enriched or {}
     auto = infer_tags(m, enriched)
@@ -98,7 +98,7 @@ def to_api(p: Provider, enriched: dict[str, dict[str, Any]] | None = None) -> di
 
 
 def enrich_all(settings: Settings, providers: list[Provider]) -> dict[str, dict[str, Any]]:
-    """对所有供应商的模型批量补全 cc-switch 元数据（供列表接口使用）。"""
+    """对所有供应商的模型批量补全静态元数据（供列表接口使用）。"""
     ids = [m.id for p in providers for m in p.models]
     if not ids:
         return {}
@@ -141,8 +141,8 @@ def _merge_provider_fields(target: Provider, body: dict[str, Any]) -> None:
 def _model_from_body(body: dict[str, Any]) -> Model:
     """从请求体构造 Model。
 
-    标签**不接受客户端传入** —— 标签一律由 `infer_tags` 推导（cc-switch 能力判定 +
-    价格目录 + 命名约定）。用户只能覆盖显示名与上下文长度。
+    标签**不接受客户端传入** —— 标签一律由 `infer_tags` 推导（命名约定 + 已知上下文
+    窗口）。用户只能覆盖显示名与上下文长度。
     """
     context_limit = body.get("context_limit")
     return Model(
@@ -282,7 +282,7 @@ def add_model(provider_id: str, body: dict[str, Any]) -> Any:
     if not model.id:
         return JSONResponse({"error": "model_id_required"}, status_code=400)
 
-    # 保留已有模型上已确认的元数据；新模型从 cc-switch 补全。
+    # 保留已有模型上已确认的元数据；新模型只做静态补全。
     existing = target.get_model(model.id)
     enriched = enrich_models(settings, [model.id]).get(model.id, {})
     if existing:
@@ -349,7 +349,8 @@ def fetch_models(body: dict[str, Any]) -> dict[str, Any]:
     """从供应商端点拉取可用模型（手动添加模型时的辅助，不是主路径）。
 
     接受已存在的 provider id（key 在服务端用，浏览器永远拿不到），或编辑态下的
-    显式 base_url/api_key。抓取逻辑复用 cc-switch 的 `model_fetch`。
+    显式 base_url/api_key。远程抓取已随 cc-switch 移除：这里会返回明确的失败信息，
+    模型发现改由 CCR 承担。
     """
     settings = get_settings()
     provider_id = str(body.get("provider_id") or "")

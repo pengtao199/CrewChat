@@ -26,7 +26,6 @@ class Settings(BaseSettings):
     claude_max_turns: int = 24
 
     opencode_model: str = ""
-    codex_provider: str = "gateway"
     codex_model: str = ""
     codex_sandbox: str = "workspace-write"
     codex_approval: str = "on-failure"
@@ -38,22 +37,6 @@ class Settings(BaseSettings):
     language: str = "zh-CN"
 
     data_dir: Path = _default_data_dir()
-
-    # 模型网关：端口在 core/gateway.py，实现由 `gateway_kind` 选。见 AGENTS/gateway.md。
-    # 核心复用适配器的实现，但数据归我们：网关用 `gateway_dir` 作为自己的 home，
-    # 不碰用户本机的 `~/.cc-switch/`。
-    gateway_kind: str = "cc-switch"
-    # 核心源码已固化进本仓库（gateway/cc-switch/），从仓库内构建，不依赖外部克隆。
-    gateway_binary: Path = (
-        Path(__file__).resolve().parents[3] / "gateway" / "cc-switch" / "src-tauri" / "target" / "release" / "ccsw-proxy"
-    )
-    gateway_proxy_port: int = 15721
-    gateway_control_port: int = 15722
-    gateway_home: Path | None = None  # 覆盖；默认 `.data/gateway`
-
-    @property
-    def gateway_dir(self) -> Path:
-        return self.gateway_home or (self.data_dir / "gateway")
 
     @property
     def db_path(self) -> Path:
@@ -72,7 +55,6 @@ class Settings(BaseSettings):
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.workspace.mkdir(parents=True, exist_ok=True)
         self.agents_home.mkdir(parents=True, exist_ok=True)
-        self.gateway_dir.mkdir(parents=True, exist_ok=True)
 
 
 @lru_cache

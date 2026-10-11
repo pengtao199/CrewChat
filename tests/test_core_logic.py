@@ -1,7 +1,7 @@
-"""纯逻辑回归：provider/model 数据形状、标签推导、网关投影、版本号。
+"""纯逻辑回归：provider/model 数据形状、标签推导、版本号。
 
 这些是无副作用、无网络、无文件系统的判定，适合做快速回归网（`uv run pytest`）。
-端到端行为（真实对话 / 网关进程）按 `AGENTS/verification.md` 另行实跑，不在此覆盖。
+端到端行为（真实对话 / 完整链路）按 `AGENTS/verification.md` 另行实跑，不在此覆盖。
 """
 
 from __future__ import annotations
@@ -9,7 +9,6 @@ from __future__ import annotations
 import pytest
 
 from crewchat.core import version
-from crewchat.core.gateway_ccswitch import _build_settings_config
 from crewchat.core.model_catalog import infer_tags, known_context_limit
 from crewchat.core.providers import Model, Provider, remove_model, upsert_model
 
@@ -172,39 +171,6 @@ def test_known_context_limit() -> None:
     assert known_context_limit("some-unknown-model") is None
 
 
-# ---- 网关投影（通用 provider → 各 CLI 的 settings_config） ---------------------
-
-
-def test_build_settings_config_codex_uses_responses_wire_api() -> None:
-    provider = _provider(base_url="https://up/v1", api_key="k", api_format="openai_responses")
-    settings_config, meta = _build_settings_config("codex", provider)
-    assert 'wire_api = "responses"' in settings_config["config"]
-    assert settings_config["auth"]["OPENAI_API_KEY"] == "k"
-    assert meta["apiFormat"] == "openai_responses"
-
-
-def test_build_settings_config_claude_sets_anthropic_base_url() -> None:
-    provider = _provider(base_url="https://up/v1", api_key="k", api_format="anthropic")
-    settings_config, meta = _build_settings_config("claude", provider)
-    assert settings_config["env"]["ANTHROPIC_BASE_URL"] == "https://up/v1"
-    assert settings_config["env"]["ANTHROPIC_AUTH_TOKEN"] == "k"
-    assert meta["apiFormat"] == "anthropic"
-
-
-def test_build_settings_config_opencode_lists_models() -> None:
-    provider = _provider(base_url="https://up/v1", api_key="k", models=["a", "b"])
-    settings_config, _ = _build_settings_config("opencode", provider)
-    assert settings_config["options"]["baseURL"] == "https://up/v1"
-    assert settings_config["base_url"] == "https://up/v1"
-    assert settings_config["api_key"] == "k"
-    assert set(settings_config["models"]) == {"a", "b"}
-
-
-def test_build_settings_config_rejects_unknown_app() -> None:
-    with pytest.raises(ValueError):
-        _build_settings_config("cursor", _provider())
-
-
 # ---- brain resolution -------------------------------------------------------
 
 
@@ -241,7 +207,6 @@ def test_only_real_session_ids_are_resumed(monkeypatch, tmp_path) -> None:  # ty
     spec = AgentSpec(id="a1", body="opencode", brain="p/m")
 
     class _Executor:
-        needs_gateway = False
         seen: list[str | None] = []
 
         async def run(self, req, provider):  # noqa: ANN001
@@ -415,210 +380,6 @@ def test_group_prompt_truncates_oversized_prior_output() -> None:
     assert len(prompt) < 1000
 
 
-def test_opencode_config_carries_own_provider_not_the_users() -> None:
-    """Each opencode run must get its own config, not inherit the user's global one.
-
-    Inheriting the global config made every agent carry all of the user's MCP
-    servers (one simple reply took ~47s and any global edit leaked into every
-    agent). The inline config must carry exactly the brain provider.
-    """
-    import json
-
-    from crewchat.core.providers import Provider
-    from crewchat.executors.acp_body import _inline_config
-
-    prov = Provider(
-        id="agnes", name="Agnes", base_url="https://apihub.agnes-ai.com/v1",
-        model="ccs-opencode-agnes-ai/agnes-2.5-flash", api_key="sk-test",
-    )
-    cfg = json.loads(_inline_config(prov, [], [], "opencode"))
-
-    assert "mcp" not in cfg  # no inherited servers
-    block = cfg["providers"]["gw"]
-    # baseURL points at the local reverse proxy with the app segment, not the upstream
-    assert block["settings"]["baseURL"] == "http://127.0.0.1:15721/opencode/v1"
-    # the key is the gateway placeholder, never the real provider key
-    assert block["settings"]["apiKey"] == "PROXY_MANAGED"
-    assert block["package"] == "aisdk:@ai-sdk/openai-compatible"
-    assert "sk-test" not in json.dumps(cfg)
-    assert "agnes" not in cfg["providers"]
-    # catalog name stays slash-free; modelID is the published id the gateway routes on
-    assert block["models"]["main"]["modelID"] == "ccs-opencode-agnes-ai/agnes-2.5-flash"
-    assert cfg["model"] == "gw/main"
-
-    from pathlib import Path
-
-    from crewchat.executors.acp_body import _opencode_env, _release_homes
-    from crewchat.executors.base import ExecRequest
-
-    env: dict[str, str] = {"OPENCODE_SERVER_PASSWORD": "nope"}
-    _opencode_env(prov, ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id="opencode"), env)
-    try:
-        written = json.loads(Path(env["OPENCODE_CONFIG_DIR"]).joinpath("opencode.json").read_text())
-        assert written["providers"]["gw"]["models"]["main"]["modelID"] == "ccs-opencode-agnes-ai/agnes-2.5-flash"
-        assert "sk-test" not in json.dumps(written)
-        assert env["OPENCODE_TEST_HOME"]
-        assert env["OPENCODE_DISABLE_PROJECT_CONFIG"] == "1"
-        assert "OPENCODE_SERVER_PASSWORD" not in env
-    finally:
-        _release_homes(env)
-
-
-def test_claude_and_codex_homes_keep_published_ids_and_the_placeholder() -> None:
-    """Each spawn writes its own home. The real key stays out of the file and the env."""
-    from pathlib import Path
-
-    from crewchat.core.providers import Provider
-    from crewchat.executors.acp_body import (
-        PROXY_TOKEN,
-        _claude_env,
-        _codex_env,
-        _release_homes,
-        _scrub_secret,
-    )
-    from crewchat.executors.base import ExecRequest
-
-    claude = Provider(
-        id="deepseek", name="DeepSeek", base_url="https://api.deepseek.com",
-        model="ccs-claude-deepseek--deepseek-v4", api_key="sk-test",
-    )
-    env = {"DEEPSEEK_API_KEY": "sk-test"}
-    _scrub_secret(env, claude.api_key)
-    _claude_env(claude, ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id="claude"), env)
-    try:
-        blob = Path(env["CLAUDE_CONFIG_DIR"]).joinpath("settings.json").read_text()
-        assert "ccs-claude-deepseek--deepseek-v4" in blob
-        assert PROXY_TOKEN in blob
-        assert "sk-test" not in blob
-        assert "sk-test" not in env.values()
-    finally:
-        _release_homes(env)
-
-    left = Provider(
-        id="deepseek", name="DeepSeek", base_url="https://api.deepseek.com",
-        model="ccs-deepseek/deepseek/deepseek-v4-pro", api_key="sk-left",
-    )
-    right = Provider(
-        id="agnes", name="Agnes", base_url="https://api.agnes.test",
-        model="ccs-agnes/agnes-2", api_key="sk-right",
-    )
-    left_env: dict[str, str] = {}
-    right_env: dict[str, str] = {}
-    req = ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id="codex")
-    _codex_env(left, req, left_env)
-    _codex_env(right, req, right_env)
-    try:
-        left_text = Path(left_env["CODEX_HOME"]).joinpath("config.toml").read_text()
-        right_text = Path(right_env["CODEX_HOME"]).joinpath("config.toml").read_text()
-        assert left_env["CODEX_HOME"] != right_env["CODEX_HOME"]
-        assert "ccs-deepseek/deepseek/deepseek-v4-pro" in left_text
-        assert "ccs-agnes/agnes-2" in right_text
-        assert 'wire_api = "responses"' in left_text
-        assert "127.0.0.1:15721/v1" in left_text
-        assert PROXY_TOKEN in left_text and PROXY_TOKEN in right_text
-        assert "sk-" not in left_text and "sk-" not in right_text
-    finally:
-        _release_homes(left_env)
-        _release_homes(right_env)
-
-
-def test_every_cli_process_keeps_its_own_published_id() -> None:
-    """Different sessions of the same CLI carry different published ids, not one current route."""
-    from pathlib import Path
-
-    from crewchat.core.providers import Provider
-    from crewchat.executors.acp_body import (
-        PROXY_TOKEN,
-        _gemini_env,
-        _grok_env,
-        _hermes_env,
-        _mcode_env,
-        _openclaw_env,
-        _pi_env,
-        _release_homes,
-    )
-    from crewchat.executors.base import ExecRequest
-
-    def prov(model: str) -> Provider:
-        return Provider(id="deepseek", name="DeepSeek", base_url="https://api.deepseek.com", model=model, api_key="sk-test")
-
-    left = "ccs-hermes-deepseek/deepseek-v4-pro"
-    right = "ccs-hermes-agnes/agnes-2"
-    homes: list[dict[str, str]] = []
-
-    def bind(hook, app: str, model: str) -> dict[str, str]:
-        env: dict[str, str] = {}
-        hook(prov(model), ExecRequest(prompt="hi", cwd=Path("/tmp"), app_id=app), env)
-        homes.append(env)
-        return env
-
-    try:
-        gemini = bind(_gemini_env, "gemini", "ccs-gemini-deepseek--deepseek-v4-pro")
-        assert gemini["GEMINI_MODEL"] == "ccs-gemini-deepseek--deepseek-v4-pro"
-        assert gemini["GEMINI_API_KEY"] == PROXY_TOKEN
-        assert "sk-test" not in gemini.values()
-
-        grok_a = bind(_grok_env, "grok", left)
-        grok_b = bind(_grok_env, "grok", right)
-        assert grok_a["GROK_HOME"] != grok_b["GROK_HOME"]
-        text = Path(grok_a["GROK_CONFIG_PATH"]).read_text()
-        assert left in text and PROXY_TOKEN in text and "sk-test" not in text
-        assert "/grokbuild/v1" in text
-
-        hermes = bind(_hermes_env, "hermes", left)
-        hermes_text = Path(hermes["HERMES_HOME"]).joinpath("config.yaml").read_text()
-        assert left in hermes_text and PROXY_TOKEN in hermes_text and "sk-" not in hermes_text
-        assert "api_mode: chat_completions" in hermes_text
-        assert "discover_models: false" in hermes_text
-        assert Path(hermes["HERMES_HOME"]).is_relative_to(Path.home() / ".hermes" / "crewchat-sessions")
-
-        pi = bind(_pi_env, "pi", left)
-        pi_text = Path(pi["PI_CODING_AGENT_DIR"]).joinpath("models.json").read_text()
-        assert left in pi_text and PROXY_TOKEN in pi_text and "sk-" not in pi_text
-        assert "openai-completions" in pi_text
-        pi_settings = Path(pi["PI_CODING_AGENT_DIR"]).joinpath("settings.json").read_text()
-        assert '"quietStartup": true' in pi_settings
-
-        mcode = bind(_mcode_env, "mcode", left)
-        mcode_text = Path(mcode["MINIMAX_DATA_DIR"]).joinpath("config.yaml").read_text()
-        assert left in mcode_text and PROXY_TOKEN in mcode_text and "sk-" not in mcode_text
-
-        claw = bind(_openclaw_env, "openclaw", left)
-        claw_text = Path(claw["OPENCLAW_CONFIG_PATH"]).read_text()
-        assert left in claw_text and PROXY_TOKEN in claw_text and "sk-" not in claw_text
-        assert "openai-completions" in claw_text
-        assert '"mode": "local"' in claw_text
-    finally:
-        for env in homes:
-            _release_homes(env)
-
-
-def test_opencode_config_only_includes_declared_capabilities() -> None:
-    """An agent's skills/MCPs are the only ones written; undeclared ones are dropped."""
-    import json
-
-    from crewchat.core.providers import Provider
-    from crewchat.executors.acp_body import _inline_config
-
-    prov = Provider(id="agnes", name="Agnes", base_url="https://x/v1", model="m", api_key="k")
-    # A made-up mcp name is not in the shared registry, so it must not appear.
-    cfg = json.loads(
-        _inline_config(
-            prov,
-            ["definitely-not-a-skill"],
-            ["nope-not-an-mcp"],
-            session="conv:demo",
-            catalog_model="m",
-        )
-    )
-    assert "skills" not in cfg
-    assert "mcp" not in cfg
-    gw = cfg["providers"]["gw"]
-    assert gw["settings"]["headers"]["x-opencode-session"] == "conv:demo"
-    assert gw["models"]["main"]["limit"]["context"] == 128000
-    assert gw["models"]["main"]["modelID"] == "m"
-
-
 def test_acp_registers_the_cli_bodies() -> None:
     """Every body is an ACP CLI; there is no direct API body."""
     from crewchat.executors import list_executors
@@ -629,25 +390,11 @@ def test_acp_registers_the_cli_bodies() -> None:
     assert "llm" not in by_id
 
 
-def test_acp_model_option_lookup_handles_flat_and_grouped() -> None:
-    """Selecting the agent's brain must find the value flat or nested in a group."""
-    from types import SimpleNamespace
-
-    from crewchat.executors.acp_body import _select_values
-
-    flat = SimpleNamespace(options=[SimpleNamespace(value="a/b"), SimpleNamespace(value="agnes/agnes-2.5-flash")])
-    assert "agnes/agnes-2.5-flash" in _select_values(flat)
-
-    grouped = SimpleNamespace(options=[SimpleNamespace(options=[SimpleNamespace(value="x/y")])])
-    assert "x/y" in _select_values(grouped)
-
-
 def test_every_scanned_tool_is_an_acp_body() -> None:
-    """Every CLI the engines page scans must have a body, or the two disagree.
+    """Every CLI in the scan set must have an ACP body, or the two disagree.
 
-    cc-switch scans a fixed tool set; the composer's picker reads the body
-    registry. If a scanned tool has no body, the engines page shows it but the
-    picker does not — exactly the "engines page has many, picker has three" gap.
+    The picker reads the body registry; if a scanned tool has no body, the
+    engines page shows it but the picker does not.
     """
     from crewchat.executors import list_executors
     from crewchat.executors.acp_body import ACP_CLIS

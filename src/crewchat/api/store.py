@@ -224,7 +224,7 @@ class Store:
         cost_usd: float | None,
         duration_ms: int | None,
     ) -> None:
-        """记一条**经我们 app 发起**的 CLI 身体运行消耗。不读网关日志。"""
+        """记一条**经我们 app 发起**的 CLI 身体运行消耗。不读外部日志。"""
         with self._lock, self._connect() as conn:
             conn.execute(
                 "INSERT INTO usage_events "

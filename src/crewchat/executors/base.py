@@ -33,16 +33,13 @@ class ExecRequest:
     timeout: float = 1800.0
     session: str | None = None
     on_event: Callable[[ExecEvent], None] | None = None
-    #: 该 agent 声明的技能名 / MCP id。有的身体（opencode）要为一次运行生成自己的
-    #: 配置，就得知道它该带哪些能力——而不是把用户全局那份整个继承过来。
+    #: 该 agent 声明的技能名 / MCP id。契约字段：留给需要按能力定制的身体。
     skills: list[str] = field(default_factory=list)
     mcps: list[str] = field(default_factory=list)
-    #: 身体 id（`opencode`/`openclaw`/…），供 env 钩子拼反代的 app 段路径。
+    #: 身体 id（`opencode`/`openclaw`/…）。契约字段：留给需要按身体区分的实现。
     app_id: str = ""
-    #: 会话键（`conv:<id>`），给需要稳定会话头的上游（如 OpenCode Go）。
+    #: 会话键（`conv:<id>`）。契约字段：留给需要稳定会话头的实现。
     conversation_id: str = ""
-    #: 大脑里的真实模型 id。经网关后 `provider.model` 会变成发布 id。
-    catalog_model: str = ""
 
     def emit(self, kind: EventKind, **kw: Any) -> None:
         if self.on_event is None:
@@ -56,7 +53,7 @@ class TokenUsage:
 
     各身体来源不同（claude 的 model_usage、codex 的 TurnCompletedEvent.usage、
     opencode 的 step-finish），这里归一到同一组计数字段。
-    只统计**经我们 app 发起的**运行——不读网关日志、不掺用户裸跑 CLI 的消耗。
+    只统计**经我们 app 发起的**运行——不读外部日志、不掺用户裸跑 CLI 的消耗。
     """
 
     input_tokens: int = 0
@@ -116,10 +113,6 @@ class Executor(ABC):
     has_builtin_brain: ClassVar[bool]
     # 引擎类别：本地 CLI（用户装）/ 远程 API（配模型即可）/ 应用内置（随包）
     kind: ClassVar[EngineKind] = "cli"
-    #: 该身体是否要靠网关（反代）注入大脑。True 的身体读全局客户端配置（无法逐次覆盖），
-    #: 必须由 `Gateway.activate` 挂到反代并按 provider 逐请求路由；False 的身体自己按次
-    #: 注入端点，不碰全局配置，天然可多开。
-    needs_gateway: ClassVar[bool] = False
 
     @classmethod
     def available(cls) -> bool:
