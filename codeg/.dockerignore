@@ -1,0 +1,13 @@
+node_modules/
+.next/
+out/
+target/
+src-tauri/target/
+.git/
+*.md
+LICENSE
+.github/
+docs/
+.vscode/
+.idea/
+*.log

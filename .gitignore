@@ -33,3 +33,7 @@ Reference/
 gateway/cc-switch/src-tauri/target/
 !gateway/cc-switch/dist/
 !gateway/cc-switch/dist/**
+
+# 固化进仓库的 Codeg：构建产物由它自带的 .gitignore 忽略（node_modules/、.next/、
+# src-tauri/target/ 等）；测试夹具数据库是源码的一部分，放行上面的 *.db 规则。
+!codeg/src-tauri/tests/fixtures/**/*.db
