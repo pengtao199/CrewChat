@@ -397,6 +397,21 @@ export const mergeTextMessageContent = (
   };
 };
 
+export const mergeThinkingMessageContent = (
+  existing: IMessageThinking['content'],
+  incoming: IMessageThinking['content']
+): IMessageThinking['content'] => {
+  const { replace: _existingReplace, ...existingRest } = existing;
+  const { replace: incomingReplace, ...incomingRest } = incoming;
+
+  return {
+    ...existingRest,
+    ...incomingRest,
+    content: incomingReplace ? incoming.content : existing.content + incoming.content,
+    ...(incomingReplace ? { replace: true } : {}),
+  };
+};
+
 export const preferTextMessageVersion = (primary: IMessageText, secondary: IMessageText): IMessageText => {
   const primaryIsReplace = isTextContentReplacement(primary.content);
   const secondaryIsReplace = isTextContentReplacement(secondary.content);
@@ -429,6 +444,8 @@ export type IMessageThinking = IMessage<
     subject?: string;
     duration?: number;
     status: 'thinking' | 'done';
+    /** Frame carries the whole accumulated thought (backend streams it cumulative). */
+    replace?: boolean;
   }
 >;
 
@@ -963,6 +980,7 @@ const transformMessageInner = (message: IResponseMessage): TMessage | undefined 
           subject: data.subject,
           duration: data.duration ?? data.duration_ms,
           status: data.status,
+          ...(message.replace === true ? { replace: true } : {}),
         },
       };
     }
@@ -1123,13 +1141,12 @@ export const composeMessage = (
     }
 
     if (last.type === 'thinking' && last.msg_id === message.msg_id) {
-      // Otherwise append content
-      const merged = {
-        ...last.content,
-        content: last.content.content + message.content.content,
-        subject: message.content.subject || last.content.subject,
-      };
-      return updateMessage(list.length - 1, { ...last, content: merged });
+      // Backend streams the accumulated thought with replace:true — overwrite.
+      // A delta-only producer keeps concatenating.
+      return updateMessage(list.length - 1, {
+        ...last,
+        content: mergeThinkingMessageContent(last.content, message.content),
+      });
     }
     return pushMessage(message);
   }

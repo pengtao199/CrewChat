@@ -11,6 +11,7 @@ import {
   isTextContentReplacement,
   mergeAcpToolCallContent,
   mergeTextMessageContent,
+  mergeThinkingMessageContent,
   normalizeAgentStreamError,
   normalizeTextMessageContent,
   preferTextMessageVersion,
@@ -372,15 +373,30 @@ export function composeMessageWithIndex(
       }
     }
 
+    if (message.content.replace === true) {
+      // The backend streams the accumulated thought with replace:true, so an
+      // append would stack every prefix on top of the previous one. Match the
+      // row by its namespaced key, not `last`, so a tool/text card between
+      // thought frames cannot spawn a duplicate thinking bubble.
+      const existingIdx = index.msgIdIndex.get(thinkingKey);
+      if (existingIdx !== undefined && existingIdx < list.length) {
+        const existingMsg = list[existingIdx];
+        if (existingMsg.type === 'thinking') {
+          const newList = list.slice();
+          newList[existingIdx] = {
+            ...existingMsg,
+            content: mergeThinkingMessageContent(existingMsg.content, message.content),
+          };
+          return newList;
+        }
+      }
+    }
+
     if (last.type === 'thinking' && last.msg_id === message.msg_id) {
       const newList = list.slice();
       newList[newList.length - 1] = {
         ...last,
-        content: {
-          ...last.content,
-          content: last.content.content + message.content.content,
-          subject: message.content.subject || last.content.subject,
-        },
+        content: mergeThinkingMessageContent(last.content, message.content),
       };
       return newList;
     }

@@ -65,7 +65,7 @@
 | 单会话多 Agent（`extra.team_agent_ids` + 管理员 Leader） | 已实现 |
 | 管理员状态 / 恢复（`/api/crewchat/agents/manager`） | 已实现 |
 | 群聊中间 `finish`（`turn_complete: false`） | 已实现（只关该发言者气泡，不结束整轮） |
-| 思考流（`message.stream` type `thinking`） | 已实现 |
+| 思考流（`message.stream` type `thinking`，同「累积 + replace」） | 已实现 |
 | 独立 Team API（`/api/teams/*`）、文件浏览其余端点、扩展、定时任务、远程连接 | 未实现（501） |
 
 ## 禁止项
