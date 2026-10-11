@@ -21,6 +21,7 @@ Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + �
 | 每个 CLI 用哪个模型 | `ccr/` 的 Agent Profile | 模型页展示（只读）；不做单独的 Agent 绑定页 |
 | CLI 安装 / 登录 / 可用 | Codeg 探测 + CCR 探活 | 引擎 / CLI 状态页（待做） |
 | Agent 定义（角色 / 技能 / MCP / 权限） | Codeg | Agent 设置页 |
+| 权限审批 | Codeg（每 CLI 启动策略 + 权限卡） | 会话内（Python 侧已退役，兜底放行） |
 | 用量 | CCR 请求日志（请求级）+ Codeg 会话统计 | 用量页（待做） |
 | 协作编排 | Codeg（`@` 委派 + Sub-agents） | 会话内 |
 | Python 侧（`src/crewchat/`） | 待定 | 可选：编排作为自定义 ACP agent |
@@ -53,6 +54,7 @@ Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + �
   （`observability.requestLogs=true`）可经 `getRequestLogs` 读到：model / provider / status / tokens。
 - 模型页已验证：eslint / i18n 一致性 / next build 通过；`/settings/model-providers` 200。
 `ui/`（AionUi fork）已移除；Python 侧静态托管已删；旧计划已归档；cc-switch 网关（Python 侧）已整体移除——身体不再注入模型，模型统一管理全走 CCR（见 `AGENTS/gateway.md`）。
+- Python 客户端权限管道已退役（`core/permissions.py` / 确认端点 / `permission` 帧 / 开关，本地 `permissions.jsonc` 已删）；审批归 Codeg，自跑身体兜底放行。
 - 本机 CLI：claude / codex / opencode / gemini / pi / hermes。
 
 ## Next steps

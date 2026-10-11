@@ -23,7 +23,6 @@
 | MCP 服务 | `~/.agents/mcp.json` | JSON | **是** | — |
 | 插件 | `~/.agents/plugins/*` | 目录 | **是** | — |
 | 本地覆盖（CLI 参数等） | `.data/overrides.json` | JSON | 否 | 否 |
-| 权限：全局「自动批准所有权限请求」开关 | `.data/permissions.jsonc` | JSONC | 否 | 否 |
 
 ## 原则
 
@@ -32,7 +31,7 @@
 - **密钥只落一处**：模型端点 API key 存在 CCR 的供应商配置（模型页写入）；编排层自身的大脑池 `.data/providers.jsonc` 同样含 key。两处都禁止散落到 agent 文件、代码或前端。
 - **模型统一管理在 CCR**：供应商 / 路由的真相源是 CCR（经模型页写入）；Python 编排层保留自己的大脑池 `.data/providers.jsonc`（`core/providers.py`），但身体执行不再注入模型——CLI 用哪个模型由 CCR 写进其全局配置（见 `AGENTS/gateway.md`）。
 - **界面必须标注位置**：任何会写入文件的操作，界面要显示「保存到 → 路径」。
-- **权限只有一个全局开关**：`.data/permissions.jsonc` 的 `auto_approve_all`（默认打开）。打开时所有询问直接放行、不弹卡；关闭时每次询问都弹卡。判定只有一处：`core/permissions.py` 的 `decision()`，别在身体或 API 里各判一次。
+- **权限审批在 Codeg**：Python 侧没有权限开关与卡片（自跑身体时兜底放行，见 `AGENTS/bodies.md`）；产品面的审批走 Codeg。
 - **Agent 全局，与工作区解耦**：agent 是「公司的人」，定义存 `.data/agents/`（`settings.agents_home`），**不归任何项目**；团队的多个 agent 可在不同工作区协作。旧仓库内 `config/agents` 首次访问时一次性迁入（`.data/.agents-migrated` 标记，只做一次）。
 - **会话的工作区可选（cwd 三态）**：绑了工作区 → 用该 `project.path`；没绑 → 每会话一个沙盒目录 `.data/workspaces/<session_key>`（避免并发互踩）。侧栏把未绑定的会话显示在「会话工作区」分组下。
 - **项目是一等公民、工作区就是项目目录**：`Project.path`（一个文件夹）既是 agent 的执行 cwd，也是这个项目的协作工作区（agent 定义是全局的，不归项目）。**会话可选归属一个项目**（`conversations.project_id` 可空）：`api/chat.py` 按会话的项目建 Session，未绑定时用每会话沙盒。项目列表存 `.data/projects.json`（经 `core/projects.py` 读写），不在客户端用 `extra.workspace` 当真相源。

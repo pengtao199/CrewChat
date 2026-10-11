@@ -1,7 +1,12 @@
 # 权限：一个全局开关「自动批准所有权限请求」
 
+> **已退役归档（2026-10-11）**：自建权限管道整体移除——`core/permissions.py`、
+> `crewchat_permissions` API、`permission` 帧与确认端点、`tests/test_permissions.py`。
+> 产品面的权限在 Codeg（每 CLI 启动策略 + 权限卡）；Python 自跑身体时兜底放行。
+> 退役说明见 `AGENTS/bodies.md`。下方保留退役时的原设计记录。
+
 Updated: 2026-10-11 (Asia/Shanghai)
-Status: Implemented（后端 + 设置页）。管道已通并有用例覆盖；**但没有 CLI 会真的发问**，见 Current Facts。
+Status: Retired（2026-10-11 归档）。管道存在时也没有 CLI 会真的发问；退役原因见文首注记。
 
 只做权限。不碰思考流、正文流式契约与 CLI 元数据警告（那是 [cli-output-noise.md](cli-output-noise.md)）。
 

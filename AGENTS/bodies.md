@@ -26,7 +26,7 @@ class Executor(ABC):
 
 - 输入 `ExecRequest`：`prompt` / `cwd` / `timeout` / `session`（记忆键）/ `on_event`。
 - 输出 `ExecResult`：`text` / `error` / `session` / `cost_usd` / `num_turns` / `meta`。
-- 过程通过 `req.emit(kind, ...)` 上报：`delta`（增量文本）、`thinking`、`tool`、`notice`、`permission`、`error`。
+- 过程通过 `req.emit(kind, ...)` 上报：`delta`（增量文本）、`thinking`、`tool`、`notice`、`error`。
 
 ## 原则
 
@@ -34,25 +34,24 @@ class Executor(ABC):
 - **官方件优先于自研适配**：只有当官方件不可用（alpha、版本不匹配、违背协议）时才回退到官方 CLI，并把原因写在文件头。
 - **流式是默认**：所有身体都应上报 `delta`，让界面能逐字渲染；一次性返回是降级方案。
 - **记忆用厂商的会话机制**：`session` 参数传给 CLI/SDK 自己的续接能力，不自建对话历史重放。
-- **身体不含权限策略**：`request_permission` 里不写「哪些工具危险」这类判断，只把请求交给 `core/permissions.py` 的 `decision()`。开关的取舍不该要求改每个身体。
+- **身体不含权限策略**：Python 侧不做审批（`request_permission` 兜底放行，见下）；产品面的权限模型在 Codeg。
 
-## 权限：管道已通，但 CLI 默认不问
+## 权限：Python 侧已退役，产品面在 Codeg
 
-2026-10-10 实测的边界，改权限相关代码前先知道：
+2026-10-11 变更：自建的权限管道整体移除（`core/permissions.py`、`crewchat_permissions`
+API、`permission` 帧与确认端点、`tests/test_permissions.py`）。原因：
 
-- **我们的管道是通的。** `_AcpClient.request_permission` → `permission` 事件 → WS
-  `permission` 帧 → `POST .../confirmations/{call_id}/confirm` → 唤醒挂起的身体。
-  这条链有用例覆盖（`tests/test_permissions.py`），且闸门本身可独立跑通。
-- **但没有任何 CLI 真的发来过 `session/request_permission`。** 实测：`claude-agent-acp`
-  二进制里根本没有这个方法的痕迹；`codex-acp` 有（`session/request_permission` /
-  `request_permissions`），但在当前配置下也不发——它的审批策略没设，默认
-  不问；claude 同理。所以关掉「自动批准」目前**不会**在真实对话里弹窗。
-- **要让某个 CLI 开始问，要改它自己的用户配置**（codex 的审批策略、claude 的权限模式），
-  这是逐个 CLI 的事，属于本文件「每个 CLI 的私有部分」。**不要**用「反正点了也白点」
-  的理由把管道删掉——管道是 CLI 一支持就能用的。
-- `AllowedOutcome` 必须同时给 `outcome="selected"` 和 `option_id`。只给 `option_id`
-  会在构造时 pydantic 报错；这行以前写错一直没暴露，正是因为从没被调用过。
+- Python 侧从来没有 CLI 真的发来过 `session/request_permission`（实测见 git 历史），
+  管道对着空气，唯一消费者是已删除的旧前端；
+- 产品面的权限模型在 **Codeg**：每 CLI 启动策略（claude/codex 权限模式、grok
+  `--permission-mode`、cursor `--force`、opencode 的 allow/ask/deny 规则）+ 富权限卡
+  （命令 / diff / 授权范围 / 默认拒绝倾向）；Python 侧无法"接进"它的卡片。
 
+现在的行为：`_AcpClient.request_permission` 兜底放行——挑一个「允许」类选项
+（`allow_once` / `allow_always`），没有允许项则拒绝（`cancelled`）。不弹卡、不发帧、不落盘。
+
+将来 Python 复活为自定义 ACP agent 时，它只**提问**（`session/request_permission`），
+答题在 Codeg——不要在这一侧重建审批 UI。
 ## 具体规则
 
 - 每个身体一个文件，命名 `<name>_body.py`，用 `@register` 注册。
