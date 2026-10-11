@@ -213,9 +213,8 @@ def permission_frame(
 ) -> dict[str, Any]:
     """一次待用户确认的工具调用。
 
-    形状跟着上游的 `IMessagePermission`（`ui/.../chatLib.ts` 的 `IConfirmation`）：
-    `data.description` 是给人看的一行，`data.options[]` 是 `{label, value}`，
-    `value` 用 ACP 自己的 option kind，前端两种分类器都认。界面把选择回传给
+    形状沿用历史约定（`data.description` 是给人看的一行，`data.options[]` 用
+    `{label, value}`）：`value` 用 ACP 自己的 option kind。调用方把选择回传给
     `POST /api/conversations/{id}/confirmations/{call_id}/confirm`，后端据此唤醒
     挂起中的身体。
     """

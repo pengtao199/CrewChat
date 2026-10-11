@@ -19,12 +19,9 @@ chainlit.md
 .DS_Store
 backend.log
 
-# UI fork
-# Any node_modules at any depth (the fork has nested ones under
-# packages/desktop/src/renderer); a path-qualified rule only covers one level
-# and lets a nested vite cache slip in.
+# 前端基座的 node_modules 在任何深度都要忽略（codeg/、ccr/ 各自的 .gitignore
+# 还会覆盖它们自己的构建产物）。
 node_modules/
-ui/dist/
 
 # 第三方参考资料（只读，不属于本仓库代码）
 Reference/

@@ -1,6 +1,0 @@
-{
-  "name": "@aionui/desktop",
-  "version": "1.0.0",
-  "private": true,
-  "description": "AionUi desktop Electron application"
-}

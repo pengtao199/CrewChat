@@ -1,9 +1,9 @@
-"""CrewChat backend: implements the HTTP/WS contract the forked UI expects.
+"""CrewChat backend: the Python side's HTTP/WS surface.
 
-Endpoints are grouped the same way the UI's bridge groups them, so a missing
-feature is a missing router rather than a misplaced one. Unimplemented paths
-return a structured 501 so the UI logs something actionable instead of a bare
-404 while we fill them in.
+The endpoints were shaped for the forked UI that has since been removed; they
+are kept as the Python API's own surface until it is re-purposed. Unimplemented
+paths return a structured 501 so a caller logs something actionable instead of
+a bare 404.
 
 Every HTTP call must carry the API version root (``/api/v1``, see
 ``core.version.api_prefix``). Routes stay registered under the unversioned
@@ -19,8 +19,7 @@ from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -43,16 +42,6 @@ from . import (
     skills_api,
 )
 from .store import store
-
-UI_DIST = Path(__file__).resolve().parents[3] / "ui" / "dist"
-
-
-def _cache_headers(path: str) -> dict[str, str]:
-    """入口文档每次都向服务器核对。带内容哈希的静态文件可以久留。"""
-    name = path.rsplit("/", 1)[-1]
-    if name in {"index.html", "sw.js"} or name.endswith((".html", ".webmanifest")):
-        return {"Cache-Control": "no-cache"}
-    return {"Cache-Control": "public, max-age=86400"}
 
 # 路由内部注册的根（未版本化）。版本段只存在于对外请求路径上。
 _INTERNAL_API_ROOT = "/api"
@@ -185,7 +174,7 @@ def create_app() -> FastAPI:
             "arch": platform.machine(),
             "version": backend_version(),
             "backend": "crewchat",
-            # 文件选择器用它作为默认起始目录（见 ui workspaceMapper / systemInfo）。
+            # 仍会消费该接口的客户端用它做文件选择器的默认起始目录。
             "work_dir": str(Path.home()),
             "cache_dir": str(settings.data_dir),
             "log_dir": str(settings.data_dir),
@@ -234,19 +223,6 @@ def create_app() -> FastAPI:
             {"error": "not_implemented", "path": requested, "backend": "crewchat"},
             status_code=501,
         )
-
-    # ----- static UI --------------------------------------------------------
-
-    if UI_DIST.is_dir():
-        app.mount("/assets", StaticFiles(directory=UI_DIST / "assets"), name="assets")
-
-        @app.get("/{path:path}", include_in_schema=False)
-        async def spa(path: str) -> Any:
-            candidate = UI_DIST / path
-            if path and candidate.is_file():
-                return FileResponse(candidate, headers=_cache_headers(path))
-            # 入口页不能被缓存。否则刷新仍带着旧的脚本地址，切页时去拉已经不存在的分包，整页空白。
-            return FileResponse(UI_DIST / "index.html", headers={"Cache-Control": "no-cache"})
 
     return app
 

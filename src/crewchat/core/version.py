@@ -20,7 +20,7 @@ _BACKEND_VERSION = 1
 _VERSION_RE = re.compile(r"^v(\d+)$")
 
 # 前端语义化版本。仅供后端在版本接口里回显，方便前端做一致性核对；
-# 前端自身以 ui/packages/desktop/package.json 为真相源。
+# 协作界面（codeg/）的版本以它自己的 package.json 为准。
 _FRONTEND_VERSION = "1.0.0"
 
 

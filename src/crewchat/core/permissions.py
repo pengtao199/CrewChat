@@ -21,7 +21,7 @@ from typing import Any, Literal
 from .cli_overrides import current_settings
 from .config import Settings
 
-#: 全局开关键。缺省为 True：保持 fork 自 AionUi 时「不打扰」的行为。
+#: 全局开关键。缺省为 True：保持本地桌面 app「不打扰」的默认行为。
 AUTO_APPROVE_KEY = "auto_approve_all"
 
 _LOCK = threading.Lock()

@@ -520,9 +520,9 @@ async def confirmations(conversation_id: str) -> list[Any]:
 async def confirm(conversation_id: str, call_id: str, body: Any = Body(default=None)) -> dict[str, Any]:
     """用户在权限卡上点了某个选项，唤醒挂起中的身体。
 
-    `body` 的形状跟前端 `ipcBridge.conversation.confirmation.confirm` 一致：
+    `body` 的形状沿用历史约定：
     `{data: {value}, always_allow}`。`value` 是 ACP 的 option kind
-    （`allow_once` / `allow_always` / `reject_*`），前端两种分类器都认这些值。
+    （`allow_once` / `allow_always` / `reject_*`）。
 
     找不到对应的等待者（已超时、已被另一张卡回答、或这一轮根本不问）不算错误——
     界面照样要把卡片收掉，所以这里一律返回 ok。

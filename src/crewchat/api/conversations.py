@@ -90,7 +90,7 @@ def to_api(row: dict[str, Any], agents: dict[str, Any] | None = None) -> dict[st
         "status": "finished",
         "project_id": row.get("project_id"),
         "runtime": idle_runtime(),
-        "source": "aionui",
+        "source": "crewchat",
     }
 
 
