@@ -8643,13 +8643,17 @@ export function AcpAgentSettings() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent align="start">
-                          {CODEX_AUTH_MODES.map((mode) => (
+                          {/* [crewchat] "model_provider" stays hidden: the model
+                              layer is CCR and per-role models live on the Agents
+                              page. The upstream branch below is left dormant —
+                              see NOTICE.md for the deferred full removal. */}
+                          {CODEX_AUTH_MODES.filter(
+                            (mode) => mode !== "model_provider"
+                          ).map((mode) => (
                             <SelectItem key={mode} value={mode}>
                               {mode === "chatgpt_subscription"
                                 ? t("authModeOfficialSubscription")
-                                : mode === "model_provider"
-                                  ? t("authModeModelProvider")
-                                  : t("authModeCustomEndpoint")}
+                                : t("authModeCustomEndpoint")}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -9342,7 +9346,11 @@ supports_websockets = true`}
                           />
                         </SelectTrigger>
                         <SelectContent align="start">
-                          {GEMINI_AUTH_MODES.map((mode) => (
+                          {/* [crewchat] "model_provider" hidden — same reason as
+                              the codex panel above. */}
+                          {GEMINI_AUTH_MODES.filter(
+                            (mode) => mode !== "model_provider"
+                          ).map((mode) => (
                             <SelectItem key={mode} value={mode}>
                               {geminiAuthModeLabel(mode)}
                             </SelectItem>
@@ -11991,9 +11999,9 @@ supports_websockets = true`}
                             <SelectItem value="custom">
                               {t("authModeCustomEndpoint")}
                             </SelectItem>
-                            <SelectItem value="model_provider">
-                              {t("authModeModelProvider")}
-                            </SelectItem>
+                            {/* [crewchat] "model_provider" hidden — models are
+                                chosen on the Agents page, providers live in
+                                CCR. Upstream option left unreachable. */}
                           </SelectContent>
                         </Select>
                         <p className="text-2xs text-muted-foreground">

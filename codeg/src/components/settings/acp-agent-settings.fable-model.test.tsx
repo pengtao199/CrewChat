@@ -2,9 +2,11 @@
  * The Fable pin (`ANTHROPIC_DEFAULT_FABLE_MODEL`, what Claude Code's `fable`
  * alias resolves to) rides the same plumbing as the other Claude model pins.
  * These drive the real panel: a pin read off the native config shows in its
- * field, an edit to it lands in that key and no other, and a bound provider
- * owns it like the other pins — set when the provider pins Fable, cleared when
- * it does not.
+ * field, and an edit to it lands in that key and no other.
+ *
+ * [crewchat] The bound-provider case is gone with the "Model Provider" auth
+ * mode, which this fork hides (models are chosen on the Agents page; the
+ * provider pool is CCR's). See NOTICE.md for the deferred full removal.
  */
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -18,7 +20,7 @@ import {
   acpUpdateAgentEnv,
   listModelProviders,
 } from "@/lib/api"
-import type { AcpAgentInfo, ModelProviderInfo } from "@/lib/types"
+import type { AcpAgentInfo } from "@/lib/types"
 
 import { AcpAgentSettings } from "./acp-agent-settings"
 
@@ -78,24 +80,6 @@ function claudeAgent(overrides: Partial<AcpAgentInfo> = {}): AcpAgentInfo {
   }
 }
 
-function provider(
-  id: number,
-  letter: string,
-  model: Record<string, string>
-): ModelProviderInfo {
-  return {
-    id,
-    name: `Provider ${letter}`,
-    api_url: `https://gateway-${letter.toLowerCase()}.test`,
-    api_key: `key-${letter.toLowerCase()}`,
-    api_key_masked: "",
-    agent_type: "claude_code",
-    model: JSON.stringify(model),
-    created_at: "",
-    updated_at: "",
-  }
-}
-
 /** The control that sits under a visible `<label>` in the config card (the
  *  panel's labels carry no `htmlFor`). */
 function controlUnder(label: string, role: "combobox" | "textbox") {
@@ -111,16 +95,6 @@ function nativeConfigEnv(): Record<string, string> {
   return (
     (JSON.parse(config.value) as { env?: Record<string, string> }).env ?? {}
   )
-}
-
-async function choose(
-  user: ReturnType<typeof userEvent.setup>,
-  label: string,
-  option: string
-) {
-  await user.click(controlUnder(label, "combobox"))
-  const list = await screen.findByRole("listbox")
-  await user.click(within(list).getByRole("option", { name: option }))
 }
 
 async function openPanel(agent: AcpAgentInfo) {
@@ -187,32 +161,5 @@ describe("AcpAgentSettings — the Claude Code Fable model pin", () => {
     expect(JSON.parse(configPatch.config_json ?? "{}").env[FABLE_KEY]).toBe(
       "gw/fable-2"
     )
-  })
-
-  it("follows the bound provider: set by one that pins Fable, cleared by one that does not", async () => {
-    vi.mocked(listModelProviders).mockResolvedValue([
-      provider(1, "A", { main: "model-a", fable: "gw/fable-a" }),
-      provider(2, "B", { main: "model-b" }),
-    ])
-    const user = userEvent.setup()
-    await openPanel(claudeAgent())
-
-    // A first-time pick takes the head of the list: Provider A.
-    await choose(user, "Auth Mode", "Model Provider")
-    const fable = () => controlUnder("Default Fable Model", "textbox")
-    await waitFor(() => expect(fable()).toHaveValue("gw/fable-a"))
-    expect(fable()).toHaveAttribute("readonly")
-    expect(nativeConfigEnv()[FABLE_KEY]).toBe("gw/fable-a")
-    const boundToA = await saveConfig(user)
-    expect(boundToA.modelProviderId).toBe(1)
-    expect(boundToA.env[FABLE_KEY]).toBe("gw/fable-a")
-
-    await choose(user, "Select Model Provider", "Provider B")
-    await waitFor(() => expect(fable()).toHaveValue(""))
-    expect(nativeConfigEnv()).not.toHaveProperty(FABLE_KEY)
-    const boundToB = await saveConfig(user)
-    expect(boundToB.modelProviderId).toBe(2)
-    expect(boundToB.env).not.toHaveProperty(FABLE_KEY)
-    expect(boundToB.env.ANTHROPIC_MODEL).toBe("model-b")
   })
 })

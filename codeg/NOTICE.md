@@ -57,8 +57,10 @@
 | `src/components/settings/settings-shell.test.tsx` | 组顺序断言适配（原「协作在常规下」→ 逐组校验） | 同上 |
 | `src/components/settings/collaboration-settings.test.tsx` | 标题查询限定 `level: 2`（页面标题与区块标题同名后的唯一化） | 协作页标题对齐「多智能体协同」后与委托区块标题同名 |
 | `src/components/settings/collaboration-settings.test.tsx` | 标题查询限定 `level: 2`（页面标题与区块标题同名后的唯一化） | 协作页标题对齐「多智能体协同」后与委托区块标题同名 |
-| `src/components/settings/acp-agent-settings.tsx` | CLI 智能体列表二次开发：按「已安装 / 未安装」分组（未安装区可折叠）、「只看已安装」筛选（本地记忆）、行内徽章改为安装态（已安装 / 可更新；检查异常降为提示图标）、未安装行加「安装」快捷按钮 | 平铺列表混排、检查态徽章语义混乱；安装入口保留（详情面板不变） |
+| `src/components/settings/acp-agent-settings.tsx` | CLI 智能体列表二次开发：按「已安装 / 未安装」分组（未安装区可折叠）、「只看已安装」筛选（本地记忆）、行内徽章改为安装态（已安装 / 可更新；检查异常降为提示图标）、未安装行加「安装」快捷按钮；另**隐藏** codex / gemini / claude 面板的「模型供应商」auth 模式入口（残留机制 2；完整拆除推迟，见下） | 平铺列表混排、检查态徽章语义混乱；「模型供应商」是死链（provider 行 0 条、无创建入口）且与『模型层=CCR』冲突 |
 | `src/lib/agent-list-prefs.ts`（新增） | 「只看已安装」筛选的本地记忆 | 同上 |
+| `src/components/settings/acp-agent-settings.provider-rebind.test.tsx` | **删除**（上游文件） | 专测「模型供应商」模式的 rebind 往返——入口已隐藏，行为不可达 |
+| `src/components/settings/acp-agent-settings.fable-model.test.tsx` | 摘除 bound-provider 用例并清理其专用助手（`provider` / `choose`） | 同上；保留的直接编辑用例不受影响 |
 | `src/i18n/messages/*.json`（10 语言） | 新增 `AgentRoles` 命名空间与导航 `agent_roles` 文案；`SettingsShell` 增分组头 / 返回键，改名（智能体→CLI 智能体、协作→多智能体协同，en/zh 系）；设置页内文案对齐（Agents 页标题改「CLI 智能体」、协作/外观页标题对齐、浏览器导航简化、终端描述勘误，en/zh 系）；`AcpAgentSettings` 增 `list` 子键（分组 / 徽章 / 提示，10 语言） | 同上 |
 
 ## 构建与开发

@@ -24,7 +24,7 @@ describe("buildModelGroups", () => {
       Providers: [
         { name: "OpenCode Go", models: ["a", "b", "a"] },
         { name: "NoModels" },
-        { id: "p2", models: [" c "] },
+        { id: "p2", name: "P2", models: [" c "] },
       ],
     })
     expect(groups).toEqual([
