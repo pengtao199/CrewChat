@@ -1,7 +1,15 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import {
+  AlertCircle,
+  CheckCircle2,
+  Circle,
+  Loader2,
+  Plus,
+  Trash2,
+  XCircle,
+} from "lucide-react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 
@@ -25,17 +33,62 @@ import {
 } from "@/lib/agent-roles"
 import { acpListAgentSkills, acpListAgents, mcpScanLocal } from "@/lib/api"
 import { toErrorMessage } from "@/lib/app-error"
-import { ccrGetConfig } from "@/lib/ccr"
+import { ccrGetConfig, type CcrProfileSummary } from "@/lib/ccr"
 import type { AcpAgentInfo, AgentType, LocalMcpServer } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import {
   buildModelGroups,
+  ccrStateForBody,
   createEmptyRole,
+  profilesFromConfig,
   type ModelGroup,
+  type RoleCcrState,
   type SkillsPanelState,
 } from "./helpers"
 import { RoleEditor } from "./role-editor"
+
+/** [crewchat] Compact per-row badge for a role's CCR binding state. Text
+ * mirrors the CLI page's readiness card; "loading" renders nothing. */
+function CcrRowBadge({ state }: { state: RoleCcrState }) {
+  const t = useTranslations("AgentRoles")
+  if (state === "loading") return null
+  const spec = {
+    bound: {
+      icon: CheckCircle2,
+      text: t("ccrBound"),
+      className: "text-emerald-600 dark:text-emerald-400",
+    },
+    bindable: {
+      icon: AlertCircle,
+      text: t("ccrBindable"),
+      className: "text-amber-600 dark:text-amber-400",
+    },
+    unsupported: {
+      icon: Circle,
+      text: t("ccrUnsupported"),
+      className: "text-muted-foreground",
+    },
+    unreachable: {
+      icon: XCircle,
+      text: t("ccrUnreachable"),
+      className: "text-red-500",
+    },
+  }[state]
+  const Icon = spec.icon
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-0.5 text-2xs",
+        spec.className
+      )}
+      title={spec.text}
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      <span className="truncate">{spec.text}</span>
+    </span>
+  )
+}
 
 /** The roster page: list on the left, the role editor on the right. */
 export function AgentRolesSettings() {
@@ -55,6 +108,28 @@ export function AgentRolesSettings() {
     loading: false,
     result: null,
   })
+  // [crewchat] One CCR read answers both the model picker (providers →
+  // models) and the per-row readiness badges. `null` + `ccrUnreachable`
+  // distinguishes "still reading" from "server down".
+  const [ccrProfiles, setCcrProfiles] = useState<CcrProfileSummary[] | null>(
+    null
+  )
+  const [ccrUnreachable, setCcrUnreachable] = useState(false)
+
+  const loadCcr = useCallback(async () => {
+    try {
+      const config = await ccrGetConfig()
+      setModelGroups(buildModelGroups(config))
+      setCcrProfiles(profilesFromConfig(config))
+      setCcrUnreachable(false)
+    } catch {
+      // A dead CCR must not block the page; it only gates the model picker
+      // and turns the badges into "unreachable".
+      setModelGroups([])
+      setCcrProfiles(null)
+      setCcrUnreachable(true)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -75,19 +150,13 @@ export function AgentRolesSettings() {
       } finally {
         if (!cancelled) setLoading(false)
       }
-      // CCR is best-effort: a dead gateway must not block the page.
-      try {
-        const config = await ccrGetConfig(1)
-        if (!cancelled) setModelGroups(buildModelGroups(config))
-      } catch {
-        if (!cancelled) setModelGroups([])
-      }
     }
     void load()
+    void loadCcr()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [loadCcr])
 
   const agentType = draft?.agent_type ?? ""
   useEffect(() => {
@@ -211,8 +280,17 @@ export function AgentRolesSettings() {
                     <span className="block truncate text-xs font-medium">
                       {role.name}
                     </span>
-                    <span className="block truncate text-2xs text-muted-foreground">
-                      {bodyNames.get(role.agent_type) ?? role.agent_type}
+                    <span className="mt-0.5 flex items-center justify-between gap-1.5">
+                      <span className="min-w-0 truncate text-2xs text-muted-foreground">
+                        {bodyNames.get(role.agent_type) ?? role.agent_type}
+                      </span>
+                      <CcrRowBadge
+                        state={ccrStateForBody(
+                          role.agent_type,
+                          ccrProfiles,
+                          ccrUnreachable
+                        )}
+                      />
                     </span>
                   </button>
                 ))}
@@ -233,6 +311,12 @@ export function AgentRolesSettings() {
                   mcpServers={mcpServers}
                   busy={busy}
                   canDelete={Boolean(draft.id)}
+                  ccrState={ccrStateForBody(
+                    draft.agent_type,
+                    ccrProfiles,
+                    ccrUnreachable
+                  )}
+                  onRetryCcr={() => void loadCcr()}
                   onChange={patchDraft}
                   onSave={() => {
                     void handleSave()

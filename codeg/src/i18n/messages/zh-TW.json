@@ -7148,6 +7148,15 @@
     "close": "完成"
   },
   "AgentRoles": {
+    "ccrBound": "已綁定",
+    "ccrBindable": "可綁定",
+    "ccrUnsupported": "CCR 暫不支援",
+    "ccrUnreachable": "CCR 不可達",
+    "ccrGatedBindable": "此引擎尚未綁定 CCR，模型暫不可選。",
+    "ccrGatedUnsupported": "此 CLI 不在 CCR 的接管範圍內，模型由 CLI 原生設定管理。",
+    "ccrGatedUnreachable": "無法讀取 CCR 設定，模型暫不可選。",
+    "ccrGoCliPage": "去 CLI 頁處理",
+    "ccrRetry": "重試",
     "sectionTitle": "Agents",
     "sectionDescription": "定义你自己的智能体：角色文档、身体、模型、本地 Skill 与 MCP。设置里的其余页面是这些 Agent 绑定的全局能力。",
     "newAgent": "新建 Agent",

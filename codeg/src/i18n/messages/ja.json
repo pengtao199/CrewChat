@@ -7148,6 +7148,15 @@
     "close": "Done"
   },
   "AgentRoles": {
+    "ccrBound": "Bound",
+    "ccrBindable": "Not bound yet",
+    "ccrUnsupported": "Not managed by CCR",
+    "ccrUnreachable": "CCR unreachable",
+    "ccrGatedBindable": "This engine is not bound to CCR yet, so its model can't be picked here.",
+    "ccrGatedUnsupported": "This CLI is outside CCR's managed set; its model is handled by the CLI's own configuration.",
+    "ccrGatedUnreachable": "Could not read CCR's config; the model can't be picked right now.",
+    "ccrGoCliPage": "Open the CLI page",
+    "ccrRetry": "Retry",
     "sectionTitle": "Agents",
     "sectionDescription": "Define your own agents: role documents, body, model, local skills and MCP servers. The other settings pages configure the global pieces these agents bind to.",
     "newAgent": "New agent",

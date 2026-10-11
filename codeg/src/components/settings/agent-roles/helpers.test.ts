@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildModelGroups,
+  ccrStateForBody,
   createEmptyRole,
+  profilesFromConfig,
   resolveModelProvider,
   summarizeMcpServer,
   toggleId,
 } from "./helpers"
+import type { CcrProfileSummary } from "@/lib/ccr"
 
 describe("createEmptyRole", () => {
   it("starts unsaved with an empty id", () => {
@@ -82,5 +85,53 @@ describe("resolveModelProvider", () => {
 
   it("returns empty when nothing matches", () => {
     expect(resolveModelProvider(groups, "", "m9")).toBe("")
+  })
+})
+
+function profile(overrides: Partial<CcrProfileSummary>): CcrProfileSummary {
+  return {
+    agent: "claude-code",
+    id: "default-claude-code",
+    enabled: true,
+    ...overrides,
+  }
+}
+
+describe("profilesFromConfig", () => {
+  it("reads the profiles array and tolerates a missing one", () => {
+    expect(profilesFromConfig(null)).toEqual([])
+    expect(profilesFromConfig({})).toEqual([])
+    const list = [profile({})]
+    expect(profilesFromConfig({ profile: { profiles: list } })).toEqual(list)
+  })
+})
+
+describe("ccrStateForBody", () => {
+  it("is loading for the empty body of an unsaved role", () => {
+    expect(ccrStateForBody("", [], false)).toBe("loading")
+  })
+
+  it("is unsupported for a CLI outside CCR's registry, even when unreachable", () => {
+    expect(ccrStateForBody("gemini", null, true)).toBe("unsupported")
+    expect(ccrStateForBody("hermes", [], false)).toBe("unsupported")
+  })
+
+  it("is unreachable before any profile answer when the read failed", () => {
+    expect(ccrStateForBody("claude_code", null, true)).toBe("unreachable")
+  })
+
+  it("is loading while the read is in flight", () => {
+    expect(ccrStateForBody("claude_code", null, false)).toBe("loading")
+  })
+
+  it("is bound when a profile carries the body's kind", () => {
+    expect(ccrStateForBody("claude_code", [profile({})], false)).toBe("bound")
+  })
+
+  it("is bindable when the kind has no profile yet", () => {
+    expect(ccrStateForBody("claude_code", [], false)).toBe("bindable")
+    expect(
+      ccrStateForBody("codex", [profile({ agent: "claude-code" })], false)
+    ).toBe("bindable")
   })
 })

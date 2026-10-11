@@ -1,7 +1,12 @@
 // Pure helpers for the Agents settings page — no React, no transport.
 
 import type { AgentRole } from "@/lib/agent-roles"
-import type { CcrConfig } from "@/lib/ccr"
+import {
+  ccrAgentKindForBody,
+  pickCcrProfileForKind,
+  type CcrConfig,
+  type CcrProfileSummary,
+} from "@/lib/ccr"
 import type { AgentSkillsListResult } from "@/lib/types"
 
 /** A brand-new, unsaved role. `id` stays empty until the server assigns one. */
@@ -96,4 +101,37 @@ export function resolveModelProvider(
 export interface SkillsPanelState {
   loading: boolean
   result: AgentSkillsListResult | null
+}
+
+/** [crewchat] The CCR binding state of a role's engine (body). Mirrors the
+ * CLI page's readiness card: "unsupported" outranks "unreachable" because a
+ * CLI outside CCR's registry can never bind, whether or not the server is
+ * alive. "loading" while the page's single profile read is still unanswered,
+ * and for the empty body of an unsaved role. */
+export type RoleCcrState =
+  | "loading"
+  | "bound"
+  | "bindable"
+  | "unsupported"
+  | "unreachable"
+
+export function ccrStateForBody(
+  bodyAgentType: string,
+  profiles: CcrProfileSummary[] | null,
+  unreachable: boolean
+): RoleCcrState {
+  if (!bodyAgentType) return "loading"
+  const kind = ccrAgentKindForBody(bodyAgentType)
+  if (!kind) return "unsupported"
+  if (unreachable) return "unreachable"
+  if (profiles === null) return "loading"
+  return pickCcrProfileForKind(profiles, kind) ? "bound" : "bindable"
+}
+
+/** The configured profiles out of one CCR config read. */
+export function profilesFromConfig(
+  config: CcrConfig | null | undefined
+): CcrProfileSummary[] {
+  const profiles = config?.profile?.profiles
+  return Array.isArray(profiles) ? profiles : []
 }

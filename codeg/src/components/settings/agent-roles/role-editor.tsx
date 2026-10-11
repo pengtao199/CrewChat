@@ -22,6 +22,7 @@ import {
   resolveModelProvider,
   summarizeMcpServer,
   type ModelGroup,
+  type RoleCcrState,
   type SkillsPanelState,
 } from "./helpers"
 import {
@@ -37,6 +38,11 @@ interface RoleEditorProps {
   mcpServers: LocalMcpServer[]
   busy: boolean
   canDelete: boolean
+  /** [crewchat] CCR binding state of the draft's engine — gates the model
+   * picker and decides which hint (bind / unsupported / retry) shows below
+   * it. */
+  ccrState: RoleCcrState
+  onRetryCcr: () => void
   onChange: (patch: Partial<AgentRole>) => void
   onSave: () => void
   onDelete: () => void
@@ -50,6 +56,8 @@ export function RoleEditor({
   mcpServers,
   busy,
   canDelete,
+  ccrState,
+  onRetryCcr,
   onChange,
   onSave,
   onDelete,
@@ -104,6 +112,31 @@ export function RoleEditor({
   const mcpPlaceholder =
     mcpOptions.length === 0 ? t("mcpEmpty") : t("mcpSelectPlaceholder")
 
+  // [crewchat] The model picker is CCR's face on this page: it gates on the
+  // engine's binding state so a role can't be pointed at a model the engine
+  // cannot reach yet. "bound" (and the transient "loading") leaves it open.
+  const modelGated =
+    ccrState === "bindable" ||
+    ccrState === "unsupported" ||
+    ccrState === "unreachable"
+  const modelGateText =
+    ccrState === "bindable"
+      ? t("ccrGatedBindable")
+      : ccrState === "unreachable"
+        ? t("ccrGatedUnreachable")
+        : t("ccrGatedUnsupported")
+  const goCliPage = () => {
+    // [crewchat] Plain location navigation (like the settings shell's own
+    // transitions) carrying the query string; `agent` preselects this body on
+    // the CLI page.
+    if (typeof window === "undefined") return
+    const search = window.location.search
+    const query = `agent=${encodeURIComponent(draft.agent_type)}`
+    window.location.assign(
+      `/settings/agents?${query}${search ? `&${search.slice(1)}` : ""}`
+    )
+  }
+
   const canSave =
     Boolean(draft.name.trim()) && Boolean(draft.agent_type) && !busy
 
@@ -149,7 +182,7 @@ export function RoleEditor({
                 onValueChange={(value) =>
                   onChange({ model_provider: value, model: "" })
                 }
-                disabled={modelGroups.length === 0}
+                disabled={modelGroups.length === 0 || modelGated}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("providerPlaceholder")} />
@@ -167,7 +200,9 @@ export function RoleEditor({
                 onValueChange={(value) =>
                   onChange({ model: value, model_provider: providerValue })
                 }
-                disabled={modelGroups.length === 0 || !providerValue}
+                disabled={
+                  modelGroups.length === 0 || !providerValue || modelGated
+                }
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("modelPlaceholder")} />
@@ -181,7 +216,29 @@ export function RoleEditor({
                 </SelectContent>
               </Select>
             </div>
-            {modelGroups.length === 0 ? (
+            {modelGated ? (
+              <p className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
+                <span>{modelGateText}</span>
+                {ccrState === "bindable" && (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={goCliPage}
+                  >
+                    {t("ccrGoCliPage")} →
+                  </button>
+                )}
+                {ccrState === "unreachable" && (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={onRetryCcr}
+                  >
+                    {t("ccrRetry")}
+                  </button>
+                )}
+              </p>
+            ) : modelGroups.length === 0 ? (
               <p className="text-2xs text-muted-foreground">
                 {t("modelUnavailable")}
               </p>
