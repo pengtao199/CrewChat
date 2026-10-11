@@ -9,7 +9,8 @@ Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + �
 
 1. **直接对话开发**：会话内与任意 CLI Agent 协作（`@` 委派、并行子会话、worktree 任务）。
 2. **统一配置模型**：一个「模型」设置页管理全部 provider / 密钥 / 路由（内核是 CCR，UI 是 Codeg 风格）。
-3. **配置 Agent**：每个 Agent（CLI）可直接看到并设置它用的模型、技能、MCP、权限（单独页面，形态待定）。
+3. **配置 Agent**：两层——每个 CLI 的全局设置（上游「智能体」页）＋本仓库核心的「Agents」花名册
+   （角色 = `Soul.md` 人格 / `Agents.md` 规则 ＋ 绑定的身体、模型、本地 Skill 与 MCP）。
 4. **CLI 状态**：一个「引擎 / CLI」页显示：装没装、登录没登录、CCR profile 是否已应用、最近错误。
 5. **用量分析**：请求级（provider / model / token / 成本）与会话级用量在同一处可见。
 
@@ -20,7 +21,7 @@ Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + �
 | 供应商 / 密钥 / 路由 / 回退 | `ccr/` | 模型页（读写 CCR 本地 API） |
 | 每个 CLI 用哪个模型 | `ccr/` 的 Agent Profile | 模型页展示（只读）；不做单独的 Agent 绑定页 |
 | CLI 安装 / 登录 / 可用 | Codeg 探测 + CCR 探活 | 引擎 / CLI 状态页（待做） |
-| Agent 定义（角色 / 技能 / MCP / 权限） | Codeg | Agent 设置页 |
+| Agent 定义（角色 / 技能 / MCP / 权限） | Codeg；角色花名册为本仓库「Agents」页（`agent-roles.json`） | Agent 设置页 ＋ Agents 页 |
 | 权限审批 | Codeg（每 CLI 启动策略 + 权限卡） | 会话内（Python 侧已退役，兜底放行） |
 | 用量 | CCR 请求日志（请求级）+ Codeg 会话统计 | 用量页（待做） |
 | 协作编排 | Codeg（`@` 委派 + Sub-agents） | 会话内 |
@@ -55,6 +56,9 @@ Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + �
 - 模型页已验证：eslint / i18n 一致性 / next build 通过；`/settings/model-providers` 200。
 `ui/`（AionUi fork）已移除；Python 侧静态托管已删；旧计划已归档；cc-switch 网关（Python 侧）已整体移除——身体不再注入模型，模型统一管理全走 CCR（见 `AGENTS/gateway.md`）。
 - Python 客户端权限管道已退役（`core/permissions.py` / 确认端点 / `permission` 帧 / 开关，本地 `permissions.jsonc` 已删）；审批归 Codeg，自跑身体兜底放行。
+- `[crewchat]`「Agents」花名册页已完成（设置 → Agents）：角色（`Soul.md` / `Agents.md`）绑定身体（CLI）、
+  模型、本地 Skill 与 MCP；存储 `.data/codeg/agent-roles.json`（ID 为服务端 UUID）。按角色启动会话 /
+  作为委派目标消费这些配置是下一步。
 - 本机 CLI：claude / codex / opencode / gemini / pi / hermes。
 
 ## Next steps
@@ -62,6 +66,7 @@ Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + �
 1. （待做）经 Codeg 会话拉起 CLI，确认同样走 CCR（会话级验证）。
 2. （待做）CLI 覆盖补齐：opencode / pi 的 CCR profile；Gemini CLI / Hermes 的 profile 连接器。
 3. 引擎状态页与用量页。
+4. （待做）把 Agents 花名册接入执行：按角色启动会话（身体 / 模型 / Skill / MCP 生效）并作为委派目标。
 
 ## Done Criteria
 
