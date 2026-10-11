@@ -180,7 +180,7 @@ export function AgentRolesSettings() {
       </div>
 
       <div className="flex min-h-0 flex-1 gap-3 p-3 pt-2 md:p-4 md:pt-2">
-        <aside className="flex w-56 shrink-0 flex-col gap-2">
+        <aside className="flex w-60 shrink-0 flex-col gap-2">
           <Button
             type="button"
             variant="outline"
@@ -191,21 +191,21 @@ export function AgentRolesSettings() {
             <Plus className="h-3.5 w-3.5" />
             {t("newAgent")}
           </Button>
-          <ScrollArea className="min-h-0 flex-1 rounded-md border">
+          <ScrollArea className="min-h-0 flex-1 rounded-xl border bg-card">
             {roles.length === 0 ? (
               <p className="p-3 text-xs text-muted-foreground">
                 {t("emptyHint")}
               </p>
             ) : (
-              <div className="p-1">
+              <div className="p-1.5">
                 {roles.map((role) => (
                   <button
                     key={role.id}
                     type="button"
                     onClick={() => setDraft({ ...role })}
                     className={cn(
-                      "w-full rounded-sm px-2 py-1.5 text-left hover:bg-accent",
-                      draft?.id === role.id && "bg-accent"
+                      "w-full rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/50",
+                      draft?.id === role.id && "bg-muted"
                     )}
                   >
                     <span className="block truncate text-xs font-medium">
@@ -222,9 +222,9 @@ export function AgentRolesSettings() {
         </aside>
 
         <section className="min-w-0 flex-1">
-          <ScrollArea className="h-full rounded-md border">
+          <ScrollArea className="h-full rounded-xl border bg-card">
             {draft ? (
-              <div className="p-3 md:p-4">
+              <div className="p-4">
                 <RoleEditor
                   draft={draft}
                   bodies={bodies}

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildModelGroups,
   createEmptyRole,
+  resolveModelProvider,
   summarizeMcpServer,
   toggleId,
 } from "./helpers"
@@ -11,6 +12,7 @@ describe("createEmptyRole", () => {
   it("starts unsaved with an empty id", () => {
     const role = createEmptyRole()
     expect(role.id).toBe("")
+    expect(role.model_provider).toBe("")
     expect(role.skills).toEqual([])
     expect(role.mcp).toEqual([])
   })
@@ -61,5 +63,24 @@ describe("toggleId", () => {
     expect(toggleId(base, "b")).toEqual(["a", "b"])
     expect(toggleId(base, "a")).toEqual([])
     expect(base).toEqual(["a"])
+  })
+})
+
+describe("resolveModelProvider", () => {
+  const groups = [
+    { provider: "A", models: ["m1"] },
+    { provider: "B", models: ["m2"] },
+  ]
+
+  it("keeps a stored provider that still exists", () => {
+    expect(resolveModelProvider(groups, "B", "m1")).toBe("B")
+  })
+
+  it("derives from the model when the stored provider is gone", () => {
+    expect(resolveModelProvider(groups, "Gone", "m2")).toBe("B")
+  })
+
+  it("returns empty when nothing matches", () => {
+    expect(resolveModelProvider(groups, "", "m9")).toBe("")
   })
 })

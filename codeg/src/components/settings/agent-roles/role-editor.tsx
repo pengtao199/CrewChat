@@ -1,20 +1,16 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useMemo } from "react"
 import { Loader2, Save, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
@@ -23,11 +19,15 @@ import type { AgentRole } from "@/lib/agent-roles"
 import type { AcpAgentInfo, LocalMcpServer } from "@/lib/types"
 
 import {
+  resolveModelProvider,
   summarizeMcpServer,
-  toggleId,
   type ModelGroup,
   type SkillsPanelState,
 } from "./helpers"
+import {
+  SearchMultiSelect,
+  type SearchMultiSelectOption,
+} from "./search-multi-select"
 
 interface RoleEditorProps {
   draft: AgentRole
@@ -40,73 +40,6 @@ interface RoleEditorProps {
   onChange: (patch: Partial<AgentRole>) => void
   onSave: () => void
   onDelete: () => void
-}
-
-function HintRow({
-  text,
-  loading = false,
-}: {
-  text: string
-  loading?: boolean
-}) {
-  return (
-    <div className="flex items-center gap-2 px-2 py-2 text-2xs text-muted-foreground">
-      {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-      <span className="min-w-0">{text}</span>
-    </div>
-  )
-}
-
-function CheckRow({
-  checked,
-  title,
-  subtitle,
-  badge,
-  onToggle,
-}: {
-  checked: boolean
-  title: string
-  subtitle?: string
-  badge?: string
-  onToggle: () => void
-}) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={checked}
-      onClick={onToggle}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          onToggle()
-        }
-      }}
-      className="flex w-full cursor-pointer items-start gap-2 px-2 py-2 text-left hover:bg-accent"
-    >
-      <Checkbox
-        checked={checked}
-        tabIndex={-1}
-        aria-hidden
-        className="pointer-events-none mt-0.5"
-      />
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5 text-xs font-medium">
-          <span className="truncate">{title}</span>
-          {badge ? (
-            <Badge variant="outline" className="shrink-0 text-2xs font-normal">
-              {badge}
-            </Badge>
-          ) : null}
-        </span>
-        {subtitle ? (
-          <span className="mt-0.5 block truncate text-2xs text-muted-foreground">
-            {subtitle}
-          </span>
-        ) : null}
-      </span>
-    </div>
-  )
 }
 
 export function RoleEditor({
@@ -122,83 +55,72 @@ export function RoleEditor({
   onDelete,
 }: RoleEditorProps) {
   const t = useTranslations("AgentRoles")
-  const skillItems = skills.result?.skills ?? []
+
+  // Provider row of the model picker: the stored pair when it still exists in
+  // CCR, else derived from the model, else empty. Never written back on open —
+  // it is persisted once the user actually picks a provider or a model.
+  const providerValue = useMemo(
+    () => resolveModelProvider(modelGroups, draft.model_provider, draft.model),
+    [modelGroups, draft.model_provider, draft.model]
+  )
+  const modelOptions = useMemo(() => {
+    const group = modelGroups.find((item) => item.provider === providerValue)
+    const models = group?.models ?? []
+    // A stored model CCR no longer lists stays pickable, so opening an old role
+    // never silently swaps its model for a placeholder.
+    if (draft.model && !models.includes(draft.model)) {
+      return [draft.model, ...models]
+    }
+    return models
+  }, [modelGroups, providerValue, draft.model])
+
+  const skillOptions: SearchMultiSelectOption[] = (
+    skills.result?.skills ?? []
+  ).map((skill) => ({
+    id: skill.id,
+    label: skill.name,
+    description: skill.description ?? undefined,
+    badge: skill.read_only ? t("skillReadOnly") : undefined,
+  }))
+  const mcpOptions: SearchMultiSelectOption[] = mcpServers.map((server) => ({
+    id: server.id,
+    label: server.id,
+    description: summarizeMcpServer(server.spec) || undefined,
+  }))
+
+  const skillsLoading = skills.loading && !skills.result
+  const skillPlaceholder = !draft.agent_type
+    ? t("skillPickBodyFirst")
+    : skillsLoading
+      ? t("loading")
+      : skills.result && !skills.result.supported
+        ? t("skillUnsupported")
+        : skillOptions.length === 0
+          ? t("skillEmpty")
+          : t("skillSelectPlaceholder")
+  const skillDisabled =
+    !draft.agent_type || skillsLoading || skillOptions.length === 0
+
+  const mcpPlaceholder =
+    mcpOptions.length === 0 ? t("mcpEmpty") : t("mcpSelectPlaceholder")
+
   const canSave =
     Boolean(draft.name.trim()) && Boolean(draft.agent_type) && !busy
 
-  let skillBody: ReactNode
-  if (!draft.agent_type) {
-    skillBody = <HintRow text={t("skillPickBodyFirst")} />
-  } else if (skills.loading && !skills.result) {
-    skillBody = <HintRow text={t("loading")} loading />
-  } else if (skills.result && !skills.result.supported) {
-    skillBody = (
-      <HintRow text={skills.result.message || t("skillUnsupported")} />
-    )
-  } else if (skillItems.length === 0) {
-    skillBody = <HintRow text={t("skillEmpty")} />
-  } else {
-    skillBody = (
-      <div className="divide-y">
-        {skillItems.map((skill) => (
-          <CheckRow
-            key={skill.id}
-            checked={draft.skills.includes(skill.id)}
-            title={skill.name}
-            subtitle={skill.description ?? undefined}
-            badge={skill.read_only ? t("skillReadOnly") : undefined}
-            onToggle={() =>
-              onChange({ skills: toggleId(draft.skills, skill.id) })
-            }
-          />
-        ))}
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-4">
-      <section className="space-y-1.5">
-        <Label htmlFor="agent-role-name">{t("nameLabel")}</Label>
-        <Input
-          id="agent-role-name"
-          value={draft.name}
-          placeholder={t("namePlaceholder")}
-          onChange={(event) => onChange({ name: event.target.value })}
-        />
-      </section>
-
+    <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-xs font-medium text-muted-foreground">
-          {t("documentsTitle")}
-        </h2>
-        <div className="space-y-1.5">
-          <Label htmlFor="agent-role-soul">{t("soulLabel")}</Label>
-          <Textarea
-            id="agent-role-soul"
-            value={draft.soul}
-            placeholder={t("soulPlaceholder")}
-            className="min-h-32 font-mono text-xs"
-            onChange={(event) => onChange({ soul: event.target.value })}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="agent-role-rules">{t("rulesLabel")}</Label>
-          <Textarea
-            id="agent-role-rules"
-            value={draft.rules}
-            placeholder={t("rulesPlaceholder")}
-            className="min-h-32 font-mono text-xs"
-            onChange={(event) => onChange({ rules: event.target.value })}
-          />
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xs font-medium text-muted-foreground">
-          {t("bindingTitle")}
-        </h2>
-        <div className="grid gap-3 md:grid-cols-2">
+        <h3 className="text-sm font-semibold">{t("basicSectionTitle")}</h3>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="agent-role-name">{t("nameLabel")}</Label>
+            <Input
+              id="agent-role-name"
+              value={draft.name}
+              placeholder={t("namePlaceholder")}
+              onChange={(event) => onChange({ name: event.target.value })}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label>{t("bodyLabel")}</Label>
             <Select
@@ -221,75 +143,114 @@ export function RoleEditor({
           </div>
           <div className="space-y-1.5">
             <Label>{t("modelLabel")}</Label>
-            <Select
-              value={draft.model}
-              onValueChange={(value) => onChange({ model: value })}
-              disabled={modelGroups.length === 0}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue
-                  placeholder={
-                    modelGroups.length === 0
-                      ? t("modelUnavailable")
-                      : t("modelPlaceholder")
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {modelGroups.map((group) => (
-                  <SelectGroup key={group.provider}>
-                    <SelectLabel>{group.provider}</SelectLabel>
-                    {group.models.map((model) => (
-                      <SelectItem
-                        key={`${group.provider}::${model}`}
-                        value={model}
-                      >
-                        {model}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={providerValue}
+                onValueChange={(value) =>
+                  onChange({ model_provider: value, model: "" })
+                }
+                disabled={modelGroups.length === 0}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("providerPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelGroups.map((group) => (
+                    <SelectItem key={group.provider} value={group.provider}>
+                      {group.provider}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={draft.model}
+                onValueChange={(value) =>
+                  onChange({ model: value, model_provider: providerValue })
+                }
+                disabled={modelGroups.length === 0 || !providerValue}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("modelPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelOptions.map((model) => (
+                    <SelectItem key={model} value={model}>
+                      {model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {modelGroups.length === 0 ? (
+              <p className="text-2xs text-muted-foreground">
+                {t("modelUnavailable")}
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
 
-      <section className="space-y-1.5">
-        <h2 className="text-xs font-medium text-muted-foreground">
-          {t("skillSectionTitle")}
-        </h2>
-        <p className="text-2xs text-muted-foreground">{t("skillHint")}</p>
-        <div className="rounded-md border">{skillBody}</div>
-      </section>
-
-      <section className="space-y-1.5">
-        <h2 className="text-xs font-medium text-muted-foreground">
-          {t("mcpSectionTitle")}
-        </h2>
-        <p className="text-2xs text-muted-foreground">{t("mcpHint")}</p>
-        <div className="rounded-md border">
-          {mcpServers.length === 0 ? (
-            <HintRow text={t("mcpEmpty")} />
-          ) : (
-            <div className="divide-y">
-              {mcpServers.map((server) => (
-                <CheckRow
-                  key={server.id}
-                  checked={draft.mcp.includes(server.id)}
-                  title={server.id}
-                  subtitle={summarizeMcpServer(server.spec) || undefined}
-                  onToggle={() =>
-                    onChange({ mcp: toggleId(draft.mcp, server.id) })
-                  }
-                />
-              ))}
-            </div>
-          )}
+      <section className="space-y-2">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">{t("skillSectionTitle")}</h3>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("skillHint")}
+          </p>
         </div>
+        <SearchMultiSelect
+          options={skillOptions}
+          selected={draft.skills}
+          onChange={(next) => onChange({ skills: next })}
+          placeholder={skillPlaceholder}
+          disabled={skillDisabled}
+        />
       </section>
 
-      <div className="flex items-center justify-between pt-1">
+      <section className="space-y-2">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">{t("mcpSectionTitle")}</h3>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("mcpHint")}
+          </p>
+        </div>
+        <SearchMultiSelect
+          options={mcpOptions}
+          selected={draft.mcp}
+          onChange={(next) => onChange({ mcp: next })}
+          placeholder={mcpPlaceholder}
+          disabled={mcpOptions.length === 0}
+        />
+      </section>
+
+      <section className="space-y-2">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">{t("soulLabel")}</h3>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("soulPlaceholder")}
+          </p>
+        </div>
+        <Textarea
+          value={draft.soul}
+          className="min-h-32 font-mono text-xs"
+          onChange={(event) => onChange({ soul: event.target.value })}
+        />
+      </section>
+
+      <section className="space-y-2">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">{t("rulesLabel")}</h3>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("rulesPlaceholder")}
+          </p>
+        </div>
+        <Textarea
+          value={draft.rules}
+          className="min-h-32 font-mono text-xs"
+          onChange={(event) => onChange({ rules: event.target.value })}
+        />
+      </section>
+
+      <div className="flex items-center justify-between border-t pt-4">
         {canDelete ? (
           <Button
             type="button"

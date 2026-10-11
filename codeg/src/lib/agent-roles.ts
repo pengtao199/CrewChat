@@ -18,6 +18,8 @@ export interface AgentRole {
   /** Body: the CLI agent type, e.g. `claude_code`. */
   agent_type: string
   model: string
+  /** CCR provider the model belongs to (the picker's left-hand column). */
+  model_provider: string
   skills: string[]
   mcp: string[]
   created_at: string | null

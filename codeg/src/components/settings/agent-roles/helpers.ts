@@ -13,6 +13,7 @@ export function createEmptyRole(): AgentRole {
     rules: "",
     agent_type: "",
     model: "",
+    model_provider: "",
     skills: [],
     mcp: [],
     created_at: null,
@@ -69,6 +70,26 @@ export function summarizeMcpServer(
 /** Toggle one id in a list without mutating the input. */
 export function toggleId(list: string[], id: string): string[] {
   return list.includes(id) ? list.filter((item) => item !== id) : [...list, id]
+}
+
+/**
+ * Which provider the model picker should open on: the stored one when it still
+ * exists in CCR, else the provider that currently lists the stored model, else
+ * nothing (the pair is stale and the model picker starts empty).
+ */
+export function resolveModelProvider(
+  groups: ModelGroup[],
+  modelProvider: string,
+  model: string
+): string {
+  if (
+    modelProvider &&
+    groups.some((group) => group.provider === modelProvider)
+  ) {
+    return modelProvider
+  }
+  const hit = groups.find((group) => group.models.includes(model))
+  return hit?.provider ?? ""
 }
 
 /** Local-skill panel state for the currently picked body. */
