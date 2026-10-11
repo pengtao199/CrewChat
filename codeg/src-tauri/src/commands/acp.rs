@@ -11060,6 +11060,16 @@ async fn build_runtime_env_for_agent(
         }
     }
 
+    // [crewchat] Agent Host overlay (v1): bind this session to CCR's gateway
+    // and model, independent of the CLI's own global config. Best-effort —
+    // no CCR / no recipe is a no-op, and `CODEG_AGENT_HOST_INJECT=0` turns the
+    // whole overlay off.
+    if let Some(recipe) = crate::agent_host::recipe_for_agent(agent_type).await {
+        for (key, value) in recipe.env {
+            runtime_env.insert(key, value);
+        }
+    }
+
     if agent_type == AgentType::OpenClaw && session_id.is_none() {
         runtime_env.insert("OPENCLAW_RESET_SESSION".into(), "1".into());
     }

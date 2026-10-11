@@ -688,6 +688,22 @@ impl ConnectionManager {
         preferred_mode_id: Option<String>,
         preferred_config_values: BTreeMap<String, String>,
     ) -> Result<String, AcpError> {
+        // [crewchat] Agent Host overlay (v1): point this session's model
+        // selector at CCR's client-visible model id, so the session runs on
+        // the model picked for this CLI (profile — and later, per member)
+        // instead of whatever the CLI's global config holds. The overlay only
+        // fills what the caller did not set: an explicit agent_defaults pick
+        // (`preferred_config_values`) outranks it, and `CODEG_AGENT_HOST_INJECT=0`
+        // (or an unreachable CCR) turns it off entirely.
+        let preferred_config_values = {
+            let mut merged = preferred_config_values;
+            if let Some(recipe) = crate::agent_host::recipe_for_agent(agent_type).await {
+                for (key, value) in recipe.config_options {
+                    merged.entry(key).or_insert(value);
+                }
+            }
+            merged
+        };
         // Held for the whole establishment. A restore writing back to the
         // agents' own directories takes the write side, so it can never see an
         // empty connection list and then have one appear underneath it. Not

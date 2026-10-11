@@ -18,6 +18,8 @@ pub use acp::{
 };
 pub use acp::scratch_dir::scratch_sweep_task;
 pub use network::proxy::init_proxy_from_db;
+// [crewchat] Agent Host launch recipe — see agent_host.rs.
+pub mod agent_host;
 mod app_error;
 #[cfg(all(feature = "tauri-runtime", target_os = "macos"))]
 mod app_menu;
