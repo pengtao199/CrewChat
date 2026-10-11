@@ -38,9 +38,9 @@
 | `src-tauri/src/commands/ccr.rs`（新增） | CCR 管理 RPC 薄代理：`ccr_call` / `ccr_health`，转发 `POST /api/ccr/rpc` | 模型层唯一内核是 CCR；Codeg 只做转发、不做模型写入 |
 | `src-tauri/src/web/handlers/ccr.rs`（新增） | web 模式处理器（`/api/ccr_health`、`/api/ccr_call`） | 同上（Codeg 双模式规范） |
 | `src-tauri/src/commands/mod.rs`、`src-tauri/src/web/handlers/mod.rs`、`src-tauri/src/web/router.rs`、`src-tauri/src/lib.rs` | 注册上述命令与路由 | 同上 |
-| `src/lib/api.ts` | 新增 `ccrCall` / `ccrHealth` 前端通道 | 同上 |
 | `src/lib/ccr.ts`（新增） | CCR 类型与调用层（getConfig / saveConfig / getGatewayStatus / start-stop-restart） | S2 模型页的数据层 |
-| `src/components/settings/ccr-model-settings.tsx`（新增） | 新「模型」页：状态条 + 供应商增删改 + 模型清单 + 说明 | 模型管理 UI 以 CCR 为内核、Codeg 风格重做 |
+| `src/components/settings/ccr-model-settings.tsx`（重写）＋ `src/components/settings/ccr/`（新增：helpers / gateway-card / provider-card / provider-dialog） | 新「模型」页：网关卡（可折叠）＋ 供应商卡（凭据概览 / 订阅用量 / 逐行模型开关）＋ 添加/编辑弹窗（预设、凭据池、双栏选模型、测试连接） | 模型管理 UI 以 CCR 为内核、Codeg 风格重做；单文件拆分为模块 |
+| `src/lib/ccr-model-memory.ts`（新增） | 本地记录被停用的模型（CCR 无 per-model 停用字段） | 「关闭模型」后仍能保留在清单里并可再开 |
 | `src/app/settings/model-providers/page.tsx` | 路由改指向 `CcrModelSettings` | 同上 |
 | `src/components/settings/model-provider-settings.tsx`、`add-model-provider-dialog.tsx`、`edit-model-provider-dialog.tsx`、`model-provider-dialogs.fable-model.test.tsx` | **删除**（上游文件） | 旧模型管理退役；模型数据不再存 Codeg |
 | `src/i18n/messages/*.json`（10 语言） | 新增 `CcrModelSettings` 命名空间；导航 `model_providers` 文案改短 | 同上 |

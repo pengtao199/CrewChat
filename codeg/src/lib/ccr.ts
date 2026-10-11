@@ -3,11 +3,23 @@
 // CCR's HTTP port directly; see `codeg/NOTICE.md` and
 // `docs/plans/codeg-ccr-integration.md`.
 
-import { ccrCall, ccrHealth } from "./api"
-import type { CcrHealth } from "./api"
+import { getTransport } from "./transport"
 
-export { ccrHealth }
-export type { CcrHealth }
+export interface CcrHealth {
+  url: string
+  tokenConfigured: boolean
+}
+
+export function ccrHealth(): Promise<CcrHealth> {
+  return getTransport().call("ccr_health")
+}
+
+export function ccrCall<T = unknown>(
+  method: string,
+  args: unknown[] = []
+): Promise<T> {
+  return getTransport().call("ccr_call", { method, args })
+}
 
 export interface CcrGatewayStatus {
   state: string

@@ -5192,28 +5192,6 @@ export async function deleteModelProvider(id: number): Promise<void> {
   return getTransport().call("delete_model_provider", { id })
 }
 
-// ---------------------------------------------------------------------------
-// [crewchat] CCR model management — the single model layer in this fork.
-// The settings UI talks to CCR through the backend proxy (`ccr_call`), never
-// to its HTTP port directly.
-// ---------------------------------------------------------------------------
-
-export interface CcrHealth {
-  url: string
-  tokenConfigured: boolean
-}
-
-export async function ccrHealth(): Promise<CcrHealth> {
-  return getTransport().call("ccr_health")
-}
-
-export async function ccrCall<T = unknown>(
-  method: string,
-  args: unknown[] = []
-): Promise<T> {
-  return getTransport().call("ccr_call", { method, args })
-}
-
 // ─── Delegation settings ───────────────────────────────────────────────
 
 export interface DelegationSettings {
