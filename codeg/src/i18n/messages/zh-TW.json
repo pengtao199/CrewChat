@@ -39,7 +39,7 @@
     "nav": {
       "general": "一般",
       "appearance": "外觀",
-      "agents": "智能體",
+      "agents": "CLI 智能體",
       "agent_roles": "Agents",
       "mcp": "MCP",
       "skills": "Skills",
@@ -53,12 +53,19 @@
       "science": "科學研究",
       "office_tools": "辦公工具",
       "skill_packs": "技能包",
-      "collaboration": "協作",
+      "collaboration": "多智能體協同",
       "browser": "瀏覽器操作",
       "computer_use": "電腦操作",
       "quick_messages": "快捷訊息",
       "logs": "執行日誌"
-    }
+    },
+    "groups": {
+      "agents": "Agents",
+      "capabilities": "能力",
+      "interaction": "互動",
+      "system": "系統"
+    },
+    "backToWorkspace": "返回工作區"
   },
   "AppearanceSettings": {
     "sectionTitle": "主題外觀",

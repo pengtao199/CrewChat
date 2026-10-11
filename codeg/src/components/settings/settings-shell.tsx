@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import {
+  ArrowLeft,
   Bot,
   BookOpenText,
   Boxes,
@@ -67,119 +68,157 @@ interface SettingsNavItem {
   icon: ComponentType<{ className?: string }>
 }
 
-const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
-  {
-    href: "/settings/appearance",
-    labelKey: "appearance",
-    icon: Palette,
-  },
-  {
-    href: "/settings/general",
-    labelKey: "general",
-    icon: SlidersHorizontal,
-  },
-  {
-    href: "/settings/collaboration",
-    labelKey: "collaboration",
-    icon: Bubbles,
-  },
-  {
-    href: "/settings/mcp",
-    labelKey: "mcp",
-    icon: PlugZap,
-  },
-  {
-    href: "/settings/skills",
-    labelKey: "skills",
-    icon: BookOpenText,
-  },
-  {
-    href: "/settings/skill-packs",
-    labelKey: "skill_packs",
-    icon: Boxes,
-  },
-  {
-    href: "/settings/agents",
-    labelKey: "agents",
-    icon: Bot,
-  },
-  {
-    href: "/settings/agent-roles",
-    labelKey: "agent_roles",
-    icon: Users,
-  },
-  {
-    href: "/settings/model-providers",
-    labelKey: "model_providers",
-    icon: Server,
-  },
-  {
-    href: "/settings/quick-messages",
-    labelKey: "quick_messages",
-    icon: MessageSquareText,
-  },
-  {
-    href: "/settings/browser",
-    labelKey: "browser",
-    icon: Compass,
-  },
-  {
-    href: "/settings/computer-use",
-    labelKey: "computer_use",
-    icon: MonitorCog,
-  },
-  {
-    href: "/settings/shortcuts",
-    labelKey: "shortcuts",
-    icon: Keyboard,
-  },
-  {
-    href: "/settings/version-control",
-    labelKey: "version_control",
-    icon: GitBranch,
-  },
-  {
-    href: "/settings/chat-channels",
-    labelKey: "chat_channels",
-    icon: SendHorizontal,
-  },
-  {
-    href: "/settings/web-service",
-    labelKey: "web_service",
-    icon: Globe,
-  },
-  {
-    href: "/settings/logs",
-    labelKey: "logs",
-    icon: FileSpreadsheet,
-  },
-  {
-    href: "/settings/system",
-    labelKey: "system",
-    icon: Settings,
-  },
-]
+type SettingsNavGroupKey = "agents" | "capabilities" | "interaction" | "system"
 
-interface SettingsShellProps {
-  children: ReactNode
+interface SettingsNavGroup {
+  key: SettingsNavGroupKey
+  items: SettingsNavItem[]
 }
 
 /**
- * The nav for one runtime. Only one entry is runtime-bound: the Web service
- * page configures the server a web client is already talking to, and there is
- * no such server to configure from inside it.
- *
- * The Browser page is deliberately not on that list. Most of what it holds is
- * a desktop browser engine, but site rules, what a server starting in a
- * terminal does and the terminal's link menu all still decide something in a
- * browser session, and that page is the only place they can be set.
+ * [crewchat] Groups decide both the sidebar's headings and the reading order:
+ * our roster first (it is the product's core), the capability stack it binds
+ * to next, day-to-day interaction after that, system last. Reordering means
+ * editing this array — the renderer never reorders.
  */
+const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
+  {
+    key: "agents",
+    items: [
+      {
+        href: "/settings/agent-roles",
+        labelKey: "agent_roles",
+        icon: Users,
+      },
+      {
+        href: "/settings/agents",
+        labelKey: "agents",
+        icon: Bot,
+      },
+      {
+        href: "/settings/collaboration",
+        labelKey: "collaboration",
+        icon: Bubbles,
+      },
+      {
+        href: "/settings/model-providers",
+        labelKey: "model_providers",
+        icon: Server,
+      },
+    ],
+  },
+  {
+    key: "capabilities",
+    items: [
+      {
+        href: "/settings/skills",
+        labelKey: "skills",
+        icon: BookOpenText,
+      },
+      {
+        href: "/settings/skill-packs",
+        labelKey: "skill_packs",
+        icon: Boxes,
+      },
+      {
+        href: "/settings/mcp",
+        labelKey: "mcp",
+        icon: PlugZap,
+      },
+    ],
+  },
+  {
+    key: "interaction",
+    items: [
+      {
+        href: "/settings/quick-messages",
+        labelKey: "quick_messages",
+        icon: MessageSquareText,
+      },
+      {
+        href: "/settings/browser",
+        labelKey: "browser",
+        icon: Compass,
+      },
+      {
+        href: "/settings/computer-use",
+        labelKey: "computer_use",
+        icon: MonitorCog,
+      },
+      {
+        href: "/settings/shortcuts",
+        labelKey: "shortcuts",
+        icon: Keyboard,
+      },
+    ],
+  },
+  {
+    key: "system",
+    items: [
+      {
+        href: "/settings/general",
+        labelKey: "general",
+        icon: SlidersHorizontal,
+      },
+      {
+        href: "/settings/appearance",
+        labelKey: "appearance",
+        icon: Palette,
+      },
+      {
+        href: "/settings/version-control",
+        labelKey: "version_control",
+        icon: GitBranch,
+      },
+      {
+        href: "/settings/chat-channels",
+        labelKey: "chat_channels",
+        icon: SendHorizontal,
+      },
+      {
+        href: "/settings/web-service",
+        labelKey: "web_service",
+        icon: Globe,
+      },
+      {
+        href: "/settings/logs",
+        labelKey: "logs",
+        icon: FileSpreadsheet,
+      },
+      {
+        href: "/settings/system",
+        labelKey: "system",
+        icon: Settings,
+      },
+    ],
+  },
+]
+
+/**
+ * The groups one runtime actually shows. Only one entry is runtime-bound: the
+ * Web service page configures the server a web client is already talking to,
+ * and there is no such server to configure from inside it.
+ */
+export function settingsNavGroupsFor(
+  env: TransportEnvironment
+): SettingsNavGroup[] {
+  return SETTINGS_NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => !(item.labelKey === "web_service" && env === "web")
+    ),
+  }))
+}
+
+/** Flattened {@link settingsNavGroupsFor} — kept for order assertions in tests. */
 export function settingsNavItemsFor(
   env: TransportEnvironment
 ): SettingsNavItem[] {
-  return SETTINGS_NAV_ITEMS.filter(
-    (item) => !(item.labelKey === "web_service" && env === "web")
-  )
+  return settingsNavGroupsFor(env).flatMap((group) => group.items)
+}
+
+interface SettingsShellProps {
+  children: ReactNode
 }
 
 function normalizePath(path: string): string {
@@ -236,36 +275,45 @@ export function SettingsShell({ children }: SettingsShellProps) {
     [router, setNavOpen]
   )
 
-  const filteredNavItems = settingsNavItemsFor(detectEnvironment())
+  const filteredNavGroups = settingsNavGroupsFor(detectEnvironment())
 
   const navContent = (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="px-2 pb-2 text-2xs font-medium text-muted-foreground">
-        {t("preferences")}
-      </div>
       <ScrollArea className="min-h-0 flex-1">
-        <nav className="space-y-1">
-          {filteredNavItems.map((item) => {
-            const Icon = item.icon
-            const translationKey = `nav.${item.labelKey}` as const
-            const active =
-              normalizedPathname === item.href ||
-              normalizedPathname.startsWith(`${item.href}/`)
+        <nav className="space-y-3 py-1">
+          {filteredNavGroups.map((group) => {
+            const groupKey = `groups.${group.key}` as const
             return (
-              <Button
-                key={item.href}
-                variant={active ? "secondary" : "ghost"}
-                size="sm"
-                className={cn("w-full justify-start px-2")}
-                type="button"
-                onClick={() => navigateTo(item.href)}
-                aria-current={active ? "page" : undefined}
-              >
-                <span className="inline-flex items-center gap-1">
-                  <Icon className="h-3.5 w-3.5" />
-                  {t(translationKey)}
-                </span>
-              </Button>
+              <div key={group.key}>
+                <div className="px-2 pb-1 text-2xs font-medium text-muted-foreground">
+                  {t(groupKey)}
+                </div>
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon
+                    const translationKey = `nav.${item.labelKey}` as const
+                    const active =
+                      normalizedPathname === item.href ||
+                      normalizedPathname.startsWith(`${item.href}/`)
+                    return (
+                      <Button
+                        key={item.href}
+                        variant={active ? "secondary" : "ghost"}
+                        size="sm"
+                        className={cn("w-full justify-start px-2")}
+                        type="button"
+                        onClick={() => navigateTo(item.href)}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <Icon className="h-3.5 w-3.5" />
+                          {t(translationKey)}
+                        </span>
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
             )
           })}
         </nav>
@@ -277,16 +325,29 @@ export function SettingsShell({ children }: SettingsShellProps) {
     <div className="h-screen flex flex-col overflow-hidden bg-background text-foreground">
       <AppTitleBar
         left={
-          isMobile ? (
+          <div className="flex items-center gap-1">
+            {isMobile ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setNavOpen(true)}
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {/* [crewchat] Web mode opens settings in its own window — this is
+                the way back to the workspace from inside it. */}
             <Button
               variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => setNavOpen(true)}
+              size="sm"
+              className="h-8 gap-1 px-2 text-xs text-muted-foreground"
+              onClick={() => navigateTo("/workspace")}
             >
-              <Menu className="h-4 w-4" />
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {t("backToWorkspace")}
             </Button>
-          ) : undefined
+          </div>
         }
         center={
           <div className="text-sm font-bold tracking-tight">{t("title")}</div>

@@ -58,7 +58,14 @@
       "computer_use": "Utilisation de l'ordinateur",
       "quick_messages": "Messages rapides",
       "logs": "Journaux d'exécution"
-    }
+    },
+    "groups": {
+      "agents": "Agents",
+      "capabilities": "Capabilities",
+      "interaction": "Interaction",
+      "system": "System"
+    },
+    "backToWorkspace": "Back to workspace"
   },
   "AppearanceSettings": {
     "sectionTitle": "Apparence du thème",

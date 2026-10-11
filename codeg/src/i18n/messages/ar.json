@@ -58,7 +58,14 @@
       "computer_use": "استخدام الحاسوب",
       "quick_messages": "رسائل سريعة",
       "logs": "سجلات التشغيل"
-    }
+    },
+    "groups": {
+      "agents": "Agents",
+      "capabilities": "Capabilities",
+      "interaction": "Interaction",
+      "system": "System"
+    },
+    "backToWorkspace": "Back to workspace"
   },
   "AppearanceSettings": {
     "sectionTitle": "مظهر السمة",

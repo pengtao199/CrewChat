@@ -58,7 +58,14 @@
       "computer_use": "コンピューター操作",
       "quick_messages": "クイックメッセージ",
       "logs": "実行ログ"
-    }
+    },
+    "groups": {
+      "agents": "Agents",
+      "capabilities": "Capabilities",
+      "interaction": "Interaction",
+      "system": "System"
+    },
+    "backToWorkspace": "Back to workspace"
   },
   "AppearanceSettings": {
     "sectionTitle": "テーマ外観",

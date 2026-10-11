@@ -20,13 +20,19 @@ describe("settingsNavItemsFor", () => {
     )
   })
 
-  it("keeps collaboration under General and the two Use pages together", () => {
+  it("[crewchat] keeps each group's internal order", () => {
     const labels = settingsNavItemsFor("tauri").map((item) => item.labelKey)
     const after = (label: (typeof labels)[number]) =>
       labels[labels.indexOf(label) + 1]
-    expect(after("general")).toBe("collaboration")
+    // Agents → 能力 → 交互 → 系统 (see SETTINGS_NAV_GROUPS).
+    expect(after("agent_roles")).toBe("agents")
+    expect(after("agents")).toBe("collaboration")
+    expect(after("collaboration")).toBe("model_providers")
+    expect(after("model_providers")).toBe("skills")
+    expect(after("skill_packs")).toBe("mcp")
     expect(after("quick_messages")).toBe("browser")
     expect(after("browser")).toBe("computer_use")
+    expect(after("shortcuts")).toBe("general")
   })
 
   it("keeps every page on the desktop", () => {

@@ -39,7 +39,7 @@
     "nav": {
       "general": "General",
       "appearance": "Appearance",
-      "agents": "Agents",
+      "agents": "CLI Agents",
       "agent_roles": "Agents",
       "mcp": "MCP",
       "skills": "Skills",
@@ -58,7 +58,14 @@
       "computer_use": "Computer Use",
       "quick_messages": "Quick Messages",
       "logs": "Runtime Logs"
-    }
+    },
+    "groups": {
+      "agents": "Agents",
+      "capabilities": "Capabilities",
+      "interaction": "Interaction",
+      "system": "System"
+    },
+    "backToWorkspace": "Back to workspace"
   },
   "AppearanceSettings": {
     "sectionTitle": "Theme Appearance",

@@ -58,7 +58,14 @@
       "computer_use": "컴퓨터 사용",
       "quick_messages": "빠른 메시지",
       "logs": "실행 로그"
-    }
+    },
+    "groups": {
+      "agents": "Agents",
+      "capabilities": "Capabilities",
+      "interaction": "Interaction",
+      "system": "System"
+    },
+    "backToWorkspace": "Back to workspace"
   },
   "AppearanceSettings": {
     "sectionTitle": "테마 모양",
