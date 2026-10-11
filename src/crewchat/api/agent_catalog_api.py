@@ -112,6 +112,9 @@ def to_detail(spec, index: int) -> dict[str, Any]:
         "prompts": {"recommended": [], "recommended_i18n": {}},
         "defaults": {
             "model": _scalar(model_value),
+            # 上游契约字段：前端 Guid 读 default.mode 选 ACP 会话权限模式。
+            # 这是 CLI 会话自己的模式，与本项目「自动批准」闸门无关，照抄上游。
+            "permission": _scalar(None, "auto"),
             "thought_level": _scalar(None, "auto"),
             "skills": _list_default(spec.skills),
             "mcps": _list_default(spec.mcps),
