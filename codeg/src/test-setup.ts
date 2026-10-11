@@ -62,3 +62,81 @@ if (typeof Range !== "undefined") {
       y: 0,
     }) as DOMRect
 }
+
+// [crewchat] Node ≥ 25 ships `localStorage` / `sessionStorage` globals that are
+// unusable without `--localstorage-file`, and vitest's jsdom environment leaves
+// keys that already exist on globalThis alone — so tests see `undefined` where
+// jsdom's Storage should be. Provide real `Storage` instances here: they share
+// the (patched) `Storage.prototype`, which keeps the suite's
+// `vi.spyOn(Storage.prototype, "setItem")` assertions working. Remove once
+// upstream handles the new Node globals.
+if (typeof window !== "undefined") {
+  const missing = (["localStorage", "sessionStorage"] as const).filter(
+    (key) => !globalThis[key]
+  )
+  if (missing.length > 0 && typeof Storage !== "undefined") {
+    // jsdom's Storage methods read internal slots, so a bare
+    // `Object.create(Storage.prototype)` cannot use them; back every instance
+    // with its own Map through the prototype methods instead.
+    const slots = new WeakMap<object, Map<string, string>>()
+    const storeOf = (self: object): Map<string, string> => {
+      let store = slots.get(self)
+      if (!store) {
+        store = new Map()
+        slots.set(self, store)
+      }
+      return store
+    }
+    Object.defineProperties(Storage.prototype, {
+      length: {
+        configurable: true,
+        get(this: object) {
+          return storeOf(this).size
+        },
+      },
+      clear: {
+        configurable: true,
+        writable: true,
+        value(this: object) {
+          storeOf(this).clear()
+        },
+      },
+      getItem: {
+        configurable: true,
+        writable: true,
+        value(this: object, key: string) {
+          const store = storeOf(this)
+          return store.has(key) ? store.get(key)! : null
+        },
+      },
+      key: {
+        configurable: true,
+        writable: true,
+        value(this: object, index: number) {
+          return Array.from(storeOf(this).keys())[index] ?? null
+        },
+      },
+      removeItem: {
+        configurable: true,
+        writable: true,
+        value(this: object, key: string) {
+          storeOf(this).delete(key)
+        },
+      },
+      setItem: {
+        configurable: true,
+        writable: true,
+        value(this: object, key: string, value: string) {
+          storeOf(this).set(key, String(value))
+        },
+      },
+    })
+    for (const key of missing) {
+      Object.defineProperty(globalThis, key, {
+        value: Object.create(Storage.prototype),
+        configurable: true,
+        writable: true,
+      })
+    }
+  }
+}

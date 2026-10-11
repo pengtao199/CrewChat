@@ -32,7 +32,7 @@
 
 | 文件 | 改动 | 原因 |
 | --- | --- | --- |
-| （暂无） | —— | 尚未开始改动 |
+| `src/test-setup.ts` | 文件末尾追加 `[crewchat]` 兜底：Node ≥ 25 下为 `localStorage` / `sessionStorage` 提供可用的 `Storage` 实例 | 本机 Node 26 上 Node 自带 Web Storage 全局与 vitest/jsdom 冲突，751 个用例失败`Node 24 基线全绿c；上游/CIe固定-Nodee24，暂u处理` | 文件末尾追加 `[crewchat]` 兜底：Node ≥ 25 下为 `localStorage` / `sessionStorage` 提供可用的 `Storage` 实例 | 本机 Node 26 上 Node 自带 Web Storage 全局与 vitest/jsdom 冲突，751 个用例失败（Node 24 基线全绿）；上游 CI 固定 Node 24，暂未处理 |
 
 ## 构建与开发
 
