@@ -13,15 +13,15 @@
 - 为所有编码 Agent（Claude Code / Codex / OpenCode / Pi / Grok CLI / Kimi CLI 等）统一
   provider、模型、路由、密钥池、日志与用量（Providers → Server → Agent Config）。
 - 与 `codeg/` 分工：**Codeg 管协作**（ACP 会话与 `@` 委派），**CCR 管模型**（端点与路由）。
-- 与 `gateway/cc-switch/` 不冲突：cc-switch 服务于 CrewChat Python 侧的隔离式路由；
-  CCR 面向全局 CLI 配置。同一个 CLI 不要让两边同时改它的配置。
+- 模型层由 CCR 独担：Python 侧的旧网关（`gateway/cc-switch/`）已移除；
+  同一个 CLI 的模型配置只由 CCR 写（见 `AGENTS/gateway.md`）。
 
 ## 取舍
 
 | 内容 | 处理 | 原因 |
 | --- | --- | --- |
 | `packages/`（core / cli / electron / ui）、`build/`、`scripts/`、`docs/`、`extension/`、`docker/`、配置文件 | 固化 | 二次开发对象 |
-| `.git/`（上游历史） | 不搬 | 与 cc-switch / codeg 一致；升级用上游快照 diff 重放 |
+| `.git/`（上游历史） | 不搬 | 与 codeg 一致；升级用上游快照 diff 重放 |
 | `blog/`、`cdn/`（约 8MB 营销与 CDN 站点源码） | 不搬 | 与开发无关 |
 | 构建产物（`node_modules/`、`dist/`、`release/`、`release-local/`、`logs/`、`tmp/` 等） | 由本目录自带 `.gitignore` 忽略 | 产物不入库 |
 
