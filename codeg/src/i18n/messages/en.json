@@ -54,7 +54,7 @@
       "office_tools": "Office Tools",
       "skill_packs": "Skill Packs",
       "collaboration": "Collaboration",
-      "browser": "Browser Use",
+      "browser": "Browser",
       "computer_use": "Computer Use",
       "quick_messages": "Quick Messages",
       "logs": "Runtime Logs"
@@ -68,7 +68,7 @@
     "backToWorkspace": "Back to workspace"
   },
   "AppearanceSettings": {
-    "sectionTitle": "Theme Appearance",
+    "sectionTitle": "Appearance",
     "sectionDescription": "Choose light, dark, or follow system. Settings are saved automatically.",
     "themeMode": "Theme mode",
     "placeholder": "Select theme mode",
@@ -737,8 +737,8 @@
     "selectLeftMcp": "Select an MCP on the left."
   },
   "AcpAgentSettings": {
-    "title": "Agent SDK Management",
-    "description": "Manage Agent SDK connection, enabled state, environment variables, config management and version preflight info in one place.",
+    "title": "CLI Agents",
+    "description": "Install, enable and configure the local CLI agents: versions, environment variables and model binding.",
     "loadingAgents": "Loading agent list...",
     "agentList": "Agent List",
     "emptyNoAgent": "No available agent.",
@@ -1772,7 +1772,7 @@
     "loadFailed": "Load failed: {message}"
   },
   "CollaborationSettings": {
-    "sectionTitle": "Collaboration",
+    "sectionTitle": "Multi-Agent Collaboration",
     "sectionDescription": "How agents work with each other, and which of codeg's own tools they can reach from inside a conversation."
   },
   "LoginPage": {
@@ -4083,7 +4083,7 @@
   "WebServiceSettings": {
     "addressSwitchHint": "Switching only changes the address shown and opened here — the service listens on all interfaces and stays reachable at every address.",
     "sectionTitle": "Web Service",
-    "sectionDescription": "Enable to access Codeg remotely via browser",
+    "sectionDescription": "Enable to access Codeg remotely via browser.",
     "port": "Port",
     "status": "Status",
     "autoStart": "Auto-start",

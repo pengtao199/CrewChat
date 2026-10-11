@@ -54,7 +54,7 @@
       "office_tools": "辦公工具",
       "skill_packs": "技能包",
       "collaboration": "多智能體協同",
-      "browser": "瀏覽器操作",
+      "browser": "瀏覽器",
       "computer_use": "電腦操作",
       "quick_messages": "快捷訊息",
       "logs": "執行日誌"
@@ -68,7 +68,7 @@
     "backToWorkspace": "返回工作區"
   },
   "AppearanceSettings": {
-    "sectionTitle": "主題外觀",
+    "sectionTitle": "外觀",
     "sectionDescription": "選擇淺色、深色或跟隨系統主題，設定會自動儲存。",
     "themeMode": "主題模式",
     "placeholder": "請選擇主題模式",
@@ -737,8 +737,8 @@
     "selectLeftMcp": "請選擇左側 MCP。"
   },
   "AcpAgentSettings": {
-    "title": "Agent SDK管理",
-    "description": "統一管理 Agent 的連接SDK、啟用狀態、環境變數、配置管理與版本預檢資訊。",
+    "title": "CLI 智能體",
+    "description": "管理本機 CLI 智能體的安裝與版本、啟用狀態、環境變數與模型綁定。",
     "loadingAgents": "載入 Agent 列表中...",
     "agentList": "Agent 列表",
     "emptyNoAgent": "暫無可用 Agent。",
@@ -1747,7 +1747,7 @@
     "sectionTitle": "一般",
     "sectionDescription": "集中管理預設終端機、渲染加速、關閉行為、通知與提示音等通用偏好。",
     "terminalTitle": "預設終端",
-    "terminalDescription": "選擇 codeg 開啟新終端分頁、以及代智慧代理執行整條命令列時使用的 Shell。自帶 Shell 的智慧代理（如 Codex、Claude Code）會在自己的行程內執行命令，不受此設定影響。",
+    "terminalDescription": "選擇 codeg 開啟新終端分頁、以及替智慧代理執行整條命令列時使用的 Shell。自帶 Shell 的智慧代理（如 Codex、Claude Code）會在自己的行程內執行命令，不受此設定影響。",
     "terminalSystemDefault": "系統預設",
     "terminalPowerShell7": "PowerShell 7 (pwsh)",
     "terminalWindowsPowerShell": "Windows PowerShell",
@@ -1772,7 +1772,7 @@
     "loadFailed": "載入失敗：{message}"
   },
   "CollaborationSettings": {
-    "sectionTitle": "協作",
+    "sectionTitle": "多智能體協同",
     "sectionDescription": "智能體之間如何協同，以及它們能在對話中動用 codeg 的哪些工具。"
   },
   "LoginPage": {
@@ -4083,7 +4083,7 @@
   "WebServiceSettings": {
     "addressSwitchHint": "切換只會改變這裡顯示與開啟的位址；服務會監聽所有網路介面，每個位址都可存取。",
     "sectionTitle": "Web 服務",
-    "sectionDescription": "啟用後可透過瀏覽器遠端存取 Codeg",
+    "sectionDescription": "啟用後可透過瀏覽器遠端存取 Codeg。",
     "port": "連接埠",
     "status": "狀態",
     "autoStart": "自動啟動",

@@ -54,7 +54,7 @@
       "office_tools": "办公工具",
       "skill_packs": "技能包",
       "collaboration": "多智能体协同",
-      "browser": "浏览器操作",
+      "browser": "浏览器",
       "computer_use": "电脑操作",
       "quick_messages": "快捷消息",
       "logs": "运行日志"
@@ -68,7 +68,7 @@
     "backToWorkspace": "返回工作区"
   },
   "AppearanceSettings": {
-    "sectionTitle": "主题外观",
+    "sectionTitle": "外观",
     "sectionDescription": "选择浅色、深色或跟随系统主题，设置会自动保存。",
     "themeMode": "主题模式",
     "placeholder": "请选择主题模式",
@@ -737,8 +737,8 @@
     "selectLeftMcp": "请选择左侧 MCP。"
   },
   "AcpAgentSettings": {
-    "title": "Agent SDK管理",
-    "description": "统一管理 Agent 的连接SDK、启用状态、环境变量、配置管理与版本预检信息。",
+    "title": "CLI 智能体",
+    "description": "管理本机 CLI 智能体的安装与版本、启用状态、环境变量与模型绑定。",
     "loadingAgents": "加载 Agent 列表中...",
     "agentList": "Agent 列表",
     "emptyNoAgent": "暂无可用 Agent。",
@@ -1747,7 +1747,7 @@
     "sectionTitle": "常规",
     "sectionDescription": "集中管理默认终端、渲染加速、关闭行为、通知与提示音等通用偏好。",
     "terminalTitle": "默认终端",
-    "terminalDescription": "选择 codeg 打开新终端标签页、以及代智能体执行整条命令行时使用的 Shell。自带 Shell 的智能体（如 Codex、Claude Code）在自己进程内执行命令，不受此设置影响。",
+    "terminalDescription": "选择 codeg 打开新终端标签页、以及替智能体执行整条命令行时使用的 Shell。自带 Shell 的智能体（如 Codex、Claude Code）在自己进程内执行命令，不受此设置影响。",
     "terminalSystemDefault": "系统默认",
     "terminalPowerShell7": "PowerShell 7 (pwsh)",
     "terminalWindowsPowerShell": "Windows PowerShell",
@@ -1772,7 +1772,7 @@
     "loadFailed": "加载失败：{message}"
   },
   "CollaborationSettings": {
-    "sectionTitle": "协作",
+    "sectionTitle": "多智能体协同",
     "sectionDescription": "智能体之间如何协同，以及它们能在会话中动用 codeg 的哪些工具。"
   },
   "LoginPage": {
@@ -4083,7 +4083,7 @@
   "WebServiceSettings": {
     "addressSwitchHint": "切换只改变这里显示和打开的地址；服务监听所有网卡，每个地址都可访问。",
     "sectionTitle": "Web 服务",
-    "sectionDescription": "启用后可通过浏览器远程访问 Codeg",
+    "sectionDescription": "启用后可通过浏览器远程访问 Codeg。",
     "port": "端口",
     "status": "状态",
     "autoStart": "自动启动",
