@@ -18,6 +18,22 @@ export interface CcrGatewayStatus {
   pid?: number
 }
 
+/** One key inside a provider's credential pool (`provider.credentials`). */
+export interface CcrCredential {
+  id?: string
+  name?: string
+  label?: string
+  api_key?: string
+  apiKey?: string
+  apikey?: string
+  enabled?: boolean
+  priority?: number
+  weight?: number
+  /** Rate/token limits, e.g. `{ rpm: 60, tpm: 100000 }`. */
+  limits?: Record<string, unknown>
+  [key: string]: unknown
+}
+
 export interface CcrProvider {
   /** Stable id used by routing; preserved when editing. */
   id?: string
@@ -25,9 +41,13 @@ export interface CcrProvider {
   type?: string
   api_base_url?: string
   baseUrl?: string
+  api_key?: string
   apiKey?: string
+  apikey?: string
   enabled?: boolean
   models?: string[]
+  /** Credential pool (preferred over the single `api_key`). */
+  credentials?: CcrCredential[]
   [key: string]: unknown
 }
 
@@ -44,6 +64,60 @@ export interface CcrConfig {
   Providers?: CcrProvider[]
   profile?: { profiles?: CcrProfileSummary[] } & Record<string, unknown>
   [key: string]: unknown
+}
+
+export interface CcrProviderPresetEndpoint {
+  baseUrl: string
+  label?: string
+  protocols: string[]
+  websiteUrl?: string
+}
+
+export interface CcrProviderPreset {
+  id: string
+  name: string
+  aliases?: string[]
+  endpoints?: CcrProviderPresetEndpoint[]
+  defaultModels?: string[]
+  websiteUrl?: string
+}
+
+export interface CcrProbeProtocolResult {
+  protocol: string
+  endpoint: string
+  supported: boolean
+  status?: number
+  message?: string
+}
+
+export interface CcrProbeResult {
+  detectedProtocol?: string
+  models?: string[]
+  normalizedBaseUrl?: string
+  protocols?: CcrProbeProtocolResult[]
+}
+
+export interface CcrAccountMeter {
+  id: string
+  kind: string
+  label: string
+  remaining?: number
+  limit?: number
+  used?: number
+  unit: string
+  window?: string
+  resetAt?: string
+}
+
+export interface CcrAccountSnapshot {
+  provider: string
+  credentialId?: string
+  credentialLabel?: string
+  status: string
+  source?: string
+  message?: string
+  meters?: CcrAccountMeter[]
+  updatedAt?: string
 }
 
 export function ccrGatewayStatus(): Promise<CcrGatewayStatus> {
@@ -83,6 +157,29 @@ export async function ccrGetConfig(retries = 3): Promise<CcrConfig> {
 
 export function ccrSaveConfig(config: CcrConfig): Promise<unknown> {
   return ccrCall("saveConfig", [config])
+}
+
+export function ccrGetProviderPresets(): Promise<CcrProviderPreset[]> {
+  return ccrCall<CcrProviderPreset[]>("getProviderPresets")
+}
+
+export function ccrProbeProvider(request: {
+  baseUrl: string
+  apiKey?: string
+  mode?: "connectivity" | "models" | "protocols"
+  forceRefresh?: boolean
+}): Promise<CcrProbeResult> {
+  return ccrCall<CcrProbeResult>("probeProvider", [request])
+}
+
+export function ccrGetProviderAccountSnapshots(
+  provider?: string,
+  options?: { forceRefresh?: boolean }
+): Promise<CcrAccountSnapshot[]> {
+  return ccrCall<CcrAccountSnapshot[]>("getProviderAccountSnapshots", [
+    provider,
+    options ?? {},
+  ])
 }
 
 export const CCR_PROTOCOLS = [
