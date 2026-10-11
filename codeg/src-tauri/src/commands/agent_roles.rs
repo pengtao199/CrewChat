@@ -38,6 +38,9 @@ pub struct AgentRole {
     pub agent_type: String,
     #[serde(default)]
     pub model: String,
+    /// CCR provider the model belongs to (the picker's left-hand column).
+    #[serde(default)]
+    pub model_provider: String,
     #[serde(default)]
     pub skills: Vec<String>,
     #[serde(default)]
