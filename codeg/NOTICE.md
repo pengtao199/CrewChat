@@ -29,10 +29,6 @@
   并绑定身体（CLI）、模型、本地 Skill 与 MCP。v1 只做**定义与持久化**
   （`<data dir>/agent-roles.json`，ID 为服务端生成的 UUID）；按角色启动会话 / 委派时
   消费这些配置是下一步。
-- **核心花名册：`[crewchat]` 新增「Agents」页**：定义角色（`Soul.md` 人格 / `Agents.md` 规则）
-  并绑定身体（CLI）、模型、本地 Skill 与 MCP。v1 只做**定义与持久化**
-  （`<data dir>/agent-roles.json`，ID 为服务端生成的 UUID）；按角色启动会话 / 委派时
-  消费这些配置是下一步。
 - 本仓库 Python 侧（`src/crewchat/`）的编排与网关内核暂时保留；若后续成为 Codeg 的
   自定义 ACP agent 或旁路服务，另立计划。
 
@@ -52,18 +48,11 @@
 | `src/app/settings/model-providers/page.tsx` | 路由改指向 `CcrModelSettings` | 同上 |
 | `src/components/settings/model-provider-settings.tsx`、`add-model-provider-dialog.tsx`、`edit-model-provider-dialog.tsx`、`model-provider-dialogs.fable-model.test.tsx` | **删除**（上游文件） | 旧模型管理退役；模型数据不再存 Codeg |
 | `src/i18n/messages/*.json`（10 语言） | 新增 `CcrModelSettings` 命名空间；导航 `model_providers` 文案改短 | 同上 |
-| `src-tauri/src/commands/agent_roles.rs`（新增） | Agent 角色花名册存储：`agent_roles_list` / `agent_roles_save` / `agent_roles_delete`；UUID 自动生成、JSON 落 `<data dir>/agent-roles.json`、原子写入 | 「Agents」页：角色（Soul.md / Agents.md）绑定身体、模型、本地 Skill 与 MCP |
+| `src-tauri/src/commands/agent_roles.rs`（新增） | Agent 角色花名册存储：`agent_roles_list` / `agent_roles_save` / `agent_roles_delete`；ID 为服务端 UUID、`model_provider` 与模型成对、JSON 落 `<data dir>/agent-roles.json`、原子写入 | 「Agents」页：角色（人格 / 规则）绑定身体、模型（提供商＋模型）、本地 Skill 与 MCP |
 | `src-tauri/src/web/handlers/agent_roles.rs`（新增） | web 模式处理器（`/api/agent_roles_*`） | 同上（Codeg 双模式规范） |
 | `src-tauri/src/commands/mod.rs`、`src-tauri/src/web/handlers/mod.rs`、`src-tauri/src/web/router.rs`、`src-tauri/src/lib.rs` | 注册上述命令与路由 | 同上 |
 | `src/lib/agent-roles.ts`（新增） | 角色花名册类型与调用层 | 同上 |
-| `src/app/settings/agent-roles/page.tsx`、`src/components/settings/agent-roles/`（新增：settings / role-editor / helpers / helpers.test） | 新「Agents」页：列表 + 编辑器（Soul.md / Agents.md / 身体 / 模型 / 本地 Skill / MCP） | 本仓库的核心花名册 |
-| `src/components/settings/settings-shell.tsx` | 导航新增 `agent_roles` 项 | 同上 |
-| `src/i18n/messages/*.json`（10 语言） | 新增 `AgentRoles` 命名空间与导航 `agent_roles` 文案 | 同上 |
-| `src-tauri/src/commands/agent_roles.rs`（新增） | Agent 角色花名册存储：`agent_roles_list` / `agent_roles_save` / `agent_roles_delete`；UUID 自动生成、JSON 落 `<data dir>/agent-roles.json`、原子写入 | 「Agents」页：角色（Soul.md / Agents.md）绑定身体、模型、本地 Skill 与 MCP |
-| `src-tauri/src/web/handlers/agent_roles.rs`（新增） | web 模式处理器（`/api/agent_roles_*`） | 同上（Codeg 双模式规范） |
-| `src-tauri/src/commands/mod.rs`、`src-tauri/src/web/handlers/mod.rs`、`src-tauri/src/web/router.rs`、`src-tauri/src/lib.rs` | 注册上述命令与路由 | 同上 |
-| `src/lib/agent-roles.ts`（新增） | 角色花名册类型与调用层 | 同上 |
-| `src/app/settings/agent-roles/page.tsx`、`src/components/settings/agent-roles/`（新增：settings / role-editor / helpers / helpers.test） | 新「Agents」页：列表 + 编辑器（Soul.md / Agents.md / 身体 / 模型 / 本地 Skill / MCP） | 本仓库的核心花名册 |
+| `src/app/settings/agent-roles/page.tsx`、`src/components/settings/agent-roles/`（新增：settings / role-editor / search-multi-select / helpers / helpers.test） | 新「Agents」页：左右分栏（对齐 mcp 页）＋ 编辑器（人格 / 规则 / 身体 / 模型 / 本地 Skill / MCP 可搜索多选） | 本仓库的核心花名册 |
 | `src/components/settings/settings-shell.tsx` | 导航新增 `agent_roles` 项 | 同上 |
 | `src/i18n/messages/*.json`（10 语言） | 新增 `AgentRoles` 命名空间与导航 `agent_roles` 文案 | 同上 |
 
