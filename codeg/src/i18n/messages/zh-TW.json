@@ -7077,6 +7077,23 @@
     "usageEmpty": "暂无用量数据",
     "usageTitle": "用量",
     "weightLabel": "权重",
-    "advancedOptions": "高级选项"
+    "advancedOptions": "高级选项",
+    "selectModels": "选择模型",
+    "pickerDescription": "选择这个供应商对外可用的模型。",
+    "detectedTitle": "供应商模型",
+    "detectedHint": "从该供应商检测到的模型",
+    "addedTitle": "已添加模型",
+    "addedHint": "移除不再需要的模型",
+    "searchDetected": "搜索供应商模型",
+    "searchAdded": "搜索已添加模型",
+    "addCustom": "自定义模型",
+    "customPlaceholder": "模型 id",
+    "alreadyAdded": "已添加",
+    "removeModel": "移除模型",
+    "fetchModels": "获取可用模型",
+    "fetchModelsDone": "已获取 {count} 个模型",
+    "fetchModelsEmpty": "未检测到新模型",
+    "detectFailed": "探测失败",
+    "close": "完成"
   }
 }

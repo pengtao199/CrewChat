@@ -167,6 +167,7 @@ export function ccrProbeProvider(request: {
   baseUrl: string
   apiKey?: string
   mode?: "connectivity" | "models" | "protocols"
+  models?: string[]
   forceRefresh?: boolean
 }): Promise<CcrProbeResult> {
   return ccrCall<CcrProbeResult>("probeProvider", [request])

@@ -7077,6 +7077,23 @@
     "usageEmpty": "No usage data",
     "usageTitle": "Usage",
     "weightLabel": "Weight",
-    "advancedOptions": "Advanced options"
+    "advancedOptions": "Advanced options",
+    "selectModels": "Choose models",
+    "pickerDescription": "Pick the models this provider exposes for routing.",
+    "detectedTitle": "Provider models",
+    "detectedHint": "Detected from this provider",
+    "addedTitle": "Added models",
+    "addedHint": "Remove models you no longer need",
+    "searchDetected": "Search provider models",
+    "searchAdded": "Search added models",
+    "addCustom": "Custom model",
+    "customPlaceholder": "model id",
+    "alreadyAdded": "Added",
+    "removeModel": "Remove model",
+    "fetchModels": "Fetch available models",
+    "fetchModelsDone": "{count} models fetched",
+    "fetchModelsEmpty": "No models detected",
+    "detectFailed": "Detection failed",
+    "close": "Done"
   }
 }

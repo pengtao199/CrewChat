@@ -4,19 +4,24 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   ChevronDown,
   ChevronRight,
+  Download,
   Eye,
   EyeOff,
   FileJson,
+  ListChecks,
   Loader2,
   Pencil,
   PlugZap,
   Plus,
   RefreshCw,
+  Search,
   Server,
   Settings2,
   Trash2,
+  X,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -73,6 +78,7 @@ import {
   type CcrProvider,
   type CcrProviderPreset,
 } from "@/lib/ccr"
+import { readDisabledModels, writeDisabledModels } from "@/lib/ccr-model-memory"
 
 // ---------------------------------------------------------------------------
 // Draft types & helpers
@@ -302,8 +308,14 @@ export function CcrModelSettings() {
   const [importText, setImportText] = useState("")
   const [importError, setImportError] = useState<string | null>(null)
 
-  const [modelsIndex, setModelsIndex] = useState<number | null>(null)
-  const [modelsText, setModelsText] = useState("")
+  const [pickerIndex, setPickerIndex] = useState<number | null>(null)
+  const [pickerDetected, setPickerDetected] = useState<string[]>([])
+  const [pickerLoading, setPickerLoading] = useState(false)
+  const [pickerError, setPickerError] = useState<string | null>(null)
+  const [pickerSearchLeft, setPickerSearchLeft] = useState("")
+  const [pickerSearchRight, setPickerSearchRight] = useState("")
+  const [customModel, setCustomModel] = useState("")
+  const [modelBusy, setModelBusy] = useState("")
 
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null)
   const [toggleBusy, setToggleBusy] = useState("")
@@ -502,6 +514,7 @@ export function CcrModelSettings() {
         baseUrl,
         apiKey: apiKey || undefined,
         mode: "connectivity",
+        models: parseModels(draft.modelsText).slice(0, 3),
         forceRefresh: true,
       })
       setTestResult({ ok: true, result })
@@ -694,32 +707,202 @@ export function CcrModelSettings() {
     }
   }, [config, deleteIndex, reload, t])
 
-  const openModelsDialog = useCallback(
+  const providerFirstKey = useCallback((provider: CcrProvider): string => {
+    const keys = providerCredentials(provider)
+      .map((credential) => credentialKey(credential).trim())
+      .filter(Boolean)
+    return keys[0] ?? ""
+  }, [])
+
+  const detectModels = useCallback(
+    async (provider: CcrProvider) => {
+      setPickerLoading(true)
+      setPickerError(null)
+      try {
+        const result = await ccrProbeProvider({
+          baseUrl: providerBaseUrl(provider),
+          apiKey: providerFirstKey(provider) || undefined,
+          mode: "models",
+          forceRefresh: true,
+        })
+        const models = [
+          ...new Set(
+            (result.models ?? []).map((model) => model.trim()).filter(Boolean)
+          ),
+        ]
+        setPickerDetected(models.sort((a, b) => a.localeCompare(b)))
+      } catch (err: unknown) {
+        setPickerDetected([])
+        setPickerError(errorText(err))
+      } finally {
+        setPickerLoading(false)
+      }
+    },
+    [providerFirstKey]
+  )
+
+  const openPicker = useCallback(
     (index: number) => {
       const provider = providers[index]
       if (!provider) return
-      setModelsIndex(index)
-      setModelsText(providerModels(provider).join("\n"))
+      setPickerIndex(index)
+      setPickerSearchLeft("")
+      setPickerSearchRight("")
+      setCustomModel("")
+      setPickerDetected([])
+      detectModels(provider).catch(console.error)
     },
-    [providers]
+    [detectModels, providers]
   )
 
-  const saveModels = useCallback(async () => {
-    if (modelsIndex === null) return
-    try {
-      const current = config ?? (await ccrGetConfig())
-      const list = [...(current.Providers ?? [])]
-      const provider = list[modelsIndex]
+  const toggleModel = useCallback(
+    async (index: number, model: string, enable: boolean) => {
+      const provider = providers[index]
       if (!provider) return
-      list[modelsIndex] = { ...provider, models: parseModels(modelsText) }
-      await ccrSaveConfig({ ...current, Providers: list })
-      toast.success(t("saved"))
-      setModelsIndex(null)
-      await reload()
-    } catch (err: unknown) {
-      toast.error(errorText(err))
-    }
-  }, [config, modelsIndex, modelsText, reload, t])
+      setModelBusy(`toggle:${model}`)
+      try {
+        const key = providerKey(provider, index)
+        const current = config ?? (await ccrGetConfig())
+        const list = [...(current.Providers ?? [])]
+        const target = list[index]
+        if (!target) return
+        const enabled = providerModels(target)
+        const disabled = readDisabledModels(key)
+        const nextEnabled = enable
+          ? enabled.includes(model)
+            ? enabled
+            : [...enabled, model]
+          : enabled.filter((item) => item !== model)
+        const nextDisabled = enable
+          ? disabled.filter((item) => item !== model)
+          : disabled.includes(model)
+            ? disabled
+            : [...disabled, model]
+        list[index] = { ...target, models: nextEnabled }
+        await ccrSaveConfig({ ...current, Providers: list })
+        writeDisabledModels(key, nextDisabled)
+        await reload()
+      } catch (err: unknown) {
+        toast.error(errorText(err))
+      } finally {
+        setModelBusy("")
+      }
+    },
+    [config, providerKey, providers, reload]
+  )
+
+  const fetchModels = useCallback(
+    async (index: number) => {
+      const provider = providers[index]
+      if (!provider) return
+      const key = providerKey(provider, index)
+      setModelBusy(`fetch:${key}`)
+      try {
+        const result = await ccrProbeProvider({
+          baseUrl: providerBaseUrl(provider),
+          apiKey: providerFirstKey(provider) || undefined,
+          mode: "models",
+          forceRefresh: true,
+        })
+        const detected = [
+          ...new Set(
+            (result.models ?? []).map((model) => model.trim()).filter(Boolean)
+          ),
+        ]
+        const current = config ?? (await ccrGetConfig())
+        const list = [...(current.Providers ?? [])]
+        const target = list[index]
+        if (!target) return
+        const enabled = providerModels(target)
+        const known = new Set([...enabled, ...readDisabledModels(key)])
+        const added = detected.filter((model) => !known.has(model))
+        if (added.length === 0) {
+          toast.info(t("fetchModelsEmpty"))
+          return
+        }
+        list[index] = { ...target, models: [...enabled, ...added] }
+        await ccrSaveConfig({ ...current, Providers: list })
+        toast.success(t("fetchModelsDone", { count: added.length }))
+        await reload()
+      } catch (err: unknown) {
+        toast.error(errorText(err), { description: t("detectFailed") })
+      } finally {
+        setModelBusy("")
+      }
+    },
+    [config, providerFirstKey, providerKey, providers, reload, t]
+  )
+
+  const addModelFromPicker = useCallback(
+    async (model: string) => {
+      if (pickerIndex === null) return
+      const provider = providers[pickerIndex]
+      if (!provider) return
+      if (providerModels(provider).includes(model)) return
+      const key = providerKey(provider, pickerIndex)
+      setModelBusy(`add:${model}`)
+      try {
+        const current = config ?? (await ccrGetConfig())
+        const list = [...(current.Providers ?? [])]
+        const target = list[pickerIndex]
+        if (!target) return
+        list[pickerIndex] = {
+          ...target,
+          models: [...providerModels(target), model],
+        }
+        await ccrSaveConfig({ ...current, Providers: list })
+        writeDisabledModels(
+          key,
+          readDisabledModels(key).filter((item) => item !== model)
+        )
+        await reload()
+      } catch (err: unknown) {
+        toast.error(errorText(err))
+      } finally {
+        setModelBusy("")
+      }
+    },
+    [config, pickerIndex, providerKey, providers, reload]
+  )
+
+  const removeModelFromPicker = useCallback(
+    async (model: string) => {
+      if (pickerIndex === null) return
+      const provider = providers[pickerIndex]
+      if (!provider) return
+      const key = providerKey(provider, pickerIndex)
+      setModelBusy(`remove:${model}`)
+      try {
+        const current = config ?? (await ccrGetConfig())
+        const list = [...(current.Providers ?? [])]
+        const target = list[pickerIndex]
+        if (!target) return
+        list[pickerIndex] = {
+          ...target,
+          models: providerModels(target).filter((item) => item !== model),
+        }
+        await ccrSaveConfig({ ...current, Providers: list })
+        writeDisabledModels(
+          key,
+          readDisabledModels(key).filter((item) => item !== model)
+        )
+        await reload()
+      } catch (err: unknown) {
+        toast.error(errorText(err))
+      } finally {
+        setModelBusy("")
+      }
+    },
+    [config, pickerIndex, providerKey, providers, reload]
+  )
+
+  const addCustomModel = useCallback(() => {
+    const model = customModel.trim()
+    if (!model) return
+    addModelFromPicker(model)
+      .then(() => setCustomModel(""))
+      .catch(console.error)
+  }, [addModelFromPicker, customModel])
 
   const gatewayState = gateway?.state ?? "unknown"
   const gatewayRunning = gatewayState === "running"
@@ -728,6 +911,18 @@ export function CcrModelSettings() {
     : gatewayState === "stopped"
       ? t("gatewayStopped")
       : t("gatewayError")
+
+  const pickerProvider =
+    pickerIndex !== null ? providers[pickerIndex] : undefined
+  const pickerEnabled = pickerProvider ? providerModels(pickerProvider) : []
+  const searchLeft = pickerSearchLeft.trim().toLowerCase()
+  const searchRight = pickerSearchRight.trim().toLowerCase()
+  const filteredDetected = pickerDetected.filter((model) =>
+    model.toLowerCase().includes(searchLeft)
+  )
+  const filteredAdded = pickerEnabled.filter((model) =>
+    model.toLowerCase().includes(searchRight)
+  )
 
   return (
     <ScrollArea className="h-full">
@@ -910,6 +1105,10 @@ export function CcrModelSettings() {
               const isOpen = expanded.has(key)
               const credentials = providerCredentials(provider)
               const models = providerModels(provider)
+              const disabledModels = readDisabledModels(key)
+              const listedModels = [
+                ...new Set([...models, ...disabledModels]),
+              ].sort((a, b) => a.localeCompare(b))
               const usage = headerUsageBadge(snapshots[key] ?? [])
               const providerSnapshots = snapshots[key] ?? []
               return (
@@ -1132,36 +1331,61 @@ export function CcrModelSettings() {
                         <div className="mb-1.5 flex items-center justify-between">
                           <h3 className="text-xs font-medium text-muted-foreground">
                             {t("modelsTitle")}
-                            {models.length > 0 && (
-                              <span className="ml-1.5">({models.length})</span>
+                            {listedModels.length > 0 && (
+                              <span className="ml-1.5">
+                                ({listedModels.length})
+                              </span>
                             )}
                           </h3>
                           <Button
                             size="sm"
                             variant="ghost"
                             className="h-6 text-xs"
-                            onClick={() => openModelsDialog(index)}
+                            onClick={() => openPicker(index)}
                           >
-                            {t("editModels")}
+                            <ListChecks className="mr-1 h-3.5 w-3.5" />
+                            {t("selectModels")}
                           </Button>
                         </div>
-                        {models.length === 0 ? (
+                        {listedModels.length === 0 ? (
                           <p className="text-xs text-muted-foreground">
                             {t("modelsEmpty")}
                           </p>
                         ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {models.map((model) => (
-                              <Badge
+                          <div className="space-y-1">
+                            {listedModels.map((model) => (
+                              <div
                                 key={model}
-                                variant="outline"
-                                className="font-mono text-3xs"
+                                className="flex items-center justify-between gap-3 rounded-md border px-2.5 py-1.5"
                               >
-                                {model}
-                              </Badge>
+                                <span className="truncate font-mono text-xs">
+                                  {model}
+                                </span>
+                                <Switch
+                                  checked={models.includes(model)}
+                                  disabled={modelBusy !== ""}
+                                  onCheckedChange={(checked) =>
+                                    toggleModel(index, model, checked)
+                                  }
+                                />
+                              </div>
                             ))}
                           </div>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 h-7 text-xs"
+                          disabled={modelBusy !== ""}
+                          onClick={() => fetchModels(index)}
+                        >
+                          {modelBusy === `fetch:${key}` ? (
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Download className="mr-1 h-3.5 w-3.5" />
+                          )}
+                          {t("fetchModels")}
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -1548,27 +1772,167 @@ export function CcrModelSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* ----- 编辑模型 ----- */}
+      {/* ----- 选择模型（双栏） ----- */}
       <Dialog
-        open={modelsIndex !== null}
+        open={pickerIndex !== null}
         onOpenChange={(open) => {
-          if (!open) setModelsIndex(null)
+          if (!open) setPickerIndex(null)
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{t("editModels")}</DialogTitle>
+            <DialogTitle>{t("selectModels")}</DialogTitle>
           </DialogHeader>
-          <Textarea
-            value={modelsText}
-            onChange={(event) => setModelsText(event.target.value)}
-            className="min-h-40 font-mono text-xs"
-          />
+          <p className="text-xs text-muted-foreground">
+            {t("pickerDescription")}
+          </p>
+          <div className="grid max-h-[60vh] grid-cols-1 gap-3 overflow-y-auto md:grid-cols-2">
+            <div className="rounded-md border">
+              <div className="flex items-center justify-between gap-2 border-b px-2.5 py-2">
+                <div>
+                  <p className="text-xs font-medium">{t("detectedTitle")}</p>
+                  <p className="text-2xs text-muted-foreground">
+                    {t("detectedHint")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    title={t("refresh")}
+                    disabled={pickerLoading}
+                    onClick={() => {
+                      const provider =
+                        pickerIndex !== null
+                          ? providers[pickerIndex]
+                          : undefined
+                      if (provider) {
+                        detectModels(provider).catch(console.error)
+                      }
+                    }}
+                  >
+                    {pickerLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                  <Badge variant="outline" className="text-3xs px-1.5 py-0">
+                    {pickerDetected.length}
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-1.5 p-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={pickerSearchLeft}
+                    onChange={(event) =>
+                      setPickerSearchLeft(event.target.value)
+                    }
+                    placeholder={t("searchDetected")}
+                    className="h-7 pl-7 text-xs"
+                  />
+                </div>
+                {pickerError && (
+                  <p className="text-2xs text-red-400">{pickerError}</p>
+                )}
+                <div className="space-y-1">
+                  {filteredDetected.map((model) => {
+                    const added = pickerEnabled.includes(model)
+                    return (
+                      <button
+                        key={model}
+                        type="button"
+                        disabled={added || modelBusy !== ""}
+                        onClick={() => addModelFromPicker(model)}
+                        className="flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs disabled:opacity-60"
+                      >
+                        <span className="truncate font-mono">{model}</span>
+                        {added ? (
+                          <span className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                            <Check className="h-3.5 w-3.5" />
+                            {t("alreadyAdded")}
+                          </span>
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="rounded-md border">
+              <div className="flex items-center justify-between gap-2 border-b px-2.5 py-2">
+                <div>
+                  <p className="text-xs font-medium">{t("addedTitle")}</p>
+                  <p className="text-2xs text-muted-foreground">
+                    {t("addedHint")}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-3xs px-1.5 py-0">
+                  {pickerEnabled.length}
+                </Badge>
+              </div>
+              <div className="space-y-1.5 p-2">
+                <div className="flex gap-1.5">
+                  <Input
+                    value={customModel}
+                    onChange={(event) => setCustomModel(event.target.value)}
+                    placeholder={t("customPlaceholder")}
+                    className="h-7 min-w-0 flex-1 text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 shrink-0 text-xs"
+                    disabled={!customModel.trim() || modelBusy !== ""}
+                    onClick={addCustomModel}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    {t("addCustom")}
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={pickerSearchRight}
+                    onChange={(event) =>
+                      setPickerSearchRight(event.target.value)
+                    }
+                    placeholder={t("searchAdded")}
+                    className="h-7 pl-7 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  {filteredAdded.map((model) => (
+                    <div
+                      key={model}
+                      className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+                    >
+                      <span className="truncate font-mono">{model}</span>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 shrink-0 text-destructive"
+                        title={t("removeModel")}
+                        disabled={modelBusy !== ""}
+                        onClick={() => removeModelFromPicker(model)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setModelsIndex(null)}>
-              {t("cancel")}
+            <Button variant="outline" onClick={() => setPickerIndex(null)}>
+              {t("close")}
             </Button>
-            <Button onClick={saveModels}>{t("save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
