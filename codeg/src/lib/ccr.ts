@@ -197,9 +197,124 @@ export function ccrAgentKindForBody(body: string): string | null {
 
 /** Read CCR's configured agent profiles; [] tolerates configs without any. */
 export async function ccrGetProfiles(): Promise<CcrProfileSummary[]> {
-  const config = await ccrGetConfig(1)
+  // The default retry count matters here: the management server is known to
+  // hand back an empty view while it is persisting, and `[]` would render as
+  // "no CLI has a profile" — the retry lets the page see the real list.
+  const config = await ccrGetConfig()
   const profiles = config.profile?.profiles
   return Array.isArray(profiles) ? profiles : []
+}
+
+/**
+ * [crewchat] Display names for the CCR agent kinds a CLI body can bind to,
+ * mirroring CCR's own `profileAgentLabel` so a profile created here reads the
+ * same as one created in CCR's UI. Kinds outside this table are "CCR 暂不支持"
+ * on the CLI page and never get a profile built here.
+ */
+export const CCR_PROFILE_DISPLAY_NAMES: Record<string, string> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+  grok: "Grok CLI",
+  kimi: "Kimi CLI",
+  kilo: "Kilo CLI",
+  opencode: "OpenCode",
+  pi: "Pi",
+}
+
+/**
+ * The profile the CLI page reports for one CCR agent kind. Enabled profiles
+ * win over disabled ones; within a group the first (CCR's own order) is the
+ * one shown. Returns null when the CLI has no profile at all — the
+ * "bindable" state.
+ */
+export function pickCcrProfileForKind(
+  profiles: readonly CcrProfileSummary[],
+  kind: string
+): CcrProfileSummary | null {
+  const matches = profiles.filter((profile) => profile.agent === kind)
+  if (matches.length === 0) return null
+  return matches.find((profile) => profile.enabled) ?? matches[0]
+}
+
+/** CCR's own id slug rule (`uniqueProfileId` in its UI): name → dash slug. */
+function ccrProfileSlug(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9_.-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "profile"
+  )
+}
+
+/** A profile id no existing profile uses, matching CCR's numbering scheme. */
+export function uniqueCcrProfileId(
+  existing: readonly CcrProfileSummary[],
+  value: string
+): string {
+  const base = ccrProfileSlug(value)
+  const taken = new Set(existing.map((profile) => profile.id))
+  if (!taken.has(base)) return base
+  for (let index = 2; index < 1000; index += 1) {
+    const candidate = `${base}-${index}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return `${base}-${Date.now()}`
+}
+
+/**
+ * [crewchat] Build one missing CCR profile for a CLI body — the CLI page's
+ * "bind" write. Model stays empty on purpose: the gateway's default model
+ * applies until someone picks a model for the role on the Agents page. The
+ * shape mirrors CCR's own `profileConfigFromDraft` output (scope "ccr",
+ * surface "cli") so nothing about it is a second kind of profile.
+ */
+export function buildCcrProfileForKind(
+  kind: string,
+  existing: readonly CcrProfileSummary[]
+): CcrProfileSummary {
+  const name = CCR_PROFILE_DISPLAY_NAMES[kind] ?? kind
+  const base: CcrProfileSummary = {
+    agent: kind,
+    enabled: true,
+    env: {},
+    id: uniqueCcrProfileId(existing, name),
+    model: "",
+    name,
+    scope: "ccr",
+    surface: "cli",
+  }
+  if (kind === "claude-code") {
+    return {
+      ...base,
+      env: { CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY: "1" },
+      fableModel: "",
+      haikuModel: "",
+      managedCompact: false,
+      opusModel: "",
+      settingsFile: "~/.claude/settings.json",
+      sonnetModel: "",
+      smallFastModel: "",
+    }
+  }
+  if (kind === "codex" || kind === "opencode" || kind === "kilo") {
+    return {
+      ...base,
+      cliMiddleware: true,
+      configFile:
+        kind === "opencode"
+          ? "~/.config/opencode/opencode.jsonc"
+          : kind === "kilo"
+            ? "~/.config/kilo/kilo.jsonc"
+            : "~/.codex/config.toml",
+      configFormat: "separate_profile_files",
+      managedCompact: false,
+      providerId: "claude-code-router",
+      providerName: "Claude Code Router",
+      showAllSessions: false,
+    }
+  }
+  // grok / kimi / pi — CCR pins these to the generated (wrapper) scope.
+  return base
 }
 
 export function ccrGetProviderPresets(): Promise<CcrProviderPreset[]> {
