@@ -141,6 +141,8 @@ import {
 import { OpenCodeBehaviorSection } from "@/components/settings/opencode-behavior-section"
 import { OpenCodePermissionsSection } from "@/components/settings/opencode-permissions-section"
 import { AgentDiagnosticsDialog } from "@/components/settings/agent-diagnostics-dialog"
+import { AgentReadinessCard, type AgentCcrState } from "./agent-readiness-card"
+import { useAgentCcrBinding } from "./use-agent-ccr-binding"
 import {
   buildConnectedModelOptions,
   buildConnectedProviders,
@@ -153,6 +155,7 @@ import {
 } from "@/lib/opencode-connect"
 import { toErrorMessage } from "@/lib/app-error"
 import { getInstallErrorHintKey } from "@/lib/agent-install-error"
+import { ccrAgentKindForBody, pickCcrProfileForKind } from "@/lib/ccr"
 import {
   readAgentListOnlyInstalled,
   writeAgentListOnlyInstalled,
@@ -4586,6 +4589,11 @@ export function AcpAgentSettings() {
   >("idle")
   const [codexLoginError, setCodexLoginError] = useState<string | null>(null)
   const codexPollCancelledRef = useRef(false)
+  // [crewchat] The readiness card's state: whether its Advanced fold is open
+  // (it ships folded — the card is this page's default face), plus the CCR
+  // profile list and its write actions, which live in their own hook.
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const ccrBinding = useAgentCcrBinding()
 
   const sortedAgents = useMemo(
     () =>
@@ -5765,6 +5773,56 @@ export function AcpAgentSettings() {
   const selectedConfigError = selectedAgent
     ? (configErrors[selectedAgent.agent_type] ?? null)
     : null
+  // [crewchat] Readiness derivations for the card above the Advanced fold —
+  // install / enable / CCR binding, all from data the page already holds.
+  const selectedCcrKind = selectedAgent
+    ? ccrAgentKindForBody(selectedAgent.agent_type)
+    : null
+  const selectedCcrProfile = useMemo(
+    () =>
+      selectedCcrKind && ccrBinding.profiles
+        ? pickCcrProfileForKind(ccrBinding.profiles, selectedCcrKind)
+        : null,
+    [selectedCcrKind, ccrBinding.profiles]
+  )
+  // The card's four CCR states — bound / bindable / unsupported / unreachable
+  // — plus "loading" while the first read is still in flight.
+  const selectedCcrState: AgentCcrState = !selectedCcrKind
+    ? "unsupported"
+    : ccrBinding.profiles === null
+      ? ccrBinding.error
+        ? "unreachable"
+        : "loading"
+      : selectedCcrProfile
+        ? "bound"
+        : "bindable"
+  const selectedHasUpdate = Boolean(
+    selectedAgent?.installed_version &&
+    selectedAgent.registry_version &&
+    hasComparableVersion(selectedAgent.registry_version) &&
+    hasComparableVersion(selectedAgent.installed_version) &&
+    compareVersion(
+      selectedAgent.installed_version,
+      selectedAgent.registry_version
+    ) < 0
+  )
+  const selectedQuickInstallable = selectedAgent
+    ? selectedAgent.distribution_type === "binary"
+      ? selectedAgent.available
+      : selectedAgent.distribution_type === "npx"
+    : false
+  const selectedIsInstalling = selectedAgent
+    ? Boolean(busyBinaryAction[selectedAgent.agent_type])
+    : false
+  // Same rule getAgentChecks uses: a uvx agent is blocked only when the
+  // preflight result is present AND its uv check isn't passing.
+  const selectedUvCheck = selectedCurrent?.result?.checks?.find(
+    (check) => check.check_id === "uv_available"
+  )
+  const selectedUvReady =
+    selectedAgent?.distribution_type !== "uvx" ||
+    !selectedUvCheck ||
+    selectedUvCheck.status === "pass"
   const selectedIsSaving = selectedAgent
     ? Boolean(
         savingEnv[selectedAgent.agent_type] ||
@@ -8475,7 +8533,70 @@ export function AcpAgentSettings() {
                 agentType={selectedAgent.agent_type}
               />
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* [crewchat] The readiness card — the page's default face —
+                  plus the Advanced fold toggle. Layout lives in
+                  agent-readiness-card.tsx, the CCR side in
+                  use-agent-ccr-binding.ts. */}
+              <AgentReadinessCard
+                agent={selectedAgent}
+                enabled={selectedDraft.enabled}
+                install={{
+                  installedVersion: selectedAgent.installed_version,
+                  recommendedVersion: selectedAgent.registry_version ?? null,
+                  hasUpdate: selectedHasUpdate,
+                  quickInstallable: selectedQuickInstallable,
+                  installing: selectedIsInstalling,
+                  uvReady: selectedUvReady,
+                }}
+                ccr={{
+                  kind: selectedCcrKind,
+                  state: selectedCcrState,
+                  profile: selectedCcrProfile,
+                  busy: ccrBinding.busy,
+                  onBind: () => {
+                    if (selectedCcrKind) void ccrBinding.bind(selectedCcrKind)
+                  },
+                  onReapply: () => {
+                    void ccrBinding.reapply()
+                  },
+                  onRetry: () => {
+                    void ccrBinding.refresh()
+                  },
+                }}
+                installLogs={
+                  installStream.status !== "idle" &&
+                  streamAgentType === selectedAgent.agent_type
+                    ? installStream.logs
+                    : null
+                }
+                installLogEndRef={installLogEndRef}
+                onInstall={() => {
+                  if (selectedAgent.distribution_type === "binary") {
+                    void runBinaryAction(selectedAgent, "download")
+                  } else {
+                    void runNpxAction(selectedAgent, "install")
+                  }
+                }}
+                onUpgrade={() => {
+                  if (selectedAgent.distribution_type === "binary") {
+                    void runBinaryAction(selectedAgent, "upgrade")
+                  } else {
+                    void runNpxAction(selectedAgent, "upgrade")
+                  }
+                }}
+                advancedOpen={advancedOpen}
+                onToggleAdvanced={() => setAdvancedOpen((open) => !open)}
+              />
+
+              <div
+                className={cn(
+                  "flex-1 overflow-y-auto p-4 space-y-4",
+                  !advancedOpen && "hidden"
+                )}
+              >
+                <p className="text-2xs text-muted-foreground">
+                  {t("readiness.advancedNote")}
+                </p>
                 <div className="space-y-2">
                   {selectedCurrent?.error && (
                     <div className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-400 flex items-start gap-2">
@@ -8507,24 +8628,6 @@ export function AcpAgentSettings() {
                       {t("preflight.notRun")}
                     </div>
                   )}
-                  {installStream.status !== "idle" &&
-                    streamAgentType === selectedAgent.agent_type && (
-                      <div className="mt-2 rounded-md border bg-muted/50 text-muted-foreground p-3 max-h-[12.5rem] overflow-y-auto font-mono text-2xs leading-relaxed">
-                        {installStream.logs.map((line, i) => (
-                          <div
-                            key={i}
-                            className={
-                              line.startsWith("ERROR:")
-                                ? "text-destructive"
-                                : ""
-                            }
-                          >
-                            {line}
-                          </div>
-                        ))}
-                        <div ref={installLogEndRef} />
-                      </div>
-                    )}
                 </div>
 
                 <div className="space-y-2">
