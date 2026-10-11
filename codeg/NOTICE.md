@@ -68,6 +68,8 @@
 | `src/lib/ccr.ts` | 增 `buildCcrProfileForKind` / `pickCcrProfileForKind` / `uniqueCcrProfileId` / `CCR_PROFILE_DISPLAY_NAMES`（profile 形状与 CCR UI 的规范化一致：`scope: ccr`、`model` 留空） | 绑定卡的「建缺失 profile」写入 |
 | `src/lib/ccr.test.ts`、`src/components/settings/agent-readiness-card.test.tsx`（新增） | profile 构造 / 选择 / id 去重，以及就绪卡四态、安装/升级按钮、日志与折叠交互的用例 | 同上 |
 | `src/i18n/messages/*.json`（10 语言） | `AcpAgentSettings` 增 `readiness` 子键（就绪卡状态 / CCR 绑定 / 高级与操作文案；中英繁实翻，其余语言沿用英文） | 同上 |
+| `src-tauri/src/agent_host.rs`（新增） | Agent Host 配方 v1（Phase 0.3）：会话启动时从 CCR 读路由与模型——env 只做路由（BASE_URL 三件套 / discovery / compat / NO_PROXY），模型经 ACP `session/set_config_option` 通道（网关虚拟 ID，查 `/v1/models` 解析）；`CODEG_AGENT_HOST_INJECT=0` 完全回退 | codeg 以绝对路径拉起真实 CLI，绕过 CCR 的 wrapper；per-session 注入是"每角色用不同模型"（3.1）的前置件 |
+| `src-tauri/src/acp/manager.rs`、`src-tauri/src/commands/acp.rs`、`src-tauri/src/lib.rs` | 注册 `agent_host` 模块；`spawn_agent` 合并配方 config_options（caller 显式值优先）；`build_runtime_env_for_agent` 合并配方 env（主会话与委派子代理共用） | 同上（实测笔记见 `docs/plans/agents-core-collaboration.md`） |
 
 ## 构建与开发
 

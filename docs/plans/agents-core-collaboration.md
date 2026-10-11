@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-12 (Asia/Shanghai)
-Status: In Progress（Phase 0 执行中）。0.0 / 0.1 / 0.2 已完成（证据见各条）；0.3 / 0.4 进行中。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 0 执行中）。0.0 / 0.1 / 0.2 已完成；0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）；0.4 待收口。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -20,6 +20,15 @@ Status: In Progress（Phase 0 执行中）。0.0 / 0.1 / 0.2 已完成（证据�
 - `codeg/`：就绪卡（`agent-readiness-card.tsx` / `use-agent-ccr-binding.ts`）与 profile 读出/构造层（`src/lib/ccr.ts`）已提交；全量测试 602 文件 / 8903 用例通过；server 模式（3080）可用。
 - 委派通电（2026-10-12 实测）：server 带 `CODEG_MCP_BIN=target/debug/codeg-mcp` 启动、`delegation.enabled=true`（depth 2）。claude 主会话真机委派给 claude 子会话——子代理回答经 `get_delegation_status` 回传（7592ms）；委派卡（agent + task + done 徽章）、状态卡（Waiting for task）、抽屉（Open conversation → 子会话内容）全部渲染；`cancel_delegation` 实测后子会话状态 `cancelled`（error_code: canceled）。启动方式已固化进 `codeg/NOTICE.md`。
 - 就绪徽章（0.2，2026-10-12）：花名册列表行按引擎显示 CCR 四态徽章；编辑器模型区在非 bound 态置灰并给引导（可绑定 → 「去 CLI 页处理」带 `?agent=`；不可达 → 「重试」；不支持 → 只读说明）。渲染实测：已绑定（Claude Code）与暂不支持（Gemini）两态 + 模型区恢复；`ccrStateForBody` / `profilesFromConfig` 纯函数用例覆盖 bindable / unreachable / loading。
+- Agent Host 配方（0.3，2026-10-12）：`agent_host.rs` + 接线已提交（见 NOTICE）；路由注入经 request-log 验证（会话经网关 200；关注入回落全局配置）；per-session 模型受 claude 启动期确认机制限制，隔离路径已实测（见下节笔记）。
+
+### Agent Host 实测笔记（2026-10-12，给 3.1）
+
+- **claude 的模型是启动期配置**：`CLAUDE_CONFIG_DIR/settings.json` 的 `ANTHROPIC_MODEL` 决定会话模型；且 **settings.json 的 env 优先于进程 env**（向进程注入 `ANTHROPIC_MODEL` 不生效）。
+- **运行时切换受限**：`session/set_config_option("model", …)` 只接受"当前配置模型"；切其它模型（含网关虚拟 ID）在会话建立时报 `Couldn't confirm model …`——即使该模型在 `/v1/models`（claude UA）与 `/api/claude_cli/bootstrap` 的全量列表（19 项）里。裸名注入还会直接把会话打断（connected → error ~6s，无请求到达网关）。
+- **隔离方案可行（已实测）**：最小 `CLAUDE_CONFIG_DIR`（settings.json = 路由 env + `ANTHROPIC_MODEL` + `apiKeyHelper` 指向 CCR key 脚本）下 `claude -p` 以目标模型成功（request-log `mimo-v2.6-pro` 200；`unrecognized_model` 警告无害）。
+- **3.1 待解**：隔离 home 的会话文件可见性（Codeg 的 claude 解析按 `~/.claude` 与进程级 env——候选：`projects/` symlink 回共享目录，或 parser 增强）；并行会话的隔离目录管理 / 清理；用户其他 claude 配置（permissions 等）的继承度。
+- 0.3 保留的 config option 通道在"profile 模型 = 当前配置模型"时是 no-op；会话级显式选择（`agent_defaults`）仍走它。3.1 若采用隔离方案，可保留为兜底或移除。
 - `ccr/`：v3.1.3 固化；开发实例 7 个 profile 均 `scope: ccr`，默认档 `mimo-v2.6-flash`（kilo=deepseek-v4.1-flash）。委托链路实测：仅 claude 经全局 `settings.json` 走网关；其余 CLI 由 Codeg 拉起时绕过 wrapper（`~/.claude-code-router/bin` 不在 PATH）。
 - 委派：`delegation.enabled` 默认 false；codeg-mcp 二进制在 `.data/codeg/bin/`，server 模式需 `CODEG_MCP_BIN`；委派 UI（卡 / 组卡 / 抽屉 / 后台条 / 悬浮面板）齐备。
 - 花名册：Codeg 侧 v1 页面（`.data/codeg/agent-roles.json`）；Python 侧 `.data/agents/*.jsonc`（10 份，冻结）。
@@ -43,8 +52,8 @@ Status: In Progress（Phase 0 执行中）。0.0 / 0.1 / 0.2 已完成（证据�
 - **0.0 计划对齐** ✅ 2026-10-12：`codeg-ccr-integration.md` 归档（`archive/` + 索引收敛），活跃计划只留本文件。
 - **0.1 委派通电** ✅ 2026-10-12：server 启动环境带 `CODEG_MCP_BIN`（起法固化进 `codeg/NOTICE.md`）；「多智能体协同」打开（enabled，depth 2）；真机跑通一轮 delegate——子代理结果回传、卡 / 抽屉 / 状态 / 取消全部实测通过（证据见 Current Facts）。
 - **0.2 就绪徽章** ✅ 2026-10-12：花名册每行按角色引擎显示 CCR 绑定四态；未就绪 → 模型区置灰 + 跳转 CLI 页（`?agent=` 预选）；渲染实测两态。
-- **0.3 模型注入（Agent Host 配方 v1）**：claude / codex 先行；注入配方做成独立模块（供 3.1 复用）；接线 Codeg 会话拉起路径（`build_session_runtime_env`——主会话与委派子代理共用该点）。→ 做到：CCR request-log 验证所选模型生效；不注入时行为不变（可回退）。
-- **0.4 小收尾**（进行中）：`zz-permtest-*` 清理 ✅（3 个测试遗留 agent 文件已删）；未推送提交整理 ✅（自 `62104f0` vendor Codeg 起共 41 个本地提交、无密钥/产物混入，账目见收口记录）。
+- **0.3 模型注入（Agent Host 配方 v1）** 🟡 2026-10-12（路由注入完成；模型通道就绪、受 claude 启动期确认机制限制——实测笔记见下，生产化随 3.1）：独立模块 `codeg/src-tauri/src/agent_host.rs`——env 只做路由（BASE_URL 三件套 / gateway discovery / compat / NO_PROXY），模型经 ACP `session/set_config_option("model", <网关虚拟 ID>)` 在 `spawn_agent` 统一接线（`agent_defaults` 显式值优先、`or_insert`；虚拟 ID 由配方查询网关 `/v1/models` 精确解析——profile 的 key + claude UA、hex 匹配、优先 `[1m]` 变体；不在列表 → 只保留路由注入，不打断会话）。回退开关 `CODEG_AGENT_HOST_INJECT=0`（默认开；关掉即完全恢复原行为）。→ request-log 实测：会话经网关 200（路由注入生效，关注入回落全局配置）；**per-session 模型**的可行路径已实测找到（隔离 `CLAUDE_CONFIG_DIR`，请求日志出现目标模型），其生产化并入 3.1（依赖链：3.1 → 0.3）。
+- **0.4 小收尾**（进行中）：`zz-permtest-*` 清理 ✅（3 个测试遗留文件已删）；未推送提交整理 ✅——自 `62104f0`（vendor Codeg）起本地共 41 个提交，均按主题单独立意；抽查无密钥 / 构建产物混入（`.env` 在忽略清单；`git log -S "sk-"` 仅命中删除类提交）。
 
 ### Phase 1 · 团队闭环（协作 v1，核心）
 
