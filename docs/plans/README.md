@@ -4,13 +4,13 @@
 
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
-| [Agents 核心协作](agents-core-collaboration.md) | Planned | 聊天页做 Agents 核心改造；多 Agent 协作走 Codeg 原生委派增强（团队选择 / 管理员约束 / 成员模型注入 / 可见性）；花名册收敛与平台收尾随行 |
-| [Codeg / CCR 集成](codeg-ccr-integration.md) | In Progress | 工作台换成 `codeg/`、模型统一管理用 `ccr/`；源码固化、旧前端与旧网关（cc-switch）移除已完成；引擎状态页、用量页等续作并入 Agents 核心协作 |
+| [Agents 核心协作](agents-core-collaboration.md) | In Progress | 聊天页做 Agents 核心改造；多 Agent 协作走 Codeg 原生委派增强（团队选择 / 管理员约束 / 成员模型注入 / 可见性）；花名册收敛与平台收尾随行 |
 
 ## 归档
 
 | 计划 | 归档原因 |
 | --- | --- |
+| [Codeg / CCR 集成](archive/codeg-ccr-integration.md) | 未完成续作并入「Agents 核心协作」（2026-10-12）；已完成部分（CCR 薄代理、模型页 v2、CLI 页就绪卡、scope 坑实测）保留记录 |
 | [多 Agent 单会话](archive/multi-agent-conversations.md) | 协作界面迁到 `codeg/`；Python 编排若以自定义 ACP agent 复活，另开计划 |
 | [权限系统](archive/permissions.md) | Python 侧权限管道已退役（2026-10-11；审批归 Codeg，自跑身体兜底放行） |
 | [设置页：Agents、引擎、模型](archive/settings-pages.md) | 旧前端（`ui/`）已移除，页面基座迁到 `codeg/` |

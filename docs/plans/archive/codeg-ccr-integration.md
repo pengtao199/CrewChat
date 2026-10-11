@@ -1,7 +1,12 @@
 # Codeg / CCR 集成：单软件工作台（统一模型 + 协作 + 状态 + 用量）
 
+> **已归档（2026-10-12）**：未完成续作并入
+> [Agents 核心协作](../agents-core-collaboration.md)（Phase 0–5 承接：就绪徽章、
+> 启动注入、CCR 托管、引擎状态页 / 用量页、CLI 覆盖补齐、打包）。已完成部分
+> （S1–S4、CLI 页就绪卡、scope 坑实测）记录于下方与 `codeg/NOTICE.md`。
+
 Updated: 2026-10-11 (Asia/Shanghai)
-Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + 双栏 picker）已完成并提交；**CLI 页就绪卡（安装/启用/CCR 绑定 + 高级折叠）已完成**（`agent-readiness-card.tsx` + `use-agent-ccr-binding.ts`，已渲染实测）；**CLI 启动链路（scope 坑）已实测**，结论见下；Agent 绑定页已决定不做；Agents 页就绪徽章、启动注入、引擎状态页、用量页待做。
+Status: Superseded（2026-10-12 归档）。未完成条目已并入 `agents-core-collaboration.md`。
 
 ## Goal（单软件终态）
 
