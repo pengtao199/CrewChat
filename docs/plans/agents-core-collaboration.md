@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-12 (Asia/Shanghai)
-Status: Planned。2026-10-12 登记；基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 0 执行中）。0.0 / 0.1 / 0.2 已完成（证据见各条）；0.3 / 0.4 进行中。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -18,6 +18,8 @@ Status: Planned。2026-10-12 登记；基线（CLI 页就绪卡、CCR 模型页 
 ## Current Facts（2026-10-12）
 
 - `codeg/`：就绪卡（`agent-readiness-card.tsx` / `use-agent-ccr-binding.ts`）与 profile 读出/构造层（`src/lib/ccr.ts`）已提交；全量测试 602 文件 / 8903 用例通过；server 模式（3080）可用。
+- 委派通电（2026-10-12 实测）：server 带 `CODEG_MCP_BIN=target/debug/codeg-mcp` 启动、`delegation.enabled=true`（depth 2）。claude 主会话真机委派给 claude 子会话——子代理回答经 `get_delegation_status` 回传（7592ms）；委派卡（agent + task + done 徽章）、状态卡（Waiting for task）、抽屉（Open conversation → 子会话内容）全部渲染；`cancel_delegation` 实测后子会话状态 `cancelled`（error_code: canceled）。启动方式已固化进 `codeg/NOTICE.md`。
+- 就绪徽章（0.2，2026-10-12）：花名册列表行按引擎显示 CCR 四态徽章；编辑器模型区在非 bound 态置灰并给引导（可绑定 → 「去 CLI 页处理」带 `?agent=`；不可达 → 「重试」；不支持 → 只读说明）。渲染实测：已绑定（Claude Code）与暂不支持（Gemini）两态 + 模型区恢复；`ccrStateForBody` / `profilesFromConfig` 纯函数用例覆盖 bindable / unreachable / loading。
 - `ccr/`：v3.1.3 固化；开发实例 7 个 profile 均 `scope: ccr`，默认档 `mimo-v2.6-flash`（kilo=deepseek-v4.1-flash）。委托链路实测：仅 claude 经全局 `settings.json` 走网关；其余 CLI 由 Codeg 拉起时绕过 wrapper（`~/.claude-code-router/bin` 不在 PATH）。
 - 委派：`delegation.enabled` 默认 false；codeg-mcp 二进制在 `.data/codeg/bin/`，server 模式需 `CODEG_MCP_BIN`；委派 UI（卡 / 组卡 / 抽屉 / 后台条 / 悬浮面板）齐备。
 - 花名册：Codeg 侧 v1 页面（`.data/codeg/agent-roles.json`）；Python 侧 `.data/agents/*.jsonc`（10 份，冻结）。
@@ -38,11 +40,11 @@ Status: Planned。2026-10-12 登记；基线（CLI 页就绪卡、CCR 模型页 
 
 ### Phase 0 · 通电与收尾
 
-- **0.0 计划对齐**：`codeg-ccr-integration.md` 的未完成条目与本计划合并对齐（重复条目只留本计划）。→ 做到：计划索引无重复活跃条目。
-- **0.1 委派通电**：server 启动环境带 `CODEG_MCP_BIN=.data/codeg/bin/codeg-mcp`；打开「多智能体协同」；真机跑通一轮 delegate；修复固化进启动方式。→ 做到：真实会话成功派出子代理并取回结果；卡 / 抽屉 / 状态 / 取消全部工作。
-- **0.2 就绪徽章**：Agents 花名册每行按角色引擎显示 CCR 绑定四态；未就绪 → 模型区置灰 + 跳转 CLI 页。→ 做到：真机可见徽章与跳转。
-- **0.3 模型注入（Agent Host 配方 v1）**：claude / codex 先行；注入配方做成独立模块（供 3.1 复用）；接线 Codeg 会话拉起路径。→ 做到：CCR request-log 验证所选模型生效；不注入时行为不变（可回退）。
-- **0.4 小收尾**：未推送提交整理；`zz-permtest-*` 清理。→ 做到：工作区干净、提交账目清楚。
+- **0.0 计划对齐** ✅ 2026-10-12：`codeg-ccr-integration.md` 归档（`archive/` + 索引收敛），活跃计划只留本文件。
+- **0.1 委派通电** ✅ 2026-10-12：server 启动环境带 `CODEG_MCP_BIN`（起法固化进 `codeg/NOTICE.md`）；「多智能体协同」打开（enabled，depth 2）；真机跑通一轮 delegate——子代理结果回传、卡 / 抽屉 / 状态 / 取消全部实测通过（证据见 Current Facts）。
+- **0.2 就绪徽章** ✅ 2026-10-12：花名册每行按角色引擎显示 CCR 绑定四态；未就绪 → 模型区置灰 + 跳转 CLI 页（`?agent=` 预选）；渲染实测两态。
+- **0.3 模型注入（Agent Host 配方 v1）**：claude / codex 先行；注入配方做成独立模块（供 3.1 复用）；接线 Codeg 会话拉起路径（`build_session_runtime_env`——主会话与委派子代理共用该点）。→ 做到：CCR request-log 验证所选模型生效；不注入时行为不变（可回退）。
+- **0.4 小收尾**（进行中）：`zz-permtest-*` 清理 ✅（3 个测试遗留 agent 文件已删）；未推送提交整理 ✅（自 `62104f0` vendor Codeg 起共 41 个本地提交、无密钥/产物混入，账目见收口记录）。
 
 ### Phase 1 · 团队闭环（协作 v1，核心）
 

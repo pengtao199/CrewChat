@@ -93,6 +93,26 @@ pnpm server:build
 pnpm server:dev
 ```
 
+### [crewchat] server 模式启动（本仓库约定）
+
+`codeg-server` 与 `codeg-mcp` 必须**成对**：多智能体委派（`delegate_to_agent`）由
+`codeg-mcp` 伴生进程承载——落在 server 二进制**同级目录**时自动被发现；分离部署
+（安装布局与开发构建混用）时用 `CODEG_MCP_BIN` 指到同一源码构建的二进制。
+找不到只降级（不注入委派工具 + 一行警告），不影响其他功能。
+
+```bash
+cd codeg && \
+  CODEG_PORT=3080 CODEG_HOST=127.0.0.1 CODEG_TOKEN=<token> \
+  CODEG_STATIC_DIR=$PWD/out \
+  CCR_WEB_URL=http://127.0.0.1:3458 \
+  CCR_WEB_AUTH_TOKEN=$(cat ../.data/ccr/dev-token) \
+  CODEG_MCP_BIN=$PWD/src-tauri/target/debug/codeg-mcp \
+  ./src-tauri/target/debug/codeg-server
+```
+
+- `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN`：模型页与就绪卡的 CCR 薄代理走这里。
+- 委派开关：「设置 → 多智能体协同 → 启用委托」（`delegation.enabled`，默认关）。
+
 Rust 侧检查（在 `codeg/src-tauri/` 下执行）：
 
 ```bash
