@@ -737,6 +737,17 @@
     "selectLeftMcp": "左側でMCPを選択してください。"
   },
   "AcpAgentSettings": {
+    "list": {
+      "installedGroup": "Installed ({count})",
+      "uninstalledGroup": "Not installed ({count})",
+      "onlyInstalled": "Installed only",
+      "installedEmpty": "No agents installed yet",
+      "badgeInstalled": "Installed",
+      "badgeUpdatable": "Update available",
+      "badgeNotInstalled": "Not installed",
+      "checkWarning": "Environment checks have warnings - see details",
+      "checkFailed": "Environment checks failed - see details"
+    },
     "title": "Agent SDK 管理",
     "description": "Agent SDK の接続、有効化状態、環境変数、設定管理、バージョン事前チェック情報を一元管理します。",
     "loadingAgents": "エージェント一覧を読み込み中...",

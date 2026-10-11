@@ -153,6 +153,10 @@ import {
 } from "@/lib/opencode-connect"
 import { toErrorMessage } from "@/lib/app-error"
 import { getInstallErrorHintKey } from "@/lib/agent-install-error"
+import {
+  readAgentListOnlyInstalled,
+  writeAgentListOnlyInstalled,
+} from "@/lib/agent-list-prefs"
 import { useAgentInstallStream } from "@/hooks/use-agent-install-stream"
 import { OpencodePluginsModal } from "./opencode-plugins-modal"
 import {
@@ -4557,6 +4561,13 @@ export function AcpAgentSettings() {
   >(null)
   const [dragging, setDragging] = useState<AgentType | null>(null)
   const [reordering, setReordering] = useState(false)
+  // [crewchat] The list is split installed / not-installed; the only-installed
+  // filter remembers itself, and the not-installed group starts folded so the
+  // page opens on the working set.
+  const [onlyInstalled, setOnlyInstalled] = useState(() =>
+    readAgentListOnlyInstalled()
+  )
+  const [uninstalledOpen, setUninstalledOpen] = useState(false)
   const pendingOrderRef = useRef<AgentType[] | null>(null)
   const busyActionRef = useRef<Set<AgentType>>(new Set())
   const handledSearchAgentRef = useRef<string | null>(null)
@@ -4582,6 +4593,17 @@ export function AcpAgentSettings() {
         (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)
       ),
     [agents]
+  )
+  // [crewchat] Group by "installed" — the same fact the connect gate uses
+  // (installed_version non-null), so the list never disagrees with what can
+  // actually be launched.
+  const installedAgents = useMemo(
+    () => sortedAgents.filter((agent) => Boolean(agent.installed_version)),
+    [sortedAgents]
+  )
+  const uninstalledAgents = useMemo(
+    () => sortedAgents.filter((agent) => !agent.installed_version),
+    [sortedAgents]
   )
   const selectedAgent = useMemo(
     () =>
@@ -5567,14 +5589,22 @@ export function AcpAgentSettings() {
     [refreshAgents, t]
   )
 
-  const handleReorder = useCallback((next: AcpAgentInfo[]) => {
-    const reordered = next.map((agent, index) => ({
-      ...agent,
-      sort_order: index,
-    }))
-    setAgents(reordered)
-    pendingOrderRef.current = reordered.map((agent) => agent.agent_type)
-  }, [])
+  // [crewchat] The drag group covers only the installed section; the rest are
+  // appended after it so the persisted order stays a permutation of every
+  // agent (no sort_order collisions).
+  const handleReorder = useCallback(
+    (next: AcpAgentInfo[]) => {
+      const moved = new Set(next.map((agent) => agent.agent_type))
+      const rest = sortedAgents.filter((agent) => !moved.has(agent.agent_type))
+      const reordered = [...next, ...rest].map((agent, index) => ({
+        ...agent,
+        sort_order: index,
+      }))
+      setAgents(reordered)
+      pendingOrderRef.current = reordered.map((agent) => agent.agent_type)
+    },
+    [sortedAgents]
+  )
 
   // One package operation at a time across ALL agents: while any
   // install/upgrade/uninstall runs, every agent's package-action buttons are
@@ -7995,146 +8025,342 @@ export function AcpAgentSettings() {
 
       <div className="flex-1 min-h-0 grid gap-3 lg:grid-cols-[minmax(15rem,20rem)_1fr]">
         <div className="min-h-0 min-w-0 rounded-lg border bg-card flex flex-col overflow-hidden">
-          <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-            {t("agentList")}
+          <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {t("agentList")}
+            </span>
+            <button
+              type="button"
+              className={cn(
+                "rounded border px-1.5 py-0.5 text-2xs transition-colors",
+                onlyInstalled
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-transparent text-muted-foreground hover:bg-muted"
+              )}
+              aria-pressed={onlyInstalled}
+              onClick={() => {
+                const next = !onlyInstalled
+                setOnlyInstalled(next)
+                writeAgentListOnlyInstalled(next)
+              }}
+            >
+              {t("list.onlyInstalled")}
+            </button>
           </div>
-          <Reorder.Group
-            as="div"
-            axis="y"
-            values={sortedAgents}
-            onReorder={handleReorder}
+          <div
             ref={agentListRef}
-            className="flex-1 min-h-0 overflow-y-auto space-y-2 p-2"
+            className="flex-1 min-h-0 space-y-3 overflow-y-auto p-2"
           >
-            {sortedAgents.map((agent) => {
-              const current = checkState[agent.agent_type]
-              const isChecking = Boolean(checking[agent.agent_type])
-              const draft = drafts[agent.agent_type] ?? buildAgentDraft(agent)
-              const allChecks = getAgentChecks(agent, current)
-              const summary = summarizeChecks(allChecks)
-              const displaySummary: CheckStatus | "unchecked" | "checking" =
-                isChecking ? "checking" : summary
-              const statusLabel =
-                displaySummary === "unchecked"
-                  ? t("status.unchecked")
-                  : displaySummary === "checking"
-                    ? "Checking"
-                    : displaySummary.toUpperCase()
-              const statusToneClass = !draft.enabled
-                ? "border-muted-foreground/30 bg-muted/30 text-muted-foreground"
-                : displaySummary === "pass"
-                  ? "border-green-500/40 bg-green-500/10 text-green-600 dark:text-green-400"
-                  : displaySummary === "fail"
-                    ? "border-red-500/40 bg-red-500/10 text-red-500"
-                    : displaySummary === "warn"
-                      ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                      : displaySummary === "checking"
-                        ? "border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                        : "border-muted-foreground/30 bg-muted/30 text-muted-foreground"
-
-              return (
-                <AgentReorderItem
-                  key={agent.agent_type}
-                  agent={agent}
-                  selected={selectedAgentType === agent.agent_type}
-                  reordering={reordering}
-                  dragging={dragging}
-                  onDragStart={(agentType) => {
-                    setDragging(agentType)
-                  }}
-                  onDragEnd={() => {
-                    const order = pendingOrderRef.current
-                    pendingOrderRef.current = null
-                    setDragging(null)
-                    if (order && !reordering) {
-                      persistReorder(order).catch((err) => {
-                        console.error("[Settings] reorder agents failed:", err)
-                      })
-                    }
-                  }}
-                  onSelect={(agentType) => {
-                    setSelectedAgentType(agentType)
-                  }}
+            <div>
+              <div className="px-1 pb-1 text-2xs font-medium text-muted-foreground">
+                {t("list.installedGroup", { count: installedAgents.length })}
+              </div>
+              {installedAgents.length === 0 ? (
+                <div className="px-1 text-2xs text-muted-foreground">
+                  {t("list.installedEmpty")}
+                </div>
+              ) : (
+                <Reorder.Group
+                  as="div"
+                  axis="y"
+                  values={installedAgents}
+                  onReorder={handleReorder}
+                  className="space-y-2"
                 >
-                  {(startDrag) => (
-                    <div className="flex items-center justify-between gap-2 overflow-hidden">
-                      <div className="min-w-0 flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="text-muted-foreground cursor-grab active:cursor-grabbing rounded p-0.5 hover:bg-muted"
-                          title={t("actions.dragSort")}
-                          aria-label={t("actions.dragSortAgent", {
-                            name: agent.name,
-                          })}
-                          onPointerDown={startDrag}
-                          onClick={(event) => {
-                            event.stopPropagation()
-                          }}
-                          disabled={reordering}
-                        >
-                          <GripVertical className="h-3.5 w-3.5" />
-                        </button>
-                        <AgentIcon
-                          agentType={agent.agent_type}
-                          className="h-4 w-4"
-                        />
-                        <span className="text-sm font-medium truncate">
-                          {agent.name}
-                        </span>
-                        {draft.enabled && (
-                          <span
-                            className="h-2 w-2 rounded-full bg-emerald-500 shrink-0"
-                            aria-label={t("status.agentEnabledAria", {
-                              name: agent.name,
-                            })}
-                            title={t("status.enabled")}
-                          />
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge
-                          variant="outline"
+                  {installedAgents.map((agent) => {
+                    const current = checkState[agent.agent_type]
+                    const isChecking = Boolean(checking[agent.agent_type])
+                    const draft =
+                      drafts[agent.agent_type] ?? buildAgentDraft(agent)
+                    const allChecks = getAgentChecks(agent, current)
+                    const displaySummary:
+                      | CheckStatus
+                      | "unchecked"
+                      | "checking" = isChecking
+                      ? "checking"
+                      : summarizeChecks(allChecks)
+                    const hasUpdate = Boolean(
+                      agent.installed_version &&
+                      agent.registry_version &&
+                      hasComparableVersion(agent.registry_version) &&
+                      hasComparableVersion(agent.installed_version) &&
+                      compareVersion(
+                        agent.installed_version,
+                        agent.registry_version
+                      ) < 0
+                    )
+                    const checkHint =
+                      displaySummary === "fail" || displaySummary === "warn" ? (
+                        <span
                           className={cn(
-                            "h-6 px-2 inline-flex items-center gap-1 text-xs leading-none",
-                            statusToneClass
+                            "inline-flex shrink-0",
+                            displaySummary === "fail"
+                              ? "text-red-500"
+                              : "text-yellow-500"
                           )}
+                          title={
+                            displaySummary === "fail"
+                              ? t("list.checkFailed")
+                              : t("list.checkWarning")
+                          }
+                          aria-label={
+                            displaySummary === "fail"
+                              ? t("list.checkFailed")
+                              : t("list.checkWarning")
+                          }
                         >
-                          <span>{statusLabel}</span>
-                          {displaySummary === "checking" && (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                          <AlertCircle className="h-3.5 w-3.5" />
+                        </span>
+                      ) : null
+                    return (
+                      <AgentReorderItem
+                        key={agent.agent_type}
+                        agent={agent}
+                        selected={selectedAgentType === agent.agent_type}
+                        reordering={reordering}
+                        dragging={dragging}
+                        onDragStart={(agentType) => {
+                          setDragging(agentType)
+                        }}
+                        onDragEnd={() => {
+                          const order = pendingOrderRef.current
+                          pendingOrderRef.current = null
+                          setDragging(null)
+                          if (order && !reordering) {
+                            persistReorder(order).catch((err) => {
+                              console.error(
+                                "[Settings] reorder agents failed:",
+                                err
+                              )
+                            })
+                          }
+                        }}
+                        onSelect={(agentType) => {
+                          setSelectedAgentType(agentType)
+                        }}
+                      >
+                        {(startDrag) => (
+                          <div className="flex items-center justify-between gap-2 overflow-hidden">
+                            <div className="min-w-0 flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="text-muted-foreground cursor-grab active:cursor-grabbing rounded p-0.5 hover:bg-muted"
+                                title={t("actions.dragSort")}
+                                aria-label={t("actions.dragSortAgent", {
+                                  name: agent.name,
+                                })}
+                                onPointerDown={startDrag}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                }}
+                                disabled={reordering}
+                              >
+                                <GripVertical className="h-3.5 w-3.5" />
+                              </button>
+                              <AgentIcon
+                                agentType={agent.agent_type}
+                                className="h-4 w-4"
+                              />
+                              <span className="text-sm font-medium truncate">
+                                {agent.name}
+                              </span>
+                              {draft.enabled && (
+                                <span
+                                  className="h-2 w-2 rounded-full bg-emerald-500 shrink-0"
+                                  aria-label={t("status.agentEnabledAria", {
+                                    name: agent.name,
+                                  })}
+                                  title={t("status.enabled")}
+                                />
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {checkHint}
+                              <button
+                                type="button"
+                                className="inline-flex h-4 w-4 items-center justify-center rounded hover:bg-black/10 dark:hover:bg-white/10"
+                                title={t("actions.refreshCheck")}
+                                aria-label={t("actions.refreshCheckAgent", {
+                                  name: agent.name,
+                                })}
+                                disabled={isChecking}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  runPreflight(agent.agent_type, true).catch(
+                                    (err) => {
+                                      console.error(
+                                        "[Settings] single preflight failed:",
+                                        err
+                                      )
+                                    }
+                                  )
+                                }}
+                              >
+                                {isChecking ? (
+                                  <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3 shrink-0" />
+                                )}
+                              </button>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "h-6 px-2 inline-flex items-center text-xs leading-none",
+                                  hasUpdate
+                                    ? "border-yellow-500/40 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                )}
+                              >
+                                {hasUpdate
+                                  ? t("list.badgeUpdatable")
+                                  : t("list.badgeInstalled")}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                      </AgentReorderItem>
+                    )
+                  })}
+                </Reorder.Group>
+              )}
+            </div>
+
+            {!onlyInstalled && uninstalledAgents.length > 0 && (
+              <div>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1 px-1 pb-1 text-2xs font-medium text-muted-foreground"
+                  aria-expanded={uninstalledOpen}
+                  onClick={() => setUninstalledOpen((open) => !open)}
+                >
+                  <ChevronDown
+                    className={cn(
+                      "h-3 w-3 shrink-0 transition-transform",
+                      !uninstalledOpen && "-rotate-90"
+                    )}
+                  />
+                  {t("list.uninstalledGroup", {
+                    count: uninstalledAgents.length,
+                  })}
+                </button>
+                {uninstalledOpen && (
+                  <Reorder.Group
+                    as="div"
+                    axis="y"
+                    values={uninstalledAgents}
+                    onReorder={() => {}}
+                    className="space-y-2"
+                  >
+                    {uninstalledAgents.map((agent) => {
+                      const current = checkState[agent.agent_type]
+                      const isChecking = Boolean(checking[agent.agent_type])
+                      const allChecks = getAgentChecks(agent, current)
+                      const displaySummary:
+                        | CheckStatus
+                        | "unchecked"
+                        | "checking" = isChecking
+                        ? "checking"
+                        : summarizeChecks(allChecks)
+                      const quickInstallable =
+                        agent.distribution_type === "binary"
+                          ? agent.available
+                          : agent.distribution_type === "npx"
+                      const busy = Boolean(busyBinaryAction[agent.agent_type])
+                      const checkHint =
+                        displaySummary === "fail" ||
+                        displaySummary === "warn" ? (
+                          <span
+                            className={cn(
+                              "inline-flex shrink-0",
+                              displaySummary === "fail"
+                                ? "text-red-500"
+                                : "text-yellow-500"
+                            )}
+                            title={
+                              displaySummary === "fail"
+                                ? t("list.checkFailed")
+                                : t("list.checkWarning")
+                            }
+                            aria-label={
+                              displaySummary === "fail"
+                                ? t("list.checkFailed")
+                                : t("list.checkWarning")
+                            }
+                          >
+                            <AlertCircle className="h-3.5 w-3.5" />
+                          </span>
+                        ) : null
+                      return (
+                        <AgentReorderItem
+                          key={agent.agent_type}
+                          agent={agent}
+                          selected={selectedAgentType === agent.agent_type}
+                          reordering
+                          dragging={dragging}
+                          onDragStart={() => {}}
+                          onDragEnd={() => {}}
+                          onSelect={(agentType) => {
+                            setSelectedAgentType(agentType)
+                          }}
+                        >
+                          {() => (
+                            <div className="flex items-center justify-between gap-2 overflow-hidden">
+                              <div className="min-w-0 flex items-center gap-2">
+                                <AgentIcon
+                                  agentType={agent.agent_type}
+                                  className="h-4 w-4 opacity-70"
+                                />
+                                <span className="text-sm truncate text-muted-foreground">
+                                  {agent.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {checkHint}
+                                {quickInstallable ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-6 px-2 text-2xs shrink-0"
+                                    disabled={busy}
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      if (
+                                        agent.distribution_type === "binary"
+                                      ) {
+                                        void runBinaryAction(agent, "download")
+                                      } else {
+                                        void runNpxAction(agent, "install")
+                                      }
+                                    }}
+                                  >
+                                    {busy ? (
+                                      <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                                    ) : (
+                                      <Download className="h-3 w-3 shrink-0" />
+                                    )}
+                                    {t("actions.install")}
+                                  </Button>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="h-6 px-2 text-xs leading-none text-muted-foreground"
+                                  >
+                                    {t("list.badgeNotInstalled")}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
                           )}
-                          {!isChecking && (
-                            <button
-                              type="button"
-                              className="inline-flex h-4 w-4 items-center justify-center rounded hover:bg-black/10 dark:hover:bg-white/10"
-                              title={t("actions.refreshCheck")}
-                              aria-label={t("actions.refreshCheckAgent", {
-                                name: agent.name,
-                              })}
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                runPreflight(agent.agent_type, true).catch(
-                                  (err) => {
-                                    console.error(
-                                      "[Settings] single preflight failed:",
-                                      err
-                                    )
-                                  }
-                                )
-                              }}
-                            >
-                              <RefreshCw className="h-3 w-3 shrink-0" />
-                            </button>
-                          )}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </AgentReorderItem>
-              )
-            })}
-          </Reorder.Group>
+                        </AgentReorderItem>
+                      )
+                    })}
+                  </Reorder.Group>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="min-h-0 min-w-0 rounded-lg border bg-card">

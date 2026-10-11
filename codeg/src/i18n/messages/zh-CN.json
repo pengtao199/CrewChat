@@ -737,6 +737,17 @@
     "selectLeftMcp": "请选择左侧 MCP。"
   },
   "AcpAgentSettings": {
+    "list": {
+      "installedGroup": "已安装（{count}）",
+      "uninstalledGroup": "未安装（{count}）",
+      "onlyInstalled": "只看已安装",
+      "installedEmpty": "暂无已安装的智能体",
+      "badgeInstalled": "已安装",
+      "badgeUpdatable": "可更新",
+      "badgeNotInstalled": "未安装",
+      "checkWarning": "环境检查有警告，详见详情",
+      "checkFailed": "环境检查未通过，详见详情"
+    },
     "title": "CLI 智能体",
     "description": "管理本机 CLI 智能体的安装与版本、启用状态、环境变量与模型绑定。",
     "loadingAgents": "加载 Agent 列表中...",

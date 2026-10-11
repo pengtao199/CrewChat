@@ -737,6 +737,17 @@
     "selectLeftMcp": "왼쪽에서 MCP를 선택하세요."
   },
   "AcpAgentSettings": {
+    "list": {
+      "installedGroup": "Installed ({count})",
+      "uninstalledGroup": "Not installed ({count})",
+      "onlyInstalled": "Installed only",
+      "installedEmpty": "No agents installed yet",
+      "badgeInstalled": "Installed",
+      "badgeUpdatable": "Update available",
+      "badgeNotInstalled": "Not installed",
+      "checkWarning": "Environment checks have warnings - see details",
+      "checkFailed": "Environment checks failed - see details"
+    },
     "title": "Agent SDK 관리",
     "description": "Agent SDK 연결, 활성화 상태, 환경 변수, 구성 관리, 버전 사전 점검 정보를 한곳에서 관리합니다.",
     "loadingAgents": "에이전트 목록 불러오는 중...",

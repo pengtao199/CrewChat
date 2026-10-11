@@ -737,6 +737,17 @@
     "selectLeftMcp": "اختر MCP من الجهة اليسرى."
   },
   "AcpAgentSettings": {
+    "list": {
+      "installedGroup": "Installed ({count})",
+      "uninstalledGroup": "Not installed ({count})",
+      "onlyInstalled": "Installed only",
+      "installedEmpty": "No agents installed yet",
+      "badgeInstalled": "Installed",
+      "badgeUpdatable": "Update available",
+      "badgeNotInstalled": "Not installed",
+      "checkWarning": "Environment checks have warnings - see details",
+      "checkFailed": "Environment checks failed - see details"
+    },
     "title": "إدارة Agent SDK",
     "description": "أدر اتصال Agent SDK وحالة التمكين ومتغيرات البيئة وإدارة الإعدادات ومعلومات فحص الإصدار المسبق في مكان واحد.",
     "loadingAgents": "جارٍ تحميل قائمة الوكلاء...",

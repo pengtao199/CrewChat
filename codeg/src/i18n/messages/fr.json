@@ -737,6 +737,17 @@
     "selectLeftMcp": "Sélectionnez un MCP à gauche."
   },
   "AcpAgentSettings": {
+    "list": {
+      "installedGroup": "Installed ({count})",
+      "uninstalledGroup": "Not installed ({count})",
+      "onlyInstalled": "Installed only",
+      "installedEmpty": "No agents installed yet",
+      "badgeInstalled": "Installed",
+      "badgeUpdatable": "Update available",
+      "badgeNotInstalled": "Not installed",
+      "checkWarning": "Environment checks have warnings - see details",
+      "checkFailed": "Environment checks failed - see details"
+    },
     "title": "Gestion du SDK des agents",
     "description": "Gérez en un seul endroit la connexion SDK des agents, l'état activé, les variables d'environnement, la gestion de configuration et les informations de préflight de version.",
     "loadingAgents": "Chargement de la liste des agents...",
