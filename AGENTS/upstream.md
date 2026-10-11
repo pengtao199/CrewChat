@@ -1,52 +1,41 @@
-# 上游同步
+# 上游同步（vendored 基座）
 
 ## 适用范围
 
-需要跟进 AionUi 上游修复、对比上游实现、修改 `ui/` 下的上游文件时。
+改动 `codeg/`、`ccr/`、`gateway/cc-switch/` 里的上游代码，或需要跟进它们的新版本时。
 
 ## 目标
 
-在复用上游前端的同时，保持可回退、可对比、可升级，不让 fork 变成无法维护的黑盒。
+在复用成熟上游的同时保持可回退、可对比、可升级，不让二次开发变成无法维护的黑盒。
 
-## 背景
+## Vendored 基座
 
-`ui/packages/desktop/src/{renderer,common}` 与 `ui/uno.config.ts` 等文件 fork 自 [AionUi](https://github.com/iOfficeAI/AionUi)（Apache-2.0）。上游持续活跃，我们的改动越少越利于跟进。
+| 目录 | 上游 | 许可 | 角色 |
+| --- | --- | --- | --- |
+| `codeg/` | `spacering-net/codeg` | Apache-2.0 | 协作工作台（Next.js 前端 + Tauri/Server 后端） |
+| `ccr/` | `musistudio/claude-code-router` | MIT | 统一模型管理（本地网关 + 控制面） |
+| `gateway/cc-switch/` | `farion1231/cc-switch` | MIT | Python 侧的网关核心（`ccsw-proxy`） |
+
+各自的取舍、改动清单、构建与升级方式在**同目录的 `NOTICE.md`**，那里是唯一权威。
 
 ## 原则
 
-- **改动最小化**：能用新增文件解决的不改上游文件；必须改时集中、注释、可辨识。
-- **上游文件可辨识**：所有对上游文件的改动加 `[crewchat]` 前缀注释，便于搜索与升级时重放。
-- **命名空间隔离**：我们的后端接口用 `/api/v1/crewchat/*`，我们的页面放在 `pages/settings/AgentComposer/`，不占用上游既有路径。
-- **署名保留**：`ui/NOTICE.md` 记录来源与改动清单；`ui/LICENSE` 保留原许可证。
-
-## 参考仓库
-
-上游参考放在 `Reference/`（只读）：以 sparse clone 获取，避免整仓体积（上游全量约 679MB）。
-
-```
-# 只取代码，不取资源
-git clone --filter=blob:none --sparse --depth 1 <upstream> aionui-ref
-cd aionui-ref && git sparse-checkout set packages/ public/ scripts/
-```
+- **改动最小化**：能用上游已有配置/插件解决的不改源码；能新增文件解决的不改上游文件。
+- **上游文件可辨识**：所有对上游文件的改动加 `[crewchat]` 前缀注释，`rg '\[crewchat\]' <dir>` 可列出。
+- **命名空间隔离**：不占用上游既有路径与命名；新增能力放我们的命名空间。
+- **署名保留**：各基座的 `LICENSE` 原样保留，不删除版权头与 `@license` 注释。
 
 ## 具体规则
 
-- 改上游文件前，先确认能否用「新增文件 + 引用」实现同等效果。
-- 上游文件里已改的点登记在 `ui/NOTICE.md`，包括：文件、改动原因、若升级需要重做什么。
-- 升级上游时按 `NOTICE.md` 逐条重放，而不是整体覆盖。
-- 上游的规范（`ui/AGENTS.md`、`.claude/skills/`）视为本项目的既定规范，见 `AGENTS/ui.md`。
-- 上游定义重复处要一并修改（例如设置导航同时定义在 `SettingsSider.tsx` 与 `SettingsPageWrapper.tsx`，只改一处会导致整页崩溃）。
-
-## 禁止项
-
-- 不整体替换 `ui/` 目录来"同步最新"；那会丢掉我们的改动。
-- 不删除上游版权头与 `@license` 注释。
-- 不在上游文件里塞入我们的业务逻辑；我们的逻辑放 `pages/settings/AgentComposer/` 或 `components/` 新增文件。
-- 不把上游的 `AGENTS.md` 当作我们的规则文件使用；我们的规则在仓库根 `AGENTS.md`。
+- 升级时按对应 `NOTICE.md` 的步骤重放改动，而不是整体覆盖目录。
+- 升级前先记录新的 upstream commit；升级后更新 `NOTICE.md` 的 Vendored commit。
+- 只读的上游参考放 `Reference/`（不入库）；不把 `Reference/` 当成本仓库代码。
+- 上游自带的 `AGENTS.md` / `CLAUDE.md` 是各自子系统的开发指引，不是本仓库的规则文件；
+  本仓库规则始终以根 `AGENTS.md` 为准。
+- 不整体替换 vendored 目录来“同步最新”；那会丢掉我们的改动。
 
 ## 检查
 
 - 这个改动是新增文件还是改了上游文件？改上游的必要性写下来了吗？
-- 改动处是否有 `[crewchat]` 注释，能否被 `rg "\[crewchat\]"` 找到？
-- `ui/NOTICE.md` 是否同步更新？
+- 改动处有 `[crewchat]` 注释吗？对应 `NOTICE.md` 更新了吗？
 - 如果上游下周改了同一处，我知道怎么重放吗？

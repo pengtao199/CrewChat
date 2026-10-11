@@ -14,7 +14,7 @@
 | --- | --- |
 | Python 后端 | `uv run python -c "import crewchat.<模块>"` 并实调该能力（curl 或脚本） |
 | `/api/*` 或 `/ws` | 起服务后 curl 该路径，确认状态码与形状 |
-| 前端组件 | `cd ui && npx vite build` 成功 + 浏览器内截图确认渲染 |
+| Codeg 界面 | `cd codeg && npx -y pnpm@11.9.0 lint` / `npx -y pnpm@11.9.0 test` 通过；界面改动实际渲染确认 |
 | 后端结构调整（移动/重命名/删模块） | `scripts/check_layers.py`（依赖方向）与 `scripts/check_imports.py`（导入可解析）均通过 + 重启后真实跑一轮对话 |
 | 界面交互 | Playwright 脚本走一遍真实流程（登录 → 操作 → 断言），输出文本证据 |
 | 执行器 | 真实跑一次该身体，确认 `text` 非空且 `error` 为空 |
@@ -31,7 +31,7 @@
 ## 具体规则
 
 - 后端改动后必须重启服务再验证（`pkill -f "crewchat --no-browser"` 后重起），避免验证到旧进程。
-- 前端改动后必须重新构建 `ui/dist`，后端托管的是产物而非源码。
+- Codeg 改动后按它 `AGENTS.md` 的命令检查；桌面端用 `pnpm tauri dev` 实际跑一遍。
 - 涉及真实模型调用时，用最小提示（例如"用一句话回答"）控制成本与耗时。
 - 涉及外部端点时，验证失败先区分「网络」「凭证」「协议」三类，不要盲目重试。
 - 长耗时验证（构建、安装）放后台并轮询日志，不要阻塞对话。

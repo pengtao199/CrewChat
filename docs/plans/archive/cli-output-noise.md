@@ -1,7 +1,7 @@
 # CLI 输出噪音：模型元数据警告混进正文
 
 Updated: 2026-10-10 (Asia/Shanghai)
-Status: Analyzed。根因已定位到症状层，未修。推荐方案见 Approach。
+Status: Superseded（2026-10-11）。旧前端（ui/）已移除；若 Python 身体继续使用并复现同类噪音，另开计划。
 
 只处理「CLI 自己打的诊断信息被当成模型正文输出」这一类问题，不改思考流、不改正文流式契约（见 `AGENTS/api-contract.md` 的「累积 + replace」）。权限系统是另一件事，不在本计划内。
 

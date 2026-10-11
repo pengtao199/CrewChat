@@ -12,7 +12,7 @@
 
 | 层 | 路径 | 职责 | 禁止 |
 | --- | --- | --- | --- |
-| 前端外壳 | `ui/` | 渲染、交互、本地视图状态 | 业务规则、直接调用 CLI、持有密钥 |
+| 工作台 | `codeg/` | 渲染、交互、ACP 会话与委派（Codeg 二次开发，Apache-2.0） | 业务规则、模型密钥 |
 | 后端 | `src/crewchat/` | 领域模型、编排、执行器、持久化、HTTP/WS | 渲染逻辑、依赖前端实现细节 |
 | 网关 | `gateway/` | 协议归一化（Responses / Chat / Messages 互转） | 业务逻辑、Agent 概念 |
 
@@ -61,7 +61,7 @@ src/crewchat/
 │   ├── session.py              Session、stream_ask、session_for
 │   └── group.py                群聊共享上下文、显式委派与规划
 └── api/                    L4
-    ├── app.py                  应用装配、静态托管、501 兜底
+    ├── app.py                  应用装配、501 兜底（静态前端已随 ui/ 移除）
     ├── auth.py                 本地单用户鉴权
     ├── hub.py                  WS 广播中心（message.stream 等帧）
     ├── chat.py                 发送/取消/流式转发
@@ -118,7 +118,8 @@ src/crewchat/
 ## 具体规则
 
 - 新增能力先问「属于哪一层」，再问「有没有现成的」。跨层直接调用（前端 → 执行器）一律禁止。
-- 前端通过 `/api/v1/*` 与 `/ws` 访问后端；后端不感知前端路由。
+- Python API（`/api/v1/*`、`/ws`）保留为自身表面；协作界面（`codeg/`）走它自己的服务与 ACP，与这套 API 解耦。
+- vendored 基座（`codeg/`、`ccr/`）在四层契约之外：`scripts/check_layers.py` 不扫描它们，改动规则见 `AGENTS/ui.md` 与 `AGENTS/upstream.md`。
 - `api/` 中出现的上游用语（`backend`）必须集中在一个文件里翻译，不扩散到 `orchestrator` 或 `executors`。
 - 新增执行器只需在 `executors/` 加一个文件并 `register`，不改编排层。
 - 配置读取统一走 `config.get_settings()`；禁止模块级直接读环境变量。

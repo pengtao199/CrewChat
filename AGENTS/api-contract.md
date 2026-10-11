@@ -1,5 +1,9 @@
 # UI 契约
 
+> **状态（2026-10-11）**：契约对象（AionUi fork 前端）已移除，协作界面改由 `codeg/` 承担、不走这套
+> HTTP/WS。本文档保留为 Python API 既有行为的参考；Python 侧若继续演进（例如作为 Codeg 的自定义
+> ACP agent 或旁路服务），再回来更新。
+
 ## 适用范围
 
 新增或修改 `/api/v1/*` 路由、WebSocket 事件、消息流式帧，或前端报 404 / 501 时。
@@ -23,7 +27,7 @@
 
 ## 契约来源
 
-上游前端通过 `ui/packages/desktop/src/common/adapter/ipcBridge.ts` 定义全部调用，这是**唯一权威**：
+历史上游前端（已移除）通过 `ui/packages/desktop/src/common/adapter/ipcBridge.ts` 定义全部调用，曾是**唯一权威**：
 
 | 类别 | 数量 | 位置 |
 | --- | --- | --- |

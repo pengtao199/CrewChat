@@ -1,7 +1,7 @@
 # 多 Agent 单会话
 
 Updated: 2026-10-10 (Asia/Shanghai)
-Status: In Progress（Slice 1–4 代码已落地，Guid 与流式还要浏览器走查）
+Status: Superseded（2026-10-11）。代码已落地（group.py / chat.py 保留）；协作界面迁到 codeg/，Guid 走查作废。若 Python 编排以 Codeg 自定义 ACP agent 复活，另开计划。
 
 ## Goal
 

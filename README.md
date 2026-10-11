@@ -7,10 +7,10 @@
 
 ### 是什么
 
-一个运行在本机的桌面应用（Electron 外壳 + Python 后端 + 本地网关）。一个会话里可以有多名 Agent：
+一个运行在本机的桌面应用（Codeg 工作台 + Python 后端 + 本地模型网关）。一个会话里可以有多名 Agent：
 
 - **每个 Agent 是一个「人」** —— 有自己的**大脑**（模型端点）、**身体**（CLI：`claude` / `codex` /
-  `opencode` / 直连 LLM）、**能力**（Skill / MCP / tools）与**人格**（role / goal / backstory）。
+  `opencode` / `直连 LLM`）、**能力**（Skill / MCP / tools）与**人格**（role / goal / backstory）。
 - **他们在同一个会话里协作** —— 不是把同一条消息群发给几个人，而是**后来者能看到先行者的产出并接着干**。
 - **全过程可见** —— 谁在发言、调用了什么工具（含入参与出参）、花了多少 token 与成本。
 
@@ -45,8 +45,9 @@
 
 | 组成 | 借用对象 | 借用方式 | 明确不借的部分 |
 | --- | --- | --- | --- |
+| 工作台（协作界面） | [Codeg](https://github.com/spacering-net/codeg)（Apache-2.0） | 源码固化进 `codeg/` 后二次开发；借 ACP 会话、`@` 委派与工作区形态 | 它的模型管理（归 CCR） |
+| 模型统一管理 | [CCR](https://github.com/musistudio/claude-code-router)（MIT） | 源码固化进 `ccr/`；本地网关 + Agent profiles | —— |
 | 网关 / 模型路由 | [cc-switch](https://github.com/farion1231/cc-switch)（MIT, Rust） | 编译成独立进程 `ccsw-proxy` 直接使用 | —— |
-| 前端外壳 | [AionUi](https://github.com/iOfficeAI/AionUi)（Apache-2.0） | fork 后改造；只借渲染与交互 | 它的后端与 Team 实现 |
 | Agent / Task 数据模型 | [crewai](https://github.com/crewAIInc/crewAI) | **只借 Pydantic schema**（role/goal/backstory、Task/context） | 它的执行引擎（驱动不了 CLI） |
 | 协作协议形状 | [awslabs/cli-agent-orchestrator](https://github.com/awslabs/cli-agent-orchestrator)、AionUi Team | 借鉴 `handoff` / `assign` / `send_message` 语义 | 它的 tmux runtime 与终端级状态 |
 | 执行循环 + 执行器 | **自建** | —— | —— |
@@ -65,8 +66,9 @@
 
 | 层 | 路径 | 职责 |
 | --- | --- | --- |
-| 前端外壳 | `ui/` | 渲染与交互（fork 自 AionUi，Apache-2.0）；不含业务规则 |
+| 工作台 | `codeg/` | 渲染与交互（Codeg 二次开发基座，Apache-2.0）；ACP 会话与 `@` 委派 |
 | 后端 | `src/crewchat/` | 领域模型、编排、执行器、持久化、HTTP/WS |
+| 模型层 | `ccr/` | 统一模型管理（CCR 基座，MIT）：本地网关、路由、日志 |
 | 网关 | `gateway/cc-switch/` | cc-switch Rust 核心（headless `ccsw-proxy`），协议归一化 |
 
 后端为 `core`（L0 基础 / L1 基础设施）→ `executors`（L2 身体）→ `orchestration`（L3）→
@@ -76,7 +78,7 @@
 
 - **不把编排托管给第三方**：不跑 CAO 的 `cao-server`，不用 crewai 的执行引擎。
 - **不用终端抓屏**（tmux / PTY）驱动 Agent —— 那会丢掉模型级事件。
-- **不重复实现**已有成熟件：网关与前端外壳都不自研。
+- **不重复实现**已有成熟件：工作台、模型管理与网关都不自研（见各基座的 `NOTICE.md`）。
 - **不做登录与联网暴露**：本应用仅本机（`127.0.0.1`）、无认证、单用户。
 
 ## 快速开始
@@ -86,13 +88,22 @@ uv sync                       # 安装后端依赖
 uv run crewchat --no-browser  # 启动后端（默认 http://127.0.0.1:8000）
 ```
 
-前端源码在 `ui/`，构建产物由后端托管：
+协作工作台（`codeg/` 二次开发，桌面 / 服务器一体）：
 
 ```bash
-cd ui && npm install && npm run build   # 产出 ui/dist
+cd codeg
+npx -y pnpm@11.9.0 install    # pnpm 11（packageManager 锁定）
+pnpm tauri dev                # 桌面开发运行；或 `pnpm dev` 只起前端
 ```
 
-网关二进制构建方式见 `gateway/cc-switch/NOTICE.md`。
+模型统一管理（`ccr/` 二次开发）：
+
+```bash
+cd ccr && npm ci              # 桌面构建：npm run build:app:mac
+# 或直接用：npm install -g @musistudio/claude-code-router && ccr ui
+```
+
+各基座的构建、取舍与升级方式见 `gateway/cc-switch/NOTICE.md`、`codeg/NOTICE.md`、`ccr/NOTICE.md`。
 
 ## 自检
 

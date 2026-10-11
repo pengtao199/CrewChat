@@ -1,7 +1,7 @@
 # 设置页：Agents、引擎、模型
 
 Updated: 2026-10-10 (Asia/Shanghai)
-Status: Implemented。浏览器里还没按 Done Criteria 逐项点过。
+Status: Superseded（2026-10-11）。旧前端（ui/）已移除，界面基座迁到 codeg/；未完成的浏览器走查作废。
 
 只覆盖设置里这三个页面的界面和交互。协作循环仍以 [crewchat.md](crewchat.md) 为准，这里不改它。
 

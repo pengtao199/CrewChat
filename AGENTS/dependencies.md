@@ -29,6 +29,10 @@
   - 只固化其 Rust 核心（`src-tauri/`），不搬其前端。
   - 我们的改动全部带 `[crewchat]` 标记；升级方式见 `gateway/cc-switch/NOTICE.md`。
   - 构建产物（`target/`）不入库（见 `.gitignore`）。
+- **Codeg** → `codeg/`（Apache-2.0）。协作工作台（Next.js 前端 + Tauri/Server 后端）的二次开发基座。
+  - 排除 `.git/` 与 `docs/images/`；取舍与升级方式见 `codeg/NOTICE.md`。
+- **CCR（claude-code-router）** → `ccr/`（MIT）。统一模型管理（本地网关 + 控制面）。
+  - 排除 `.git/`、`blog/`、`cdn/`；取舍与升级方式见 `ccr/NOTICE.md`。
 
 ## 网络受限
 

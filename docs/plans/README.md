@@ -4,15 +4,16 @@
 
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
-| [多 Agent 单会话](multi-agent-conversations.md) | In Progress | Guid 多选进入同一会话；内置管理员规划、委派、汇总。不重做已归档的协作循环 |
-| [设置页：Agents、引擎、模型](settings-pages.md) | Implemented | 这三个设置页的界面和交互。代码已落地，浏览器逐项点击还没走完 |
-| [CLI 输出噪音](cli-output-noise.md) | Analyzed | 模型元数据警告混进正文。诊断信息不该落进 assistant 正文，不改流式契约 |
+| [Codeg / CCR 集成](codeg-ccr-integration.md) | In Progress | 工作台换成 `codeg/`、模型统一管理用 `ccr/`；源码固化与旧前端移除已完成，配置与联调未完 |
 | [权限系统](permissions.md) | Implemented | 一个全局开关「自动批准所有权限请求」（默认打开）。管道已通，**但没有 CLI 会真的发问** |
 
 ## 归档
 
 | 计划 | 归档原因 |
 | --- | --- |
+| [多 Agent 单会话](archive/multi-agent-conversations.md) | 协作界面迁到 `codeg/`；Python 编排若以自定义 ACP agent 复活，另开计划 |
+| [设置页：Agents、引擎、模型](archive/settings-pages.md) | 旧前端（`ui/`）已移除，页面基座迁到 `codeg/` |
+| [CLI 输出噪音](archive/cli-output-noise.md) | 旧前端已移除；若 Python 身体复现同类噪音再开 |
 | [CrewChat 执行计划](archive/crewchat.md) | Slice 1–4 已跑通。协作循环不再当活跃任务 |
 | [CLI 模型绑定](archive/cli-model-binding.md) | 已落地。九个 CLI 的对话都已实测，含 MiniMax Code |
 | [cc-switch 替换 LiteLLM](archive/cc-switch-core-integration.md) | 换核已完成。用量、技能、MCP 的落点以 `AGENTS/truth-sources.md` 为准 |
