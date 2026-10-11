@@ -1572,6 +1572,19 @@ pub fn build_router(
         // ─── CCR model management（[crewchat] 模型层的唯一内核）───
         .route("/ccr_health", post(handlers::ccr::ccr_health))
         .route("/ccr_call", post(handlers::ccr::ccr_call))
+        // ─── [crewchat] Agent 角色花名册（「Agents」设置页）───
+        .route(
+            "/agent_roles_list",
+            post(handlers::agent_roles::agent_roles_list),
+        )
+        .route(
+            "/agent_roles_save",
+            post(handlers::agent_roles::agent_roles_save),
+        )
+        .route(
+            "/agent_roles_delete",
+            post(handlers::agent_roles::agent_roles_delete),
+        )
         // ─── Quick Messages ───
         .route(
             "/quick_messages_list",

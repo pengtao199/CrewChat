@@ -3,6 +3,7 @@ pub mod app_update;
 pub mod automation;
 pub mod canvas;
 pub mod ccr;
+pub mod agent_roles;
 pub mod background;
 pub mod backup;
 pub mod browser_bridge;
