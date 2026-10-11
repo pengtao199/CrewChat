@@ -26,6 +26,7 @@ import {
   Server,
   Settings,
   SlidersHorizontal,
+  Users,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
@@ -48,6 +49,7 @@ interface SettingsNavItem {
     | "general"
     | "appearance"
     | "agents"
+    | "agent_roles"
     | "model_providers"
     | "mcp"
     | "skills"
@@ -100,6 +102,11 @@ const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
     href: "/settings/agents",
     labelKey: "agents",
     icon: Bot,
+  },
+  {
+    href: "/settings/agent-roles",
+    labelKey: "agent_roles",
+    icon: Users,
   },
   {
     href: "/settings/model-providers",
