@@ -1,7 +1,7 @@
 # CrewChat 项目规则
 
 多 Agent 协作桌面应用。Python 后端（自建编排 + 身体抽象）+ Codeg 工作台（`codeg/`，二次开发）
-+ 模型网关（`gateway/cc-switch/` 的 `ccsw-proxy` 与 `ccr/`）。
++ 模型层（`ccr/`，统一模型管理与网关）。
 
 花名册里只有两份预置 Agent 了解本应用：`agent-helper`（改别人的 Agent 配置）和 `crewchat-manager`（群聊 Leader）。其余 Agent 是通用角色，不绑定本仓库。细节见 `AGENTS/agent-model.md`。
 
@@ -23,11 +23,11 @@
 | `AGENTS/agent-model.md` | 涉及 Agent、大脑（模型端点）、身体（CLI）、技能、MCP、记忆、规则，或会话与 Agent 的绑定关系时。 |
 | `AGENTS/truth-sources.md` | 新增或移动任何持久化数据、决定配置写到哪里、改动 `agents/`、`.data/`、`~/.agents/` 时。 |
 | `AGENTS/bodies.md` | 新增或修改执行器（codex / claude / opencode），或处理 CLI 版本兼容、流式事件、会话记忆时。 |
-| `AGENTS/gateway.md` | 改动模型接入、上游端点、LiteLLM 配置，或遇到"某 CLI 不支持某端点"类问题时。 |
+| `AGENTS/gateway.md` | 改动模型接入、上游端点、CCR profile / 配置，或遇到"某 CLI 不支持某端点"类问题时。 |
 | `AGENTS/api-contract.md` | 新增或修改 `/api/*` 路由、WebSocket 事件、消息流式帧，或前端报 404/501 时。 |
 | `AGENTS/ui.md` | 改动 `codeg/` 下的界面、交互或文案时。 |
 | `AGENTS/naming.md` | 新建、移动、重命名目录、文件、类型、模块、规则文件时。 |
 | `AGENTS/verification.md` | 完成任何改动、准备汇报或提交之前。 |
 | `AGENTS/dependencies.md` | 新增依赖、选择开源实现、升级现有库、遇到网络受限时。 |
 | `AGENTS/git.md` | 执行 Git 初始化、暂存、提交、推送、分支操作，或修改 `.gitignore` 时。 |
-| `AGENTS/upstream.md` | 改动 `codeg/`、`ccr/`、`gateway/cc-switch/` 里的上游代码，或跟进它们的上游修复时。 |
+| `AGENTS/upstream.md` | 改动 `codeg/`、`ccr/` 里的上游代码，或跟进它们的上游修复时。 |

@@ -67,12 +67,12 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 1. 先读本文件和 `AGENTS/truth-sources.md`，再读目标 `.data/agents/<id>.jsonc`。
 2. 按六个组成逐项看：大脑是否可用、引擎是否匹配职责、技能是否对口、MCP 是否对口、要不要记忆、`role` / `goal` / `backstory` 是否只描述角色而不是某个仓库。
-3. 只改花名册文件。密钥只存在 `.data/providers.jsonc`，禁止抄进 Agent。
+3. 只改花名册文件。密钥只存在 CCR 的供应商配置（与编排层 `.data/providers.jsonc`），禁止抄进 Agent。
 4. 给会写代码的 Agent 开 `memory`，并挂它真正用得上的技能 / MCP；管理员用 CLI，人格约束它只规划、委派、汇总。
 
 ## 四、原则
 
-- **大脑与引擎解耦**：任意大脑可驱动任意引擎，经网关归一化。禁止在引擎实现里写死模型来源。
+- **大脑与引擎解耦**：任意大脑可驱动任意引擎，模型接入经 CCR 归一化（见 `AGENTS/gateway.md`）。禁止在引擎实现里写死模型来源。
 - **Agent 是独立实体**：不属于任何项目，可被多个项目引用。
 - **文件是真相源**：Agent 定义存放 `.data/agents/*.jsonc`（全局花名册，`settings.agents_home`），界面是编辑器而非存储。
 - **CLI 引擎自带大脑是默认**：`codex` / `claude` / `opencode` 不显式配 `brain` 时用各自 CLI 的默认模型；显式配了就用配的。

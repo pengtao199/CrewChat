@@ -2,7 +2,7 @@
 
 ## 适用范围
 
-改动 `codeg/`、`ccr/`、`gateway/cc-switch/` 里的上游代码，或需要跟进它们的新版本时。
+改动 `codeg/`、`ccr/` 里的上游代码，或需要跟进它们的新版本时。
 
 ## 目标
 
@@ -14,7 +14,6 @@
 | --- | --- | --- | --- |
 | `codeg/` | `spacering-net/codeg` | Apache-2.0 | 协作工作台（Next.js 前端 + Tauri/Server 后端） |
 | `ccr/` | `musistudio/claude-code-router` | MIT | 统一模型管理（本地网关 + 控制面） |
-| `gateway/cc-switch/` | `farion1231/cc-switch` | MIT | Python 侧的网关核心（`ccsw-proxy`） |
 
 各自的取舍、改动清单、构建与升级方式在**同目录的 `NOTICE.md`**，那里是唯一权威。
 

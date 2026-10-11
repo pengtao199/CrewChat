@@ -19,16 +19,11 @@
 
 - 新增依赖前，先确认现有依赖是否已覆盖（例如流式、并发、重试）。
 - 记录选型结论：写进 `AGENTS/` 相应规则文件或提交信息，说明候选、取舍与依据。
-- Python 依赖用 `uv add`；前端依赖在 `ui/` 下用 npm + 国内镜像（`ui/.npmrc` 已配置）。
+- Python 依赖用 `uv add`；前端依赖在 `codeg/` 下用 pnpm（`packageManager` 锁定版本）。
 - 依赖体积会进入最终产物，前端尤其注意（曾因 `monaco-editor` / `mermaid` 等体积大而剔除与保留页面无关的包）。
-- 网关类基础设施独立安装（`uv tool install`），不进项目依赖。
 
 ## 已固化的第三方源码（vendored）
 
-- **cc-switch 核心** → `gateway/cc-switch/`（MIT）。固化而非运行时依赖，保证自包含、可直接构建。
-  - 只固化其 Rust 核心（`src-tauri/`），不搬其前端。
-  - 我们的改动全部带 `[crewchat]` 标记；升级方式见 `gateway/cc-switch/NOTICE.md`。
-  - 构建产物（`target/`）不入库（见 `.gitignore`）。
 - **Codeg** → `codeg/`（Apache-2.0）。协作工作台（Next.js 前端 + Tauri/Server 后端）的二次开发基座。
   - 排除 `.git/` 与 `docs/images/`；取舍与升级方式见 `codeg/NOTICE.md`。
 - **CCR（claude-code-router）** → `ccr/`（MIT）。统一模型管理（本地网关 + 控制面）。

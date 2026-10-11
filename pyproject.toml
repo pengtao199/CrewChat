@@ -2,7 +2,7 @@
 name = "crewchat"
 # PEP 440 形式的后端版本，与 src/crewchat/core/version.py 的 v1 递增体系一致。
 version = "1.0.0"
-description = "多 Agent 协作桌面应用：crewai 编排后端 + Codeg 工作台 + cc-switch / CCR 网关"
+description = "多 Agent 协作桌面应用：crewai 编排后端 + Codeg 工作台 + CCR 模型层"
 readme = "README.md"
 authors = [
     { name = "pengtao", email = "pengtao2048@gmail.com" }

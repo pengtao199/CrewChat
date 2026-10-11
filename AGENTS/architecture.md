@@ -6,15 +6,14 @@
 
 ## 目标
 
-保持三层边界清晰：Python 后端拥有全部业务逻辑，UI 只做展示与交互，网关只做协议归一化。
+保持边界清晰：Python 后端拥有全部业务逻辑，工作台只做展示与交互；模型接入由 CCR 承担（见 `AGENTS/gateway.md`）。
 
-## 三层结构
+## 结构
 
 | 层 | 路径 | 职责 | 禁止 |
 | --- | --- | --- | --- |
 | 工作台 | `codeg/` | 渲染、交互、ACP 会话与委派（Codeg 二次开发，Apache-2.0） | 业务规则、模型密钥 |
 | 后端 | `src/crewchat/` | 领域模型、编排、执行器、持久化、HTTP/WS | 渲染逻辑、依赖前端实现细节 |
-| 网关 | `gateway/` | 协议归一化（Responses / Chat / Messages 互转） | 业务逻辑、Agent 概念 |
 
 ## 分层契约
 
@@ -23,7 +22,7 @@
 | 层 | 目录 | 文件 | 说明 |
 | --- | --- | --- | --- |
 | **L0** 基础 | `core/` | `config` `models` | 纯数据与配置，不知道任何实现 |
-| **L1** 基础设施 | `core/` | `providers` `projects` `diagnostics` `cli_overrides` `gateway` | 大脑池、项目、机器探测、模型网关接入 |
+| **L1** 基础设施 | `core/` | `providers` `projects` `diagnostics` `cli_overrides` | 大脑池、项目、机器探测、CLI 参数覆盖 |
 | **L2** 执行 | `executors/` | `base`、`acp_body` | 不知道编排与会话 |
 | **L3** 编排 | `orchestration/` | `session`、`group` | 会话运行；群聊的共享上下文在 `group.py` |
 | **L4** 契约 | `api/` | 见下 | 只做请求解析与形状转换 |
@@ -49,11 +48,7 @@ src/crewchat/
 │   ├── providers.py            大脑池 + ~/.agents 约定 + resolve_brain
 │   ├── projects.py             项目/工作区（agent 全局，不归项目）
 │   ├── diagnostics.py          CLI 与端点的探测
-│   ├── cli_overrides.py        手改的 CLI 参数覆盖
-│   ├── gateway.py              模型网关端口 + 工厂（ModelGateway / get_gateway）
-│   ├── gateway_ccswitch.py     cc-switch 网关适配器（监督/控制/投影/读）
-│   ├── engines.py              引擎管理端口 + 工厂（EngineTools / get_engine_tools）
-│   └── engines_ccswitch.py     cc-switch 引擎工具适配器（扫描/安装/更新）
+│   └── cli_overrides.py        手改的 CLI 参数覆盖
 ├── executors/              L2 身体
 │   ├── base.py                 Executor 契约与注册表
 │   └── acp_body.py             全部 CLI 身体（ACP）
@@ -74,9 +69,7 @@ src/crewchat/
     ├── mcp_api.py              上游契约：MCP 服务
     ├── fs_api.py               上游契约：文件/目录浏览与预览（/api/fs/*）
     ├── crewchat_agents.py      自研命名空间 /api/v1/crewchat/agents
-    ├── crewchat_gateway.py     自研命名空间 /api/v1/crewchat/gateway（网关状态与控制）
     ├── crewchat_projects.py    自研命名空间 /api/v1/crewchat/projects（项目=工作区 CRUD）
-    ├── crewchat_engines.py     自研命名空间 /api/v1/crewchat/engines（引擎扫描/安装/更新）
     └── crewchat_usage.py       自研命名空间 /api/v1/crewchat/usage（身体用量聚合）
 ```
 
@@ -131,7 +124,7 @@ UI 发送
   └─ POST /api/v1/conversations/{id}/messages
        └─ api/chat.py 建后台任务，立即返回 {msg_id, turn_id, runtime}
             └─ orchestrator.Session.stream_ask（单 Agent）或 group_turn（群聊）
-                 └─ executors/<body>.run → CLI 或网关
+                 └─ executors/<body>.run → CLI（各自登录 / 用户配置）
                       └─ ExecEvent 流
                            └─ api/hub.py 广播 message.stream
                                 └─ UI 累积渲染

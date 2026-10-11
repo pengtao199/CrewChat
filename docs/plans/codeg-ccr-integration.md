@@ -1,7 +1,7 @@
 # Codeg / CCR 集成：单软件工作台（统一模型 + 协作 + 状态 + 用量）
 
 Updated: 2026-10-11 (Asia/Shanghai)
-Status: In Progress。S1（CCR 薄代理）与 S2（模型页）已完成并提交；Agent 绑定页与用量页待做。
+Status: In Progress。S1–S4（CCR 薄代理、模型页 v2、逐行开关 + 双栏 picker）已完成并提交；Agent 绑定页已决定不做；引擎状态页、用量页待做。
 
 ## Goal（单软件终态）
 
@@ -18,7 +18,7 @@ Status: In Progress。S1（CCR 薄代理）与 S2（模型页）已完成并提�
 | 关注 | 权威 | 在 Codeg 内的呈现 |
 | --- | --- | --- |
 | 供应商 / 密钥 / 路由 / 回退 | `ccr/` | 模型页（读写 CCR 本地 API） |
-| 每个 CLI 用哪个模型 | `ccr/` 的 Agent Profile | 模型页展示；绑定管理归未来的 Agent 页 |
+| 每个 CLI 用哪个模型 | `ccr/` 的 Agent Profile | 模型页展示（只读）；不做单独的 Agent 绑定页 |
 | CLI 安装 / 登录 / 可用 | Codeg 探测 + CCR 探活 | 引擎 / CLI 状态页（待做） |
 | Agent 定义（角色 / 技能 / MCP / 权限） | Codeg | Agent 设置页 |
 | 用量 | CCR 请求日志（请求级）+ Codeg 会话统计 | 用量页（待做） |
@@ -35,8 +35,10 @@ Status: In Progress。S1（CCR 薄代理）与 S2（模型页）已完成并提�
   Codex 的 profile 已绑定 `mimo-v2.6-pro` 并经真实 CLI 验证；请求日志已开启。
   opencode / pi 待补；Gemini CLI / Hermes 需在 CCR 补 profile（`[crewchat]` 扩展）。
 - **P2 单软件设置整合**：
-  - **模型页（已完成，commit `30044d5`）**：状态条 + 供应商增删改 + 模型清单 + 说明；
-    旧 Codeg 模型管理 UI 已删除（清单见 `codeg/NOTICE.md`）；数据全部走 `ccr_call`。
+  - **模型页（已完成）**：状态条 + 供应商增删改（预设 / 凭据池 / 双栏选模型）+ 模型清单逐行开关
+    + 订阅用量展示；数据全部走 `ccr_call`。旧 Codeg 模型管理 UI 已删除（清单见 `codeg/NOTICE.md`）。
+    提交：`30044d5`（v1）→ `15f8fc1`（v2）→ `9791894`（逐行开关 + 双栏 picker）。
+  - **Agent 绑定页：不做**（用户确认意义不大；模型页只含状态条 + 供应商 + 模型 + 说明）。
   - 引擎状态页、用量页（待做）。
 - **P3 协作纵深**：打开 delegation；把「实现 → 异模型审查」固化成 skills；评估 Python 编排以自定义 ACP agent 接入。
 - **P4 打包分发**：Codeg 打包（dmg）+ CCR 伴生进程管理（随机 token 注入）；首次运行向导。
@@ -50,18 +52,18 @@ Status: In Progress。S1（CCR 薄代理）与 S2（模型页）已完成并提�
 - 链路验证（2026-10-11）：`claude -p` 与 `codex exec` 均经 CCR 返回「正常」；请求日志
   （`observability.requestLogs=true`）可经 `getRequestLogs` 读到：model / provider / status / tokens。
 - 模型页已验证：eslint / i18n 一致性 / next build 通过；`/settings/model-providers` 200。
-- `ui/`（AionUi fork）已移除；Python 侧静态托管已删；旧计划已归档。
+`ui/`（AionUi fork）已移除；Python 侧静态托管已删；旧计划已归档；cc-switch 网关（Python 侧）已整体移除——身体不再注入模型，模型统一管理全走 CCR（见 `AGENTS/gateway.md`）。
 - 本机 CLI：claude / codex / opencode / gemini / pi / hermes。
 
 ## Next steps
 
 1. （待做）经 Codeg 会话拉起 CLI，确认同样走 CCR（会话级验证）。
-2. （进行中）Agent 绑定页形态决策：单独页 / 沿用协作界面。
+2. （待做）CLI 覆盖补齐：opencode / pi 的 CCR profile；Gemini CLI / Hermes 的 profile 连接器。
 3. 引擎状态页与用量页。
 
 ## Done Criteria
 
 - 一轮真实任务在 Codeg 内用 `@` 委派跨 CLI 完成，全程走 CCR 路由。
-- 模型页可完成：看状态、加/改/删供应商、浏览模型；（绑定在 Agent 页完成后闭环）。
+- 模型页可完成：看状态、加/改/删供应商、浏览模型、逐行开关。
 - 用量能聚合到 provider / model。
 - 旧前端无残留引用（归档与变更说明除外）。

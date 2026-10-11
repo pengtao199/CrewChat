@@ -4,7 +4,7 @@
 
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
-| [Codeg / CCR 集成](codeg-ccr-integration.md) | In Progress | 工作台换成 `codeg/`、模型统一管理用 `ccr/`；源码固化与旧前端移除已完成，配置与联调未完 |
+| [Codeg / CCR 集成](codeg-ccr-integration.md) | In Progress | 工作台换成 `codeg/`、模型统一管理用 `ccr/`；源码固化、旧前端与旧网关（cc-switch）移除已完成；引擎状态页、用量页未完 |
 | [权限系统](permissions.md) | Implemented | 一个全局开关「自动批准所有权限请求」（默认打开）。管道已通，**但没有 CLI 会真的发问** |
 
 ## 归档
@@ -16,6 +16,6 @@
 | [CLI 输出噪音](archive/cli-output-noise.md) | 旧前端已移除；若 Python 身体复现同类噪音再开 |
 | [CrewChat 执行计划](archive/crewchat.md) | Slice 1–4 已跑通。协作循环不再当活跃任务 |
 | [CLI 模型绑定](archive/cli-model-binding.md) | 已落地。九个 CLI 的对话都已实测，含 MiniMax Code |
-| [cc-switch 替换 LiteLLM](archive/cc-switch-core-integration.md) | 换核已完成。用量、技能、MCP 的落点以 `AGENTS/truth-sources.md` 为准 |
+| [cc-switch 替换 LiteLLM](archive/cc-switch-core-integration.md) | 换核已完成（该网关后由 CCR 取代并移除）。用量、技能、MCP 的落点以 `AGENTS/truth-sources.md` 为准 |
 | [多 Agent 协作核心](archive/multi-agent-collaboration.md) | 阶段 1 已在 `orchestration/group.py`。阶段 2、3 已由 `archive/crewchat.md` Slice 3、4 执行 |
-| [CLI 经 cc-switch 反代：调研](archive/gateway-cli-routing-research.md) | 调研记录。实施已并入模型绑定，不再单独执行 |
+| [CLI 经 cc-switch 反代：调研](archive/gateway-cli-routing-research.md) | 调研记录。实施已并入模型绑定，随后网关被 CCR 取代并移除 |

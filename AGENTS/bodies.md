@@ -15,7 +15,6 @@ class Executor(ABC):
     id: ClassVar[str]                  # 身体标识，与 AgentSpec.body 一致
     label: ClassVar[str]               # 界面展示名
     has_builtin_brain: ClassVar[bool]  # 是否自带大脑
-    needs_gateway: ClassVar[bool]      # 大脑经反代；Claude/Codex 写进程临时配置，见 gateway.md
 
     @classmethod
     def available(cls) -> bool: ...     # 本机是否可用
@@ -46,9 +45,9 @@ class Executor(ABC):
   这条链有用例覆盖（`tests/test_permissions.py`），且闸门本身可独立跑通。
 - **但没有任何 CLI 真的发来过 `session/request_permission`。** 实测：`claude-agent-acp`
   二进制里根本没有这个方法的痕迹；`codex-acp` 有（`session/request_permission` /
-  `request_permissions`），但在当前配置下也不发——`_codex_env` 没设审批策略，默认
-  不问；`_claude_env` 同理。所以关掉「自动批准」目前**不会**在真实对话里弹窗。
-- **要让某个 CLI 开始问，要改它的启动配置**（codex 的审批策略、claude 的权限模式），
+  `request_permissions`），但在当前配置下也不发——它的审批策略没设，默认
+  不问；claude 同理。所以关掉「自动批准」目前**不会**在真实对话里弹窗。
+- **要让某个 CLI 开始问，要改它自己的用户配置**（codex 的审批策略、claude 的权限模式），
   这是逐个 CLI 的事，属于本文件「每个 CLI 的私有部分」。**不要**用「反正点了也白点」
   的理由把管道删掉——管道是 CLI 一支持就能用的。
 - `AllowedOutcome` 必须同时给 `outcome="selected"` 和 `option_id`。只给 `option_id`
@@ -69,30 +68,25 @@ class Executor(ABC):
 适配器已归档到 `executors/archive/`（各自解析一个 CLI 的私有 JSON，违反本文件"不自行
 发明协议"的禁止项）。
 
-| id | acp 启动命令 | 经网关 | 记忆 |
-| --- | --- | --- | --- |
-| `opencode` | `opencode acp` | **是**（隔离的 `opencode.json`：`providers.gw.settings`，目录键 `main`，`modelID` 为发布 id） | ACP session |
-| `openclaw` | `openclaw acp` | **是**（`OPENCLAW_STATE_DIR`，另起一次本机 Gateway） | ACP session |
-| `claude` | `claude-agent-acp` | **是**（临时 `CLAUDE_CONFIG_DIR`） | ACP session |
-| `codex` | `codex-acp` | **是**（临时 `CODEX_HOME`，`ccs-<key>/<model>`） | ACP session |
-| `gemini` | `gemini --acp` | **是**（`GEMINI_MODEL`，`ccs-gemini-<key>--<model>`） | ACP session |
-| `grok` | `grok agent stdio` | **是**（`GROK_HOME`） | ACP session |
-| `hermes` | `hermes acp` | **是**（`~/.hermes/crewchat-sessions` 下的 `HERMES_HOME`，不改用户的 `config.yaml`） | ACP session |
-| `pi` | `pi-acp` | **是**（`PI_CODING_AGENT_DIR` 的 `models.json`，`api: openai-completions`，`apiKey` 为 `PROXY_MANAGED`；`settings.json` 设 `quietStartup`，开场白不进对话） | ACP session |
-| `mcode` | `mcode acp` | **是**（`MINIMAX_DATA_DIR`） | ACP session |
+| id | acp 启动命令 | 记忆 |
+| --- | --- | --- |
+| `opencode` | `opencode acp` | ACP session |
+| `openclaw` | `openclaw acp` | ACP session |
+| `claude` | `claude-agent-acp` | ACP session |
+| `codex` | `codex-acp` | ACP session |
+| `gemini` | `gemini --acp` | ACP session |
+| `grok` | `grok agent stdio` | ACP session |
+| `hermes` | `hermes acp` | ACP session |
+| `pi` | `pi-acp` | ACP session |
+| `mcode` | `mcode acp` | ACP session |
 
 命令取自 ACP 官方注册表（`agentclientprotocol.com/get-started/agents`）与各 CLI 文档。
 没装的 CLI 显示为不可用，装了即可选——`available()` 只做 `which(命令[0])`。
 
-**经网关**（`needs_gateway=True`）的身体由 `Session` 先 `Gateway.activate` 拿到这次的发布
-id，写进这一次进程自己的配置（`PROXY_MANAGED`，不含真实 key）。同一个 CLI 的两个会话
-可以同时用两家供应商。不改用户的 `~/.claude`、`~/.codex`、`~/.gemini`、`~/.grok`、
-`~/.hermes/config.yaml`。Hermes 只在 `~/.hermes/crewchat-sessions/` 下建临时家。
-子进程退出（含失败）时删除临时目录。
-
-模型选择：会话建好后，从 ACP 的 `config_options` 里找出提供了该 agent 大脑的那个项并
-设过去——对 `opencode` 这类把大脑列进选项的 CLI 生效；`claude/codex` 的选项只有自家
-模型别名，所以改由上面的 env 注入。
+cc-switch 网关已移除：身体直接用各自 CLI 的登录与用户配置（`~/.claude`、`~/.codex`、
+`~/.gemini`、`~/.grok`、`~/.hermes/config.yaml` 等），不再注入模型、不再建临时家。
+模型统一管理由 CCR 承担（见 `AGENTS/gateway.md`）。`Executor.run(req, provider)` 的
+`provider` 参数保留为契约接缝，留给未来的 Agent Host（由 CCR 注入）。
 
 ## 禁止项
 

@@ -7,7 +7,7 @@
 
 ### 是什么
 
-一个运行在本机的桌面应用（Codeg 工作台 + Python 后端 + 本地模型网关）。一个会话里可以有多名 Agent：
+一个运行在本机的桌面应用（Codeg 工作台 + Python 后端 + CCR 模型层）。一个会话里可以有多名 Agent：
 
 - **每个 Agent 是一个「人」** —— 有自己的**大脑**（模型端点）、**身体**（CLI：`claude` / `codex` /
   `opencode` / `直连 LLM`）、**能力**（Skill / MCP / tools）与**人格**（role / goal / backstory）。
@@ -47,14 +47,13 @@
 | --- | --- | --- | --- |
 | 工作台（协作界面） | [Codeg](https://github.com/spacering-net/codeg)（Apache-2.0） | 源码固化进 `codeg/` 后二次开发；借 ACP 会话、`@` 委派与工作区形态 | 它的模型管理（归 CCR） |
 | 模型统一管理 | [CCR](https://github.com/musistudio/claude-code-router)（MIT） | 源码固化进 `ccr/`；本地网关 + Agent profiles | —— |
-| 网关 / 模型路由 | [cc-switch](https://github.com/farion1231/cc-switch)（MIT, Rust） | 编译成独立进程 `ccsw-proxy` 直接使用 | —— |
 | Agent / Task 数据模型 | [crewai](https://github.com/crewAIInc/crewAI) | **只借 Pydantic schema**（role/goal/backstory、Task/context） | 它的执行引擎（驱动不了 CLI） |
 | 协作协议形状 | [awslabs/cli-agent-orchestrator](https://github.com/awslabs/cli-agent-orchestrator)、AionUi Team | 借鉴 `handoff` / `assign` / `send_message` 语义 | 它的 tmux runtime 与终端级状态 |
 | 执行循环 + 执行器 | **自建** | —— | —— |
 
 **为什么执行循环必须自建**：数据分辨率就在循环里。
 
-- cc-switch 只借协议归一化，业务与 Agent 概念不进网关（见 `AGENTS/architecture.md`）。
+- 上游协议差异由 CCR 吸收（见 `AGENTS/gateway.md`），业务与 Agent 概念不进模型层。
 - crewai 的 `LLM(model=...)` 只能驱动 chat-completions provider，传 `claude` 会**静默落到 OpenAI**；
   且它自带执行循环，会和 CLI 自身的工具循环打架。所以只借它的数据模型。
 - CAO 只有终端级状态（`idle` / `processing` / `completed`），拿不到 per-token delta、工具入参出参、
@@ -69,7 +68,6 @@
 | 工作台 | `codeg/` | 渲染与交互（Codeg 二次开发基座，Apache-2.0）；ACP 会话与 `@` 委派 |
 | 后端 | `src/crewchat/` | 领域模型、编排、执行器、持久化、HTTP/WS |
 | 模型层 | `ccr/` | 统一模型管理（CCR 基座，MIT）：本地网关、路由、日志 |
-| 网关 | `gateway/cc-switch/` | cc-switch Rust 核心（headless `ccsw-proxy`），协议归一化 |
 
 后端为 `core`（L0 基础 / L1 基础设施）→ `executors`（L2 身体）→ `orchestration`（L3）→
 `api`（L4 契约），依赖只向下。详见 `AGENTS/architecture.md`。
@@ -78,7 +76,7 @@
 
 - **不把编排托管给第三方**：不跑 CAO 的 `cao-server`，不用 crewai 的执行引擎。
 - **不用终端抓屏**（tmux / PTY）驱动 Agent —— 那会丢掉模型级事件。
-- **不重复实现**已有成熟件：工作台、模型管理与网关都不自研（见各基座的 `NOTICE.md`）。
+- **不重复实现**已有成熟件：工作台与模型管理都不自研（见各基座的 `NOTICE.md`）。
 - **不做登录与联网暴露**：本应用仅本机（`127.0.0.1`）、无认证、单用户。
 
 ## 快速开始
@@ -103,7 +101,7 @@ cd ccr && npm ci              # 桌面构建：npm run build:app:mac
 # 或直接用：npm install -g @musistudio/claude-code-router && ccr ui
 ```
 
-各基座的构建、取舍与升级方式见 `gateway/cc-switch/NOTICE.md`、`codeg/NOTICE.md`、`ccr/NOTICE.md`。
+各基座的构建、取舍与升级方式见 `codeg/NOTICE.md`、`ccr/NOTICE.md`。
 
 ## 自检
 
