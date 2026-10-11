@@ -60,12 +60,14 @@ describe("CollaborationSettings", () => {
   it("mounts both panels and wires each row's label to its control", async () => {
     renderSettings()
 
+    // [crewchat] The page heading shares its name with the delegation
+    // section below it; target the section level so the query stays unique.
     for (const heading of [
       "Multi-Agent Collaboration",
       "In-conversation tools",
     ]) {
       expect(
-        await screen.findByRole("heading", { name: heading })
+        await screen.findByRole("heading", { level: 2, name: heading })
       ).toBeInTheDocument()
     }
 
