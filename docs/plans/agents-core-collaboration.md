@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-12 (Asia/Shanghai)
-Status: In Progress（Phase 0 已收口，进入 Phase 1 前的检查点）。0.0 / 0.1 / 0.2 / 0.4 已完成；0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 1 团队闭环推进中）。Phase 0 已收口；1.1 团队数据契约、1.2 选团队建会话、1.3 管理员知情 + 目标约束 ✅（含真机证据与针对性测试），下一步 1.4 会话头成员条、1.5 端到端实跑。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -60,7 +60,7 @@ Status: In Progress（Phase 0 已收口，进入 Phase 1 前的检查点）。0.
 
 - **1.1 团队数据契约** ✅ 2026-10-12：conversation 增 `team` JSON 列（`leader_role_id` + `member_role_ids`，存花名册角色 id；空 = 单 Agent 会话）；创建 / 读取 / 重启回读一致，损坏 JSON 降级为无团队；web + tauri 双入口接参；fork 与保留行继承 team。测试：回读一致、None 保持、损坏降级、迁移 up/down。提交 `76da706`。
 - **1.2 选团队建会话** ✅ 2026-10-12（前端）：草稿欢迎屏与头部都有 `TeamSelector`（leader 单选 + 成员多选，默认建议管理员角色；空 = 单 Agent 会话）；`createConversation` 带 team 随首条消息落库。真机验证：UI 建 3 人团队会话（管理员 + 前端 + 运维），DB `team` JSON 回读一致，模型链路 request-log 200（`mimo-v2.6-flash`）。提交 `08da565` + 收尾。
-- **1.3 管理员知情 + 目标约束**：管理员上下文含「在场成员」帧（名字 / 职责 / 可派范围）；`delegate_to_agent` 仅允许团队成员，越界报错并列出可用名单。→ 做到：越界测试被拒；管理员按成员正常规划。
+- **1.3 管理员知情 + 目标约束** ✅ 2026-10-12 新增 `acp/delegation/team.rs`（`TeamLookup`；生产 `DbTeamLookup` = 会话 `team` 列 + `agent-roles.json`，解析12： `acp/d（soule首行、60e字截断o/ `agent_type`n读取失败降级为「不约束」并告警）。broker /start_team.rsion` 前置门禁：父会话带团队时 `d`legate（`TeamLookup接受生产 `DbT返回 `not_in_team` mLookup（`名字 (agent_type)`）`提示帧新增第二种内部帧=`codeg_internal_team`（在场成员 / 职责 / 可派 `agentType`；与路由帧共用分隔符、字节级身份与剥离管线，查找器泛化为多帧 kind），仅委派开启的连接在最终边界（`prepare_agent_bound_prompt`）追加。真机证据话管理员 prompt 落帧（`~/.claude/projects/…/6ebc73aa….jsonl` 两轮、含职责行）` 列 +帧自我规划（拒 gemini、改提 `）；真实越界调用 `delegate_to_agent(agent_type=gemini)` 被 broker 拒（tool_result `is_error` 原文含名单）；`get_conversation` 解析结果零帧泄漏（剥离生效）。测试：新增 15 个针对性用例；delegation + connection + parsers **1526 绿**；clippy 本模块零新增告警。提交 `7d3e06d`t-roles.json`，解析12： `acp/d（soule首行、60e字截断o/ `agent_type`n读取失败降级为「不约束」并告警）。broker /start_team.rsion` 前置门禁：父会话带团队时 `d`legate（`TeamLookup接受生产 `DbT返回 `not_in_team` mLookup（`名字 (agent_type)`）`提示帧新增第二种内部帧=`codeg_internal_team`（在场成员 / 职责 / 可派 `agentType`；与路由帧共用分隔符、字节级身份与剥离管线，查找器泛化为多帧 kind），仅委派开启的连接在最终边界（`prepare_agent_bound_prompt`）追加。真机证据话管理员 prompt 落帧（`~/.claude/projects/…/6ebc73aa….jsonl` 两轮、含职责行）` 列 +帧自我规划（拒 gemini、改提 `）；真实越界调用 `delegate_to_agent(agent_type=gemini)` 被 broker 拒（tool_result `is_error` 原文含名单）；`get_conversation` 解析结果零帧泄漏（剥离生效）。测试：新增 15 个针对性用例；delegation + connection + parsers **1526 绿**；clippy 本模块零新增告警。提交 `7d3e06d`t-roles.json`，解析成员：名字 / 职责（soul 首行、60 字截断）/ `agent_type`；读取失败降级为「不约束」并告警）。broker `start_delegation` 前置门禁：父会话带团队时 `delegate_to_agent` 仅接受团队成员，越界返回 `not_in_team` 并列出可用名单（`名字 (agent_type)`）。提示帧新增第二种内部帧 `codeg_internal_team`（在场成员 / 职责 / 可派 `agentType`；与路由帧共用分隔符、字节级身份与剥离管线，查找器泛化为多帧 kind），仅委派开启的连接在最终边界（`prepare_agent_bound_prompt`）追加。真机证据：管理员 prompt 落帧（`~/.claude/projects/…/6ebc73aa….jsonl` 两轮、含职责行）；管理员按帧自我规划（拒 gemini、改提成员）；真实越界调用 `delegate_to_agent(agent_type=gemini)` 被 broker 拒（tool_result `is_error` 原文含名单）；`get_conversation` 解析结果零帧泄漏（剥离生效）。测试：新增 15 个针对性用例；delegation + connection + parsers **1526 绿**；clippy 本模块零新增告警。提交 `7d3e06d`。
 - **1.4 会话头成员条**：成员实时状态（排队 / 运行 / 等权限 / 完成）。→ 做到：三态可视、刷新不丢。
 - **1.5 端到端实跑**：真实小任务由 2 个不同 CLI 的成员完成并汇总；可取消、可刷新恢复。→ **协作 v1 验收门槛**。
 
