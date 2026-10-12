@@ -118,6 +118,11 @@ pnpm server:dev
 （安装布局与开发构建混用）时用 `CODEG_MCP_BIN` 指到同一源码构建的二进制。
 找不到只降级（不注入委派工具 + 一行警告），不影响其他功能。
 
+**构建要点**：先 `cd src-tauri && cargo build --no-default-features --features server-bin --bin codeg-server`。
+默认 features（含 tauri-runtime）的 debug 构建**会换用 `codeg-dev.db`**（空库，见 `db/mod.rs`
+的 `database_file_name`）——跑过 `cargo test` / `cargo check` 后必须重跑这条 server-bin 构建，
+否则静态服务看似正常、数据却"消失"。
+
 ```bash
 cd codeg && \
   CODEG_PORT=3080 CODEG_HOST=127.0.0.1 CODEG_TOKEN=<token> \

@@ -20,6 +20,7 @@ Status: In Progress（Phase 0 已收口，进入 Phase 1 前的检查点）。0.
 - `codeg/`：就绪卡（`agent-readiness-card.tsx` / `use-agent-ccr-binding.ts`）与 profile 读出/构造层（`src/lib/ccr.ts`）已提交；全量测试 602 文件 / 8903 用例通过；server 模式（3080）可用。
 - 委派通电（2026-10-12 实测）：server 带 `CODEG_MCP_BIN=target/debug/codeg-mcp` 启动、`delegation.enabled=true`（depth 2）。claude 主会话真机委派给 claude 子会话——子代理回答经 `get_delegation_status` 回传（7592ms）；委派卡（agent + task + done 徽章）、状态卡（Waiting for task）、抽屉（Open conversation → 子会话内容）全部渲染；`cancel_delegation` 实测后子会话状态 `cancelled`（error_code: canceled）。启动方式已固化进 `codeg/NOTICE.md`。
 - 就绪徽章（0.2，2026-10-12）：花名册列表行按引擎显示 CCR 四态徽章；编辑器模型区在非 bound 态置灰并给引导（可绑定 → 「去 CLI 页处理」带 `?agent=`；不可达 → 「重试」；不支持 → 只读说明）。渲染实测：已绑定（Claude Code）与暂不支持（Gemini）两态 + 模型区恢复；`ccrStateForBody` / `profilesFromConfig` 纯函数用例覆盖 bindable / unreachable / loading。
+- 环境纪事（2026-10-12）：① `cargo test`（默认 features，含 tauri-runtime）会把 `target/debug/codeg-server` 重建成 debug+tauri-runtime 版——该组合**按设计使用 `codeg-dev.db`**（空库），server 模式启动前必须 `cargo build --no-default-features --features server-bin --bin codeg-server`（否则静默换库）；② 同日 `~/.claude/settings.json` 的路由三件套与 apiKeyHelper 曾被 CCR 的全局清理逻辑移除（claude 报 "Not logged in · Please run /login"），已按备份恢复（含 `ANTHROPIC_MODEL`）；③ 后台进程（codeg-server / CCR）可能被会话清理带走，起法带 `nohup … & disown` 更稳。
 - Agent Host 配方（0.3，2026-10-12）：`agent_host.rs` + 接线已提交（见 NOTICE）；路由注入经 request-log 验证（会话经网关 200；关注入回落全局配置）；per-session 模型受 claude 启动期确认机制限制，隔离路径已实测（见下节笔记）。
 
 ### Agent Host 实测笔记（2026-10-12，给 3.1）
@@ -58,7 +59,7 @@ Status: In Progress（Phase 0 已收口，进入 Phase 1 前的检查点）。0.
 ### Phase 1 · 团队闭环（协作 v1，核心）
 
 - **1.1 团队数据契约** ✅ 2026-10-12：conversation 增 `team` JSON 列（`leader_role_id` + `member_role_ids`，存花名册角色 id；空 = 单 Agent 会话）；创建 / 读取 / 重启回读一致，损坏 JSON 降级为无团队；web + tauri 双入口接参；fork 与保留行继承 team。测试：回读一致、None 保持、损坏降级、迁移 up/down。提交 `76da706`。
-- **1.2 选团队建会话**（前端）：新建会话 = 选项目 + 从 Agents 多选成员（管理员默认加入、可更换）。→ 做到：真机建 3 人协作会话并回读一致。
+- **1.2 选团队建会话** ✅ 2026-10-12（前端）：草稿欢迎屏与头部都有 `TeamSelector`（leader 单选 + 成员多选，默认建议管理员角色；空 = 单 Agent 会话）；`createConversation` 带 team 随首条消息落库。真机验证：UI 建 3 人团队会话（管理员 + 前端 + 运维），DB `team` JSON 回读一致，模型链路 request-log 200（`mimo-v2.6-flash`）。提交 `08da565` + 收尾。
 - **1.3 管理员知情 + 目标约束**：管理员上下文含「在场成员」帧（名字 / 职责 / 可派范围）；`delegate_to_agent` 仅允许团队成员，越界报错并列出可用名单。→ 做到：越界测试被拒；管理员按成员正常规划。
 - **1.4 会话头成员条**：成员实时状态（排队 / 运行 / 等权限 / 完成）。→ 做到：三态可视、刷新不丢。
 - **1.5 端到端实跑**：真实小任务由 2 个不同 CLI 的成员完成并汇总；可取消、可刷新恢复。→ **协作 v1 验收门槛**。

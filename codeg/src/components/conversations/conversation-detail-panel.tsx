@@ -2436,6 +2436,11 @@ const ConversationTabView = memo(function ConversationTabView({
                   disabled={isConnecting || dbConversationId != null}
                 />
               </div>
+              {/* [crewchat] Team picker (Phase 1.2) — the welcome-mode twin of
+                  the draft header's picker; both write the same draft state. */}
+              <div className="flex justify-center">
+                <TeamSelector value={draftTeam} onChange={setDraftTeam} />
+              </div>
               {composerBlockedMessage ? (
                 <div className="flex w-full items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                   <button
