@@ -70,6 +70,10 @@
 | `src/i18n/messages/*.json`（10 语言） | `AcpAgentSettings` 增 `readiness` 子键（就绪卡状态 / CCR 绑定 / 高级与操作文案；中英繁实翻，其余语言沿用英文） | 同上 |
 | `src-tauri/src/agent_host.rs`（新增） | Agent Host 配方 v1（Phase 0.3）：会话启动时从 CCR 读路由与模型——env 只做路由（BASE_URL 三件套 / discovery / compat / NO_PROXY），模型经 ACP `session/set_config_option` 通道（网关虚拟 ID，查 `/v1/models` 解析）；`CODEG_AGENT_HOST_INJECT=0` 完全回退 | codeg 以绝对路径拉起真实 CLI，绕过 CCR 的 wrapper；per-session 注入是"每角色用不同模型"（3.1）的前置件 |
 | `src-tauri/src/acp/manager.rs`、`src-tauri/src/commands/acp.rs`、`src-tauri/src/lib.rs` | 注册 `agent_host` 模块；`spawn_agent` 合并配方 config_options（caller 显式值优先）；`build_runtime_env_for_agent` 合并配方 env（主会话与委派子代理共用） | 同上（实测笔记见 `docs/plans/agents-core-collaboration.md`） |
+| `src-tauri/src/acp/delegation/team.rs`（新增） | Phase 1.3 团队解析：花名册 role id → 成员（名字 / 职责[取 soul 首行] / `agent_type`）；`TeamLookup` 注入 broker（生产 `DbTeamLookup` = 会话 `team` 列 + `agent-roles.json`）；读取失败降级为「无成员（不约束）」并记 warning | 团队门禁与团队帧共用一个解析源 |
+| `src-tauri/src/acp/delegation/broker/lifecycle.rs`、`types.rs` | Phase 1.3 团队门禁：父会话带团队时 `delegate_to_agent` 只接受团队成员，越界返回 `not_in_team` 并列出可用成员（`名字 (agent_type)`）；无团队 / 不可解析 = 不约束。新增 `DelegationError::NotInTeam`（wire code `not_in_team`） | 越界必须清晰报错（体验关键），管理员照名单重规划 |
+| `src-tauri/src/acp/agent_mentions.rs` | Phase 1.3 团队帧：第二种内部帧 `codeg_internal_team`（在场成员 / 职责 / 可派 `agentType`），与路由帧共用分隔符、字节级身份与剥离管线（查找器泛化为多帧 kind，标题截断同样命中）；帧只在委派开启的连接追加 | 管理员上下文含「在场成员」帧 |
+| `src-tauri/src/acp/connection/mod.rs`、`src-tauri/src/app_state.rs`、`src-tauri/src/acp/delegation/broker/mod.rs` | 会话循环按 `conversation_id` 解析成员并在 `prepare_agent_bound_prompt` 追加团队帧；broker `with_team_lookup` 接线 `DbTeamLookup` | 接线（上游文件只留小集成点） |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 

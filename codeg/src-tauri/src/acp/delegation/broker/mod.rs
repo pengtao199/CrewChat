@@ -65,6 +65,7 @@ use crate::acp::delegation::meta_writer::{
     build_delegation_meta, is_synthetic_parent_tool_use_id, DelegationMetaWriter, NoopMetaWriter,
 };
 use crate::acp::delegation::spawner::{ConnectionSpawner, DelegationLink};
+use crate::acp::delegation::team::{NoopTeamLookup, TeamLookup, TeamMember};
 use crate::acp::delegation::types::{
     AgentDelegationDefaults, BlockedKind, BlockedOn, DelegationError, DelegationOutcome,
     DelegationRequest, DelegationTaskReport, ResumeDelegationRequest, TaskStatus,
@@ -181,6 +182,13 @@ pub struct DelegationBroker {
     /// no-op ("no hint"); production wires `ConnectionManagerLiveReplyLookup` via
     /// `with_live_reply_lookup`.
     live_reply_lookup: Arc<dyn ChildLiveReplyLookup>,
+    /// [crewchat] Resolves the parent conversation's team (Phase 1.3). Empty
+    /// members mean "unconstrained" — a plain single-agent session, which is
+    /// also what every wiring without a roster gets. Defaults to a no-op so
+    /// existing tests keep today's behavior; production wires
+    /// [`DbTeamLookup`](crate::acp::delegation::team::DbTeamLookup) via
+    /// [`DelegationBroker::with_team_lookup`].
+    team_lookup: Arc<dyn TeamLookup>,
     pending: Arc<PendingCalls>,
     tool_calls: Arc<ToolCallTracker>,
     pre_canceled_handles: Arc<PreCanceledHandles>,
@@ -244,6 +252,7 @@ impl DelegationBroker {
             event_emitter,
             status_lookup: Arc::new(NoopChildStatusLookup),
             live_reply_lookup: Arc::new(NoopChildLiveReplyLookup),
+            team_lookup: Arc::new(NoopTeamLookup),
             pending: Arc::new(PendingCalls::default()),
             tool_calls: Arc::new(ToolCallTracker::default()),
             pre_canceled_handles: Arc::new(PreCanceledHandles::default()),
@@ -274,6 +283,25 @@ impl DelegationBroker {
     ) -> Self {
         self.live_reply_lookup = live_reply_lookup;
         self
+    }
+
+
+    /// [crewchat] Replace the conversation-team lookup used by the
+    /// `delegate_to_agent` scope gate and the leader's team frame (Phase 1.3).
+    /// Builder-style like the other lookups; the default
+    /// [`NoopTeamLookup`] resolves every conversation to "no team".
+    pub fn with_team_lookup(mut self, team_lookup: Arc<dyn TeamLookup>) -> Self {
+        self.team_lookup = team_lookup;
+        self
+    }
+
+
+    /// [crewchat] The resolved delegable members of a conversation's team
+    /// (Phase 1.3); empty for plain single-agent conversations and for
+    /// conversations whose team can no longer be resolved. Read by the
+    /// connection loop to frame the leader's prompt with the member list.
+    pub async fn team_members(&self, conversation_id: i32) -> Vec<TeamMember> {
+        self.team_lookup.members_of(conversation_id).await
     }
 
 

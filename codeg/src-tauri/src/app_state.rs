@@ -153,6 +153,7 @@ pub fn build_delegation_stack(
     };
     use crate::acp::delegation::meta_writer::{ConnectionManagerMetaWriter, DelegationMetaWriter};
     use crate::acp::delegation::spawner::ConnectionSpawner;
+    use crate::acp::delegation::team::{DbTeamLookup, TeamLookup};
     use crate::acp::manager::ConnectionManagerSpawner;
 
     let cm_arc = Arc::new(connection_manager.clone_ref());
@@ -170,6 +171,9 @@ pub fn build_delegation_stack(
         db: db_arc.clone(),
     })
         as Arc<dyn crate::acp::connection::AgentAvailabilityLookup>;
+    let team_lookup = Arc::new(DbTeamLookup {
+        db: db_arc.clone(),
+    }) as Arc<dyn TeamLookup>;
     let status_lookup = Arc::new(DbChildStatusLookup { db: db_arc }) as Arc<dyn ChildStatusLookup>;
     let meta_writer = Arc::new(ConnectionManagerMetaWriter {
         manager: cm_arc.clone(),
@@ -182,7 +186,8 @@ pub fn build_delegation_stack(
     let broker = Arc::new(
         DelegationBroker::with_writers(spawner, depth_lookup, meta_writer, event_emitter)
             .with_status_lookup(status_lookup)
-            .with_live_reply_lookup(live_reply_lookup),
+            .with_live_reply_lookup(live_reply_lookup)
+            .with_team_lookup(team_lookup),
     );
     let tokens = Arc::new(TokenRegistry::default());
     let socket_path = default_socket_path(&std::env::temp_dir());

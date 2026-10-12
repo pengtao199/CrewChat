@@ -5252,3 +5252,99 @@
             .await
             .contains(&"child-conn-2".to_string()));
     }
+
+    // -- [crewchat] team scope gate (Phase 1.3) -----------------------------
+
+    /// `TeamLookup` stub: every conversation resolves to this fixed member
+    /// list, so the gate can be driven without a DB or roster file.
+    struct StubTeamLookup(Vec<crate::acp::delegation::team::TeamMember>);
+
+    #[async_trait]
+    impl crate::acp::delegation::team::TeamLookup for StubTeamLookup {
+        async fn members_of(
+            &self,
+            _conversation_id: i32,
+        ) -> Vec<crate::acp::delegation::team::TeamMember> {
+            self.0.clone()
+        }
+    }
+
+    fn team_member(name: &str, agent_type: &str) -> crate::acp::delegation::team::TeamMember {
+        crate::acp::delegation::team::TeamMember {
+            name: name.into(),
+            agent_type: agent_type.into(),
+            duty: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn out_of_team_delegation_is_refused_before_any_spawn() {
+        let mock = Arc::new(MockSpawner::new());
+        let broker =
+            DelegationBroker::new(mock.clone() as Arc<dyn ConnectionSpawner>, shallow_lookup())
+                .with_team_lookup(Arc::new(StubTeamLookup(vec![
+                    team_member("前端工程师", "codex"),
+                    team_member("后端开发工程师", "open_code"),
+                ])));
+        enable_delegation(&broker).await;
+
+        // `request()` delegates to ClaudeCode — not a member of this team.
+        let outcome = broker.handle_request(request(1, "pt-outside")).await;
+        let DelegationOutcome::Err {
+            code,
+            message,
+            child_conversation_id,
+        } = outcome
+        else {
+            panic!("expected a terminal refusal, got {outcome:?}");
+        };
+        assert_eq!(code, "not_in_team");
+        assert!(message.contains("前端工程师 (codex)"), "{message}");
+        assert!(message.contains("后端开发工程师 (open_code)"), "{message}");
+        assert_eq!(child_conversation_id, None);
+        assert!(
+            mock.spawn_args.lock().await.is_empty(),
+            "a refused delegation must not reserve a child"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_in_team_delegation_passes_the_scope_gate() {
+        let mock = Arc::new(MockSpawner::new());
+        mock.queue_spawn(Ok("child-conn-1".into())).await;
+        mock.queue_send(Ok(7)).await;
+        let broker =
+            DelegationBroker::new(mock.clone() as Arc<dyn ConnectionSpawner>, shallow_lookup())
+                .with_team_lookup(Arc::new(StubTeamLookup(vec![team_member(
+                    "运维工程师",
+                    "claude_code",
+                )])));
+        enable_delegation(&broker).await;
+
+        let driver = {
+            let broker = broker.clone();
+            tokio::spawn(async move { broker.handle_request(request(1, "pt-inside")).await })
+        };
+        let call_id = loop {
+            if let Some(id) = broker.peek_first_pending_call_id().await {
+                break id;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        };
+        broker
+            .complete_call(
+                &call_id,
+                DelegationOutcome::Ok(DelegationSuccess {
+                    text: "done".into(),
+                    child_conversation_id: 7,
+                    child_agent_type: AgentType::ClaudeCode,
+                    turn_count: 1,
+                    duration_ms: 5,
+                    token_usage: None,
+                }),
+            )
+            .await;
+        let outcome = driver.await.unwrap();
+        assert!(matches!(outcome, DelegationOutcome::Ok(_)), "got {outcome:?}");
+        assert_eq!(mock.spawn_args.lock().await.len(), 1);
+    }

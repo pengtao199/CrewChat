@@ -4979,7 +4979,7 @@
             AgentType::Gemini,
             AgentType::custom("delegating-custom").expect("valid custom id"),
         ] {
-            let prompt = prepare_agent_bound_prompt(parent, blocks.clone(), true);
+            let prompt = prepare_agent_bound_prompt(parent, blocks.clone(), true, &[]);
             assert_eq!(prompt.len(), 2, "{parent} must receive the routing block");
             assert!(matches!(
                 &prompt[0],
@@ -4996,12 +4996,46 @@
         // An agent that never received the companion (OpenClaw's
         // supports_mcp=false, pi's wire exclusion) reaches here with delegation
         // off and keeps a pristine prompt.
-        let unrouted = prepare_agent_bound_prompt(AgentType::OpenClaw, blocks, false);
+        let unrouted = prepare_agent_bound_prompt(AgentType::OpenClaw, blocks, false, &[]);
         assert_eq!(unrouted.len(), 1);
         assert!(matches!(
             &unrouted[0],
             ContentBlock::Text(text) if text.text == visible
         ));
+    }
+
+    #[test]
+    fn final_agent_boundary_appends_the_team_frame_after_the_routing_frame() {
+        let visible = "ask [@Codex](codeg://agent/codex) then plan";
+        let blocks = vec![PromptInputBlock::Text {
+            text: visible.into(),
+        }];
+        let members = vec![crate::acp::delegation::team::TeamMember {
+            name: "前端工程师".into(),
+            agent_type: "codex".into(),
+            duty: Some("专注于界面与交互实现".into()),
+        }];
+        let prompt = prepare_agent_bound_prompt(AgentType::ClaudeCode, blocks, true, &members);
+        assert_eq!(prompt.len(), 3, "user text + routing frame + team frame");
+        assert!(matches!(
+            &prompt[1],
+            ContentBlock::Text(text) if text.text.contains("Codeg composer routing metadata")
+        ));
+        assert!(matches!(
+            &prompt[2],
+            ContentBlock::Text(text)
+                if text.text.contains("Codeg session team (authoritative): ")
+                    && text.text.contains(r#""name":"前端工程师""#)
+                    && text.text.contains(r#""agentType":"codex""#)
+        ));
+
+        // Closed gate: a team frame would name a channel this connection does
+        // not have, so members append nothing.
+        let blocks = vec![PromptInputBlock::Text {
+            text: "hello".into(),
+        }];
+        let prompt = prepare_agent_bound_prompt(AgentType::OpenClaw, blocks, false, &members);
+        assert_eq!(prompt.len(), 1);
     }
 
     #[test]

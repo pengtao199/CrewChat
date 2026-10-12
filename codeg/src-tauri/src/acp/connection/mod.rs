@@ -38,7 +38,8 @@ use crate::acp::agent_process::AcpAgent;
 use crate::acp::agent_session::AgentSession;
 use tokio::sync::{mpsc, oneshot, RwLock};
 
-use crate::acp::agent_mentions::append_agent_routes;
+use crate::acp::agent_mentions::{append_agent_routes, append_team_frame};
+use crate::acp::delegation::team::TeamMember;
 use crate::acp::background_watch;
 use crate::acp::cursor_ext::{
     CursorAskQuestionRequest, CursorCreatePlanRequest, CursorGenerateImageRequest,
@@ -9819,8 +9820,16 @@ fn prepare_agent_bound_prompt(
     agent_type: AgentType,
     mut blocks: Vec<PromptInputBlock>,
     delegation_enabled: bool,
+    team_members: &[TeamMember],
 ) -> Vec<ContentBlock> {
     append_agent_routes(&mut blocks, delegation_enabled);
+    // [crewchat] Team frame (Phase 1.3) — appended after the routing frame so
+    // the member list is the last internal block the agent reads. Gated on
+    // the same launch verdict: without the codeg-mcp delegation group there
+    // is nothing the member list could route to.
+    if delegation_enabled {
+        append_team_frame(&mut blocks, team_members);
+    }
     if agent_type == AgentType::Grok {
         blocks = normalize_grok_image_blocks(blocks);
     }
@@ -11134,8 +11143,31 @@ async fn run_conversation_loop(
                 // and cross-client broadcast. Only the final agent-bound prompt
                 // receives the machine routing block derived from agent badges.
                 let delegation_enabled = state.read().await.delegation_enabled;
-                let prompt_blocks =
-                    prepare_agent_bound_prompt(agent_type, blocks, delegation_enabled);
+                // [crewchat] Team frame (Phase 1.3): a conversation that runs
+                // with a team tells its leader who is present and which
+                // `agent_type` reaches each member. Resolved here — not at
+                // spawn — because the conversation is linked on the first
+                // prompt; a plain session resolves to no members and appends
+                // nothing. Delegation-gated like the routing frame: without
+                // the codeg-mcp tool group the frame would name a channel
+                // the connection doesn't have.
+                let team_members = match delegation_injection {
+                    Some(injection) if delegation_enabled => {
+                        match state.read().await.conversation_id {
+                            Some(conversation_id) => {
+                                injection.broker.team_members(conversation_id).await
+                            }
+                            None => Vec::new(),
+                        }
+                    }
+                    _ => Vec::new(),
+                };
+                let prompt_blocks = prepare_agent_bound_prompt(
+                    agent_type,
+                    blocks,
+                    delegation_enabled,
+                    &team_members,
+                );
                 if prompt_blocks.is_empty() {
                     // Defensive: the manager rejects empty prompts before the
                     // concurrency gate is set / the command is enqueued (see

@@ -131,6 +131,22 @@ impl DelegationBroker {
             );
         }
 
+        // --- [crewchat] Team scope gate (Phase 1.3) -----------------------------
+        // A conversation created with a team may only delegate to that team's
+        // roster members. Resolving to no members means "unconstrained" — a
+        // plain single-agent session, a lookup failure (logged), or any test
+        // wiring on the default Noop lookup — so this gate can only ever
+        // refuse a delegation the parent could otherwise have made against a
+        // MISSING member. Refusals name every delegable member so the leader
+        // re-plans against the real roster instead of guessing.
+        let team_members = self.team_lookup.members_of(req.parent_conversation_id).await;
+        if let Some(error) =
+            crate::acp::delegation::team::scope_refusal(req.agent_type, &team_members)
+        {
+            self.drop_inflight(inflight_id).await;
+            return report_err(req.agent_type, error, None);
+        }
+
         // --- Depth pre-check ----------------------------------------------------
         // We walk up to `limit + 1` so we know whether the *new* child would
         // sit at >= limit. Cycles/dead chains saturate at the cap.

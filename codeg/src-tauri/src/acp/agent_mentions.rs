@@ -24,6 +24,27 @@ const MAX_ROUTE_FRAME_BYTES: usize = 16 * 1024;
 const MAX_AGENT_ROUTES: usize = 16;
 const MAX_AGENT_REFERENCE_OCCURRENCES: usize = 256;
 
+// [crewchat] The SECOND internal frame kind (Phase 1.3): the delegable
+// members of a group conversation. Same identity discipline as the routing
+// frame — a byte-exact body between reserved separators — so the one
+// strip/parse pass covers both; the two kinds are told apart by the body's
+// descriptor prefix. Appended when the conversation has a team, whether or
+// not the prompt routed any agent links.
+const TEAM_FRAME_KIND: &str = "codeg_internal_team";
+/// Opening bytes of the team frame's descriptor line — the body anchor.
+const TEAM_FRAME_BODY_PREFIX: &str = "{\"kind\":\"codeg_internal_team\"";
+const TEAM_FRAME_VERSION: u8 = 1;
+const MAX_TEAM_FRAME_BYTES: usize = 8 * 1024;
+/// Character cap for a member name rendered into the frame (roster names are
+/// short by construction; the cap keeps a pathological roster from crowding
+/// the frame budget).
+const MAX_TEAM_FRAME_NAME_CHARS: usize = 64;
+/// Character cap for the duty line. One over the resolver's cap
+/// (`team::MAX_DUTY_CHARS`) so the resolver's truncation ellipsis fits.
+const MAX_TEAM_FRAME_DUTY_CHARS: usize = crate::acp::delegation::team::MAX_DUTY_CHARS + 1;
+/// Opening the members line must carry in every team frame.
+const TEAM_MEMBERS_LINE_PREFIX: &str = "Codeg session team (authoritative): ";
+
 /// One routed agent inside the frame — nothing but the wire slug.
 ///
 /// The frame is derived from the prompt's own visible `codeg://agent/...`
@@ -44,6 +65,19 @@ struct InternalAgentRoutes {
     nonce: String,
     #[serde(skip)]
     routes: Vec<AgentRoute>,
+}
+
+/// [crewchat] The team frame's wire shape (Phase 1.3). `members` is skipped
+/// in the descriptor exactly like `routes` is — it rides on its own line so
+/// the descriptor stays a two-field identity blob.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InternalTeamFrame {
+    kind: String,
+    version: u8,
+    nonce: String,
+    #[serde(skip)]
+    members: Vec<crate::acp::delegation::team::TeamMember>,
 }
 
 fn agent_reference_regex() -> &'static Regex {
@@ -190,16 +224,38 @@ fn valid_agent_wire_syntax(agent_type: &str) -> bool {
             .is_some_and(is_valid_custom_agent_id)
 }
 
-fn parse_internal_agent_routes(candidate: &str) -> Option<InternalAgentRoutes> {
-    if !candidate.starts_with(ROUTE_FRAME_SEPARATOR) || !candidate.ends_with(ROUTE_FRAME_SEPARATOR) {
-        return None;
-    }
-    parse_internal_agent_routes_body(
-        candidate
-            .strip_prefix(ROUTE_FRAME_SEPARATOR)?
-            .strip_suffix(ROUTE_FRAME_SEPARATOR)?,
-    )
+/// One recognised internal control-frame kind. The strip/parse pass is
+/// kind-agnostic: a body candidate is accepted when ANY kind's validator
+/// reproduces it byte-for-byte (each kind's validator carries its own
+/// descriptor check, so the kinds can never claim each other's bodies).
+struct InternalFrameKind {
+    /// Opening bytes of the kind's descriptor — the unseparated body anchor.
+    body_prefix: &'static str,
+    /// Byte-exact body validator for the kind.
+    accepts_body: fn(&str) -> bool,
 }
+
+fn accepts_route_frame_body(body: &str) -> bool {
+    parse_internal_agent_routes_body(body).is_some()
+}
+
+fn accepts_team_frame_body(body: &str) -> bool {
+    parse_internal_team_frame_body(body).is_some()
+}
+
+/// Every internal frame kind Codeg appends. Both bodies are exactly three
+/// newline-terminated lines, which is what [`unseparated_frame_end`] relies
+/// on; a kind with a different line count needs that finder parameterized.
+const INTERNAL_FRAME_KINDS: &[InternalFrameKind] = &[
+    InternalFrameKind {
+        body_prefix: ROUTE_FRAME_BODY_PREFIX,
+        accepts_body: accepts_route_frame_body,
+    },
+    InternalFrameKind {
+        body_prefix: TEAM_FRAME_BODY_PREFIX,
+        accepts_body: accepts_team_frame_body,
+    },
+];
 
 /// Validate a candidate against [`render_internal_agent_routes_body`].
 ///
@@ -232,6 +288,137 @@ fn parse_internal_agent_routes_body(candidate: &str) -> Option<InternalAgentRout
     Some(frame)
 }
 
+// --- [crewchat] Team frame (Phase 1.3) ---------------------------------------
+//
+// Rendered to the same 3-line body shape as the routing frame, so the
+// unseparated-finder's newline count and the separator machinery cover both
+// kinds without branching. Line 2 names the delegable members; line 3 is the
+// delegation ruling (the routing frame binds the CHANNEL when agent links are
+// present, this one binds the TARGETS when the conversation runs with a
+// team).
+
+/// [crewchat] Append the session-team frame for a group conversation's leader
+/// (Phase 1.3): who is present, and which `agent_type` reaches each member.
+///
+/// The caller gates this on the connection's delegation verdict (the routing
+/// frame's own gate), because a member list is only actionable when
+/// `delegate_to_agent` was exposed. A plain session resolves to no members,
+/// and an empty list appends nothing at all — the frame is derived server-side
+/// from the conversation's team snapshot, never from user text.
+pub(crate) fn append_team_frame(
+    blocks: &mut Vec<PromptInputBlock>,
+    members: &[crate::acp::delegation::team::TeamMember],
+) {
+    let members = sanitized_team_members(members);
+    if members.is_empty() {
+        return;
+    }
+    let frame = InternalTeamFrame {
+        kind: TEAM_FRAME_KIND.to_string(),
+        version: TEAM_FRAME_VERSION,
+        nonce: uuid::Uuid::new_v4().to_string(),
+        members,
+    };
+    blocks.push(PromptInputBlock::Text {
+        text: render_internal_team_frame(&frame),
+    });
+}
+
+/// Freeze a resolved member list into exactly what the validator accepts:
+/// valid wire slugs, non-empty capped names, capped duties, member cap. The
+/// frame is byte-exact re-rendered at parse time, so anything the renderer
+/// would emit must survive this pass unchanged; sanitizing HERE (not at the
+/// resolver) keeps `team.rs` free of frame-shape rules.
+fn sanitized_team_members(
+    members: &[crate::acp::delegation::team::TeamMember],
+) -> Vec<crate::acp::delegation::team::TeamMember> {
+    fn cap_chars(value: &str, cap: usize) -> String {
+        value.chars().take(cap).collect()
+    }
+    members
+        .iter()
+        .filter(|member| valid_agent_wire_syntax(&member.agent_type))
+        .filter_map(|member| {
+            let name = cap_chars(member.name.trim(), MAX_TEAM_FRAME_NAME_CHARS);
+            if name.is_empty() {
+                return None;
+            }
+            let duty = member
+                .duty
+                .as_deref()
+                .map(str::trim)
+                .filter(|duty| !duty.is_empty())
+                .map(|duty| cap_chars(duty, MAX_TEAM_FRAME_DUTY_CHARS));
+            Some(crate::acp::delegation::team::TeamMember {
+                name,
+                agent_type: member.agent_type.clone(),
+                duty,
+            })
+        })
+        .take(crate::acp::delegation::team::MAX_TEAM_MEMBERS)
+        .collect()
+}
+
+fn render_internal_team_frame(frame: &InternalTeamFrame) -> String {
+    format!(
+        "{ROUTE_FRAME_SEPARATOR}{}{ROUTE_FRAME_SEPARATOR}",
+        render_internal_team_frame_body(frame)
+    )
+}
+
+/// The team frame WITHOUT its separators: descriptor line, members line, and
+/// the delegation ruling — three newline-terminated lines, same as the
+/// routing frame (the unseparated finder counts newlines, not kinds).
+///
+/// Like the routing frame, the body's exact bytes ARE its identity: editing
+/// this string orphans frames already written into transcripts, so a wording
+/// change must bump [`TEAM_FRAME_VERSION`].
+fn render_internal_team_frame_body(frame: &InternalTeamFrame) -> String {
+    let descriptor = serde_json::to_string(frame).expect("internal team frame is serializable");
+    let members = serde_json::to_string(&frame.members).expect("team members are serializable");
+    format!(
+        "{descriptor}\n\
+{TEAM_MEMBERS_LINE_PREFIX}{members}\n\
+Only the members above are delegable in this session: route their work through \
+the `delegate_to_agent` tool from the `codeg-mcp` server with the member's \
+`agentType` as `agent_type`, and do not substitute your own native sub-agent, \
+task, or spawn mechanism.\n"
+    )
+}
+
+/// Validate a candidate against [`render_internal_team_frame_body`].
+fn parse_internal_team_frame_body(candidate: &str) -> Option<InternalTeamFrame> {
+    if candidate.len() > MAX_TEAM_FRAME_BYTES {
+        return None;
+    }
+    let (descriptor, remainder) = candidate.split_once('\n')?;
+    let mut frame: InternalTeamFrame = serde_json::from_str(descriptor).ok()?;
+    let members_json = remainder
+        .lines()
+        .next()?
+        .strip_prefix(TEAM_MEMBERS_LINE_PREFIX)?;
+    frame.members = serde_json::from_str(members_json).ok()?;
+    if frame.kind != TEAM_FRAME_KIND
+        || frame.version != TEAM_FRAME_VERSION
+        || uuid::Uuid::parse_str(&frame.nonce).is_err()
+        || frame.members.is_empty()
+        || frame.members.len() > crate::acp::delegation::team::MAX_TEAM_MEMBERS
+        || frame.members.iter().any(|member| {
+            member.name.trim().is_empty()
+                || member.name.chars().count() > MAX_TEAM_FRAME_NAME_CHARS
+                || member
+                    .duty
+                    .as_deref()
+                    .is_some_and(|duty| duty.chars().count() > MAX_TEAM_FRAME_DUTY_CHARS)
+                || !valid_agent_wire_syntax(&member.agent_type)
+        })
+        || render_internal_team_frame_body(&frame) != candidate
+    {
+        return None;
+    }
+    Some(frame)
+}
+
 /// The next frame at or after `from`, in whichever form the agent stored it.
 ///
 /// Both forms are searched and the EARLIER start wins. That ordering is what
@@ -251,18 +438,24 @@ fn find_internal_agent_routes(input: &str, from: usize) -> Option<(usize, usize)
 }
 
 /// A frame the agent gave back exactly as it was sent, separators and all.
+/// Kind-agnostic: whichever kind's validator accepts the body wins.
 fn find_separated_frame(input: &str, from: usize) -> Option<(usize, usize)> {
+    let separator_len = ROUTE_FRAME_SEPARATOR.len_utf8();
     let mut search_from = from;
     while search_from < input.len() {
         let start = search_from + input[search_from..].find(ROUTE_FRAME_SEPARATOR)?;
-        let after_start = start + ROUTE_FRAME_SEPARATOR.len_utf8();
+        let after_start = start + separator_len;
         let mut bounded_end = (after_start + MAX_ROUTE_FRAME_BYTES).min(input.len());
         while !input.is_char_boundary(bounded_end) {
             bounded_end -= 1;
         }
         if let Some(close_rel) = input[after_start..bounded_end].find(ROUTE_FRAME_SEPARATOR) {
-            let end = after_start + close_rel + ROUTE_FRAME_SEPARATOR.len_utf8();
-            if parse_internal_agent_routes(&input[start..end]).is_some() {
+            let end = after_start + close_rel + separator_len;
+            let body = &input[after_start..after_start + close_rel];
+            if INTERNAL_FRAME_KINDS
+                .iter()
+                .any(|kind| (kind.accepts_body)(body))
+            {
                 return Some((start, end));
             }
         }
@@ -274,7 +467,8 @@ fn find_separated_frame(input: &str, from: usize) -> Option<(usize, usize)> {
     None
 }
 
-/// A frame whose separators the agent dropped or rewrote, matched on its body.
+/// A frame whose separators the agent dropped or rewritten, matched on its
+/// body — for EVERY internal frame kind (routing and team).
 ///
 /// WHY THIS EXISTS. Separators are the cheapest possible proof that a frame is
 /// Codeg-authored, but they only reach a transcript intact if the agent stores
@@ -299,15 +493,26 @@ fn find_separated_frame(input: &str, from: usize) -> Option<(usize, usize)> {
 fn find_unseparated_frame(input: &str, from: usize) -> Option<(usize, usize)> {
     let mut search_from = from;
     while search_from < input.len() {
-        let start = search_from + input[search_from..].find(ROUTE_FRAME_BODY_PREFIX)?;
+        // Earliest anchor across kinds; ties are irrelevant because kinds are
+        // told apart by the body validator, not the anchor.
+        let mut anchor: Option<(usize, &InternalFrameKind)> = None;
+        for kind in INTERNAL_FRAME_KINDS {
+            if let Some(rel) = input[search_from..].find(kind.body_prefix) {
+                let at = search_from + rel;
+                if anchor.is_none_or(|(best, _)| at < best) {
+                    anchor = Some((at, kind));
+                }
+            }
+        }
+        let (start, kind) = anchor?;
         if let Some(end) = unseparated_frame_end(input, start) {
-            if parse_internal_agent_routes_body(&input[start..end]).is_some() {
+            if (kind.accepts_body)(&input[start..end]) {
                 return Some((start, end));
             }
         }
         // Same rule as the separated scan: a look-alike opening must not hide a
         // real frame further along.
-        search_from = start + ROUTE_FRAME_BODY_PREFIX.len();
+        search_from = start + 1;
     }
     None
 }
@@ -326,7 +531,8 @@ fn unseparated_frame_end(input: &str, start: usize) -> Option<usize> {
     Some(cursor)
 }
 
-/// Remove only complete frames that can be parsed and reproduced byte-for-byte.
+/// Remove only complete internal frames (any kind — routing and, [crewchat],
+/// team) that can be parsed and reproduced byte-for-byte.
 /// Codeg scrubs the reserved separator from every prompt at ingress, so a frame
 /// that still round-trips can only have been appended at the final boundary —
 /// true for any agent's transcript, not just the one this was first written for.
@@ -394,8 +600,16 @@ pub(crate) fn cut_at_route_frame_marker(text: &mut String) {
     let Some(cut) = text
         .find(ROUTE_FRAME_SEPARATOR)
         .into_iter()
-        .chain(text.find(ROUTE_FRAME_BODY_PREFIX))
-        .chain(find_halved_body_prefix(text))
+        .chain(
+            INTERNAL_FRAME_KINDS
+                .iter()
+                .filter_map(|kind| text.find(kind.body_prefix)),
+        )
+        .chain(
+            INTERNAL_FRAME_KINDS
+                .iter()
+                .filter_map(|kind| find_halved_body_prefix(text, kind.body_prefix)),
+        )
         .min()
     else {
         return;
@@ -422,14 +636,14 @@ pub(crate) fn cut_at_route_frame_marker(text: &mut String) {
 /// happens to end in `{`.
 ///
 /// [`truncate_str`]: crate::parsers::truncate_str
-fn find_halved_body_prefix(text: &str) -> Option<usize> {
+fn find_halved_body_prefix(text: &str, body_prefix: &str) -> Option<usize> {
     const SHORTEST_FRAGMENT: usize = "{\"kind\":\"c".len();
     let capped = text.trim_end_matches('.');
     // Longest fragment first, so the cut lands at the earliest byte. The full
     // marker is excluded — `find` already covers that case.
-    (SHORTEST_FRAGMENT..ROUTE_FRAME_BODY_PREFIX.len())
+    (SHORTEST_FRAGMENT..body_prefix.len())
         .rev()
-        .find(|&length| capped.ends_with(&ROUTE_FRAME_BODY_PREFIX[..length]))
+        .find(|&length| capped.ends_with(&body_prefix[..length]))
         .map(|length| capped.len() - length)
 }
 
@@ -830,6 +1044,143 @@ mod tests {
             "reordering the descriptor's fields would silently unanchor the \
              separator-less scan"
         );
+    }
+
+    // --- [crewchat] team frame (Phase 1.3) -----------------------------------
+
+    fn member(name: &str, agent_type: &str) -> crate::acp::delegation::team::TeamMember {
+        crate::acp::delegation::team::TeamMember {
+            name: name.into(),
+            agent_type: agent_type.into(),
+            duty: None,
+        }
+    }
+
+    #[test]
+    fn team_frame_names_members_and_is_append_only_for_teams() {
+        let mut blocks = vec![PromptInputBlock::Text {
+            text: "plan the work".into(),
+        }];
+        append_team_frame(
+            &mut blocks,
+            &[
+                crate::acp::delegation::team::TeamMember {
+                    name: "后端开发工程师".into(),
+                    agent_type: "open_code".into(),
+                    duty: Some("脚本、环境与部署".into()),
+                },
+                member("前端工程师", "codex"),
+            ],
+        );
+        assert_eq!(blocks.len(), 2);
+        let frame = text(&blocks[1]);
+        assert!(frame.contains(
+            r#"[{"name":"后端开发工程师","agentType":"open_code","duty":"脚本、环境与部署"},{"name":"前端工程师","agentType":"codex"}]"#
+        ));
+        assert!(frame.contains("Only the members above are delegable"));
+        assert!(
+            frame.starts_with(&format!("{ROUTE_FRAME_SEPARATOR}{TEAM_FRAME_BODY_PREFIX}")),
+            "the separator-less scan anchors on the descriptor's own opening"
+        );
+
+        // A plain session appends nothing at all.
+        let mut plain = vec![PromptInputBlock::Text {
+            text: "plan the work".into(),
+        }];
+        append_team_frame(&mut plain, &[]);
+        assert_eq!(plain.len(), 1);
+    }
+
+    #[test]
+    fn team_frame_roundtrips_through_separated_and_separatorless_forms() {
+        let visible = "帮我做一个登录页";
+        let mut blocks = vec![PromptInputBlock::Text {
+            text: visible.into(),
+        }];
+        append_team_frame(
+            &mut blocks,
+            &[member("前端工程师", "codex"), member("运维工程师", "claude_code")],
+        );
+        assert!(contains_internal_agent_routes(text(&blocks[1])));
+        assert_eq!(strip_internal_agent_routes(text(&blocks[1])), "");
+
+        let persisted = as_antigravity_persists(&blocks);
+        assert!(
+            !persisted.contains(ROUTE_FRAME_SEPARATOR),
+            "the fixture must have LOST its separators, or it proves nothing"
+        );
+        assert_eq!(strip_internal_agent_routes(&persisted).trim_end(), visible);
+    }
+
+    #[test]
+    fn a_team_frame_that_does_not_round_trip_is_kept_as_prose() {
+        let mut blocks = vec![PromptInputBlock::Text { text: "go".into() }];
+        append_team_frame(&mut blocks, &[member("前端工程师", "codex")]);
+        let body = text(&blocks[1]).replace(ROUTE_FRAME_SEPARATOR, "");
+        assert_eq!(strip_internal_agent_routes(&body), "");
+
+        // One byte off in the ruling, and it is prose again.
+        let reworded = body.replace(
+            "Only the members above are delegable",
+            "only the members above are delegable",
+        );
+        assert_eq!(strip_internal_agent_routes(&reworded), reworded);
+
+        // A member slug the frame validator would never accept cannot be
+        // smuggled in by editing the JSON either — the re-render check runs on
+        // the parsed members.
+        let forged = body.replace(
+            r#""agentType":"codex""#,
+            r#""agentType":"not a slug""#,
+        );
+        assert_eq!(strip_internal_agent_routes(&forged), forged);
+    }
+
+    #[test]
+    fn route_and_team_frames_are_stripped_in_one_pass() {
+        let visible = "ask [@Codex](codeg://agent/codex) then plan";
+        let mut blocks = vec![PromptInputBlock::Text {
+            text: visible.into(),
+        }];
+        append_agent_routes(&mut blocks, true);
+        append_team_frame(&mut blocks, &[member("运维工程师", "claude_code")]);
+        assert_eq!(blocks.len(), 3);
+
+        let persisted = as_antigravity_persists(&blocks);
+        assert_eq!(strip_internal_agent_routes(&persisted).trim_end(), visible);
+    }
+
+    #[test]
+    fn team_frame_sanitizer_drops_invalid_slugs_and_caps_members() {
+        let mut members: Vec<crate::acp::delegation::team::TeamMember> =
+            (0..20).map(|i| member(&format!("成员{i}"), "codex")).collect();
+        members.push(member("无证者", "not a slug"));
+        members.push(member("  ", "open_code"));
+        let mut blocks = vec![PromptInputBlock::Text { text: "go".into() }];
+        append_team_frame(&mut blocks, &members);
+        let frame = text(&blocks[1]);
+        assert!(!frame.contains("无证者"), "invalid slug must not render");
+        assert!(
+            !frame.contains(r#""name":"""#),
+            "blank names must not render"
+        );
+        assert_eq!(
+            frame.matches(r#""agentType":"codex""#).count(),
+            crate::acp::delegation::team::MAX_TEAM_MEMBERS
+        );
+        assert_eq!(strip_internal_agent_routes(frame), "");
+    }
+
+    #[test]
+    fn a_title_is_cut_at_a_team_frame_marker_too() {
+        let mut separated = String::from("hi \u{001e}{\"kind\":\"codeg_internal_team\",\"versio");
+        cut_at_route_frame_marker(&mut separated);
+        assert_eq!(separated, "hi");
+
+        // The cap halved the team descriptor; the fragment is still cut.
+        let mut bare = String::from("hi  {\"kind\":\"codeg_internal_tea");
+        cut_at_route_frame_marker(&mut bare);
+        assert_eq!(bare, "hi");
     }
 
     #[test]

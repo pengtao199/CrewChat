@@ -174,6 +174,15 @@ pub enum DelegationError {
     Canceled { reason: String },
     #[error("parent session is gone")]
     ParentSessionGone,
+    /// [crewchat] The parent conversation runs with a team and the requested
+    /// `agent_type` is none of its members (Phase 1.3). `available` lists the
+    /// delegable members as `name (agent_type)` pairs — the message is what
+    /// the leader LLM reads, so it must be actionable, not a bare rejection.
+    #[error(
+        "delegate_to_agent refused: `{requested}` is not a member of this session's team. \
+         Delegable members: {available}. Retry with one of those agent types."
+    )]
+    NotInTeam { requested: String, available: String },
 }
 
 /// The single value the broker hands back to the listener / MCP companion.
@@ -313,6 +322,7 @@ impl DelegationOutcome {
             DelegationError::ChildUnknown(_) => "child_unknown",
             DelegationError::Canceled { .. } => "canceled",
             DelegationError::ParentSessionGone => "canceled",
+            DelegationError::NotInTeam { .. } => "not_in_team",
         };
         DelegationOutcome::Err {
             code: code.to_string(),

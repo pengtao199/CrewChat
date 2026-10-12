@@ -46,6 +46,7 @@ pub mod meta_writer;
 pub mod parent_watcher;
 pub mod service;
 pub mod spawner;
+pub mod team;
 pub mod transport;
 pub mod types;
 
