@@ -74,6 +74,10 @@
 | `src-tauri/src/acp/delegation/broker/lifecycle.rs`、`types.rs` | Phase 1.3 团队门禁：父会话带团队时 `delegate_to_agent` 只接受团队成员，越界返回 `not_in_team` 并列出可用成员（`名字 (agent_type)`）；无团队 / 不可解析 = 不约束。新增 `DelegationError::NotInTeam`（wire code `not_in_team`） | 越界必须清晰报错（体验关键），管理员照名单重规划 |
 | `src-tauri/src/acp/agent_mentions.rs` | Phase 1.3 团队帧：第二种内部帧 `codeg_internal_team`（在场成员 / 职责 / 可派 `agentType`），与路由帧共用分隔符、字节级身份与剥离管线（查找器泛化为多帧 kind，标题截断同样命中）；帧只在委派开启的连接追加 | 管理员上下文含「在场成员」帧 |
 | `src-tauri/src/acp/connection/mod.rs`、`src-tauri/src/app_state.rs`、`src-tauri/src/acp/delegation/broker/mod.rs` | 会话循环按 `conversation_id` 解析成员并在 `prepare_agent_bound_prompt` 追加团队帧；broker `with_team_lookup` 接线 `DbTeamLookup` | 接线（上游文件只留小集成点） |
+| `src/components/chat/team-member-strip.tsx`（新增）＋ `src/lib/team-member-status.ts`（新增） | Phase 1.4 会话头成员条：团队会话头部一行成员 chip（排队/运行/等权限/完成/失败/已取消/待命；悬停任务预览）。状态解析 = 子会话行（DB，刷新安全）× 实时 delegation binding（running 由快照重播，终态回落子行）；「等权限」由 chip 订阅子连接 `pendingPermission` 升级 | 成员实时状态可视、刷新不丢 |
+| `src/components/conversations/conversation-detail-header.tsx` | 标题行下挂 `TeamMemberStrip`（非团队会话与草稿不渲染） | 会话头成员条落点 |
+| `src/contexts/delegation-context.tsx` | `listBindings()` —— 导出全部实时 binding（聚合视图消费） | 成员条按 `agent_type` 聚合实时状态 |
+| `src/i18n/messages/*.json`（10 语言） | 新增 `TeamMemberStrip` 命名空间（中英繁实翻，其余沿用英文） | 同上 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 
