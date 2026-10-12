@@ -3631,7 +3631,8 @@
             "child_unknown": "subagente: erro",
             "unknown": "tarefa desconhecida"
           }
-        }
+        },
+        "usageTitle": "Sub-agent usage (input / output tokens, session time)"
       },
       "contentParts": {
         "showingTailOutput": "Mostrando a saída final durante o streaming para melhor desempenho.",

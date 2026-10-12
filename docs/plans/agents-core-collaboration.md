@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-12 (Asia/Shanghai)
-Status: In Progress（Phase 3 成员模型与用量）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；3.1 子代理模型注入 ✅（同任务两成员两模型，request-log 为证）；下一步 3.2 按成员用量。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 3 收口）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；下一步 Phase 4 体验增强（4.1 卡内内联成员流 / 4.2 @提及联动 / 4.3 异步回流）。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -73,7 +73,7 @@ Status: In Progress（Phase 3 成员模型与用量）。Phase 1 协作 v1 已�
 ### Phase 3 · 成员模型与用量
 
 - **3.1 子代理模型注入** ✅ 2026-10-12：成员角色的大脑（model/provider）在委派 spawn 时落成**每会话一个全新的隔离 `CLAUDE_CONFIG_DIR`**：settings.json = 路由 env + 网关切片的精确虚拟 ID（`anthropic/claude-ccr-h<hex>[1m]`）+ 继承全局 apiKeyHelper / enabledPlugins，`projects/plugins/todos/…` 软链回共享目录（历史解析照常）。实测教训：**隔离 home 不能复用**——第二次会话静默失败（Connected → Error ~5.4s、adapter 无 `session/create`），故每次子会话新建 + 启动清扫 24h 旧目录；`agent_defaults` 兜底（无角色模型时仍走 0.3 配方通道）。另加 `team::pick_member`：同 CLI 多成员按 task 文本中的角色名（管理员 owner 约定）消歧，最早提及优先、无提及退回首个。真机：同会话两成员 甲(pro) / 乙(flash) 均启动成功（子行 `external_id` 落库），request-log 出现 `mimo-v2.6-pro` 与 `mimo-v2.6-flash` 各 200。测试：agent_host 11 + 相关 3102 用例绿。v1 边界：非 claude CLI（codex 等自有 provider，非 CCR）暂不注入。→ 做到：同一任务两成员两模型，request-log 为证。
-- **3.2 按成员用量**：委派卡与会话详情显示每成员 tokens / 成本。→ 做到：口径与用量文档一致。
+- **3.2 按成员用量** ✅ 2026-10-12：委派卡在子回合**终态**时按次拉取子会话解析统计（`get_folder_conversation` 的 `session_stats`），显示「输入 / 输出 tokens · 时长」；与「会话详情」同一数据源与同一文案（`Folder.statusBar.tokens` 的 input/output、`formatTokenCount`），口径一致；按子会话缓存、失败静默、进行中不请求（卡片仍是状态 + 导航 + 一行用量）。真机数据路径：`get_folder_conversation(75)` → `total_usage {input 19698, output 662}`、`total_tokens 24456`、`duration 15.6s`（甲成员的子会话）。测试：hook 5 + 卡片用例；message 目录 628 用例绿、tsc / eslint 零告警；前端已重建（`out/`）。v1 边界：成本未显示（codeg 侧只记 tokens / 时长；成本在 CCR 请求日志，另开）。→ 做到：口径与用量文档一致。
 
 ### Phase 4 · 体验增强
 

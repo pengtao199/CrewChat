@@ -3631,7 +3631,8 @@
             "child_unknown": "الوكيل الفرعي: خطأ",
             "unknown": "مهمة غير معروفة"
           }
-        }
+        },
+        "usageTitle": "Sub-agent usage (input / output tokens, session time)"
       },
       "contentParts": {
         "showingTailOutput": "يتم عرض نهاية المخرجات أثناء البث لتحسين الأداء.",

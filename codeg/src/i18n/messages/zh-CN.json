@@ -3631,7 +3631,8 @@
             "child_unknown": "子代理未知错误",
             "unknown": "未知任务"
           }
-        }
+        },
+        "usageTitle": "子代理用量（输入 / 输出 tokens 与会话时长）"
       },
       "contentParts": {
         "showingTailOutput": "为保证性能，流式输出时仅显示尾部内容。",

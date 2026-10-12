@@ -10,6 +10,13 @@ vi.mock("@/hooks/use-delegated-sub-session", () => ({
   useDelegatedSubSession: vi.fn(),
 }))
 
+// [crewchat] Phase 3.2: the card reads per-member usage through this hook; the
+// hook's own fetch/caching is covered by `use-child-usage.test.tsx`.
+let mockUsage: unknown = null
+vi.mock("@/hooks/use-child-usage", () => ({
+  useChildUsage: () => mockUsage,
+}))
+
 // The slim card is a status + navigation affordance: it reads `binding` from
 // the delegation hook and the child's live `pendingPermission` from the
 // connections store (to badge "awaiting approval"). It renders no body and
@@ -519,5 +526,36 @@ describe("DelegatedSubThread (async ack semantics)", () => {
       "data-conversation-id",
       "909"
     )
+  })
+})
+
+// [crewchat] Phase 3.2 — per-member usage on the card.
+describe("DelegatedSubThread usage (Phase 3.2)", () => {
+  const completed = {
+    parentToolUseId: "delegation-usage",
+    input: JSON.stringify({ agent_type: "claude_code", task: "do x" }),
+    output: JSON.stringify({ kind: "outcome", status: "completed" }),
+    state: "output-available" as const,
+  }
+
+  it("shows the member's tokens and duration once the child is done", async () => {
+    mockUsage = {
+      inputTokens: 1200,
+      outputTokens: 400,
+      totalTokens: 1600,
+      durationMs: 8200,
+    }
+    renderWithIntl(<DelegatedSubThread {...completed} />)
+    const usage = await screen.findByTestId("delegation-usage")
+    expect(usage).toHaveTextContent("1.2K")
+    expect(usage).toHaveTextContent("400")
+    expect(usage).toHaveTextContent("8.2s")
+    mockUsage = null
+  })
+
+  it("renders no usage line when the hook has nothing", () => {
+    mockUsage = null
+    renderWithIntl(<DelegatedSubThread {...completed} />)
+    expect(screen.queryByTestId("delegation-usage")).toBeNull()
   })
 })

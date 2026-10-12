@@ -3631,7 +3631,8 @@
             "child_unknown": "サブエージェント: エラー",
             "unknown": "不明なタスク"
           }
-        }
+        },
+        "usageTitle": "Sub-agent usage (input / output tokens, session time)"
       },
       "contentParts": {
         "showingTailOutput": "パフォーマンスのため、ストリーミング中は末尾出力を表示しています。",

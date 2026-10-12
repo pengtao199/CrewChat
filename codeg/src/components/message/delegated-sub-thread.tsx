@@ -23,6 +23,7 @@ import { useState } from "react"
 
 import type { ToolCallState } from "@/lib/adapters/ai-elements-adapter"
 import { DelegationCardRow } from "@/components/message/delegation-card-row"
+import { useChildUsage } from "@/hooks/use-child-usage"
 import { SubAgentSessionDialog } from "@/components/message/sub-agent-session-dialog"
 import { useSessionViewerHost } from "@/components/message/session-viewer-host"
 import { useDelegationCardModel } from "@/hooks/use-delegation-card-model"
@@ -81,6 +82,13 @@ export function DelegatedSubThread({
     hasModel,
   } = useDelegationCardModel(source)
 
+  // [crewchat] Phase 3.2: per-member usage, fetched once the child's turn is
+  // terminal (the only moment the numbers are final).
+  const usage = useChildUsage(
+    childConversationId,
+    status === "ok" || status === "err"
+  )
+
   // A snapshot replay with an empty/unparseable input AND no live binding has
   // no useful card to draw — fall through to the standard renderer instead of
   // an "unknown sub-agent" stub. Placed AFTER all hooks so hook order is stable.
@@ -98,6 +106,7 @@ export function DelegatedSubThread({
         taskId={taskId}
         status={status}
         errorCode={errorCode}
+        usage={usage}
         task={task}
         onOpenSession={
           childConversationId != null

@@ -3631,7 +3631,8 @@
             "child_unknown": "서브에이전트: 오류",
             "unknown": "알 수 없는 작업"
           }
-        }
+        },
+        "usageTitle": "Sub-agent usage (input / output tokens, session time)"
       },
       "contentParts": {
         "showingTailOutput": "성능을 위해 스트리밍 중에는 출력의 끝부분만 표시합니다.",

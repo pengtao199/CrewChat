@@ -3631,7 +3631,8 @@
             "child_unknown": "subagent unknown error",
             "unknown": "unknown task"
           }
-        }
+        },
+        "usageTitle": "Sub-agent usage (input / output tokens, session time)"
       },
       "contentParts": {
         "showingTailOutput": "Showing tail output while streaming for performance.",

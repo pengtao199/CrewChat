@@ -3631,7 +3631,8 @@
             "child_unknown": "子代理未知錯誤",
             "unknown": "未知任務"
           }
-        }
+        },
+        "usageTitle": "子代理用量（輸入 / 輸出 tokens 與會話時長）"
       },
       "contentParts": {
         "showingTailOutput": "為確保效能，串流輸出時僅顯示尾端內容。",

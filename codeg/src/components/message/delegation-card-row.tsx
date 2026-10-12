@@ -20,6 +20,8 @@ import type { ReactNode } from "react"
 import { getAgentLabel } from "@/lib/custom-agents"
 import { Eye } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { formatTokenCount } from "@/lib/token-format"
+import type { DelegationUsage } from "@/hooks/use-child-usage"
 
 import { AgentIcon } from "@/components/agent-icon"
 import { StatusBadge } from "@/components/message/delegation-status-badge"
@@ -28,6 +30,9 @@ import type { AgentType } from "@/lib/types"
 
 interface Props {
   agentType: AgentType | null
+  /** [crewchat] Per-member usage once the child's turn is terminal (Phase 3.2);
+   *  omitted while running and for children whose stats are unavailable. */
+  usage?: DelegationUsage | null
   /** Broker task id; rendered as a `#`-prefixed 8-char handle when present. */
   taskId: string | null
   status: DelegationCardStatus
@@ -45,11 +50,13 @@ export function DelegationCardRow({
   taskId,
   status,
   errorCode,
+  usage,
   task,
   avatarBadge,
   onOpenSession,
 }: Props) {
   const t = useTranslations("Folder.chat.delegation")
+  const tTokens = useTranslations("Folder.statusBar.tokens")
 
   return (
     <div className="flex w-full items-stretch rounded-lg overflow-hidden">
@@ -82,6 +89,27 @@ export function DelegationCardRow({
           {task && (
             <div className="text-xs text-muted-foreground whitespace-pre-wrap break-words line-clamp-1">
               {task}
+            </div>
+          )}
+          {usage && (
+            <div
+              className="flex items-center gap-1.5 text-2xs text-muted-foreground/80"
+              title={t("usageTitle")}
+              data-testid="delegation-usage"
+            >
+              <span>
+                {tTokens("input")} {formatTokenCount(usage.inputTokens)}
+              </span>
+              <span aria-hidden>·</span>
+              <span>
+                {tTokens("output")} {formatTokenCount(usage.outputTokens)}
+              </span>
+              {usage.durationMs > 0 && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{(usage.durationMs / 1000).toFixed(1)}s</span>
+                </>
+              )}
             </div>
           )}
         </div>

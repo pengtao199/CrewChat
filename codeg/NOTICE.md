@@ -93,6 +93,8 @@
 | `src-tauri/src/agent_host.rs` | Phase 3.1 角色模型 home：`build_claude_role_home`（**每子会话一个全新** `CLAUDE_CONFIG_DIR`：路由 env + 网关切片的精确虚拟模型 ID + 继承 apiKeyHelper/enabledPlugins + `projects/plugins/todos/…` 软链回共享目录，parser 照常可读）+ `prune_stale_role_homes` 启动清扫 24h 旧目录 | 成员会话按角色大脑模型启动（claude） |
 | `src-tauri/src/acp/delegation/spawner.rs`、`broker/lifecycle.rs`、`delegation/team.rs` | `RoleSpawnContext`（role_id/model/provider/mcp/model_applied）贯通 spawn；spawner 建 home 注入 `CLAUDE_CONFIG_DIR`，manager 在角色模型已绑定时跳过配方模型项；`team::pick_member` 同 CLI 多成员按 task 中的角色名消歧（最早提及优先），无提及退回首个 | 角色事实从名册流到会话；同名 CLI 成员可分别命中各自模型 |
 | `src-tauri/src/acp/session_state.rs`、`acp/manager/mod.rs`、`db/mod.rs` | `SessionState::role_mcp`；`spawn_agent*` 增角色参数（非委派调用传 None）；启动点清扫旧角色 home | 接线 + 运维 |
+| `src/hooks/use-child-usage.ts`（新增）＋ `src/components/message/delegation-card-row.tsx`、`delegated-sub-thread.tsx` | Phase 3.2 按成员用量：委派卡在子回合终态时按次拉取子会话 `session_stats`（与「会话详情」同口径：`Folder.statusBar.tokens` 文案 + `formatTokenCount`），显示 输入 / 输出 tokens 与时长；按子会话缓存，失败静默 | 同一任务的各成员用量可横向对比 |
+| `src/i18n/messages/*.json`（10 语言） | `Folder.chat.delegation` 增 `usageTitle`（中英繁实翻，其余英文） | 同上 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 
