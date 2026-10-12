@@ -82,6 +82,10 @@
 | `src-tauri/src/db/service/agent_role_service.rs`（新增）＋ `src-tauri/src/models/agent_role.rs`（新增） | 角色 CRUD（`kind='role'` 行，与 ACP agent 共 id 空间、冲突拒绝）＋ 一次性遗留迁移（`agent-roles.json` 先备份再导入、`.data/agents/*.jsonc` 去注释导入、重名以 Codeg 名册优先跳过、`app_metadata` 标记、非破坏可回滚） | 单一写入方、单一真相源；旧文件存储退役 |
 | `src-tauri/src/db/service/custom_agent_service.rs` | `list_launchable_defs`（发射面过滤 role 行；hydrate / 自定义 agent 列表 / delete 全部限定 kind） | 角色不会被当作可启动的 ACP agent |
 | `src-tauri/src/commands/agent_roles.rs`、`web/handlers/agent_roles.rs`、`acp/delegation/team.rs`、`db/mod.rs`、`commands/config_sync/{domains,snapshot}.rs` | 命令层改 DB 后端（async + State；命令名与 wire 形状不变）；team 查询直连服务；启动点挂迁移；配置同步跳过 role 行 | 接线（前端零改动） |
+| `src-tauri/src/acp/agent_mentions/{routes,team,role,strip}.rs`（目录化） | Phase 2.2 角色帧 `codeg_internal_role`：角色名 / instructions / rules 以单行 JSON 落帧（三行体例，复用既有查找与剥离管线）；注入在最终边界且**不受委派开关限制**；标题截断路径同样命中 | 人格注入链路（拍板 #2/#4） |
+| `src-tauri/src/acp/delegation/team.rs`、`spawner.rs`、`broker/{lifecycle,mod}.rs` | `TeamLookup::conversation_role`（会话 → 角色解析，无团队/失败降级）；`TeamMember.role_id`（serde skip——团队帧字节不变）；门禁解析出的成员把 `role_id` 写进 `DelegationLink.member_role_id` | 成员会话人格来源；"会话 `leader_role_id` = 本会话运行的角色"（子行写成员角色） |
+| `src-tauri/src/db/service/conversation_service/mod.rs`、`src-tauri/src/models/conversation.rs` | `create_with_delegation` 将成员角色写入子行 `team` 快照（`member_role_ids` 空）；`ConversationTeam` 语义注释补 2.2 读法 | 同上 |
+| `src-tauri/src/acp/connection/mod.rs` | `prepare_agent_bound_prompt` 增角色帧（先于路由/团队帧；人格与 codeg-mcp 无关），循环按 `conversation_id` 解析角色 | 注入点（上游文件小集成） |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 
@@ -93,6 +97,7 @@
 | `src-tauri/src/commands/acp.rs` | `commands/acp/mod.rs` + `tests.rs` | 尾部测试模块外移（6.6k 行）；中部 `diagnostics_tests` 留原位 |
 | `src-tauri/src/acp/delegation/broker.rs` | `acp/delegation/broker/mod.rs` + `broker/{pending / reports / tool_calls / lifecycle / resume / cancel / status / lookups}.rs` + `tests.rs` | 内嵌测试外移（5.2k 行）；mod.rs 再按架构拆成 8 个子模块（4.6k → 全部 <1k；子模块项升 `pub(crate)`，`broker::…` 表面经 glob re-export 不变；307 用例绿） |
 | `src-tauri/src/acp/custom_registry.rs` | `acp/custom_registry/mod.rs` + `{def / error / validate / meta / registry}.rs` + `tests.rs` | 按职责拆分（1.5k → mod 47 / def 261 / error 68 / validate 137 / meta 210 / registry 242 / tests 607）；`custom_registry::…` 表面经 glob re-export 不变；跨文件私有助手升 `pub(super)`（`effective_version` / `split_archive_entry`）；21 用例 + 相关 2104 用例绿） |
+| `src-tauri/src/acp/agent_mentions.rs` | `acp/agent_mentions/mod.rs` + `{routes / team / role / strip}.rs` + `tests.rs` | 按帧 kind 拆分（1.5k → mod 35 / routes 210 / team 173 / role 168 / strip 358 / tests 598）；`agent_mentions::…` 表面经 `pub(crate)` glob re-export 不变；2724 用例绿） |
 | `src-tauri/src/acp/manager.rs` | `acp/manager/mod.rs` + `tests.rs` | 内嵌测试外移（5.3k 行） |
 | `src-tauri/src/commands/conversations.rs` | `commands/conversations/mod.rs` + `tests.rs` | 内嵌测试外移（4.0k 行） |
 | `src-tauri/src/db/service/conversation_service.rs` | `db/service/conversation_service/mod.rs` + `tests.rs` | 内嵌测试外移（2.0k 行） |
