@@ -71,6 +71,21 @@
 | `src-tauri/src/agent_host.rs`（新增） | Agent Host 配方 v1（Phase 0.3）：会话启动时从 CCR 读路由与模型——env 只做路由（BASE_URL 三件套 / discovery / compat / NO_PROXY），模型经 ACP `session/set_config_option` 通道（网关虚拟 ID，查 `/v1/models` 解析）；`CODEG_AGENT_HOST_INJECT=0` 完全回退 | codeg 以绝对路径拉起真实 CLI，绕过 CCR 的 wrapper；per-session 注入是"每角色用不同模型"（3.1）的前置件 |
 | `src-tauri/src/acp/manager.rs`、`src-tauri/src/commands/acp.rs`、`src-tauri/src/lib.rs` | 注册 `agent_host` 模块；`spawn_agent` 合并配方 config_options（caller 显式值优先）；`build_runtime_env_for_agent` 合并配方 env（主会话与委派子代理共用） | 同上（实测笔记见 `docs/plans/agents-core-collaboration.md`） |
 
+## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
+
+拆分 = 文件→目录 / 内嵌测试外移，行为与公共 API 不变（全量测试绿）。升级时把上游对新版单文件的改动应用到下表对应结构。
+
+| 上游文件 | 本仓库结构 | 拆分内容 |
+| --- | --- | --- |
+| `src-tauri/src/acp/connection.rs` | `acp/connection/mod.rs` + `acp/connection/tests.rs` | 内嵌测试外移（16k 行 tests.rs） |
+| `src-tauri/src/commands/acp.rs` | `commands/acp/mod.rs` + `tests.rs` | 尾部测试模块外移（6.6k 行）；中部 `diagnostics_tests` 留原位 |
+| `src-tauri/src/acp/delegation/broker.rs` | `acp/delegation/broker/mod.rs` + `tests.rs` | 内嵌测试外移（5.2k 行） |
+| `src-tauri/src/acp/manager.rs` | `acp/manager/mod.rs` + `tests.rs` | 内嵌测试外移（5.3k 行） |
+| `src-tauri/src/commands/conversations.rs` | `commands/conversations/mod.rs` + `tests.rs` | 内嵌测试外移（4.0k 行） |
+| `src-tauri/src/db/service/conversation_service.rs` | `db/service/conversation_service/mod.rs` + `tests.rs` | 内嵌测试外移（2.0k 行） |
+| `src-tauri/src/acp/delegation/companion.rs` | `acp/delegation/companion/mod.rs` + `tests.rs` | 内嵌测试外移（3.1k 行） |
+| `src-tauri/src/acp/delegation/tool_schema.json` | `acp/delegation/companion/tool_schema.json` | 随 companion 目录化移动（`include_str!` 相对路径） |
+
 ## 构建与开发
 
 前置：Node ≥ 22（本机 26.x）、**pnpm 11.9.0**（`package.json` 的 `packageManager` 锁定；
