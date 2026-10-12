@@ -90,6 +90,7 @@
 | `src-tauri/src/acp/delegation/companion.rs` | `acp/delegation/companion/mod.rs` + `tests.rs` | 内嵌测试外移（3.1k 行） |
 | `src-tauri/src/acp/delegation/tool_schema.json` | `acp/delegation/companion/tool_schema.json` | 随 companion 目录化移动（`include_str!` 相对路径） |
 | `src/components/settings/acp-agent-settings.tsx` | `acp-agent-settings/index.tsx` + `agent-reorder-item.tsx` + `acp-agent-settings/helpers/*`（types / context / env / config-text / claude / gemini / opencode / cline / openclaw / grok / codex / codex-toml / hermes / deepseek / important-config / draft / version / checks） | 前端最大文件拆分（12.9k → 页面组件 8.7k + 18 个 helpers，全部 <1k；测试零改动 157 用例绿） |
+| `src/components/conversations/conversation-detail-panel.tsx` | `conversation-detail-panel/index.tsx` + `conversation-tab-view.tsx` + `helpers.ts` + `split-strip.tsx` | 巨型面板目录化（3.2k → 面板 670 / 视图 2.4k / 纯函数 62 / 角条 48）；6 个源码级测试改指新路径（含一个双源拆分），语义零改动。视图的 hook 级二次拆分列为后续批次 |
 
 ## 构建与开发
 

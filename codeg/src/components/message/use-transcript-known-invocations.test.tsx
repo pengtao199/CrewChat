@@ -295,7 +295,7 @@ describe("MessageListView", () => {
       commandsPassedBy("src/components/message/live-transcript-view.tsx")
     ).toBe("transcriptAgent ? conn?.availableCommands : []")
     const detailPanel =
-      "src/components/conversations/conversation-detail-panel.tsx"
+      "src/components/conversations/conversation-detail-panel/conversation-tab-view.tsx"
     expect(commandsPassedBy(detailPanel)).toBe("connectionCommands")
     expect(read(detailPanel)).toMatch(
       /const connectionCommands = connIsForOtherAgent \? null : conn\.availableCommands\n/

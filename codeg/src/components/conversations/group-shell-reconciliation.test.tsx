@@ -29,7 +29,14 @@ const { getFolderConversation } = await import("@/lib/api")
 const source = readFileSync(
   resolve(
     process.cwd(),
-    "src/components/conversations/conversation-detail-panel.tsx"
+    "src/components/conversations/conversation-detail-panel/conversation-tab-view.tsx"
+  ),
+  "utf8"
+)
+const panelSource = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/components/conversations/conversation-detail-panel/index.tsx"
   ),
   "utf8"
 )
@@ -158,9 +165,9 @@ describe("split group shell source shape", () => {
   // wrapper] siblings, the behavioural proof above no longer describes
   // production.
   it("keeps strip, title bar, and content wrapper as plain sibling slots", () => {
-    const shellStart = source.indexOf("const renderGroupShell = (groupId")
+    const shellStart = panelSource.indexOf("const renderGroupShell = (groupId")
     expect(shellStart).toBeGreaterThan(-1)
-    const shellBody = source.slice(shellStart, shellStart + 6000)
+    const shellBody = panelSource.slice(shellStart, shellStart + 6000)
     const stripIdx = shellBody.indexOf("{isSplit && (")
     const headerIdx = shellBody.indexOf("{isSplit && selTab && (")
     const contentIdx = shellBody.indexOf(

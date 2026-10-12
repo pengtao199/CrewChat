@@ -32,7 +32,7 @@ function sourceFiles(dir: string): string[] {
  * only that the decision was made, not which way it went.
  */
 const SURFACES = [
-  "src/components/conversations/conversation-detail-panel.tsx",
+  "src/components/conversations/conversation-detail-panel/conversation-tab-view.tsx",
   "src/components/canvas/canvas-conversation-surface.tsx",
   "src/components/message/live-transcript-view.tsx",
 ]

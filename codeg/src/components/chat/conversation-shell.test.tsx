@@ -91,7 +91,9 @@ describe("who turns the handles on", () => {
     // the handles' pointer maths would be off by the zoom factor.
     // Boolean shorthand only: `resizableWidth={false}` must not pass.
     expect(
-      read("src/components/conversations/conversation-detail-panel.tsx")
+      read(
+        "src/components/conversations/conversation-detail-panel/conversation-tab-view.tsx"
+      )
     ).toMatch(/<ConversationShell\s+resizableWidth\s/)
     expect(
       read("src/components/canvas/canvas-conversation-surface.tsx")

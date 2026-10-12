@@ -4,7 +4,14 @@ import { resolve } from "node:path"
 const source = readFileSync(
   resolve(
     process.cwd(),
-    "src/components/conversations/conversation-detail-panel.tsx"
+    "src/components/conversations/conversation-detail-panel/conversation-tab-view.tsx"
+  ),
+  "utf8"
+)
+const panelSource = readFileSync(
+  resolve(
+    process.cwd(),
+    "src/components/conversations/conversation-detail-panel/index.tsx"
   ),
   "utf8"
 )
@@ -82,7 +89,7 @@ describe("ConversationDetailPanel new conversation layout", () => {
     // carry `conversation-tab-hidden` next to `invisible`, and globals.css must
     // drop transitions for that subtree so visibility snaps. Both halves are
     // required — assert they stay coupled.
-    expect(source).toContain(
+    expect(panelSource).toContain(
       '"conversation-tab-hidden absolute inset-0 invisible pointer-events-none"'
     )
     expect(globalsCssSource).toContain(".conversation-tab-hidden *")
@@ -202,7 +209,7 @@ describe("ConversationDetailPanel new conversation layout", () => {
       "<OverlayHostHiddenProvider hidden={filesMaximized}>"
     )
     // A backgrounded conversation tab behind the selected one.
-    expect(source).toContain(
+    expect(panelSource).toContain(
       "<OverlayHostHiddenProvider hidden={!canTileG && !visible}>"
     )
   })
@@ -310,44 +317,48 @@ describe("ConversationDetailPanel split-group render model", () => {
   // remount) every live conversation view on split/unsplit/orientation
   // changes.
   it("renders group shells as flat keyed siblings from computed rects", () => {
-    expect(source).toContain(
+    expect(panelSource).toContain(
       "{orderedGroupIds.map((groupId) => renderGroupShell(groupId))}"
     )
-    expect(source).toContain("const renderGroupShell = (groupId: string)")
+    expect(panelSource).toContain("const renderGroupShell = (groupId: string)")
     // A component defined inside render would change type identity every
     // render and remount its subtree — keep these plain function calls.
-    expect(source).not.toContain("<RenderGroupShell")
-    expect(source).not.toContain("<RenderTabWrapper")
-    expect(source).toContain("key={groupId}")
-    expect(source).toContain("computeRects(groupLayout)")
+    expect(panelSource).not.toContain("<RenderGroupShell")
+    expect(panelSource).not.toContain("<RenderTabWrapper")
+    expect(panelSource).toContain("key={groupId}")
+    expect(panelSource).toContain("computeRects(groupLayout)")
   })
 
   it("marks the active session whenever several are visible (split or tiled)", () => {
-    expect(source).toContain("showActiveFlow={(isSplit || canTileG) && active}")
+    expect(panelSource).toContain(
+      "showActiveFlow={(isSplit || canTileG) && active}"
+    )
   })
 
   it("gives each split group its own strip and divider overlays only while split", () => {
     // The column's single maximize/restore button rides on the top-right
     // group's strip — the one in the unsplit strip's place.
-    expect(source).toContain(
+    expect(panelSource).toContain(
       "<TabBar groupId={groupId} maximizeControl={touchesRight} />"
     )
     expect(workspaceLayoutSource).toContain("<TabBar maximizeControl />")
-    const handlesIdx = source.indexOf("groupHandles.map((handle) => (")
+    const handlesIdx = panelSource.indexOf("groupHandles.map((handle) => (")
     expect(handlesIdx).toBeGreaterThan(-1)
-    expect(source.slice(handlesIdx - 80, handlesIdx)).toContain("{isSplit &&")
+    expect(panelSource.slice(handlesIdx - 80, handlesIdx)).toContain(
+      "{isSplit &&"
+    )
   })
 
   // Each split group keeps the unsplit layout's "tabs + conversation title
   // bar" pairing: its own header (driven by the GROUP's selected tab) sits
   // under its strip, and the global single header steps aside while split.
   it("pairs every split group with its own title bar and gates the global one", () => {
-    const shellStart = source.indexOf("const renderGroupShell = (groupId")
-    const shellBody = source.slice(shellStart, shellStart + 6000)
+    const shellStart = panelSource.indexOf("const renderGroupShell = (groupId")
+    const shellBody = panelSource.slice(shellStart, shellStart + 6000)
     expect(shellBody).toContain("{isSplit && selTab && (")
     expect(shellBody).toContain("<ConversationDetailHeader")
     expect(shellBody).toContain("tabId={selTab.id}")
-    expect(source).toContain("{!isSplit && activeTab && (")
+    expect(panelSource).toContain("{!isSplit && activeTab && (")
   })
 
   // While split the workspace layout drops its title-bar strip row ENTIRELY —
@@ -362,8 +373,8 @@ describe("ConversationDetailPanel split-group render model", () => {
     expect(workspaceLayoutSource).not.toContain("hasConvTabs && !isConvSplit")
 
     // Panel: TOP-edge group strips carry the corner reserves themselves.
-    const shellStart = source.indexOf("const renderGroupShell = (groupId")
-    const shellBody = source.slice(shellStart, shellStart + 6000)
+    const shellStart = panelSource.indexOf("const renderGroupShell = (groupId")
+    const shellBody = panelSource.slice(shellStart, shellStart + 6000)
     expect(shellBody).toContain(
       '{touchesLeft && <SplitStripCornerReserve side="left" />}'
     )

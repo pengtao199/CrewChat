@@ -275,7 +275,7 @@ describe("TabViewGate mirrors ConversationTabView", () => {
   const panel = readFileSync(
     resolve(
       process.cwd(),
-      "src/components/conversations/conversation-detail-panel.tsx"
+      "src/components/conversations/conversation-detail-panel/conversation-tab-view.tsx"
     ),
     "utf8"
   )
@@ -291,7 +291,17 @@ describe("TabViewGate mirrors ConversationTabView", () => {
     expect(panel).toContain(
       "if (detail != null && !heldDetail) setHeldDetail(true)"
     )
-    expect(panel).toContain("isVisible={visible}")
+    // `isVisible` is handed to the view by the panel's tab wrapper — the one
+    // assertion in this test that targets the panel file rather than the view.
+    expect(
+      readFileSync(
+        resolve(
+          process.cwd(),
+          "src/components/conversations/conversation-detail-panel/index.tsx"
+        ),
+        "utf8"
+      )
+    ).toContain("isVisible={visible}")
   })
 
   it("holds the auto-connect on detailLoading", () => {

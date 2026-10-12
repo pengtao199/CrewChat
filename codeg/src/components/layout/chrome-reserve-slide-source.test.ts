@@ -12,7 +12,9 @@ const flatCss = read("src/app/globals.css")
   .replace(/\/\*[\s\S]*?\*\//g, "")
   .replace(/\s+/g, " ")
 const layout = read("src/app/workspace/layout.tsx")
-const panel = read("src/components/conversations/conversation-detail-panel.tsx")
+const panel = read(
+  "src/components/conversations/conversation-detail-panel/split-strip.tsx"
+)
 
 const RESERVE_SELECTOR =
   '.panel-slide-animating[data-panel-group-direction="horizontal"] .chrome-reserve'
