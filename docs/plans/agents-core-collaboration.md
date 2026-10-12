@@ -57,7 +57,7 @@ Status: In Progress（Phase 0 已收口，进入 Phase 1 前的检查点）。0.
 
 ### Phase 1 · 团队闭环（协作 v1，核心）
 
-- **1.1 团队数据契约**（后端）：会话携带 team（leader + 成员 + 项目）；创建 / 读取 / 重启回读一致；迁移 + 接口测试。→ 做到：API 层团队成立（UI 未上前可先用接口验收）。
+- **1.1 团队数据契约** ✅ 2026-10-12：conversation 增 `team` JSON 列（`leader_role_id` + `member_role_ids`，存花名册角色 id；空 = 单 Agent 会话）；创建 / 读取 / 重启回读一致，损坏 JSON 降级为无团队；web + tauri 双入口接参；fork 与保留行继承 team。测试：回读一致、None 保持、损坏降级、迁移 up/down。提交 `76da706`。
 - **1.2 选团队建会话**（前端）：新建会话 = 选项目 + 从 Agents 多选成员（管理员默认加入、可更换）。→ 做到：真机建 3 人协作会话并回读一致。
 - **1.3 管理员知情 + 目标约束**：管理员上下文含「在场成员」帧（名字 / 职责 / 可派范围）；`delegate_to_agent` 仅允许团队成员，越界报错并列出可用名单。→ 做到：越界测试被拒；管理员按成员正常规划。
 - **1.4 会话头成员条**：成员实时状态（排队 / 运行 / 等权限 / 完成）。→ 做到：三态可视、刷新不丢。
@@ -91,23 +91,23 @@ Status: In Progress（Phase 0 已收口，进入 Phase 1 前的检查点）。0.
 
 - **6.1 文档对齐**：README、`AGENTS/agent-model.md`、`bodies.md`、`gateway.md`、计划索引；Python 编排定位改写（参考 / 冻结）；本计划完成后移入 `archive/`。
 - **6.2 Python 侧处置**：冻结标注（不删），未来用途另开计划。
-- **6.3 持续**：三档法 + NOTICE 登记随每步走。
+- **6.3 持续**：四档法（含结构拆分）+ NOTICE 登记随每步走。
 
 ## Non-Goals（不做清单）
 
 - 不桥接 Python 编排、不做前端直连 Python 的协作栈（已改判归档）。
-- 不重写 Codeg 聊天内核；不改上游核心机制（三档法）。
+- 不重写 Codeg 聊天内核；不改上游核心**逻辑**（四档法：结构拆分见 `AGENTS/upstream.md`）。
 - v1 不做扁平多气泡时间线（管理员叙事为准；4.1 为增强）。
 - 不在不可回退的状态下换代：每步可独立验收、可回退。
 
 ## 执行约束（给执行 Agent）
 
 - 开工先按 `AGENTS/` 索引读对应规则（`ui.md` / `api-contract.md` / `agent-model.md` / `truth-sources.md` / `bodies.md` / `verification.md` / `upstream.md`）。
-- **拆分纪律（重要）**：触达大文件时**先把新逻辑做成独立模块 / 新文件，再接线**，不往大文件里持续堆内容。已明确的巨型文件：`settings/acp-agent-settings.tsx`、`acp/connection.rs`、`acp/delegation/broker.rs`、`conversations/conversation-detail-panel.tsx`。主文件只留小集成点（`[crewchat]` 标记范围尽量小）。可参考的已落地做法：就绪卡拆成 `agent-readiness-card.tsx` + `use-agent-ccr-binding.ts`，主文件只留挂载。
+- **拆分纪律（重要）**：触达大文件时**先把新逻辑做成独立模块 / 新文件，再接线**，不往大文件里持续堆内容；**并主动把既有上游大文件拆开**（结构拆分，见 `AGENTS/upstream.md` 四档法与 `codeg/NOTICE.md` 的拆分表——2026-10-12 用户拍板，源项目源码同样拆）。已明确的巨型文件：`settings/acp-agent-settings.tsx`、`acp/connection.rs`、`acp/delegation/broker.rs`、`conversations/conversation-detail-panel.tsx`（Rust 侧第一轮测试外移已登记进 NOTICE）。主文件只留小集成点（`[crewchat]` 标记范围尽量小）。可参考的已落地做法：就绪卡拆成 `agent-readiness-card.tsx` + `use-agent-ccr-binding.ts`，主文件只留挂载。
 - 每步独立小提交：一步一个主题，失败可单独回退；不把多步混进一个提交（见 `AGENTS/git.md`：分批提交、不推送）。
 - 验证顺序：prettier → eslint → tsc → vitest → build；Rust：cargo check / clippy / test；每步收口全量测试绿。
 - server 模式：3080 起法（`CCR_WEB_URL/TOKEN`、`CODEG_STATIC_DIR/DATA_DIR/HOST/PORT`）；前端改动重建 `codeg/out`。
-- 上游改动走三档法 + NOTICE 登记；计划与文档随步同步。
+- 上游改动走四档法（含结构拆分）+ NOTICE 登记；计划与文档随步同步。
 - 每步收口门槛：全量测试绿 + 场景真机证据（截图 / request-log）+ 文档同步 + 工作区干净。
 
 ### 关键地标（省去考古）
