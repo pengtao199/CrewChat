@@ -85,6 +85,7 @@
 | `src-tauri/src/db/service/conversation_service.rs` | `db/service/conversation_service/mod.rs` + `tests.rs` | 内嵌测试外移（2.0k 行） |
 | `src-tauri/src/acp/delegation/companion.rs` | `acp/delegation/companion/mod.rs` + `tests.rs` | 内嵌测试外移（3.1k 行） |
 | `src-tauri/src/acp/delegation/tool_schema.json` | `acp/delegation/companion/tool_schema.json` | 随 companion 目录化移动（`include_str!` 相对路径） |
+| `src/components/settings/acp-agent-settings.tsx` | `acp-agent-settings/index.tsx` + `agent-reorder-item.tsx` + `acp-agent-settings/helpers/*`（types / context / env / config-text / claude / gemini / opencode / cline / openclaw / grok / codex / codex-toml / hermes / deepseek / important-config / draft / version / checks） | 前端最大文件拆分（12.9k → 页面组件 8.7k + 18 个 helpers，全部 <1k；测试零改动 157 用例绿） |
 
 ## 构建与开发
 
