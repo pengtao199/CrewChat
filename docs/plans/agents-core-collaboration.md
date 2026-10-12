@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-12 (Asia/Shanghai)
-Status: In Progress（Phase 2 角色化推进中）。Phase 1 协作 v1 已收口（1.1–1.5 ✅；模型路由细化未达预期，按用户拍板并入 3.1）；下一步 2.1 存储收敛。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 2 角色化推进中）。Phase 1 协作 v1 已收口（1.1–1.5 ✅；模型路由细化未达预期，按用户拍板并入 3.1）；2.1 存储收敛 ✅；下一步 2.2 人格生效链路。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -66,7 +66,7 @@ Status: In Progress（Phase 2 角色化推进中）。Phase 1 协作 v1 已收�
 
 ### Phase 2 · 角色化（花名册一等公民）
 
-- **2.1 存储收敛**：角色入 Codeg 自定义 agent 注册表（+ `instructions` / brain 字段）；Agents 设置页读写新存储；`.data/agents` + `agent-roles.json` 一次性迁移（先备份、可回滚）后退役。→ 做到：单一写入方、单一真相源；设置页全功能。
+- **2.1 存储收敛** ✅ 2026-10-12：角色入 Codeg 自定义 agent 注册表——`custom_agent` 增 8 列（kind / body / instructions / rules / brain_model / brain_provider / skills_json / mcp_json；迁移 `m20261012_000002`；旧行默认 `kind='acp'` 行为不变）。新 `db/service/agent_role_service.rs`：角色 CRUD（`kind='role'`，与 ACP agent 共 id 空间、冲突拒绝）+ 一次性遗留迁移（`agent-roles.json` 先备份再导入、`.data/agents/*.jsonc` 去注释导入、重名以 Codeg 名册优先跳过、`app_metadata` 标记、非破坏可回滚）。发射面经 `list_launchable_defs` 与 role 行隔离（hydrate / 自定义 agent 列表 / 配置同步）。入口切换：命令层改 DB 后端（命令名与 wire 形状不变，前端零改动）、`team.rs` 直连服务、启动点挂迁移。真机：启动迁移 `codeg=4 python=6 skipped=2 failed=0`（管理员 / 前端工程师重名跳过），备份 `.pre-phase2.bak` 落盘，API 10 角色，自定义 agent 列表不含角色。测试：15 + 80 用例绿；前置拆分第五批（`custom_registry` 目录化）。提交 `a9e5d99` + `1134014`。→ 做到：单一写入方、单一真相源；设置页全功能。
 - **2.2 人格生效链路**：主会话与成员任务都注入 role / goal / backstory。→ 做到：有 / 无花名册角色的对照行为差异可见。
 - **2.3 技能 / MCP 归位**：角色可选技能（Codeg skills / experts 机制）与 MCP，成员会话按角色加载。→ 做到：一次「成员用技能干活」的验收会话。
 

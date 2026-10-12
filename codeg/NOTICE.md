@@ -78,6 +78,10 @@
 | `src/components/conversations/conversation-detail-header.tsx` | 标题行下挂 `TeamMemberStrip`（非团队会话与草稿不渲染） | 会话头成员条落点 |
 | `src/contexts/delegation-context.tsx` | `listBindings()` —— 导出全部实时 binding（聚合视图消费） | 成员条按 `agent_type` 聚合实时状态 |
 | `src/i18n/messages/*.json`（10 语言） | 新增 `TeamMemberStrip` 命名空间（中英繁实翻，其余沿用英文） | 同上 |
+| `src-tauri/src/db/migration/m20261012_000002_custom_agent_role_fields.rs`（新增）＋ `db/entities/custom_agent.rs` | Phase 2.1：`custom_agent` 增 8 列（kind / body / instructions / rules / brain_model / brain_provider / skills_json / mcp_json；旧行默认 `kind='acp'`，行为不变） | 花名册入自定义 agent 注册表（开工拍板 #4） |
+| `src-tauri/src/db/service/agent_role_service.rs`（新增）＋ `src-tauri/src/models/agent_role.rs`（新增） | 角色 CRUD（`kind='role'` 行，与 ACP agent 共 id 空间、冲突拒绝）＋ 一次性遗留迁移（`agent-roles.json` 先备份再导入、`.data/agents/*.jsonc` 去注释导入、重名以 Codeg 名册优先跳过、`app_metadata` 标记、非破坏可回滚） | 单一写入方、单一真相源；旧文件存储退役 |
+| `src-tauri/src/db/service/custom_agent_service.rs` | `list_launchable_defs`（发射面过滤 role 行；hydrate / 自定义 agent 列表 / delete 全部限定 kind） | 角色不会被当作可启动的 ACP agent |
+| `src-tauri/src/commands/agent_roles.rs`、`web/handlers/agent_roles.rs`、`acp/delegation/team.rs`、`db/mod.rs`、`commands/config_sync/{domains,snapshot}.rs` | 命令层改 DB 后端（async + State；命令名与 wire 形状不变）；team 查询直连服务；启动点挂迁移；配置同步跳过 role 行 | 接线（前端零改动） |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 
