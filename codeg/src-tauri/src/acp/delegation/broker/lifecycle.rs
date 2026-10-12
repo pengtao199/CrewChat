@@ -256,6 +256,16 @@ impl DelegationBroker {
             parent_conversation_id: req.parent_conversation_id,
             parent_tool_use_id: req.parent_tool_use_id.clone(),
             delegation_call_id: call_id.clone(),
+            // [crewchat] Phase 2.2: stamp the delegable member's role onto the
+            // child row so the member's own session resolves its persona
+            // frame. The member list was already resolved for the scope gate
+            // above; an empty team (or an unresolvable member) leaves this
+            // `None` and the child runs without a persona, as before.
+            member_role_id: team_members
+                .iter()
+                .find(|member| member.agent_type == req.agent_type.as_wire())
+                .map(|member| member.role_id.clone())
+                .filter(|role_id| !role_id.is_empty()),
         };
 
         // Reserve this delegation (both ids) BEFORE sending its first prompt.

@@ -72,6 +72,23 @@ pub async fn list_roles(conn: &DatabaseConnection) -> Result<Vec<AgentRole>, DbE
     Ok(rows.iter().map(row_to_role).collect())
 }
 
+/// One role by id, `None` when the id is unknown or belongs to a launchable
+/// ACP agent. Used by the persona frame's resolution (Phase 2.2).
+pub async fn get_role(
+    conn: &DatabaseConnection,
+    id: &str,
+) -> Result<Option<AgentRole>, DbError> {
+    if id.trim().is_empty() {
+        return Ok(None);
+    }
+    let row = custom_agent::Entity::find()
+        .filter(custom_agent::Column::RegistryId.eq(id))
+        .filter(custom_agent::Column::Kind.eq(KIND_ROLE))
+        .one(conn)
+        .await?;
+    Ok(row.as_ref().map(row_to_role))
+}
+
 /// Insert or update a role. An id that already belongs to a launchable ACP
 /// agent is refused — the two kinds share one id space on purpose, and a
 /// collision would make one of them unreachable.

@@ -4979,7 +4979,7 @@
             AgentType::Gemini,
             AgentType::custom("delegating-custom").expect("valid custom id"),
         ] {
-            let prompt = prepare_agent_bound_prompt(parent, blocks.clone(), true, &[]);
+            let prompt = prepare_agent_bound_prompt(parent, blocks.clone(), true, None, &[]);
             assert_eq!(prompt.len(), 2, "{parent} must receive the routing block");
             assert!(matches!(
                 &prompt[0],
@@ -4996,7 +4996,7 @@
         // An agent that never received the companion (OpenClaw's
         // supports_mcp=false, pi's wire exclusion) reaches here with delegation
         // off and keeps a pristine prompt.
-        let unrouted = prepare_agent_bound_prompt(AgentType::OpenClaw, blocks, false, &[]);
+        let unrouted = prepare_agent_bound_prompt(AgentType::OpenClaw, blocks, false, None, &[]);
         assert_eq!(unrouted.len(), 1);
         assert!(matches!(
             &unrouted[0],
@@ -5014,8 +5014,9 @@
             name: "前端工程师".into(),
             agent_type: "codex".into(),
             duty: Some("专注于界面与交互实现".into()),
+            role_id: "r-frontend".into(),
         }];
-        let prompt = prepare_agent_bound_prompt(AgentType::ClaudeCode, blocks, true, &members);
+        let prompt = prepare_agent_bound_prompt(AgentType::ClaudeCode, blocks, true, None, &members);
         assert_eq!(prompt.len(), 3, "user text + routing frame + team frame");
         assert!(matches!(
             &prompt[1],
@@ -5034,8 +5035,74 @@
         let blocks = vec![PromptInputBlock::Text {
             text: "hello".into(),
         }];
-        let prompt = prepare_agent_bound_prompt(AgentType::OpenClaw, blocks, false, &members);
+        let prompt = prepare_agent_bound_prompt(AgentType::OpenClaw, blocks, false, None, &members);
         assert_eq!(prompt.len(), 1);
+    }
+
+    #[test]
+    fn final_agent_boundary_appends_the_role_frame_first_and_undelegated() {
+        use crate::models::agent_role::AgentRole;
+        let role = AgentRole {
+            id: "r-lead".into(),
+            name: "管理员".into(),
+            soul: "先规划、再委派、最后汇总。".into(),
+            rules: "不要独自写完整个任务。".into(),
+            agent_type: "claude_code".into(),
+            model: String::new(),
+            model_provider: String::new(),
+            skills: vec![],
+            mcp: vec![],
+            created_at: None,
+            updated_at: None,
+        };
+        let members = vec![crate::acp::delegation::team::TeamMember {
+            name: "前端工程师".into(),
+            agent_type: "codex".into(),
+            duty: None,
+            role_id: "r-frontend".into(),
+        }];
+
+        let blocks = vec![PromptInputBlock::Text {
+            text: "ask [@Codex](codeg://agent/codex) then plan".into(),
+        }];
+        let prompt = prepare_agent_bound_prompt(
+            AgentType::ClaudeCode,
+            blocks,
+            true,
+            Some(&role),
+            &members,
+        );
+        assert_eq!(prompt.len(), 4, "user + role + routing + team");
+        assert!(matches!(
+            &prompt[1],
+            ContentBlock::Text(text) if text.text.contains("codeg_internal_role")
+        ));
+        assert!(matches!(
+            &prompt[2],
+            ContentBlock::Text(text) if text.text.contains("Codeg composer routing metadata")
+        ));
+        assert!(matches!(
+            &prompt[3],
+            ContentBlock::Text(text) if text.text.contains("Codeg session team (authoritative): ")
+        ));
+
+        // The persona is NOT delegation-gated: the role describes how this
+        // session works even when codeg-mcp never made it in.
+        let blocks = vec![PromptInputBlock::Text {
+            text: "hello".into(),
+        }];
+        let prompt = prepare_agent_bound_prompt(
+            AgentType::OpenClaw,
+            blocks,
+            false,
+            Some(&role),
+            &members,
+        );
+        assert_eq!(prompt.len(), 2, "user + role only");
+        assert!(matches!(
+            &prompt[1],
+            ContentBlock::Text(text) if text.text.contains("codeg_internal_role")
+        ));
     }
 
     #[test]

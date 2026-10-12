@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::conversation::ConversationTeam;
 use crate::models::AgentType;
+use crate::models::agent_role::AgentRole;
 
 use super::types::DelegationError;
 
@@ -47,6 +48,12 @@ pub struct TeamMember {
     /// its `soul`, capped). Absent when the role has none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duty: Option<String>,
+    /// [crewchat] The roster role id this member resolves from (Phase 2.2).
+    /// NOT part of the wire shape: skipped both ways so the team frame's
+    /// byte-exact identity is untouched. The broker stamps it onto the child
+    /// conversation so the member's own session can resolve its persona.
+    #[serde(skip)]
+    pub role_id: String,
 }
 
 /// Resolves the delegable members of a conversation's team.
@@ -57,6 +64,13 @@ pub struct TeamMember {
 #[async_trait]
 pub trait TeamLookup: Send + Sync {
     async fn members_of(&self, conversation_id: i32) -> Vec<TeamMember>;
+
+    /// [crewchat] The role this conversation RUNS AS (Phase 2.2) — the team's
+    /// leader role for a group conversation, or a delegation child's member
+    /// role (the broker names it in `leader_role_id` with no members; see
+    /// `ConversationTeam`). `None` for plain sessions, unresolvable ids, and
+    /// every lookup failure (logged, degrade to "no persona").
+    async fn conversation_role(&self, conversation_id: i32) -> Option<AgentRole>;
 }
 
 /// Default lookup for tests and delegation-disabled paths: every conversation
@@ -67,6 +81,10 @@ pub struct NoopTeamLookup;
 impl TeamLookup for NoopTeamLookup {
     async fn members_of(&self, _conversation_id: i32) -> Vec<TeamMember> {
         Vec::new()
+    }
+
+    async fn conversation_role(&self, _conversation_id: i32) -> Option<AgentRole> {
+        None
     }
 }
 
@@ -89,20 +107,52 @@ impl TeamLookup for DbTeamLookup {
             }
         }
     }
+
+    async fn conversation_role(&self, conversation_id: i32) -> Option<AgentRole> {
+        match self.conversation_role_inner(conversation_id).await {
+            Ok(role) => role,
+            Err(error) => {
+                tracing::warn!(
+                    "[crewchat][role] resolving conversation {conversation_id}'s role failed \
+                     ({error}); the session runs without a persona frame"
+                );
+                None
+            }
+        }
+    }
 }
 
 impl DbTeamLookup {
-    async fn resolve(&self, conversation_id: i32) -> Result<Vec<TeamMember>, String> {
+    async fn conversation_role_inner(&self, conversation_id: i32) -> Result<Option<AgentRole>, String> {
+        let Some(team) = self.team_of(conversation_id).await? else {
+            return Ok(None);
+        };
+        crate::db::service::agent_role_service::get_role(&self.db.conn, &team.leader_role_id)
+            .await
+            .map_err(|error| format!("read role: {error}"))
+    }
+}
+
+impl DbTeamLookup {
+    /// The conversation row's `team` snapshot, parsed. `Ok(None)` = no team.
+    async fn team_of(&self, conversation_id: i32) -> Result<Option<ConversationTeam>, String> {
         use sea_orm::EntityTrait;
         let row = crate::db::entities::conversation::Entity::find_by_id(conversation_id)
             .one(&self.db.conn)
             .await
             .map_err(|error| error.to_string())?;
         let Some(raw) = row.and_then(|row| row.team) else {
-            return Ok(Vec::new());
+            return Ok(None);
         };
         let team: ConversationTeam =
             serde_json::from_str(&raw).map_err(|error| format!("parse team JSON: {error}"))?;
+        Ok(Some(team))
+    }
+
+    async fn resolve(&self, conversation_id: i32) -> Result<Vec<TeamMember>, String> {
+        let Some(team) = self.team_of(conversation_id).await? else {
+            return Ok(Vec::new());
+        };
         if team.member_role_ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -137,6 +187,7 @@ pub fn members_from_roles(
             name: role.name.trim().to_string(),
             agent_type: role.agent_type.trim().to_string(),
             duty: first_line_capped(&role.soul, MAX_DUTY_CHARS),
+            role_id: role.id.clone(),
         })
         .collect()
 }
@@ -251,16 +302,19 @@ mod tests {
                 name: "后端开发工程师".into(),
                 agent_type: "open_code".into(),
                 duty: None,
+                role_id: "r-backend".into(),
             },
             TeamMember {
                 name: "前端工程师".into(),
                 agent_type: "codex".into(),
                 duty: None,
+                role_id: "r-frontend".into(),
             },
             TeamMember {
                 name: "运维工程师".into(),
                 agent_type: "claude_code".into(),
                 duty: None,
+                role_id: "r-ops".into(),
             },
         ];
         assert!(scope_refusal(AgentType::Codex, &members).is_none());

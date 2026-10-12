@@ -66,6 +66,7 @@ use crate::acp::delegation::meta_writer::{
 };
 use crate::acp::delegation::spawner::{ConnectionSpawner, DelegationLink};
 use crate::acp::delegation::team::{NoopTeamLookup, TeamLookup, TeamMember};
+use crate::models::agent_role::AgentRole;
 use crate::acp::delegation::types::{
     AgentDelegationDefaults, BlockedKind, BlockedOn, DelegationError, DelegationOutcome,
     DelegationRequest, DelegationTaskReport, ResumeDelegationRequest, TaskStatus,
@@ -302,6 +303,14 @@ impl DelegationBroker {
     /// connection loop to frame the leader's prompt with the member list.
     pub async fn team_members(&self, conversation_id: i32) -> Vec<TeamMember> {
         self.team_lookup.members_of(conversation_id).await
+    }
+
+    /// [crewchat] The role this conversation runs as (Phase 2.2) — the team's
+    /// leader for a group conversation, the member's role for a delegation
+    /// child; `None` for plain sessions. Read by the connection loop to
+    /// append the persona frame.
+    pub async fn conversation_role(&self, conversation_id: i32) -> Option<AgentRole> {
+        self.team_lookup.conversation_role(conversation_id).await
     }
 
 

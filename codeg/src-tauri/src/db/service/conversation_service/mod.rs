@@ -75,8 +75,31 @@ pub async fn create_with_delegation(
     } else {
         ConversationKind::Regular
     };
+    // [crewchat] Phase 2.2: a delegation child names the MEMBER ROLE it runs
+    // as. It rides the `team` column with no members — `leader_role_id` is
+    // exactly "the role this conversation runs as" (the team's leader for a
+    // group conversation, the member for a child), and every team consumer
+    // treats an empty member list as "nothing to gate, nothing to frame".
+    let team_json = delegation
+        .as_ref()
+        .and_then(|link| link.member_role_id.as_ref())
+        .map(|role_id| {
+            serde_json::to_string(&crate::models::conversation::ConversationTeam {
+                leader_role_id: role_id.clone(),
+                member_role_ids: Vec::new(),
+            })
+            .map_err(|error| DbError::Migration(format!("serialize child role: {error}")))
+        })
+        .transpose()?;
     create_inner(
-        conn, folder_id, agent_type, title, git_branch, delegation, kind, None,
+        conn,
+        folder_id,
+        agent_type,
+        title,
+        git_branch,
+        delegation,
+        kind,
+        team_json,
     )
     .await
 }

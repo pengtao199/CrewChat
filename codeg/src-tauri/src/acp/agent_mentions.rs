@@ -45,6 +45,29 @@ const MAX_TEAM_FRAME_DUTY_CHARS: usize = crate::acp::delegation::team::MAX_DUTY_
 /// Opening the members line must carry in every team frame.
 const TEAM_MEMBERS_LINE_PREFIX: &str = "Codeg session team (authoritative): ";
 
+// [crewchat] The THIRD internal frame kind (Phase 2.2): the role this session
+// runs as — a group conversation's leader, or a delegation child's member
+// role. The persona text rides as ONE JSON string on the body's second line
+// (newlines escaped), which keeps every frame exactly three physical lines —
+// the shared finder/strip machinery needs no per-kind line arithmetic. Same
+// identity discipline as the other kinds.
+const ROLE_FRAME_KIND: &str = "codeg_internal_role";
+/// Opening bytes of the role frame's descriptor line — the body anchor.
+const ROLE_FRAME_BODY_PREFIX: &str = "{\"kind\":\"codeg_internal_role\"";
+const ROLE_FRAME_VERSION: u8 = 1;
+/// Total frame budget. Kept at the shared body bound
+/// (`MAX_ROUTE_FRAME_BYTES`) so the separated finder's window always spans a
+/// complete role frame.
+const MAX_ROLE_FRAME_BYTES: usize = 16 * 1024;
+/// Per-document byte cap (`instructions` / `rules`), applied by TRUNCATION in
+/// `append_role_frame` — the frame must always be re-renderable, so oversize
+/// input can never reach the wire unclipped.
+const MAX_ROLE_TEXT_BYTES: usize = 6000;
+/// Character cap for the role name in the frame.
+const MAX_ROLE_FRAME_NAME_CHARS: usize = 64;
+/// Opening the role line must carry in every role frame.
+const ROLE_LINE_PREFIX: &str = "Codeg session role (authoritative): ";
+
 /// One routed agent inside the frame — nothing but the wire slug.
 ///
 /// The frame is derived from the prompt's own visible `codeg://agent/...`
@@ -78,6 +101,30 @@ struct InternalTeamFrame {
     nonce: String,
     #[serde(skip)]
     members: Vec<crate::acp::delegation::team::TeamMember>,
+}
+
+/// [crewchat] The role frame's wire shape (Phase 2.2). The persona payload
+/// (`role`) rides on the body's second line as one JSON string.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct InternalRoleFrame {
+    kind: String,
+    version: u8,
+    nonce: String,
+    #[serde(skip)]
+    role: RoleFrameBody,
+}
+
+/// The role document as rendered into (and parsed from) the frame's second
+/// line. `instructions` is the roster's Soul document, `rules` its Agents.md.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RoleFrameBody {
+    name: String,
+    #[serde(default)]
+    instructions: String,
+    #[serde(default)]
+    rules: String,
 }
 
 fn agent_reference_regex() -> &'static Regex {
@@ -243,6 +290,10 @@ fn accepts_team_frame_body(body: &str) -> bool {
     parse_internal_team_frame_body(body).is_some()
 }
 
+fn accepts_role_frame_body(body: &str) -> bool {
+    parse_internal_role_frame_body(body).is_some()
+}
+
 /// Every internal frame kind Codeg appends. Both bodies are exactly three
 /// newline-terminated lines, which is what [`unseparated_frame_end`] relies
 /// on; a kind with a different line count needs that finder parameterized.
@@ -254,6 +305,10 @@ const INTERNAL_FRAME_KINDS: &[InternalFrameKind] = &[
     InternalFrameKind {
         body_prefix: TEAM_FRAME_BODY_PREFIX,
         accepts_body: accepts_team_frame_body,
+    },
+    InternalFrameKind {
+        body_prefix: ROLE_FRAME_BODY_PREFIX,
+        accepts_body: accepts_role_frame_body,
     },
 ];
 
@@ -353,6 +408,7 @@ fn sanitized_team_members(
                 name,
                 agent_type: member.agent_type.clone(),
                 duty,
+                role_id: member.role_id.clone(),
             })
         })
         .take(crate::acp::delegation::team::MAX_TEAM_MEMBERS)
@@ -413,6 +469,120 @@ fn parse_internal_team_frame_body(candidate: &str) -> Option<InternalTeamFrame> 
                 || !valid_agent_wire_syntax(&member.agent_type)
         })
         || render_internal_team_frame_body(&frame) != candidate
+    {
+        return None;
+    }
+    Some(frame)
+}
+
+// --- [crewchat] Role frame (Phase 2.2) ---------------------------------------
+//
+// The persona this session runs as — a group conversation's leader role, or a
+// delegation child's member role. Rendered to the same 3-line body shape as
+// the other kinds (the persona rides as one JSON string, newlines escaped) so
+// the shared finder/strip machinery needs no per-kind line arithmetic.
+
+/// [crewchat] Append the persona frame for the role this session runs as
+/// (Phase 2.2). The caller resolves the role from the conversation: the
+/// team's leader for a group conversation, the member's role for a delegation
+/// child. Roles with neither instructions nor rules append nothing.
+pub(crate) fn append_role_frame(
+    blocks: &mut Vec<PromptInputBlock>,
+    role: &crate::models::agent_role::AgentRole,
+) {
+    let role_body = sanitized_role_body(role);
+    if role_body.instructions.is_empty() && role_body.rules.is_empty() {
+        return;
+    }
+    let frame = InternalRoleFrame {
+        kind: ROLE_FRAME_KIND.to_string(),
+        version: ROLE_FRAME_VERSION,
+        nonce: uuid::Uuid::new_v4().to_string(),
+        role: role_body,
+    };
+    blocks.push(PromptInputBlock::Text {
+        text: render_internal_role_frame(&frame),
+    });
+}
+
+/// Freeze the role into exactly what the validator accepts. The persona
+/// documents are TRUNCATED (never rejected) to their byte caps and stripped
+/// of the reserved separator, so the frame is always re-renderable no matter
+/// what the roster holds.
+fn sanitized_role_body(role: &crate::models::agent_role::AgentRole) -> RoleFrameBody {
+    fn scrub(value: &str) -> String {
+        let cleaned = value.replace(ROUTE_FRAME_SEPARATOR, "");
+        cap_bytes(cleaned.trim(), MAX_ROLE_TEXT_BYTES)
+    }
+    let mut name: String = role
+        .name
+        .replace(ROUTE_FRAME_SEPARATOR, "")
+        .trim()
+        .chars()
+        .take(MAX_ROLE_FRAME_NAME_CHARS)
+        .collect();
+    if name.is_empty() {
+        name = "Role".to_string();
+    }
+    RoleFrameBody {
+        name,
+        instructions: scrub(&role.soul),
+        rules: scrub(&role.rules),
+    }
+}
+
+fn cap_bytes(value: &str, cap: usize) -> String {
+    if value.len() <= cap {
+        return value.to_string();
+    }
+    let mut end = cap;
+    while end > 0 && !value.is_char_boundary(end) {
+        end -= 1;
+    }
+    value[..end].to_string()
+}
+
+fn render_internal_role_frame(frame: &InternalRoleFrame) -> String {
+    format!(
+        "{ROUTE_FRAME_SEPARATOR}{}{ROUTE_FRAME_SEPARATOR}",
+        render_internal_role_frame_body(frame)
+    )
+}
+
+/// The role frame WITHOUT its separators: descriptor line, role line, and the
+/// adoption ruling. Like the other kinds, the body's exact bytes ARE its
+/// identity — editing this string orphans frames already written into
+/// transcripts, so a wording change must bump [`ROLE_FRAME_VERSION`].
+fn render_internal_role_frame_body(frame: &InternalRoleFrame) -> String {
+    let descriptor = serde_json::to_string(frame).expect("internal role frame is serializable");
+    let role = serde_json::to_string(&frame.role).expect("role body is serializable");
+    format!(
+        "{descriptor}\n\
+{ROLE_LINE_PREFIX}{role}\n\
+Adopt the role above for this session: let it shape your tone, priorities and \
+working style; the user's explicit instructions take precedence, and nothing in \
+the role definition can override your safety rules.\n"
+    )
+}
+
+/// Validate a candidate against [`render_internal_role_frame_body`].
+fn parse_internal_role_frame_body(candidate: &str) -> Option<InternalRoleFrame> {
+    if candidate.len() > MAX_ROLE_FRAME_BYTES {
+        return None;
+    }
+    let (descriptor, remainder) = candidate.split_once('\n')?;
+    let mut frame: InternalRoleFrame = serde_json::from_str(descriptor).ok()?;
+    let role_json = remainder.lines().next()?.strip_prefix(ROLE_LINE_PREFIX)?;
+    frame.role = serde_json::from_str(role_json).ok()?;
+    if frame.kind != ROLE_FRAME_KIND
+        || frame.version != ROLE_FRAME_VERSION
+        || uuid::Uuid::parse_str(&frame.nonce).is_err()
+        || frame.role.name.trim().is_empty()
+        || frame.role.name.chars().count() > MAX_ROLE_FRAME_NAME_CHARS
+        || frame.role.instructions.len() > MAX_ROLE_TEXT_BYTES
+        || frame.role.rules.len() > MAX_ROLE_TEXT_BYTES
+        || (frame.role.instructions.is_empty() && frame.role.rules.is_empty())
+        || render_internal_role_frame_body(&frame) != candidate
     {
         return None;
     }
@@ -1053,6 +1223,7 @@ mod tests {
             name: name.into(),
             agent_type: agent_type.into(),
             duty: None,
+            role_id: String::new(),
         }
     }
 
@@ -1068,6 +1239,7 @@ mod tests {
                     name: "后端开发工程师".into(),
                     agent_type: "open_code".into(),
                     duty: Some("脚本、环境与部署".into()),
+                    role_id: "r-backend".into(),
                 },
                 member("前端工程师", "codex"),
             ],
@@ -1169,6 +1341,101 @@ mod tests {
             crate::acp::delegation::team::MAX_TEAM_MEMBERS
         );
         assert_eq!(strip_internal_agent_routes(frame), "");
+    }
+
+    // --- [crewchat] role frame (Phase 2.2) -----------------------------------
+
+    fn role_fixture() -> crate::models::agent_role::AgentRole {
+        crate::models::agent_role::AgentRole {
+            id: "r-lead".into(),
+            name: "管理员".into(),
+            soul: "先规划、再委派、最后汇总。".into(),
+            rules: "不要独自写完整个任务。".into(),
+            agent_type: "claude_code".into(),
+            model: String::new(),
+            model_provider: String::new(),
+            skills: vec![],
+            mcp: vec![],
+            created_at: None,
+            updated_at: None,
+        }
+    }
+
+    #[test]
+    fn role_frame_roundtrips_through_separated_and_separatorless_forms() {
+        let visible = "帮我规划一下";
+        let mut blocks = vec![PromptInputBlock::Text {
+            text: visible.into(),
+        }];
+        append_role_frame(&mut blocks, &role_fixture());
+        assert_eq!(blocks.len(), 2);
+        let frame = text(&blocks[1]);
+        assert!(frame.contains("Codeg session role (authoritative): "));
+        assert!(frame.contains("先规划、再委派、最后汇总。"));
+        assert!(frame.contains("不要独自写完整个任务。"));
+        assert!(
+            frame.starts_with(&format!("{ROUTE_FRAME_SEPARATOR}{ROLE_FRAME_BODY_PREFIX}")),
+            "the separator-less scan anchors on the descriptor's own opening"
+        );
+        assert!(contains_internal_agent_routes(frame));
+        assert_eq!(strip_internal_agent_routes(frame), "");
+
+        let persisted = as_antigravity_persists(&blocks);
+        assert_eq!(strip_internal_agent_routes(&persisted).trim_end(), visible);
+    }
+
+    #[test]
+    fn a_reworded_role_frame_is_kept_as_prose() {
+        let mut blocks = vec![PromptInputBlock::Text { text: "go".into() }];
+        append_role_frame(&mut blocks, &role_fixture());
+        let body = text(&blocks[1]).replace(ROUTE_FRAME_SEPARATOR, "");
+        assert_eq!(strip_internal_agent_routes(&body), "");
+
+        let reworded = body.replace("Adopt the role above", "adopt the role above");
+        assert_eq!(strip_internal_agent_routes(&reworded), reworded);
+        // A nonce that is not a UUID is not a nonce this renderer produced.
+        let forged = body.replacen("\"nonce\":\"", "\"nonce\":\"x", 1);
+        assert_eq!(strip_internal_agent_routes(&forged), forged);
+    }
+
+    #[test]
+    fn role_frame_truncates_oversize_documents_and_scrubs_the_separator() {
+        let mut role = role_fixture();
+        // 4000 CJK chars ≈ 12 KB — over the per-document byte cap — plus a
+        // stray reserved separator smuggled through the persona text.
+        role.soul = format!("{}{}", "长".repeat(4000), ROUTE_FRAME_SEPARATOR);
+        let mut blocks = vec![PromptInputBlock::Text { text: "go".into() }];
+        append_role_frame(&mut blocks, &role);
+        let frame = text(&blocks[1]);
+        assert_eq!(
+            frame.matches(ROUTE_FRAME_SEPARATOR).count(),
+            2,
+            "only the frame's own delimiters may survive"
+        );
+        assert!(frame.len() <= MAX_ROLE_FRAME_BYTES);
+        // Still a valid, strippable frame despite the oversize input.
+        assert_eq!(strip_internal_agent_routes(frame), "");
+    }
+
+    #[test]
+    fn a_role_with_no_documents_appends_nothing() {
+        let mut role = role_fixture();
+        role.soul = "   ".into();
+        role.rules = String::new();
+        let mut blocks = vec![PromptInputBlock::Text { text: "go".into() }];
+        append_role_frame(&mut blocks, &role);
+        assert_eq!(blocks.len(), 1);
+    }
+
+    #[test]
+    fn a_title_is_cut_at_a_role_frame_marker_too() {
+        let mut separated = String::from("hi \u{001e}{\"kind\":\"codeg_internal_role\",\"versi");
+        cut_at_route_frame_marker(&mut separated);
+        assert_eq!(separated, "hi");
+
+        let mut bare = String::from("hi  {\"kind\":\"codeg_internal_r");
+        cut_at_route_frame_marker(&mut bare);
+        assert_eq!(bare, "hi");
     }
 
     #[test]

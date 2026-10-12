@@ -28,6 +28,12 @@ pub struct DelegationLink {
     pub parent_conversation_id: i32,
     pub parent_tool_use_id: String,
     pub delegation_call_id: String,
+    /// [crewchat] The roster role this child runs as (Phase 2.2), resolved
+    /// from the parent conversation's team by `agent_type`. Persisted into
+    /// the child row's `team` snapshot (`leader_role_id`, no members) so the
+    /// child's own session can resolve its persona frame. `None` for
+    /// unteamed delegations and every legacy caller.
+    pub member_role_id: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -189,6 +195,10 @@ pub mod mock {
     pub struct MockSpawner {
         pub spawn_results: Mutex<VecDeque<Result<String, SpawnerError>>>,
         pub send_results: Mutex<VecDeque<Result<i32, SpawnerError>>>,
+        /// Every `DelegationLink` handed to `send_prompt_linked_for_delegation`,
+        /// in call order — lets a test observe what the broker stamped onto
+        /// the child row (Phase 2.2's `member_role_id`, for example).
+        pub delegation_links: Mutex<Vec<DelegationLink>>,
         pub cancels: Mutex<Vec<String>>,
         pub disconnects: Mutex<Vec<String>>,
         pub spawn_args: Mutex<Vec<SpawnCallArgs>>,
@@ -327,8 +337,9 @@ pub mod mock {
             &self,
             _conn_id: &str,
             _task: String,
-            _link: DelegationLink,
+            link: DelegationLink,
         ) -> Result<i32, SpawnerError> {
+            self.delegation_links.lock().await.push(link);
             // Honor a test-installed gate: block here (after the broker has
             // reserved the child, before it parks the pending entry) until the
             // test releases it.

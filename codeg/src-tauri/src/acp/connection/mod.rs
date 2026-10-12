@@ -38,7 +38,7 @@ use crate::acp::agent_process::AcpAgent;
 use crate::acp::agent_session::AgentSession;
 use tokio::sync::{mpsc, oneshot, RwLock};
 
-use crate::acp::agent_mentions::{append_agent_routes, append_team_frame};
+use crate::acp::agent_mentions::{append_agent_routes, append_role_frame, append_team_frame};
 use crate::acp::delegation::team::TeamMember;
 use crate::acp::background_watch;
 use crate::acp::cursor_ext::{
@@ -9820,8 +9820,15 @@ fn prepare_agent_bound_prompt(
     agent_type: AgentType,
     mut blocks: Vec<PromptInputBlock>,
     delegation_enabled: bool,
+    role: Option<&crate::models::agent_role::AgentRole>,
     team_members: &[TeamMember],
 ) -> Vec<ContentBlock> {
+    // [crewchat] Role frame (Phase 2.2) FIRST: the persona is the most
+    // system-like block, and it is delegation-independent — a team
+    // conversation keeps its leader's persona even with codeg-mcp absent.
+    if let Some(role) = role {
+        append_role_frame(&mut blocks, role);
+    }
     append_agent_routes(&mut blocks, delegation_enabled);
     // [crewchat] Team frame (Phase 1.3) — appended after the routing frame so
     // the member list is the last internal block the agent reads. Gated on
@@ -11143,22 +11150,21 @@ async fn run_conversation_loop(
                 // and cross-client broadcast. Only the final agent-bound prompt
                 // receives the machine routing block derived from agent badges.
                 let delegation_enabled = state.read().await.delegation_enabled;
-                // [crewchat] Team frame (Phase 1.3): a conversation that runs
-                // with a team tells its leader who is present and which
-                // `agent_type` reaches each member. Resolved here — not at
-                // spawn — because the conversation is linked on the first
-                // prompt; a plain session resolves to no members and appends
-                // nothing. Delegation-gated like the routing frame: without
-                // the codeg-mcp tool group the frame would name a channel
-                // the connection doesn't have.
-                let team_members = match delegation_injection {
-                    Some(injection) if delegation_enabled => {
-                        match state.read().await.conversation_id {
-                            Some(conversation_id) => {
-                                injection.broker.team_members(conversation_id).await
-                            }
-                            None => Vec::new(),
-                        }
+                // [crewchat] Role + team frames (Phases 2.2 / 1.3). The role
+                // frame is NOT delegation-gated: the persona describes how the
+                // session works, codeg-mcp or not. The member list only makes
+                // sense with the delegation tool group, so it stays gated.
+                // Both resolve here — not at spawn — because the conversation
+                // is linked on the first prompt; a plain session resolves to
+                // nothing and appends nothing.
+                let conversation_id = state.read().await.conversation_id;
+                let role = match (delegation_injection, conversation_id) {
+                    (Some(injection), Some(id)) => injection.broker.conversation_role(id).await,
+                    _ => None,
+                };
+                let team_members = match (delegation_injection, conversation_id) {
+                    (Some(injection), Some(id)) if delegation_enabled => {
+                        injection.broker.team_members(id).await
                     }
                     _ => Vec::new(),
                 };
@@ -11166,6 +11172,7 @@ async fn run_conversation_loop(
                     agent_type,
                     blocks,
                     delegation_enabled,
+                    role.as_ref(),
                     &team_members,
                 );
                 if prompt_blocks.is_empty() {

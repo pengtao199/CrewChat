@@ -17,6 +17,7 @@
             parent_conversation_id: parent.id,
             parent_tool_use_id: "tu-1".into(),
             delegation_call_id: "call-1".into(),
+            member_role_id: None,
         };
         let child = create_with_delegation(
             conn,
@@ -157,6 +158,7 @@
                 parent_conversation_id: parent.id,
                 parent_tool_use_id: "tu-1".into(),
                 delegation_call_id: "call-1".into(),
+            member_role_id: None,
             }),
         )
         .await
@@ -171,6 +173,7 @@
                 parent_conversation_id: parent.id,
                 parent_tool_use_id: "tu-2".into(),
                 delegation_call_id: "call-2".into(),
+            member_role_id: None,
             }),
         )
         .await
@@ -219,6 +222,7 @@
             parent_conversation_id: child,
             parent_tool_use_id: "tu-2".into(),
             delegation_call_id: "call-2".into(),
+            member_role_id: None,
         };
         create_with_delegation(
             &db.conn,
@@ -1904,6 +1908,7 @@
                 parent_conversation_id: parent.id,
                 parent_tool_use_id: "tu-activity".into(),
                 delegation_call_id: "call-activity".into(),
+            member_role_id: None,
             }),
         )
         .await
@@ -1964,6 +1969,7 @@
                 parent_conversation_id: regular.id,
                 parent_tool_use_id: "tu-kind".into(),
                 delegation_call_id: "call-kind".into(),
+            member_role_id: None,
             }),
         )
         .await
@@ -2008,4 +2014,63 @@
             !rows.iter().any(|r| r.title.as_deref() == Some("hide")),
             "loop row must be excluded"
         );
+    }
+
+    // [crewchat] Phase 2.2: a delegation child names the member role it runs
+    // as, riding the `team` column with no members. The child's own session
+    // resolves its persona frame from this — and every team consumer treats
+    // an empty member list as "nothing to gate, nothing to frame".
+    #[tokio::test]
+    async fn delegation_child_rows_carry_their_member_role() {
+        use crate::models::conversation::ConversationTeam;
+        let db = fresh_in_memory_db().await;
+        let folder_id = seed_folder(&db, "/tmp/roles").await;
+        let parent = create(
+            &db.conn,
+            folder_id,
+            AgentType::ClaudeCode,
+            Some("P".into()),
+            None,
+        )
+        .await
+        .expect("parent");
+        let link = DelegationLink {
+            parent_conversation_id: parent.id,
+            parent_tool_use_id: "tu-role".into(),
+            delegation_call_id: "call-role".into(),
+            member_role_id: Some("r-frontend".into()),
+        };
+        let child = create_with_delegation(
+            &db.conn,
+            folder_id,
+            AgentType::Codex,
+            Some("C".into()),
+            None,
+            Some(link),
+        )
+        .await
+        .expect("child");
+        let team: ConversationTeam =
+            serde_json::from_str(child.team.as_deref().expect("child carries a team")).unwrap();
+        assert_eq!(team.leader_role_id, "r-frontend");
+        assert!(team.member_role_ids.is_empty());
+
+        // Without a member role the row stays team-less, exactly as before.
+        let plain_link = DelegationLink {
+            parent_conversation_id: parent.id,
+            parent_tool_use_id: "tu-plain".into(),
+            delegation_call_id: "call-plain".into(),
+            member_role_id: None,
+        };
+        let plain = create_with_delegation(
+            &db.conn,
+            folder_id,
+            AgentType::Codex,
+            Some("C2".into()),
+            None,
+            Some(plain_link),
+        )
+        .await
+        .expect("child");
+        assert!(plain.team.is_none());
     }

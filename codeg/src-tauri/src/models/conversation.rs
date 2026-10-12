@@ -11,6 +11,11 @@ use crate::db::entities::conversation::ConversationKind;
 /// one JSON blob on the conversation row; `None` means a plain single-agent
 /// session. See `docs/plans/agents-core-collaboration.md` for why one column
 /// rather than a join table.
+///
+/// Phase 2.2 reading of the shape: `leader_role_id` means "the role this
+/// conversation RUNS AS" — a delegation CHILD row names its member role there
+/// (with an empty `member_role_ids`), which is how the child's own session
+/// resolves its persona frame without a second schema axis.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConversationTeam {
     /// The roster role that leads (plans, delegates, summarizes).

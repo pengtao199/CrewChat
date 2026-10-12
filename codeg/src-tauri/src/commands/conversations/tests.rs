@@ -863,6 +863,7 @@
             parent_conversation_id: parent_id,
             parent_tool_use_id: "tu-historical".into(),
             delegation_call_id: "call-historical".into(),
+            member_role_id: None,
         };
         conversation_service::create_with_delegation(
             &db.conn,
@@ -2313,6 +2314,7 @@
                 parent_conversation_id: parent_id,
                 parent_tool_use_id: (*tool_use).into(),
                 delegation_call_id: format!("call-{i}"),
+            member_role_id: None,
             };
             let child = conversation_service::create_with_delegation(
                 &db.conn,
@@ -2671,6 +2673,7 @@
                 parent_conversation_id: parent_id,
                 parent_tool_use_id: "tu-1".into(),
                 delegation_call_id: "call-1".into(),
+            member_role_id: None,
             }),
         )
         .await
@@ -2715,6 +2718,7 @@
                 parent_conversation_id: parent_id,
                 parent_tool_use_id: "tu-1".into(),
                 delegation_call_id: "call-1".into(),
+            member_role_id: None,
             }),
         )
         .await

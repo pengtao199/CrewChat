@@ -5267,6 +5267,13 @@
         ) -> Vec<crate::acp::delegation::team::TeamMember> {
             self.0.clone()
         }
+
+        async fn conversation_role(
+            &self,
+            _conversation_id: i32,
+        ) -> Option<crate::models::agent_role::AgentRole> {
+            None
+        }
     }
 
     fn team_member(name: &str, agent_type: &str) -> crate::acp::delegation::team::TeamMember {
@@ -5274,6 +5281,7 @@
             name: name.into(),
             agent_type: agent_type.into(),
             duty: None,
+            role_id: format!("role-{name}"),
         }
     }
 
@@ -5347,4 +5355,11 @@
         let outcome = driver.await.unwrap();
         assert!(matches!(outcome, DelegationOutcome::Ok(_)), "got {outcome:?}");
         assert_eq!(mock.spawn_args.lock().await.len(), 1);
+        // [crewchat] Phase 2.2: the child row is stamped with the member's
+        // roster role, which is how the child session resolves its persona.
+        let links = mock.delegation_links.lock().await;
+        assert_eq!(
+            links.last().and_then(|link| link.member_role_id.as_deref()),
+            Some("role-运维工程师")
+        );
     }
