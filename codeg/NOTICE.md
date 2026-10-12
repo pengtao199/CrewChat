@@ -88,6 +88,7 @@
 | `src-tauri/src/acp/connection.rs` | `acp/connection/mod.rs` + `acp/connection/tests.rs` | 内嵌测试外移（16k 行 tests.rs） |
 | `src-tauri/src/commands/acp.rs` | `commands/acp/mod.rs` + `tests.rs` | 尾部测试模块外移（6.6k 行）；中部 `diagnostics_tests` 留原位 |
 | `src-tauri/src/acp/delegation/broker.rs` | `acp/delegation/broker/mod.rs` + `broker/{pending / reports / tool_calls / lifecycle / resume / cancel / status / lookups}.rs` + `tests.rs` | 内嵌测试外移（5.2k 行）；mod.rs 再按架构拆成 8 个子模块（4.6k → 全部 <1k；子模块项升 `pub(crate)`，`broker::…` 表面经 glob re-export 不变；307 用例绿） |
+| `src-tauri/src/acp/custom_registry.rs` | `acp/custom_registry/mod.rs` + `{def / error / validate / meta / registry}.rs` + `tests.rs` | 按职责拆分（1.5k → mod 47 / def 261 / error 68 / validate 137 / meta 210 / registry 242 / tests 607）；`custom_registry::…` 表面经 glob re-export 不变；跨文件私有助手升 `pub(super)`（`effective_version` / `split_archive_entry`）；21 用例 + 相关 2104 用例绿） |
 | `src-tauri/src/acp/manager.rs` | `acp/manager/mod.rs` + `tests.rs` | 内嵌测试外移（5.3k 行） |
 | `src-tauri/src/commands/conversations.rs` | `commands/conversations/mod.rs` + `tests.rs` | 内嵌测试外移（4.0k 行） |
 | `src-tauri/src/db/service/conversation_service.rs` | `db/service/conversation_service/mod.rs` + `tests.rs` | 内嵌测试外移（2.0k 行） |
