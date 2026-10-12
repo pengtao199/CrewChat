@@ -2323,6 +2323,9 @@ pub async fn spawn_agent_connection(
     connections: Arc<tokio::sync::Mutex<HashMap<String, AgentConnection>>>,
     preferred_mode_id: Option<String>,
     preferred_config_values: BTreeMap<String, String>,
+    // [crewchat] Phase 2.3 — the role's MCP allowlist for this session (see
+    // `SessionState::role_mcp`). `None`/empty = the agent-type's full set.
+    role_mcp: Option<Vec<String>>,
     delegation_injection: Option<DelegationInjection>,
     terminal_shell_config: TerminalShellRuntimeConfig,
 ) -> Result<tokio::sync::oneshot::Receiver<()>, AcpError> {
@@ -2336,6 +2339,7 @@ pub async fn spawn_agent_connection(
         owner_window_label.clone(),
         None, // folder_id 由后续 prompt handler 在首次 send 时绑定 (Phase 2)
     );
+    initial_state.role_mcp = role_mcp;
 
     // Install the SessionStarted dedup signal BEFORE wrapping into Arc so the
     // first event (StatusChanged{Connecting} below) doesn't race with the
@@ -5206,7 +5210,10 @@ fn agent_delivers_wire_mcp(agent_type: AgentType) -> bool {
 /// Load MCP servers configured for `agent_type` and convert them into the
 /// ACP wire format. Errors and unsupported entries are logged and skipped so
 /// a single malformed entry never blocks a session from starting.
-fn load_mcp_servers_for_agent(agent_type: AgentType) -> Vec<McpServer> {
+fn load_mcp_servers_for_agent(
+    agent_type: AgentType,
+    role_mcp: Option<&[String]>,
+) -> Vec<McpServer> {
     // Hermes, Kimi Code, Grok, and Cursor each read their own native MCP
     // config at launch — Hermes from `~/.hermes/config.yaml` (`mcp_servers`,
     // registered as `mcp-<name>` toolsets), Kimi Code from
@@ -5254,6 +5261,31 @@ fn load_mcp_servers_for_agent(agent_type: AgentType) -> Vec<McpServer> {
             return Vec::new();
         }
     };
+
+    // [crewchat] Phase 2.3 — a session running as a roster ROLE mounts only
+    // the servers that role selected (rules in `crate::acp::mcp_scope`).
+    let role_scoped = role_mcp.is_some_and(|allow| !allow.is_empty());
+    let (entries, role_missing) =
+        crate::acp::mcp_scope::scope_servers_to_role(entries, role_mcp);
+    if role_scoped {
+        tracing::info!(
+            "[crewchat][role] {} mounts a role-scoped MCP set: kept {} server(s) {}{}",
+            agent_type,
+            entries.len(),
+            entries.keys().cloned().collect::<Vec<_>>().join(", "),
+            if role_missing.is_empty() {
+                String::new()
+            } else {
+                format!(" (missing config: {})", role_missing.join(", "))
+            }
+        );
+    }
+    if !role_missing.is_empty() {
+        tracing::warn!(
+            "[crewchat][role] MCP selection names servers {agent_type} has no config \
+             for: {role_missing:?}"
+        );
+    }
 
     let mut out = Vec::with_capacity(entries.len());
     for (name, spec) in entries {
@@ -6471,13 +6503,16 @@ async fn run_connection(
             // load→new fallback, so gating here keeps server entries off the
             // wire on every path. See `AcpAgentMeta::supports_mcp`.
             let agent_supports_mcp = registry::get_agent_meta(agent_type).supports_mcp;
+            // [crewchat] Phase 2.3: the session's role MCP allowlist, read
+            // once here (the guard is dropped before any await).
+            let session_role_mcp = state.read().await.role_mcp.clone();
 
             // Load MCP servers configured for this agent and filter by the
             // capabilities the agent just declared. Stdio is mandatory per
             // ACP spec; HTTP/SSE are gated on `mcp_capabilities.{http,sse}`.
             let mut mcp_servers: Vec<McpServer> = if agent_supports_mcp {
                 let mcp_caps = &init_resp.agent_capabilities.mcp_capabilities;
-                load_mcp_servers_for_agent(agent_type)
+                load_mcp_servers_for_agent(agent_type, session_role_mcp.as_deref())
                     .into_iter()
                     .filter(|s| match s {
                         McpServer::Stdio(_) => true,

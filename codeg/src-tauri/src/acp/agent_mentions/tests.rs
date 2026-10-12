@@ -323,6 +323,7 @@ use crate::acp::types::PromptInputBlock;
             agent_type: agent_type.into(),
             duty: None,
             role_id: String::new(),
+                mcp: Vec::new(),
         }
     }
 
@@ -339,6 +340,7 @@ use crate::acp::types::PromptInputBlock;
                     agent_type: "open_code".into(),
                     duty: Some("脚本、环境与部署".into()),
                     role_id: "r-backend".into(),
+                mcp: Vec::new(),
                 },
                 member("前端工程师", "codex"),
             ],
@@ -513,6 +515,31 @@ use crate::acp::types::PromptInputBlock;
         );
         assert!(frame.len() <= MAX_ROLE_FRAME_BYTES);
         // Still a valid, strippable frame despite the oversize input.
+        assert_eq!(strip_internal_agent_routes(frame), "");
+    }
+
+    #[test]
+    fn role_frame_carries_skills_with_their_ruling() {
+        let mut role = role_fixture();
+        role.skills = vec!["frontend-design".into(), " ui-ux-pro-max ".into(), "".into(), "frontend-design".into()];
+        let mut blocks = vec![PromptInputBlock::Text { text: "go".into() }];
+        append_role_frame(&mut blocks, &role);
+        let frame = text(&blocks[1]);
+        assert!(
+            frame.contains(r#""skills":["frontend-design","ui-ux-pro-max"]"#),
+            "skills are trimmed, deduplicated and capped: {frame}"
+        );
+        assert!(frame.contains("Use the skills listed above where they fit"));
+        assert_eq!(strip_internal_agent_routes(frame), "");
+
+        // Without skills the field and the ruling both disappear.
+        let mut plain = role_fixture();
+        plain.skills = Vec::new();
+        let mut blocks = vec![PromptInputBlock::Text { text: "go".into() }];
+        append_role_frame(&mut blocks, &plain);
+        let frame = text(&blocks[1]);
+        assert!(!frame.contains("\"skills\""));
+        assert!(!frame.contains("Use the skills listed above"));
         assert_eq!(strip_internal_agent_routes(frame), "");
     }
 

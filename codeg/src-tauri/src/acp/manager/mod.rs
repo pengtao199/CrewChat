@@ -677,6 +677,8 @@ impl ConnectionManager {
     }
 
     #[allow(clippy::too_many_arguments)]
+    // `role_mcp` is the [crewchat] Phase 2.3 role MCP allowlist; every
+    // non-delegation caller passes `None`.
     pub async fn spawn_agent(
         &self,
         agent_type: AgentType,
@@ -687,6 +689,7 @@ impl ConnectionManager {
         emitter: EventEmitter,
         preferred_mode_id: Option<String>,
         preferred_config_values: BTreeMap<String, String>,
+        role_mcp: Option<Vec<String>>,
     ) -> Result<String, AcpError> {
         // [crewchat] Agent Host overlay (v1): point this session's model
         // selector at CCR's client-visible model id, so the session runs on
@@ -779,6 +782,7 @@ impl ConnectionManager {
             self.connections.clone(),
             preferred_mode_id,
             preferred_config_values,
+            role_mcp,
             self.delegation_snapshot(),
             self.terminal_shell_config.clone(),
         )
@@ -2497,7 +2501,8 @@ impl ConnectionManager {
                 EventEmitter::Noop,
                 None,
                 preferred_config_values,
-            )
+            
+            None,)
             .await?;
 
         // Hold an `Arc<RwLock<SessionState>>` alongside the manager's own
@@ -3876,6 +3881,7 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
         working_dir: Option<String>,
         preferred_mode_id: Option<String>,
         preferred_config_values: BTreeMap<String, String>,
+        role_mcp: Option<Vec<String>>,
     ) -> Result<String, crate::acp::delegation::spawner::SpawnerError> {
         use crate::acp::delegation::spawner::SpawnerError;
         // Resolve the parent connection so we can inherit its emitter and
@@ -3926,6 +3932,7 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
                 emitter,
                 preferred_mode_id,
                 preferred_config_values,
+                role_mcp,
             )
             .await
             .map_err(|e| SpawnerError::Spawn(e.to_string()))
@@ -4064,7 +4071,8 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
                 emitter,
                 preferred_mode_id,
                 preferred_config_values,
-            )
+            
+            None,)
             .await
             .map_err(|e| SpawnerError::Spawn(e.to_string()))?;
         let reused = pre_existing.as_deref() == Some(connection_id.as_str());

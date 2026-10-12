@@ -558,7 +558,8 @@ pub async fn handle_task(
             emitter.clone(),
             None,
             BTreeMap::new(),
-        )
+        
+            None,)
         .await
     {
         Ok(id) => id,
@@ -898,7 +899,8 @@ pub async fn handle_resume(
             emitter.clone(),
             None,
             BTreeMap::new(),
-        )
+        
+            None,)
         .await
     {
         Ok(id) => id,
@@ -1548,7 +1550,8 @@ async fn spawn_chat_connection_for_conversation(
             emitter.clone(),
             None,
             BTreeMap::new(),
-        )
+        
+            None,)
         .await
         .map_err(|e| e.to_string())?;
 

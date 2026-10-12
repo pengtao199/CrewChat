@@ -1249,7 +1249,8 @@ impl TaskEngine {
                 self.emitter.clone(),
                 mode_id.clone(),
                 config_values.clone(),
-            )
+            
+            None,)
             .await
         {
             Ok(id) => id,
@@ -1277,7 +1278,8 @@ impl TaskEngine {
                         self.emitter.clone(),
                         mode_id.clone(),
                         config_values.clone(),
-                    )
+                    
+            None,)
                     .await
                     .map_err(|e| e.to_string())?
             }

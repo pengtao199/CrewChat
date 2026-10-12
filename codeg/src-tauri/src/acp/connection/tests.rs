@@ -5015,6 +5015,7 @@
             agent_type: "codex".into(),
             duty: Some("专注于界面与交互实现".into()),
             role_id: "r-frontend".into(),
+                mcp: Vec::new(),
         }];
         let prompt = prepare_agent_bound_prompt(AgentType::ClaudeCode, blocks, true, None, &members);
         assert_eq!(prompt.len(), 3, "user text + routing frame + team frame");
@@ -5060,6 +5061,7 @@
             agent_type: "codex".into(),
             duty: None,
             role_id: "r-frontend".into(),
+                mcp: Vec::new(),
         }];
 
         let blocks = vec![PromptInputBlock::Text {

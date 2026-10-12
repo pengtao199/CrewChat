@@ -260,6 +260,11 @@ pub struct SessionState {
     pub working_dir: Option<PathBuf>,
     pub owner_window_label: String,
     pub folder_id: Option<i32>,
+    /// [crewchat] Phase 2.3 — the role's MCP allowlist for this session
+    /// (`None` = the role made no selection, so the agent-type's whole
+    /// configured set is mounted). Set at spawn by the delegation path;
+    /// backend-internal, it shapes `session/new` and is not snapshotted.
+    pub role_mcp: Option<Vec<String>>,
 
     // 状态
     pub status: ConnectionStatus,
@@ -717,6 +722,7 @@ impl SessionState {
             working_dir,
             owner_window_label,
             folder_id,
+            role_mcp: None,
             status: ConnectionStatus::Connecting,
             live_message: None,
             active_tool_calls: BTreeMap::new(),

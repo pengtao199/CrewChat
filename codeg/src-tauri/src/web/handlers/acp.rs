@@ -110,7 +110,8 @@ pub async fn acp_connect(
             emitter,
             params.preferred_mode_id,
             params.preferred_config_values.unwrap_or_default(),
-        )
+        
+            None,)
         .await
         .map_err(|e| AppCommandError::task_execution_failed(e.to_string()))?;
 

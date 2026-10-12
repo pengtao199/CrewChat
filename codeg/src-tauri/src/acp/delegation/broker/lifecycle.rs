@@ -203,6 +203,19 @@ impl DelegationBroker {
                 None,
             );
         }
+        // [crewchat] Phase 2.3: resolve the member's MCP selection once — the
+        // scope gate above already fetched the member list.
+        let member_role_mcp = team_members
+            .iter()
+            .find(|member| member.agent_type == req.agent_type.as_wire())
+            .map(|member| member.mcp.clone())
+            .filter(|mcp| !mcp.is_empty());
+        if let Some(mcp) = member_role_mcp.as_ref() {
+            tracing::info!(
+                "[crewchat][role] child agent {} mounts the member role's MCP selection: {mcp:?}",
+                req.agent_type
+            );
+        }
         let child_connection_id = match self
             .spawner
             .spawn(
@@ -211,6 +224,10 @@ impl DelegationBroker {
                 req.working_dir.clone(),
                 preferred_mode_id,
                 preferred_config_values,
+                // [crewchat] Phase 2.3: the member's role MCP selection (the
+                // same member list the scope gate resolved above); empty/absent
+                // means "inherit the agent-type's servers".
+                member_role_mcp.clone(),
             )
             .await
         {

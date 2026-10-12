@@ -106,6 +106,7 @@ pub(crate) fn sanitized_team_members(
                 agent_type: member.agent_type.clone(),
                 duty,
                 role_id: member.role_id.clone(),
+                mcp: Vec::new(),
             })
         })
         .take(crate::acp::delegation::team::MAX_TEAM_MEMBERS)

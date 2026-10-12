@@ -86,6 +86,10 @@
 | `src-tauri/src/acp/delegation/team.rs`、`spawner.rs`、`broker/{lifecycle,mod}.rs` | `TeamLookup::conversation_role`（会话 → 角色解析，无团队/失败降级）；`TeamMember.role_id`（serde skip——团队帧字节不变）；门禁解析出的成员把 `role_id` 写进 `DelegationLink.member_role_id` | 成员会话人格来源；"会话 `leader_role_id` = 本会话运行的角色"（子行写成员角色） |
 | `src-tauri/src/db/service/conversation_service/mod.rs`、`src-tauri/src/models/conversation.rs` | `create_with_delegation` 将成员角色写入子行 `team` 快照（`member_role_ids` 空）；`ConversationTeam` 语义注释补 2.2 读法 | 同上 |
 | `src-tauri/src/acp/connection/mod.rs` | `prepare_agent_bound_prompt` 增角色帧（先于路由/团队帧；人格与 codeg-mcp 无关），循环按 `conversation_id` 解析角色 | 注入点（上游文件小集成） |
+| `src-tauri/src/acp/mcp_scope.rs`（新增） | Phase 2.3 角色 MCP 收窄：纯函数 `scope_servers_to_role`（空选择=继承 agent-type 全集；缺失项上报）+ 4 用例 | 分层：可测的收窄规则独立成模块 |
+| `src-tauri/src/acp/session_state.rs`、`connection/mod.rs`、`manager/mod.rs` | `SessionState::role_mcp`（spawn 期注入、不入快照）；`spawn_agent_connection`/`spawn_agent` 增 `role_mcp` 参数；`load_mcp_servers_for_agent` 按角色收窄（INFO 记录 kept/missing） | 成员会话 `session/new` 只挂角色选中的 MCP |
+| `src-tauri/src/acp/delegation/spawner.rs`、`broker/lifecycle.rs`、`delegation/team.rs` | `ConnectionSpawner::spawn` 增 `role_mcp`；门禁解析的成员表带 `mcp`（serde skip，团队帧字节不变）；broker 把成员角色的 MCP 名单带进子会话 spawn 并记 INFO | 角色选择从名册流到会话 |
+| `src-tauri/src/acp/agent_mentions/role.rs` | 角色帧 v2：新增 `skills`（去重/截断）+ 条件化技能提示句；版本号 1→2（旧帧不再剥离，预发布策略同路由帧） | 成员被告知该用哪些技能（技能本体由 CLI 自身发现） |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 

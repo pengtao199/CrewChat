@@ -115,6 +115,10 @@ pub trait ConnectionSpawner: Send + Sync {
         working_dir: Option<String>,
         preferred_mode_id: Option<String>,
         preferred_config_values: BTreeMap<String, String>,
+        // [crewchat] Phase 2.3 — the delegable member role's MCP allowlist
+        // (`None`/empty = the agent-type's full set). Forwarded to the child
+        // session so its `session/new` mounts exactly the role's servers.
+        role_mcp: Option<Vec<String>>,
     ) -> Result<String, SpawnerError>;
 
     /// Send the delegation task as the child's first prompt. The
@@ -234,6 +238,7 @@ pub mod mock {
         pub working_dir: Option<String>,
         pub preferred_mode_id: Option<String>,
         pub preferred_config_values: BTreeMap<String, String>,
+        pub role_mcp: Option<Vec<String>>,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -311,6 +316,7 @@ pub mod mock {
             working_dir: Option<String>,
             preferred_mode_id: Option<String>,
             preferred_config_values: BTreeMap<String, String>,
+            role_mcp: Option<Vec<String>>,
         ) -> Result<String, SpawnerError> {
             self.spawn_args.lock().await.push(SpawnCallArgs {
                 parent_connection_id: parent_connection_id.to_string(),
@@ -318,6 +324,7 @@ pub mod mock {
                 working_dir,
                 preferred_mode_id,
                 preferred_config_values,
+                role_mcp,
             });
             // Honor a test-installed gate: block here (after recording the call,
             // before returning the child id) so a test can pin `handle_request`
@@ -444,12 +451,12 @@ pub mod mock {
                     Some("/tmp".into()),
                     None,
                     BTreeMap::new(),
-                )
+                None,)
                 .await
                 .unwrap();
             assert_eq!(r1, "child-1");
             let r2 = m
-                .spawn("parent-1", AgentType::Codex, None, None, BTreeMap::new())
+                .spawn("parent-1", AgentType::Codex, None, None, BTreeMap::new(), None)
                 .await
                 .unwrap_err();
             assert!(matches!(r2, SpawnerError::Spawn(_)));
@@ -465,7 +472,7 @@ pub mod mock {
                     None,
                     None,
                     BTreeMap::new(),
-                )
+                None,)
                 .await
                 .unwrap_err();
             match r {
@@ -486,7 +493,7 @@ pub mod mock {
                 Some("/work".into()),
                 Some("auto".into()),
                 cfg.clone(),
-            )
+            None,)
             .await
             .unwrap();
             let args = m.spawn_args.lock().await;

@@ -54,6 +54,11 @@ pub struct TeamMember {
     /// conversation so the member's own session can resolve its persona.
     #[serde(skip)]
     pub role_id: String,
+    /// [crewchat] The role's MCP selection (Phase 2.3), also off the wire for
+    /// the same reason. The broker hands it to the child session's
+    /// `session/new` so a member mounts exactly its role's servers.
+    #[serde(skip)]
+    pub mcp: Vec<String>,
 }
 
 /// Resolves the delegable members of a conversation's team.
@@ -188,6 +193,7 @@ pub fn members_from_roles(
             agent_type: role.agent_type.trim().to_string(),
             duty: first_line_capped(&role.soul, MAX_DUTY_CHARS),
             role_id: role.id.clone(),
+            mcp: role.mcp.clone(),
         })
         .collect()
 }
@@ -303,18 +309,21 @@ mod tests {
                 agent_type: "open_code".into(),
                 duty: None,
                 role_id: "r-backend".into(),
+                mcp: Vec::new(),
             },
             TeamMember {
                 name: "前端工程师".into(),
                 agent_type: "codex".into(),
                 duty: None,
                 role_id: "r-frontend".into(),
+                mcp: Vec::new(),
             },
             TeamMember {
                 name: "运维工程师".into(),
                 agent_type: "claude_code".into(),
                 duty: None,
                 role_id: "r-ops".into(),
+                mcp: Vec::new(),
             },
         ];
         assert!(scope_refusal(AgentType::Codex, &members).is_none());

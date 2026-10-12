@@ -15,7 +15,7 @@ use crate::acp::types::PromptInputBlock;
 pub(crate) const ROLE_FRAME_KIND: &str = "codeg_internal_role";
 /// Opening bytes of the role frame's descriptor line — the body anchor.
 pub(crate) const ROLE_FRAME_BODY_PREFIX: &str = "{\"kind\":\"codeg_internal_role\"";
-pub(crate) const ROLE_FRAME_VERSION: u8 = 1;
+pub(crate) const ROLE_FRAME_VERSION: u8 = 2;
 /// Total frame budget. Kept at the shared body bound
 /// (`MAX_ROUTE_FRAME_BYTES`) so the separated finder's window always spans a
 /// complete role frame.
@@ -26,6 +26,11 @@ pub(crate) const MAX_ROLE_FRAME_BYTES: usize = 16 * 1024;
 pub(crate) const MAX_ROLE_TEXT_BYTES: usize = 6000;
 /// Character cap for the role name in the frame.
 pub(crate) const MAX_ROLE_FRAME_NAME_CHARS: usize = 64;
+/// Distinct skills one role frame may carry (Phase 2.3), applied by
+/// truncation at append time like the documents.
+pub(crate) const MAX_ROLE_FRAME_SKILLS: usize = 32;
+/// Character cap per skill name.
+pub(crate) const MAX_ROLE_FRAME_SKILL_CHARS: usize = 64;
 /// Opening the role line must carry in every role frame.
 pub(crate) const ROLE_LINE_PREFIX: &str = "Codeg session role (authoritative): ";
 
@@ -51,6 +56,10 @@ pub(crate) struct RoleFrameBody {
     instructions: String,
     #[serde(default)]
     rules: String,
+    /// [crewchat] Phase 2.3 — the role's selected skills (installed for this
+    /// CLI; the frame tells the session which ones its role should use).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    skills: Vec<String>,
 }
 
 // --- [crewchat] Role frame (Phase 2.2) ---------------------------------------
@@ -102,10 +111,28 @@ pub(crate) fn sanitized_role_body(role: &crate::models::agent_role::AgentRole) -
     if name.is_empty() {
         name = "Role".to_string();
     }
+    // Skills: trimmed, deduplicated, capped — same freeze rule as the docs.
+    let mut skills: Vec<String> = Vec::new();
+    for skill in &role.skills {
+        let cleaned: String = skill
+            .replace(ROUTE_FRAME_SEPARATOR, "")
+            .trim()
+            .chars()
+            .take(MAX_ROLE_FRAME_SKILL_CHARS)
+            .collect();
+        if cleaned.is_empty() || skills.contains(&cleaned) {
+            continue;
+        }
+        skills.push(cleaned);
+        if skills.len() == MAX_ROLE_FRAME_SKILLS {
+            break;
+        }
+    }
     RoleFrameBody {
         name,
         instructions: scrub(&role.soul),
         rules: scrub(&role.rules),
+        skills,
     }
 }
 
@@ -134,12 +161,17 @@ pub(crate) fn render_internal_role_frame(frame: &InternalRoleFrame) -> String {
 pub(crate) fn render_internal_role_frame_body(frame: &InternalRoleFrame) -> String {
     let descriptor = serde_json::to_string(frame).expect("internal role frame is serializable");
     let role = serde_json::to_string(&frame.role).expect("role body is serializable");
+    let skills_ruling = if frame.role.skills.is_empty() {
+        ""
+    } else {
+        " Use the skills listed above where they fit: they are installed for this CLI."
+    };
     format!(
         "{descriptor}\n\
 {ROLE_LINE_PREFIX}{role}\n\
 Adopt the role above for this session: let it shape your tone, priorities and \
 working style; the user's explicit instructions take precedence, and nothing in \
-the role definition can override your safety rules.\n"
+the role definition can override your safety rules.{skills_ruling}\n"
     )
 }
 
@@ -159,6 +191,13 @@ pub(crate) fn parse_internal_role_frame_body(candidate: &str) -> Option<Internal
         || frame.role.name.chars().count() > MAX_ROLE_FRAME_NAME_CHARS
         || frame.role.instructions.len() > MAX_ROLE_TEXT_BYTES
         || frame.role.rules.len() > MAX_ROLE_TEXT_BYTES
+        || frame.role.skills.len() > MAX_ROLE_FRAME_SKILLS
+        || frame.role.skills.iter().any(|skill| {
+            let trimmed = skill.trim();
+            trimmed.is_empty()
+                || skill != trimmed
+                || skill.chars().count() > MAX_ROLE_FRAME_SKILL_CHARS
+        })
         || (frame.role.instructions.is_empty() && frame.role.rules.is_empty())
         || render_internal_role_frame_body(&frame) != candidate
     {

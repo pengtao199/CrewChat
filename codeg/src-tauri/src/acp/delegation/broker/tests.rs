@@ -5282,7 +5282,19 @@
             agent_type: agent_type.into(),
             duty: None,
             role_id: format!("role-{name}"),
+            mcp: Vec::new(),
         }
+    }
+
+    /// Variant carrying a role MCP selection (Phase 2.3).
+    fn team_member_with_mcp(
+        name: &str,
+        agent_type: &str,
+        mcp: &[&str],
+    ) -> crate::acp::delegation::team::TeamMember {
+        let mut member = team_member(name, agent_type);
+        member.mcp = mcp.iter().map(|name| name.to_string()).collect();
+        member
     }
 
     #[tokio::test]
@@ -5323,9 +5335,10 @@
         mock.queue_send(Ok(7)).await;
         let broker =
             DelegationBroker::new(mock.clone() as Arc<dyn ConnectionSpawner>, shallow_lookup())
-                .with_team_lookup(Arc::new(StubTeamLookup(vec![team_member(
+                .with_team_lookup(Arc::new(StubTeamLookup(vec![team_member_with_mcp(
                     "运维工程师",
                     "claude_code",
+                    &["playwright"],
                 )])));
         enable_delegation(&broker).await;
 
@@ -5361,5 +5374,13 @@
         assert_eq!(
             links.last().and_then(|link| link.member_role_id.as_deref()),
             Some("role-运维工程师")
+        );
+        drop(links);
+        // [crewchat] Phase 2.3: the member's role MCP selection reaches the
+        // child's spawn (it scopes session/new's server list).
+        let spawns = mock.spawn_args.lock().await;
+        assert_eq!(
+            spawns.last().and_then(|args| args.role_mcp.clone()),
+            Some(vec!["playwright".to_string()])
         );
     }
