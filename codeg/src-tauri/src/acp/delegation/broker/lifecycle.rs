@@ -203,17 +203,29 @@ impl DelegationBroker {
                 None,
             );
         }
-        // [crewchat] Phase 2.3: resolve the member's MCP selection once — the
-        // scope gate above already fetched the member list.
-        let member_role_mcp = team_members
-            .iter()
-            .find(|member| member.agent_type == req.agent_type.as_wire())
-            .map(|member| member.mcp.clone())
-            .filter(|mcp| !mcp.is_empty());
-        if let Some(mcp) = member_role_mcp.as_ref() {
+        // [crewchat] Phases 2.3 / 3.1: the member's role facts — the MCP
+        // selection and the brain model — resolved from the member list the
+        // scope gate already fetched.
+        // Same-CLI members are disambiguated by the owner name in the task
+        // (the admin's plan convention) — see `team::pick_member`.
+        let member_role = crate::acp::delegation::team::pick_member(
+            &team_members,
+            req.agent_type.as_wire().as_ref(),
+            &req.task,
+        )
+            .map(|member| crate::acp::delegation::spawner::RoleSpawnContext {
+                role_id: member.role_id.clone(),
+                model: member.brain_model.clone(),
+                model_provider: member.brain_provider.clone(),
+                mcp: member.mcp.clone(),
+                model_applied: false,
+            });
+        if let Some(role) = member_role.as_ref() {
             tracing::info!(
-                "[crewchat][role] child agent {} mounts the member role's MCP selection: {mcp:?}",
-                req.agent_type
+                "[crewchat][role] child agent {} carries member role facts: mcp={:?} model={:?}",
+                req.agent_type,
+                role.mcp,
+                role.model
             );
         }
         let child_connection_id = match self
@@ -224,10 +236,7 @@ impl DelegationBroker {
                 req.working_dir.clone(),
                 preferred_mode_id,
                 preferred_config_values,
-                // [crewchat] Phase 2.3: the member's role MCP selection (the
-                // same member list the scope gate resolved above); empty/absent
-                // means "inherit the agent-type's servers".
-                member_role_mcp.clone(),
+                member_role,
             )
             .await
         {

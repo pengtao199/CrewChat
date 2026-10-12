@@ -36,6 +36,25 @@ pub struct DelegationLink {
     pub member_role_id: Option<String>,
 }
 
+/// [crewchat] The member-role facts a delegated child's spawn needs
+/// (Phases 2.3 / 3.1). Resolved by the broker from the parent conversation's
+/// team; the spawner decides what it can apply.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoleSpawnContext {
+    /// Roster role id — names the isolated claude home (`role-sessions/<id>`).
+    pub role_id: String,
+    /// Brain model / CCR provider (Phase 3.1). Empty = no role model, the
+    /// session keeps the CLI's configured one.
+    pub model: String,
+    pub model_provider: String,
+    /// MCP allowlist (Phase 2.3). Empty = inherit the agent-type's set.
+    pub mcp: Vec<String>,
+    /// Set by the spawner once it has actually bound the session to the role
+    /// model (isolated home). The manager then skips its profile-model config
+    /// option so the two never fight.
+    pub model_applied: bool,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum SpawnerError {
     #[error("spawn failed: {0}")]
@@ -115,10 +134,10 @@ pub trait ConnectionSpawner: Send + Sync {
         working_dir: Option<String>,
         preferred_mode_id: Option<String>,
         preferred_config_values: BTreeMap<String, String>,
-        // [crewchat] Phase 2.3 — the delegable member role's MCP allowlist
-        // (`None`/empty = the agent-type's full set). Forwarded to the child
-        // session so its `session/new` mounts exactly the role's servers.
-        role_mcp: Option<Vec<String>>,
+        // [crewchat] Phase 2.3 / 3.1 — the delegable member's role facts
+        // (MCP allowlist + brain model). `None` = no role: the child runs the
+        // agent-type's full MCP set and the CLI's configured model.
+        role: Option<RoleSpawnContext>,
     ) -> Result<String, SpawnerError>;
 
     /// Send the delegation task as the child's first prompt. The
@@ -238,7 +257,7 @@ pub mod mock {
         pub working_dir: Option<String>,
         pub preferred_mode_id: Option<String>,
         pub preferred_config_values: BTreeMap<String, String>,
-        pub role_mcp: Option<Vec<String>>,
+        pub role: Option<RoleSpawnContext>,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -316,7 +335,7 @@ pub mod mock {
             working_dir: Option<String>,
             preferred_mode_id: Option<String>,
             preferred_config_values: BTreeMap<String, String>,
-            role_mcp: Option<Vec<String>>,
+            role: Option<RoleSpawnContext>,
         ) -> Result<String, SpawnerError> {
             self.spawn_args.lock().await.push(SpawnCallArgs {
                 parent_connection_id: parent_connection_id.to_string(),
@@ -324,7 +343,7 @@ pub mod mock {
                 working_dir,
                 preferred_mode_id,
                 preferred_config_values,
-                role_mcp,
+                role,
             });
             // Honor a test-installed gate: block here (after recording the call,
             // before returning the child id) so a test can pin `handle_request`

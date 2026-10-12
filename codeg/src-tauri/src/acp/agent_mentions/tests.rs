@@ -323,6 +323,9 @@ use crate::acp::types::PromptInputBlock;
             agent_type: agent_type.into(),
             duty: None,
             role_id: String::new(),
+
+                brain_model: String::new(),
+                brain_provider: String::new(),
                 mcp: Vec::new(),
         }
     }
@@ -341,6 +344,8 @@ use crate::acp::types::PromptInputBlock;
                     duty: Some("脚本、环境与部署".into()),
                     role_id: "r-backend".into(),
                 mcp: Vec::new(),
+                brain_model: String::new(),
+                brain_provider: String::new(),
                 },
                 member("前端工程师", "codex"),
             ],

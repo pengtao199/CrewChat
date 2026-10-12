@@ -115,6 +115,15 @@ pub async fn init_database(
         Err(e) => tracing::warn!("[crewchat][roles] legacy roster migration failed: {e}"),
     }
 
+    // [crewchat] Phase 3.1 housekeeping: each delegated child gets its own
+    // claude role home (they cannot be reused), so sweep the old ones.
+    if let Some(data_dir) = std::env::var_os("CODEG_DATA_DIR").filter(|value| !value.is_empty()) {
+        crate::agent_host::prune_stale_role_homes(
+            &std::path::PathBuf::from(data_dir).join("role-sessions"),
+            std::time::Duration::from_secs(60 * 60 * 24),
+        );
+    }
+
     // Load user-authorized workspace links before any file command can run, so
     // the workspace path guard follows exactly the symlinks the user created
     // and nothing else. A failure here fails *closed* (registry stays empty:

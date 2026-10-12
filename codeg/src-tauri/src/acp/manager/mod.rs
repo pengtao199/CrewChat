@@ -677,7 +677,7 @@ impl ConnectionManager {
     }
 
     #[allow(clippy::too_many_arguments)]
-    // `role_mcp` is the [crewchat] Phase 2.3 role MCP allowlist; every
+    // `role` is the [crewchat] member-role context (Phases 2.3 / 3.1); every
     // non-delegation caller passes `None`.
     pub async fn spawn_agent(
         &self,
@@ -689,7 +689,7 @@ impl ConnectionManager {
         emitter: EventEmitter,
         preferred_mode_id: Option<String>,
         preferred_config_values: BTreeMap<String, String>,
-        role_mcp: Option<Vec<String>>,
+        role: Option<crate::acp::delegation::spawner::RoleSpawnContext>,
     ) -> Result<String, AcpError> {
         // [crewchat] Agent Host overlay (v1): point this session's model
         // selector at CCR's client-visible model id, so the session runs on
@@ -698,15 +698,26 @@ impl ConnectionManager {
         // fills what the caller did not set: an explicit agent_defaults pick
         // (`preferred_config_values`) outranks it, and `CODEG_AGENT_HOST_INJECT=0`
         // (or an unreachable CCR) turns it off entirely.
+        //
+        // Phase 3.1: when the spawner already bound the session to a ROLE
+        // model (isolated home), the profile-model option is skipped — setting
+        // it would fight the settings.json the session started on.
+        let role_model_applied = role.as_ref().is_some_and(|role| role.model_applied);
         let preferred_config_values = {
             let mut merged = preferred_config_values;
-            if let Some(recipe) = crate::agent_host::recipe_for_agent(agent_type).await {
-                for (key, value) in recipe.config_options {
-                    merged.entry(key).or_insert(value);
+            if !role_model_applied {
+                if let Some(recipe) = crate::agent_host::recipe_for_agent(agent_type).await {
+                    for (key, value) in recipe.config_options {
+                        merged.entry(key).or_insert(value);
+                    }
                 }
             }
             merged
         };
+        let role_mcp = role
+            .as_ref()
+            .map(|role| role.mcp.clone())
+            .filter(|mcp| !mcp.is_empty());
         // Held for the whole establishment. A restore writing back to the
         // agents' own directories takes the write side, so it can never see an
         // empty connection list and then have one appear underneath it. Not
@@ -3881,7 +3892,7 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
         working_dir: Option<String>,
         preferred_mode_id: Option<String>,
         preferred_config_values: BTreeMap<String, String>,
-        role_mcp: Option<Vec<String>>,
+        mut role: Option<crate::acp::delegation::spawner::RoleSpawnContext>,
     ) -> Result<String, crate::acp::delegation::spawner::SpawnerError> {
         use crate::acp::delegation::spawner::SpawnerError;
         // Resolve the parent connection so we can inherit its emitter and
@@ -3913,7 +3924,7 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
         // user-initiated session — disabled check, settings overrides,
         // model provider creds, git helper. Without this, delegated
         // subagents would skip the user's configuration entirely.
-        let runtime_env = crate::commands::acp::build_session_runtime_env(
+        let mut runtime_env = crate::commands::acp::build_session_runtime_env(
             &self.db,
             agent_type,
             None,
@@ -3921,6 +3932,36 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
         )
         .await
         .map_err(|e| SpawnerError::Spawn(e.to_string()))?;
+
+        // [crewchat] Phase 3.1 — a member with its own brain model runs in an
+        // isolated claude home whose settings.json pins that model (claude
+        // reads its model at startup, and settings env beats the process env).
+        // Any other agent type keeps the CLI's configured model for now.
+        if let Some(context) = role.as_mut() {
+            if agent_type == AgentType::ClaudeCode && !context.model.trim().is_empty() {
+                let home_root = self.data_dir.join("role-sessions");
+                if let Some(home) = crate::agent_host::build_claude_role_home(
+                    &home_root,
+                    &context.role_id,
+                    &context.model_provider,
+                    &context.model,
+                )
+                .await
+                {
+                    runtime_env.insert(
+                        "CLAUDE_CONFIG_DIR".into(),
+                        home.config_dir.to_string_lossy().to_string(),
+                    );
+                    context.model_applied = true;
+                    tracing::info!(
+                        "[crewchat][role] member session runs on the role model {} \
+                         (home {})",
+                        home.model_label,
+                        home.config_dir.display()
+                    );
+                }
+            }
+        }
 
         self.manager
             .spawn_agent(
@@ -3932,7 +3973,7 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
                 emitter,
                 preferred_mode_id,
                 preferred_config_values,
-                role_mcp,
+                role,
             )
             .await
             .map_err(|e| SpawnerError::Spawn(e.to_string()))

@@ -59,6 +59,12 @@ pub struct TeamMember {
     /// `session/new` so a member mounts exactly its role's servers.
     #[serde(skip)]
     pub mcp: Vec<String>,
+    /// [crewchat] The role's brain (Phase 3.1): the model the member session
+    /// should run, and its CCR provider. Off the wire like the rest.
+    #[serde(skip)]
+    pub brain_model: String,
+    #[serde(skip)]
+    pub brain_provider: String,
 }
 
 /// Resolves the delegable members of a conversation's team.
@@ -194,8 +200,44 @@ pub fn members_from_roles(
             duty: first_line_capped(&role.soul, MAX_DUTY_CHARS),
             role_id: role.id.clone(),
             mcp: role.mcp.clone(),
+            brain_model: role.model.clone(),
+            brain_provider: role.model_provider.clone(),
         })
         .collect()
+}
+
+/// [crewchat] Pick the member a delegation targets (Phase 3.1).
+///
+/// Several members can share one CLI body (two claude members, say), and the
+/// delegate request only carries an `agent_type` — so the tie-break is the
+/// admin's own plan convention: the owner's ROLE NAME in the task text. The
+/// EARLIEST-mentioned matching member wins; with no mention (or a single
+/// candidate) the first member of that type is used, exactly as before.
+pub fn pick_member<'a>(
+    members: &'a [TeamMember],
+    agent_type: &str,
+    task: &str,
+) -> Option<&'a TeamMember> {
+    let mut candidates = members.iter().filter(|member| member.agent_type == agent_type);
+    let first = candidates.next()?;
+    let rest: Vec<&TeamMember> = candidates.collect();
+    if rest.is_empty() {
+        return Some(first);
+    }
+    let all: Vec<&TeamMember> = std::iter::once(first).chain(rest).collect();
+    let mut best: Option<(usize, &TeamMember)> = None;
+    for member in all {
+        let name = member.name.trim();
+        if name.is_empty() {
+            continue;
+        }
+        if let Some(index) = task.find(name) {
+            if best.is_none_or(|(best_index, _)| index < best_index) {
+                best = Some((index, member));
+            }
+        }
+    }
+    Some(best.map(|(_, member)| member).unwrap_or(first))
 }
 
 /// The duty line for a roster role: its `soul`'s first non-empty line,
@@ -310,6 +352,8 @@ mod tests {
                 duty: None,
                 role_id: "r-backend".into(),
                 mcp: Vec::new(),
+                brain_model: String::new(),
+                brain_provider: String::new(),
             },
             TeamMember {
                 name: "前端工程师".into(),
@@ -317,6 +361,8 @@ mod tests {
                 duty: None,
                 role_id: "r-frontend".into(),
                 mcp: Vec::new(),
+                brain_model: String::new(),
+                brain_provider: String::new(),
             },
             TeamMember {
                 name: "运维工程师".into(),
@@ -324,6 +370,8 @@ mod tests {
                 duty: None,
                 role_id: "r-ops".into(),
                 mcp: Vec::new(),
+                brain_model: String::new(),
+                brain_provider: String::new(),
             },
         ];
         assert!(scope_refusal(AgentType::Codex, &members).is_none());
@@ -345,6 +393,54 @@ mod tests {
     #[test]
     fn scope_refusal_is_unconstrained_without_members() {
         assert!(scope_refusal(AgentType::Gemini, &[]).is_none());
+    }
+
+    #[test]
+    fn pick_member_uses_the_owner_name_to_disambiguate_same_cli_members() {
+        let members = vec![
+            TeamMember {
+                name: "成员甲".into(),
+                agent_type: "claude_code".into(),
+                duty: None,
+                role_id: "r-a".into(),
+                mcp: Vec::new(),
+                brain_model: "mimo-v2.6-pro".into(),
+                brain_provider: "OpenCode Go".into(),
+            },
+            TeamMember {
+                name: "成员乙".into(),
+                agent_type: "claude_code".into(),
+                duty: None,
+                role_id: "r-b".into(),
+                mcp: Vec::new(),
+                brain_model: "mimo-v2.6-flash".into(),
+                brain_provider: "OpenCode Go".into(),
+            },
+        ];
+        // The task names one member → that member's role facts win.
+        assert_eq!(
+            pick_member(&members, "claude_code", "给「成员乙」回复 FLASH").map(|m| m.role_id.as_str()),
+            Some("r-b")
+        );
+        // Earliest mention wins when both are named.
+        assert_eq!(
+            pick_member(&members, "claude_code", "先给成员乙，再给成员甲").map(|m| m.role_id.as_str()),
+            Some("r-b")
+        );
+        assert_eq!(
+            pick_member(&members, "claude_code", "先给成员甲，再给成员乙").map(|m| m.role_id.as_str()),
+            Some("r-a")
+        );
+        // No mention (or a single candidate) → the first member of that type.
+        assert_eq!(
+            pick_member(&members, "claude_code", "随便做点什么").map(|m| m.role_id.as_str()),
+            Some("r-a")
+        );
+        assert_eq!(
+            pick_member(&members[..1], "claude_code", "无所谓").map(|m| m.role_id.as_str()),
+            Some("r-a")
+        );
+        assert!(pick_member(&members, "codex", "x").is_none());
     }
 
     #[test]

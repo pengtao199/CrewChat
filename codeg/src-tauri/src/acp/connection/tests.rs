@@ -5015,6 +5015,9 @@
             agent_type: "codex".into(),
             duty: Some("专注于界面与交互实现".into()),
             role_id: "r-frontend".into(),
+
+                brain_model: String::new(),
+                brain_provider: String::new(),
                 mcp: Vec::new(),
         }];
         let prompt = prepare_agent_bound_prompt(AgentType::ClaudeCode, blocks, true, None, &members);
@@ -5062,6 +5065,8 @@
             duty: None,
             role_id: "r-frontend".into(),
                 mcp: Vec::new(),
+                brain_model: String::new(),
+                brain_provider: String::new(),
         }];
 
         let blocks = vec![PromptInputBlock::Text {

@@ -5282,6 +5282,9 @@
             agent_type: agent_type.into(),
             duty: None,
             role_id: format!("role-{name}"),
+
+            brain_model: String::new(),
+            brain_provider: String::new(),
             mcp: Vec::new(),
         }
     }
@@ -5380,7 +5383,9 @@
         // child's spawn (it scopes session/new's server list).
         let spawns = mock.spawn_args.lock().await;
         assert_eq!(
-            spawns.last().and_then(|args| args.role_mcp.clone()),
+            spawns
+                .last()
+                .and_then(|args| args.role.as_ref().map(|role| role.mcp.clone())),
             Some(vec!["playwright".to_string()])
         );
     }

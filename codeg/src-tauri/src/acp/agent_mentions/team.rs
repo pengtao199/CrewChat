@@ -106,6 +106,9 @@ pub(crate) fn sanitized_team_members(
                 agent_type: member.agent_type.clone(),
                 duty,
                 role_id: member.role_id.clone(),
+
+                brain_model: String::new(),
+                brain_provider: String::new(),
                 mcp: Vec::new(),
             })
         })

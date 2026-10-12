@@ -90,6 +90,9 @@
 | `src-tauri/src/acp/session_state.rs`、`connection/mod.rs`、`manager/mod.rs` | `SessionState::role_mcp`（spawn 期注入、不入快照）；`spawn_agent_connection`/`spawn_agent` 增 `role_mcp` 参数；`load_mcp_servers_for_agent` 按角色收窄（INFO 记录 kept/missing） | 成员会话 `session/new` 只挂角色选中的 MCP |
 | `src-tauri/src/acp/delegation/spawner.rs`、`broker/lifecycle.rs`、`delegation/team.rs` | `ConnectionSpawner::spawn` 增 `role_mcp`；门禁解析的成员表带 `mcp`（serde skip，团队帧字节不变）；broker 把成员角色的 MCP 名单带进子会话 spawn 并记 INFO | 角色选择从名册流到会话 |
 | `src-tauri/src/acp/agent_mentions/role.rs` | 角色帧 v2：新增 `skills`（去重/截断）+ 条件化技能提示句；版本号 1→2（旧帧不再剥离，预发布策略同路由帧） | 成员被告知该用哪些技能（技能本体由 CLI 自身发现） |
+| `src-tauri/src/agent_host.rs` | Phase 3.1 角色模型 home：`build_claude_role_home`（**每子会话一个全新** `CLAUDE_CONFIG_DIR`：路由 env + 网关切片的精确虚拟模型 ID + 继承 apiKeyHelper/enabledPlugins + `projects/plugins/todos/…` 软链回共享目录，parser 照常可读）+ `prune_stale_role_homes` 启动清扫 24h 旧目录 | 成员会话按角色大脑模型启动（claude） |
+| `src-tauri/src/acp/delegation/spawner.rs`、`broker/lifecycle.rs`、`delegation/team.rs` | `RoleSpawnContext`（role_id/model/provider/mcp/model_applied）贯通 spawn；spawner 建 home 注入 `CLAUDE_CONFIG_DIR`，manager 在角色模型已绑定时跳过配方模型项；`team::pick_member` 同 CLI 多成员按 task 中的角色名消歧（最早提及优先），无提及退回首个 | 角色事实从名册流到会话；同名 CLI 成员可分别命中各自模型 |
+| `src-tauri/src/acp/session_state.rs`、`acp/manager/mod.rs`、`db/mod.rs` | `SessionState::role_mcp`；`spawn_agent*` 增角色参数（非委派调用传 None）；启动点清扫旧角色 home | 接线 + 运维 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 

@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-12 (Asia/Shanghai)
-Status: In Progress（Phase 2 角色化推进中）。Phase 1 协作 v1 已收口（1.1–1.5 ✅；模型路由细化未达预期，按用户拍板并入 3.1）；2.1 存储收敛 ✅、2.2 人格生效链路 ✅、2.3 技能 / MCP 归位 ✅；下一步 3.1 子代理模型注入。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 3 成员模型与用量）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；3.1 子代理模型注入 ✅（同任务两成员两模型，request-log 为证）；下一步 3.2 按成员用量。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -72,7 +72,7 @@ Status: In Progress（Phase 2 角色化推进中）。Phase 1 协作 v1 已收�
 
 ### Phase 3 · 成员模型与用量
 
-- **3.1 子代理模型注入**（依赖 0.3）：委派生成成员会话时应用该成员模型（配方 + `agent_defaults` 兜底）。→ 做到：同一任务两个成员走两个不同模型，request-log 为证。
+- **3.1 子代理模型注入** ✅ 2026-10-12：成员角色的大脑（model/provider）在委派 spawn 时落成**每会话一个全新的隔离 `CLAUDE_CONFIG_DIR`**：settings.json = 路由 env + 网关切片的精确虚拟 ID（`anthropic/claude-ccr-h<hex>[1m]`）+ 继承全局 apiKeyHelper / enabledPlugins，`projects/plugins/todos/…` 软链回共享目录（历史解析照常）。实测教训：**隔离 home 不能复用**——第二次会话静默失败（Connected → Error ~5.4s、adapter 无 `session/create`），故每次子会话新建 + 启动清扫 24h 旧目录；`agent_defaults` 兜底（无角色模型时仍走 0.3 配方通道）。另加 `team::pick_member`：同 CLI 多成员按 task 文本中的角色名（管理员 owner 约定）消歧，最早提及优先、无提及退回首个。真机：同会话两成员 甲(pro) / 乙(flash) 均启动成功（子行 `external_id` 落库），request-log 出现 `mimo-v2.6-pro` 与 `mimo-v2.6-flash` 各 200。测试：agent_host 11 + 相关 3102 用例绿。v1 边界：非 claude CLI（codex 等自有 provider，非 CCR）暂不注入。→ 做到：同一任务两成员两模型，request-log 为证。
 - **3.2 按成员用量**：委派卡与会话详情显示每成员 tokens / 成本。→ 做到：口径与用量文档一致。
 
 ### Phase 4 · 体验增强
