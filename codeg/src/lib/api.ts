@@ -57,6 +57,7 @@ import type {
   ConversationSummary,
   ConversationDetail,
   ConversationTurnsPage,
+  ConversationTeam,
   DbConversationDetail,
   FolderInfo,
   AgentStats,
@@ -3486,12 +3487,16 @@ export async function createHyperframesProject(params: {
 export async function createConversation(
   folderId: number,
   agentType: AgentType,
-  title?: string
+  title?: string,
+  team?: ConversationTeam | null
 ): Promise<number> {
   return getTransport().call("create_conversation", {
     folderId,
     agentType,
     title: title ?? null,
+    // [crewchat] A team snapshot makes this a group conversation; absent =
+    // plain single-agent session (the backend treats both the same).
+    team: team ?? null,
   })
 }
 

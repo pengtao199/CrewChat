@@ -61,6 +61,7 @@ import { AgentDiagnosticsDialog } from "@/components/settings/agent-diagnostics-
 import { useFeedbackEnabled } from "@/hooks/use-feedback-enabled"
 import { useSessionFeedback } from "@/hooks/use-session-feedback"
 import { AgentSelector } from "@/components/chat/agent-selector"
+import { TeamSelector } from "@/components/chat/team-selector"
 import { ChatInput } from "@/components/chat/chat-input"
 import { WelcomeHero, WelcomeTip } from "@/components/chat/welcome-hero"
 import { QuickActions } from "@/components/chat/quick-actions"
@@ -126,6 +127,7 @@ import {
   type AgentType,
   type ContentBlock,
   type ConversationStatus,
+  type ConversationTeam,
   type EventEnvelope,
   type MessageTurn,
   type PlanApprovalAnswer,
@@ -354,6 +356,9 @@ const ConversationTabView = memo(function ConversationTabView({
   >(null)
   const dbConversationId = conversationId ?? createdConversationId
   const [draftAgentType, setDraftAgentType] = useState<AgentType>(agentType)
+  // [crewchat] The team picked for a draft (Phase 1.2). It rides on the row
+  // the first send creates; already-persisted tabs never read it.
+  const [draftTeam, setDraftTeam] = useState<ConversationTeam | null>(null)
   const selectedAgent = conversationId != null ? agentType : draftAgentType
   // Seed from localStorage so the React state reflects the user's saved
   // mode for this agent immediately on mount. Without this seed, a reuse-
@@ -1313,7 +1318,8 @@ const ConversationTabView = memo(function ConversationTabView({
             newConversationId = await createConversation(
               folderId,
               selectedAgent,
-              title
+              title,
+              draftTeam
             )
             dbConvIdRef.current = newConversationId
             // Set external ID on the stable virtual session (no migration needed —
@@ -1390,6 +1396,7 @@ const ConversationTabView = memo(function ConversationTabView({
       bindConversationTab,
       canAutoConnect,
       connectionReady,
+      draftTeam,
       effectiveConversationId,
       folderId,
       hasPersistedConversation,
@@ -2508,6 +2515,12 @@ const ConversationTabView = memo(function ConversationTabView({
               onOpenAgentsSettings={handleOpenAgentsSettings}
               disabled={isConnecting || dbConversationId != null}
             />
+            {/* [crewchat] Team picker (Phase 1.2): the group this conversation
+                runs with, chosen before the first send creates the row. Empty
+                keeps it a plain single-agent session. */}
+            <div className="mt-2">
+              <TeamSelector value={draftTeam} onChange={setDraftTeam} />
+            </div>
             {composerBlockedMessage ? (
               <div className="mt-2 flex w-full items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                 <button

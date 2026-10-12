@@ -736,6 +736,18 @@
     },
     "selectLeftMcp": "請選擇左側 MCP。"
   },
+    "TeamSelector": {
+      "aria": "團隊選擇",
+      "buttonEmpty": "單 Agent",
+      "buttonSet": "團隊 · {count} 人",
+      "loading": "載入名冊…",
+      "empty": "名冊裡還沒有 Agent——先去 Agents 頁建立一個。",
+      "leaderLabel": "管理員（規劃與委派）",
+      "membersLabel": "成員（可被委派）",
+      "defaultBadge": "預設",
+      "memberToggleAria": "選擇成員 {name}",
+      "clear": "清除團隊（改為單 Agent 工作階段）"
+    },
   "AcpAgentSettings": {
     "readiness": {
       "installAria": "安裝 {name}",

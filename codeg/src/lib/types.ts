@@ -569,6 +569,12 @@ export interface DbConversationSummary {
    *  badge. */
   origin_cwd?: string | null
   /**
+   * [crewchat] The team this group conversation runs with (roster role ids);
+   * absent for plain single-agent sessions. Mirrors the Rust
+   * `ConversationTeam` (snake_case on the wire).
+   */
+  team?: ConversationTeam
+  /**
    * Ids of the {@link ConversationTagDetail tags} on this conversation,
    * ascending. Absent when it has none (the backend omits an empty list). May
    * name a tag this client has already seen deleted — the tag-deleted broadcast
@@ -576,6 +582,17 @@ export interface DbConversationSummary {
    * the tag store and skip unknown ones rather than trusting the count.
    */
   tag_ids?: number[]
+}
+
+/**
+ * [crewchat] The team a group conversation runs with (Phase 1.1/1.2): roster
+ * role ids — the leader plus every member allowed to be delegated to. Stored
+ * as one JSON snapshot on the conversation row; `null`/absent = a plain
+ * single-agent session.
+ */
+export interface ConversationTeam {
+  leader_role_id: string
+  member_role_ids: string[]
 }
 
 /** Payload for the global `conversation://changed` side-channel that keeps

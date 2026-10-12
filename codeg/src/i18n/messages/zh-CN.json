@@ -736,6 +736,18 @@
     },
     "selectLeftMcp": "请选择左侧 MCP。"
   },
+    "TeamSelector": {
+      "aria": "团队选择",
+      "buttonEmpty": "单 Agent",
+      "buttonSet": "团队 · {count} 人",
+      "loading": "加载花名册…",
+      "empty": "花名册里还没有 Agent——先去 Agents 页创建一个。",
+      "leaderLabel": "管理员（规划与委派）",
+      "membersLabel": "成员（可被委派）",
+      "defaultBadge": "默认",
+      "memberToggleAria": "选择成员 {name}",
+      "clear": "清除团队（改为单 Agent 会话）"
+    },
   "AcpAgentSettings": {
     "readiness": {
       "installAria": "安装 {name}",
