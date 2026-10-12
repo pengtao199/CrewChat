@@ -508,7 +508,7 @@ impl AutomationEngine {
         // every run of an automation carried the identical one.
         let title = first_chars(&auto.name, 80);
         let conversation_id =
-            match create_conversation_core(&self.db.conn, cwd.folder_id, agent_type, Some(title)).await
+            match create_conversation_core(&self.db.conn, cwd.folder_id, agent_type, Some(title), None).await
             {
                 Ok(id) => id,
                 Err(e) => {

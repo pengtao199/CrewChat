@@ -1295,6 +1295,7 @@ impl TaskEngine {
                 wt.folder_id,
                 agent_type,
                 Some(title),
+                None,
             )
             .await
             {

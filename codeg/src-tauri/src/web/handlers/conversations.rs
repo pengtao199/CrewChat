@@ -252,6 +252,10 @@ pub struct CreateConversationParams {
     pub folder_id: i32,
     pub agent_type: AgentType,
     pub title: Option<String>,
+    /// [crewchat] The team the new group conversation runs with (Phase 1.1);
+    /// absent = a plain single-agent session.
+    #[serde(default)]
+    pub team: Option<crate::models::conversation::ConversationTeam>,
 }
 
 pub async fn create_conversation(
@@ -264,6 +268,7 @@ pub async fn create_conversation(
         params.folder_id,
         params.agent_type,
         params.title,
+        params.team,
     )
     .await?;
     conv_commands::emit_conversation_upsert(&state.emitter, &db.conn, result).await;

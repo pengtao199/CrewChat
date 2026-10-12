@@ -2323,6 +2323,12 @@ impl ConnectionManager {
 
                     // INSERT sibling row preserving pre-fork (S1) history.
                     // PendingReview because no live agent is attached to S1.
+                    // [crewchat] The team snapshot rides along: a fork of a
+                    // group conversation is still that group's conversation.
+                    let sibling_team = conversation::Entity::find_by_id(conversation_id)
+                        .one(txn)
+                        .await?
+                        .and_then(|row| row.team);
                     let sibling = conversation::ActiveModel {
                         id: NotSet,
                         folder_id: Set(folder_id),
@@ -2343,6 +2349,7 @@ impl ConnectionManager {
                         deleted_at: Set(None),
                         pinned_at: Set(None),
                         origin_cwd: Set(None),
+                        team: Set(sibling_team),
                     };
                     let inserted = sibling.insert(txn).await?;
                     // The sibling keeps the pre-fork history under the

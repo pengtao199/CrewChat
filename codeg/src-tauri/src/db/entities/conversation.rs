@@ -72,6 +72,13 @@ pub struct Model {
     /// Gemini/Cline/OpenClaw stale-external-id fallback matches on
     /// `origin_cwd ?? folder.path`. Always NULL for ordinary conversations.
     pub origin_cwd: Option<String>,
+    /// [crewchat] Group conversations carry a team snapshot (Phase 1.1):
+    /// roster role ids of the leader + members, one JSON blob
+    /// (`ConversationTeam`). NULL = a plain single-agent session. Written
+    /// once at creation from the new-session dialog; read by the delegation
+    /// broker (member gating), the prompt frame (in-room roster) and the
+    /// conversation header (member chips).
+    pub team: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

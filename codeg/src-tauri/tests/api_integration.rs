@@ -374,6 +374,7 @@ async fn get_folder_conversation_accepts_turn_window_params() {
         folder_id,
         codeg_lib::models::AgentType::ClaudeCode,
         None,
+        None,
     )
     .await
     .expect("create conversation");

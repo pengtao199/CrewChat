@@ -5,6 +5,21 @@ use super::agent::AgentType;
 use super::message::{MessageTurn, TurnUsage};
 use crate::db::entities::conversation::ConversationKind;
 
+/// [crewchat] The team a group conversation runs with (Phase 1.1): roster
+/// role ids — the leader plus every member allowed to be delegated to. A
+/// per-conversation snapshot (picked in the new-session dialog), stored as
+/// one JSON blob on the conversation row; `None` means a plain single-agent
+/// session. See `docs/plans/agents-core-collaboration.md` for why one column
+/// rather than a join table.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConversationTeam {
+    /// The roster role that leads (plans, delegates, summarizes).
+    pub leader_role_id: String,
+    /// Every other delegation target in this room, in roster order.
+    #[serde(default)]
+    pub member_role_ids: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConversationSummary {
     pub id: String,
@@ -63,6 +78,10 @@ pub struct DbConversationSummary {
     pub parent_tool_use_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delegation_call_id: Option<String>,
+    /// [crewchat] The team this group conversation runs with; absent for
+    /// plain single-agent sessions.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub team: Option<ConversationTeam>,
     /// Mirror of `conversation.origin_cwd`: the working directory this
     /// conversation actually ran in when it differs from its current folder's
     /// path (set when a removed task worktree's conversations were re-parented).

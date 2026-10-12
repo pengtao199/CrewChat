@@ -2240,6 +2240,7 @@ pub async fn create_conversation_core(
     folder_id: i32,
     agent_type: AgentType,
     title: Option<String>,
+    team: Option<crate::models::conversation::ConversationTeam>,
 ) -> Result<i32, AppCommandError> {
     let git_branch = if let Some(folder) = folder_service::get_folder_by_id(conn, folder_id)
         .await
@@ -2250,9 +2251,21 @@ pub async fn create_conversation_core(
         None
     };
 
-    let model = conversation_service::create(conn, folder_id, agent_type, title, git_branch)
-        .await
-        .map_err(AppCommandError::from)?;
+    // [crewchat] A group conversation (team picked in the new-session dialog)
+    // is the same row plus one JSON snapshot.
+    let model = match team {
+        Some(team) => {
+            conversation_service::create_with_team(
+                conn, folder_id, agent_type, title, git_branch, team,
+            )
+            .await
+        }
+        None => {
+            conversation_service::create(conn, folder_id, agent_type, title, git_branch)
+                .await
+        }
+    }
+    .map_err(AppCommandError::from)?;
     Ok(model.id)
 }
 
@@ -2264,8 +2277,9 @@ pub async fn create_conversation(
     folder_id: i32,
     agent_type: AgentType,
     title: Option<String>,
+    team: Option<crate::models::conversation::ConversationTeam>,
 ) -> Result<i32, AppCommandError> {
-    let id = create_conversation_core(&db.conn, folder_id, agent_type, title).await?;
+    let id = create_conversation_core(&db.conn, folder_id, agent_type, title, team).await?;
     emit_conversation_upsert(&EventEmitter::Tauri(app), &db.conn, id).await;
     Ok(id)
 }
@@ -2853,6 +2867,7 @@ mod tests {
             parent_tool_use_id: Some(parent_tool_use_id.into()),
             delegation_call_id: Some("call-1".into()),
             origin_cwd: None,
+            team: None,
             tag_ids: Vec::new(),
         }
     }
@@ -3663,6 +3678,7 @@ mod tests {
             folder_id,
             AgentType::ClaudeCode,
             Some("parent".into()),
+            None,
         )
         .await
         .expect("parent");
@@ -3700,6 +3716,7 @@ mod tests {
             folder_id,
             AgentType::ClaudeCode,
             Some("hello".into()),
+            None,
         )
         .await
         .expect("create");
@@ -3718,7 +3735,7 @@ mod tests {
         // Use a tempdir that's guaranteed not a git repo (no .git).
         let temp = tempfile::tempdir().expect("tempdir");
         let folder_id = seed_folder(&db, &temp.path().to_string_lossy()).await;
-        let id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None)
+        let id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None, None)
             .await
             .expect("create succeeds even without git");
         let summary = conversation_service::get_by_id(&db.conn, id)
@@ -3737,7 +3754,7 @@ mod tests {
         // so creating a conversation against an unknown folder_id should not
         // panic. detect_git_branch is skipped because folder lookup returns None.
         let db = fresh_in_memory_db().await;
-        let result = create_conversation_core(&db.conn, 999_999, AgentType::Gemini, None).await;
+        let result = create_conversation_core(&db.conn, 999_999, AgentType::Gemini, None, None).await;
         // Behavior contract: either success (current FK-loose behavior) or a
         // database error — never panic. Accept both.
         match result {
@@ -4667,10 +4684,10 @@ mod tests {
     async fn save_opened_tabs_core_persists_only_conversation_tabs_and_bumps_version() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-tabs-test").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
-        let c2 = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None)
+        let c2 = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None, None)
             .await
             .expect("c2");
         let (broadcaster, emitter) = sync_test_emitter();
@@ -4712,7 +4729,7 @@ mod tests {
     async fn save_opened_tabs_core_rejects_stale_version_without_emitting() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-tabs-stale").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
 
@@ -4758,7 +4775,7 @@ mod tests {
     async fn cleanup_tabs_for_deleted_conversation_removes_tab_and_emits() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-tab-conv-del").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
         save_opened_tabs_core(
@@ -4791,7 +4808,7 @@ mod tests {
     async fn cleanup_tabs_for_deleted_conversation_bumps_barrier_without_emitting_when_no_open_tab() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-tab-conv-del-noop").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
         let before = list_opened_tabs_core(&db.conn).await.expect("list").version;
@@ -4814,7 +4831,7 @@ mod tests {
     async fn remove_folder_from_workspace_cleans_tabs_and_emits() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-folder-remove-tabs").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
         save_opened_tabs_core(
@@ -4846,10 +4863,10 @@ mod tests {
     async fn stale_save_after_conversation_cleanup_is_rejected_no_resurrection() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-tab-cleanup-race").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
-        let c2 = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None)
+        let c2 = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None, None)
             .await
             .expect("c2");
 
@@ -4902,7 +4919,7 @@ mod tests {
     async fn stale_save_after_folder_removal_is_rejected_no_resurrection() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-folder-remove-race").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
         let saved = save_opened_tabs_core(
@@ -4953,10 +4970,10 @@ mod tests {
         // so a tab for the soft-deleted conversation is never persisted.
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-tab-zero-row-race").await;
-        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let c1 = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("c1");
-        let c2 = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None)
+        let c2 = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None, None)
             .await
             .expect("c2");
 
@@ -5030,7 +5047,7 @@ mod tests {
     async fn update_conversation_status_core_invalid_string_errors() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-status-test").await;
-        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("create");
         let err =
@@ -5048,7 +5065,7 @@ mod tests {
     async fn update_conversation_title_core_roundtrip() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-title-test").await;
-        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::Gemini, None)
+        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::Gemini, None, None)
             .await
             .expect("create");
         update_conversation_title_core(&db.conn, conv_id, "Renamed".into())
@@ -5064,7 +5081,7 @@ mod tests {
     async fn delete_conversation_core_soft_deletes() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-delete-test").await;
-        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None)
+        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None, None)
             .await
             .expect("create");
         delete_conversation_core(&db.conn, conv_id)
@@ -5093,7 +5110,7 @@ mod tests {
     async fn list_child_conversations_core_returns_empty_for_no_parent() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-list-children-empty").await;
-        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None)
+        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None, None)
             .await
             .expect("create parent");
         let rows = list_child_conversations_core(&db.conn, parent_id)
@@ -5109,7 +5126,7 @@ mod tests {
 
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-list-children-match").await;
-        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("create parent");
 
@@ -5134,7 +5151,7 @@ mod tests {
             child_ids.push(child.id);
         }
         // Sibling root conversation that must NOT appear.
-        let _other = create_conversation_core(&db.conn, folder_id, AgentType::Gemini, None)
+        let _other = create_conversation_core(&db.conn, folder_id, AgentType::Gemini, None, None)
             .await
             .expect("unrelated root");
 
@@ -5386,7 +5403,7 @@ mod tests {
     async fn emit_conversation_upsert_broadcasts_full_root_summary() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-sync-upsert").await;
-        let id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("create");
         let (broadcaster, emitter) = sync_test_emitter();
@@ -5421,7 +5438,7 @@ mod tests {
     async fn emit_conversation_upsert_carries_new_status_after_update() {
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-sync-status").await;
-        let id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None)
+        let id = create_conversation_core(&db.conn, folder_id, AgentType::Codex, None, None)
             .await
             .expect("create");
         update_conversation_status_core(&db.conn, id, "pending_review".to_string())
@@ -5440,7 +5457,7 @@ mod tests {
         // races a delete emits nothing instead of re-inserting a tombstone.
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-sync-deleted-silent").await;
-        let id = create_conversation_core(&db.conn, folder_id, AgentType::Gemini, None)
+        let id = create_conversation_core(&db.conn, folder_id, AgentType::Gemini, None, None)
             .await
             .expect("create");
         delete_conversation_core(&db.conn, id)
@@ -5465,7 +5482,7 @@ mod tests {
         use crate::acp::delegation::spawner::DelegationLink;
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-sync-child-broadcast").await;
-        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("parent");
         let child = conversation_service::create_with_delegation(
@@ -5509,7 +5526,7 @@ mod tests {
         use crate::acp::delegation::spawner::DelegationLink;
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/codeg-delete-child-reemit").await;
-        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let parent_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("parent");
         let child = conversation_service::create_with_delegation(
@@ -6655,6 +6672,7 @@ mod tests {
                 parent_tool_use_id: None,
                 delegation_call_id: None,
                 origin_cwd: None,
+                team: None,
                 tag_ids: Vec::new(),
             },
             turns,
@@ -6761,7 +6779,7 @@ mod tests {
         // path returns a well-formed empty page.
         let db = fresh_in_memory_db().await;
         let folder_id = seed_folder(&db, "/tmp/page").await;
-        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None)
+        let conv_id = create_conversation_core(&db.conn, folder_id, AgentType::ClaudeCode, None, None)
             .await
             .expect("create conversation");
         let page = get_folder_conversation_turns_core(&db.conn, conv_id, 10, 5)

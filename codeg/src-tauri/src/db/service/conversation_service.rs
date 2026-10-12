@@ -27,6 +27,7 @@ pub async fn create(
         git_branch,
         None,
         ConversationKind::Regular,
+        None,
     )
     .await
 }
@@ -50,6 +51,7 @@ pub async fn create_chat(
         git_branch,
         None,
         ConversationKind::Chat,
+        None,
     )
     .await
 }
@@ -74,11 +76,40 @@ pub async fn create_with_delegation(
         ConversationKind::Regular
     };
     create_inner(
-        conn, folder_id, agent_type, title, git_branch, delegation, kind,
+        conn, folder_id, agent_type, title, git_branch, delegation, kind, None,
     )
     .await
 }
 
+/// [crewchat] Mirror of [`create`] plus a team snapshot (Phase 1.1) — the
+/// new-session dialog's group conversation. The team serializes to the JSON
+/// blob stored on the row (`ConversationTeam`): leader + members as roster
+/// role ids. Consumers: the delegation broker (member gating), the prompt
+/// frame (in-room roster), and the conversation header (member chips).
+pub async fn create_with_team(
+    conn: &DatabaseConnection,
+    folder_id: i32,
+    agent_type: AgentType,
+    title: Option<String>,
+    git_branch: Option<String>,
+    team: crate::models::conversation::ConversationTeam,
+) -> Result<conversation::Model, DbError> {
+    let team_json = serde_json::to_string(&team)
+        .map_err(|error| DbError::Migration(format!("serialize team: {error}")))?;
+    create_inner(
+        conn,
+        folder_id,
+        agent_type,
+        title,
+        git_branch,
+        None,
+        ConversationKind::Regular,
+        Some(team_json),
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
 async fn create_inner(
     conn: &DatabaseConnection,
     folder_id: i32,
@@ -87,6 +118,7 @@ async fn create_inner(
     git_branch: Option<String>,
     delegation: Option<crate::acp::delegation::spawner::DelegationLink>,
     kind: ConversationKind,
+    team: Option<String>,
 ) -> Result<conversation::Model, DbError> {
     let at_str = serde_json::to_value(agent_type)
         .ok()
@@ -121,6 +153,7 @@ async fn create_inner(
         deleted_at: Set(None),
         pinned_at: Set(None),
         origin_cwd: Set(None),
+        team: Set(team),
     };
     Ok(model.insert(conn).await?)
 }
@@ -906,6 +939,9 @@ struct CarriedOverRow {
     created_at: chrono::DateTime<Utc>,
     updated_at: chrono::DateTime<Utc>,
     origin_cwd: Option<String>,
+    /// [crewchat] Carried like the rest of the row: a fork of a group
+    /// conversation is still a group conversation.
+    team: Option<String>,
 }
 
 impl CarriedOverRow {
@@ -944,6 +980,7 @@ impl CarriedOverRow {
             // `origin_cwd ?? folder.path`, so dropping this would break
             // history lookup for a re-parented conversation.
             origin_cwd: row.origin_cwd.clone(),
+            team: row.team.clone(),
         }
     }
 
@@ -973,6 +1010,7 @@ impl CarriedOverRow {
             // not to the history.
             pinned_at: Set(None),
             origin_cwd: Set(self.origin_cwd),
+            team: Set(self.team),
         }
     }
 }
@@ -1147,6 +1185,13 @@ fn conv_to_summary(r: conversation::Model) -> DbConversationSummary {
         parent_id: r.parent_id,
         parent_tool_use_id: r.parent_tool_use_id,
         delegation_call_id: r.delegation_call_id,
+        // [crewchat] Team snapshot (Phase 1.1). Corrupt JSON reads as "no
+        // team" rather than failing the whole list — the row is still usable
+        // as a plain session.
+        team: r
+            .team
+            .as_deref()
+            .and_then(|raw| serde_json::from_str(raw).ok()),
         origin_cwd: r.origin_cwd,
         // Backfilled by `fill_summary_extras`, like `child_count`.
         tag_ids: Vec::new(),
@@ -1486,6 +1531,55 @@ mod tests {
         .await
         .expect("child");
         (parent.id, child.id)
+    }
+
+    #[tokio::test]
+    async fn create_with_team_round_trips_and_stays_optional() {
+        use crate::models::conversation::ConversationTeam;
+
+        let db = fresh_in_memory_db().await;
+        let folder = seed_folder(&db, "/tmp/codeg-team-roundtrip").await;
+
+        let team = ConversationTeam {
+            leader_role_id: "role-leader".into(),
+            member_role_ids: vec!["role-a".into(), "role-b".into()],
+        };
+        let grouped = create_with_team(
+            &db.conn,
+            folder,
+            AgentType::ClaudeCode,
+            Some("G".into()),
+            None,
+            team.clone(),
+        )
+        .await
+        .expect("grouped");
+        let loaded = get_by_id(&db.conn, grouped.id).await.expect("reload");
+        assert_eq!(loaded.team.as_ref(), Some(&team), "team survives a reload");
+
+        // A plain session keeps `None` — the column is optional and reading
+        // it back must not invent a team.
+        let plain = create(&db.conn, folder, AgentType::Codex, Some("P".into()), None)
+            .await
+            .expect("plain");
+        let plain_loaded = get_by_id(&db.conn, plain.id).await.expect("reload");
+        assert!(plain_loaded.team.is_none());
+    }
+
+    #[tokio::test]
+    async fn corrupt_team_json_reads_as_no_team() {
+        let db = fresh_in_memory_db().await;
+        let folder = seed_folder(&db, "/tmp/codeg-team-corrupt").await;
+        let row = create(&db.conn, folder, AgentType::Codex, Some("X".into()), None)
+            .await
+            .expect("row");
+        let row_id = row.id;
+        let mut active: conversation::ActiveModel = row.into();
+        active.team = Set(Some("{not json".into()));
+        active.update(&db.conn).await.expect("write corrupt");
+
+        let loaded = get_by_id(&db.conn, row_id).await.expect("reload");
+        assert!(loaded.team.is_none(), "a corrupt blob degrades to None");
     }
 
     #[tokio::test]
