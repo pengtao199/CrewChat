@@ -736,18 +736,28 @@
     },
     "selectLeftMcp": "Sélectionnez un MCP à gauche."
   },
-    "TeamSelector": {
-      "aria": "Team picker",
-      "buttonEmpty": "Single agent",
-      "buttonSet": "Team · {count}",
-      "loading": "Loading roster…",
-      "empty": "No agents in the roster yet — create one on the Agents page.",
-      "leaderLabel": "Leader (plans & delegates)",
-      "membersLabel": "Members (delegatable)",
-      "defaultBadge": "Default",
-      "memberToggleAria": "Toggle member {name}",
-      "clear": "Clear team (single-agent session)"
-    },
+  "TeamSelector": {
+    "aria": "Team picker",
+    "buttonEmpty": "Single agent",
+    "buttonSet": "Team · {count}",
+    "loading": "Loading roster…",
+    "empty": "No agents in the roster yet — create one on the Agents page.",
+    "leaderLabel": "Leader (plans & delegates)",
+    "membersLabel": "Members (delegatable)",
+    "defaultBadge": "Default",
+    "memberToggleAria": "Toggle member {name}",
+    "clear": "Clear team (single-agent session)"
+  },
+  "TeamMemberStrip": {
+    "aria": "Team member status",
+    "statusIdle": "Idle",
+    "statusQueued": "Queued",
+    "statusRunning": "Running",
+    "statusWaiting": "Waiting for permission",
+    "statusDone": "Done",
+    "statusFailed": "Failed",
+    "statusCancelled": "Cancelled"
+  },
   "AcpAgentSettings": {
     "readiness": {
       "installAria": "Install {name}",

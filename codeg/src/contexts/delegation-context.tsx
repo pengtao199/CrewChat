@@ -69,6 +69,14 @@ interface DelegationContextValue {
    * tool_call_id matches no binding — the task id is the only handle it holds.
    */
   findByTaskId(taskId: string): DelegationBinding | undefined
+  /**
+   * [crewchat] Every live binding, unordered (Phase 1.4's team strip is the
+   * first aggregate consumer — per-call cards resolve by id instead). The
+   * returned array may be a fresh copy per call; the CONTEXT value's identity
+   * still changes only when the binding map does, which is the re-render
+   * signal aggregate consumers subscribe to.
+   */
+  listBindings(): DelegationBinding[]
 }
 
 const DelegationContext = createContext<DelegationContextValue | null>(null)
@@ -251,9 +259,24 @@ export function DelegationProvider({ children }: { children: ReactNode }) {
     [byToolUseId]
   )
 
+  const listBindings = useCallback(
+    (): DelegationBinding[] => Array.from(byToolUseId.values()),
+    [byToolUseId]
+  )
+
   const value = useMemo(
-    () => ({ findByParentToolUseId, findByChildConversationId, findByTaskId }),
-    [findByParentToolUseId, findByChildConversationId, findByTaskId]
+    () => ({
+      findByParentToolUseId,
+      findByChildConversationId,
+      findByTaskId,
+      listBindings,
+    }),
+    [
+      findByParentToolUseId,
+      findByChildConversationId,
+      findByTaskId,
+      listBindings,
+    ]
   )
 
   return (

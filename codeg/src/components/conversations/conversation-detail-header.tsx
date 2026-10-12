@@ -22,6 +22,7 @@ import {
 } from "@/lib/api"
 import { formatConversationTitle } from "@/lib/conversation-title"
 import { ConversationHeaderFolderPicker } from "@/components/chat/conversation-context-bar"
+import { TeamMemberStrip } from "@/components/chat/team-member-strip"
 import { useAppWorkspaceStore } from "@/stores/app-workspace-store"
 import { useTabActions } from "@/contexts/tab-context"
 import { getRuntimeSession } from "@/stores/conversation-runtime-store"
@@ -261,177 +262,192 @@ export const ConversationDetailHeader = memo(function ConversationDetailHeader({
   }, [conversationId, runtimeConversationId, runtimeId])
 
   return (
-    // Transparent (no surface class): the title header reads as part of the
-    // message canvas below it rather than as a frosted chrome band. With a
-    // workspace background image on, the tab strip above it is transparent too,
-    // so the whole top of the column reveals the canvas.
-    <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border/50 px-3">
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        {/* Folder selector — replaces the old folder-name breadcrumb. Switches
+    <>
+      {/* Transparent (no surface class): the title header reads as part of the
+          message canvas below it rather than as a frosted chrome band. With a
+          workspace background image on, the tab strip above it is transparent
+          too, so the whole top of the column reveals the canvas. */}
+      <div className="flex h-10 shrink-0 items-center gap-2 border-b border-border/50 px-3">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          {/* Folder selector — replaces the old folder-name breadcrumb. Switches
             folders for a draft; a static chip for a bound conversation. */}
-        <ConversationHeaderFolderPicker tabId={tabId} />
-        <ChevronRight
-          className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
-          aria-hidden
-        />
-        {/* The title takes the ellipsis, so the folder crumb on the left stays
+          <ConversationHeaderFolderPicker tabId={tabId} />
+          <ChevronRight
+            className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
+            aria-hidden
+          />
+          {/* The title takes the ellipsis, so the folder crumb on the left stays
             fully visible — but grows only as far as its own text
             (`max-w-max`), so the tags follow it instead of the far edge. */}
-        <span
-          className="min-w-0 max-w-max flex-1 truncate text-sm text-foreground/90"
-          title={title}
-        >
-          {displayTitle}
-        </span>
-        {/* Capped at half the row so a long tag list squeezes its own chips
+          <span
+            className="min-w-0 max-w-max flex-1 truncate text-sm text-foreground/90"
+            title={title}
+          >
+            {displayTitle}
+          </span>
+          {/* Capped at half the row so a long tag list squeezes its own chips
             (they truncate) before it squeezes the title. */}
-        {taggable && conversationId != null ? (
-          <div className="flex max-w-[50%] min-w-0 shrink items-center">
-            <ConversationHeaderTags
-              conversationId={conversationId}
-              folderId={folderId}
-              tagIds={tagIds}
-              gitBranch={gitBranch}
-              max={isMobile ? 1 : 3}
-            />
-          </div>
-        ) : null}
-      </div>
-      <div className="flex shrink-0 items-center">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:text-foreground"
-              aria-label={tConv("moreActions")}
-              title={tConv("moreActions")}
-            >
-              <EllipsisVertical className="h-4 w-4" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              disabled={!folderPath}
-              onSelect={handleNewConversation}
-            >
-              <SquarePen className="h-4 w-4" />
-              {t("newConversation")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={!persisted} onSelect={handleRenameOpen}>
-              <Pencil className="h-4 w-4" />
-              {t("rename")}
-            </DropdownMenuItem>
-            <DropdownMenuItem disabled={!persisted} onSelect={handleTogglePin}>
-              {isPinned ? (
-                <PinOff className="h-4 w-4" />
-              ) : (
-                <Pin className="h-4 w-4" />
-              )}
-              {isPinned ? t("unpin") : t("pin")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!persisted}
-              onSelect={handleOpenDetails}
-            >
-              <Info className="h-4 w-4" />
-              {tDetails("menuLabel")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={!persisted}>
-                <Circle className="h-4 w-4" />
-                {t("status")}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {STATUS_ORDER.filter((s) => s !== status).map((s) => (
-                  <DropdownMenuItem
-                    key={s}
-                    onSelect={() => handleStatusChange(s)}
-                  >
-                    <ConversationStatusDot status={s} />
-                    {tStatus(s)}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={!persisted}
-              onSelect={handleDeleteOpen}
-            >
-              <Trash2 className="h-4 w-4" />
-              {t("delete")}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+          {taggable && conversationId != null ? (
+            <div className="flex max-w-[50%] min-w-0 shrink items-center">
+              <ConversationHeaderTags
+                conversationId={conversationId}
+                folderId={folderId}
+                tagIds={tagIds}
+                gitBranch={gitBranch}
+                max={isMobile ? 1 : 3}
+              />
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:text-foreground"
+                aria-label={tConv("moreActions")}
+                title={tConv("moreActions")}
+              >
+                <EllipsisVertical className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                disabled={!folderPath}
+                onSelect={handleNewConversation}
+              >
+                <SquarePen className="h-4 w-4" />
+                {t("newConversation")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={!persisted}
+                onSelect={handleRenameOpen}
+              >
+                <Pencil className="h-4 w-4" />
+                {t("rename")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!persisted}
+                onSelect={handleTogglePin}
+              >
+                {isPinned ? (
+                  <PinOff className="h-4 w-4" />
+                ) : (
+                  <Pin className="h-4 w-4" />
+                )}
+                {isPinned ? t("unpin") : t("pin")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!persisted}
+                onSelect={handleOpenDetails}
+              >
+                <Info className="h-4 w-4" />
+                {tDetails("menuLabel")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger disabled={!persisted}>
+                  <Circle className="h-4 w-4" />
+                  {t("status")}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {STATUS_ORDER.filter((s) => s !== status).map((s) => (
+                    <DropdownMenuItem
+                      key={s}
+                      onSelect={() => handleStatusChange(s)}
+                    >
+                      <ConversationStatusDot status={s} />
+                      {tStatus(s)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={!persisted}
+                onSelect={handleDeleteOpen}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t("delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-      <Dialog
-        open={renameTarget != null}
-        onOpenChange={(o) => {
-          if (!o) setRenameTarget(null)
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("renameConversation")}</DialogTitle>
-          </DialogHeader>
-          <Input
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            {...ime.props}
-            onKeyDown={(e) => {
-              if (ime.isComposing(e)) return
-              if (e.key === "Enter") handleRenameConfirm()
-            }}
-            autoFocus
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRenameTarget(null)}>
-              {t("cancel")}
-            </Button>
-            <Button onClick={handleRenameConfirm}>{t("save")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog
-        open={deleteTarget != null}
-        onOpenChange={(o) => {
-          if (!o) setDeleteTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteConversationTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteConversationDescription", {
-                title: deleteTarget?.title ?? "",
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm}>
-              {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {details?.summary && (
-        <SessionDetailsDialog
-          open
+        <Dialog
+          open={renameTarget != null}
           onOpenChange={(o) => {
-            if (!o) setDetails(null)
+            if (!o) setRenameTarget(null)
           }}
-          summary={details.summary}
-          stats={details.stats}
-          model={details.model}
-        />
-      )}
-    </div>
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("renameConversation")}</DialogTitle>
+            </DialogHeader>
+            <Input
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              {...ime.props}
+              onKeyDown={(e) => {
+                if (ime.isComposing(e)) return
+                if (e.key === "Enter") handleRenameConfirm()
+              }}
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRenameTarget(null)}>
+                {t("cancel")}
+              </Button>
+              <Button onClick={handleRenameConfirm}>{t("save")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog
+          open={deleteTarget != null}
+          onOpenChange={(o) => {
+            if (!o) setDeleteTarget(null)
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("deleteConversationTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("deleteConversationDescription", {
+                  title: deleteTarget?.title ?? "",
+                })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteConfirm}>
+                {t("delete")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {details?.summary && (
+          <SessionDetailsDialog
+            open
+            onOpenChange={(o) => {
+              if (!o) setDetails(null)
+            }}
+            summary={details.summary}
+            stats={details.stats}
+            model={details.model}
+          />
+        )}
+      </div>
+
+      {/* [crewchat] Team member strip (Phase 1.4) — one chip per member of a
+          group conversation's team with its live state. Renders nothing at
+          all for plain single-agent sessions and unsaved drafts. */}
+      <TeamMemberStrip conversationId={conversationId} />
+    </>
   )
 })
