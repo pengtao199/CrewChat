@@ -87,7 +87,7 @@ fn info_from_def(def: &CustomAgentDef) -> CustomAgentInfo {
 }
 
 pub async fn acp_list_custom_agents_core(db: &AppDatabase) -> Result<Vec<CustomAgentInfo>, AcpError> {
-    let defs = custom_agent_service::list_defs(&db.conn)
+    let defs = custom_agent_service::list_launchable_defs(&db.conn)
         .await
         .map_err(|e| AcpError::protocol(e.to_string()))?;
     Ok(defs.iter().map(info_from_def).collect())

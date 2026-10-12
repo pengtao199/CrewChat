@@ -477,6 +477,10 @@ fn collect_custom_agents(
 ) -> BoxFuture<'_, Result<Value, AppCommandError>> {
     Box::pin(async move {
         let rows = custom_agent::Entity::find()
+            // [crewchat] Roster roles (kind = 'role') are machine-local, like
+            // `skills_dir`: they stay out of config snapshots until the role
+            // payload is part of the sync schema.
+            .filter(custom_agent::Column::Kind.ne(custom_agent::KIND_ROLE))
             .order_by_asc(custom_agent::Column::Id)
             .all(conn)
             .await
@@ -516,6 +520,16 @@ fn apply_custom_agents<'a>(
                 .await
                 .map_err(db_err)?;
             match existing {
+                Some(existing) if existing.kind == custom_agent::KIND_ROLE => {
+                    // A colliding id belongs to a local roster role (Phase
+                    // 2.1); a remote snapshot must not hybridize it into an
+                    // ACP agent.
+                    tracing::warn!(
+                        "[config-sync] skipping custom agent {:?}: id belongs to a local role",
+                        dto.registry_id
+                    );
+                    continue;
+                }
                 Some(existing) => {
                     let mut active = existing.into_active_model();
                     active.name = Set(dto.name);
@@ -548,6 +562,14 @@ fn apply_custom_agents<'a>(
                         source: Set(dto.source),
                         version_probe: Set(dto.version_probe),
                         supports_mcp: Set(dto.supports_mcp),
+                        kind: Set(custom_agent::KIND_ACP.to_string()),
+                        body: Set(None),
+                        instructions: Set(String::new()),
+                        rules: Set(String::new()),
+                        brain_model: Set(String::new()),
+                        brain_provider: Set(String::new()),
+                        skills_json: Set("[]".to_string()),
+                        mcp_json: Set("[]".to_string()),
                         created_at: Set(now),
                         updated_at: Set(now),
                     }

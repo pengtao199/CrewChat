@@ -10,10 +10,11 @@
 //!   present and which `agent_type` reaches each one
 //!   (`crate::acp::agent_mentions::append_team_frame`).
 //!
-//! Resolution reads the roster store (`commands::agent_roles`), the same file
-//! the settings UI writes, so role edits show up without a restart. Read
-//! failures and unknown role ids degrade to "no members" (unconstrained) with
-//! a warning, never to a broken delegation path.
+//! Resolution reads the roster (`db::service::agent_role_service`, the
+//! custom-agent registry's `kind = 'role'` rows since Phase 2.1) — the single
+//! store the settings UI writes, so role edits show up without a restart.
+//! Read failures and unknown role ids degrade to "no members" (unconstrained)
+//! with a warning, never to a broken delegation path.
 
 use std::sync::Arc;
 
@@ -105,7 +106,8 @@ impl DbTeamLookup {
         if team.member_role_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let roles = crate::commands::agent_roles::agent_roles_list_core()
+        let roles = crate::db::service::agent_role_service::list_roles(&self.db.conn)
+            .await
             .map_err(|error| format!("read roster: {error}"))?;
         let members = members_from_roles(&team, &roles);
         if members.is_empty() {
@@ -125,7 +127,7 @@ impl DbTeamLookup {
 /// order the team was picked in).
 pub fn members_from_roles(
     team: &ConversationTeam,
-    roles: &[crate::commands::agent_roles::AgentRole],
+    roles: &[crate::models::agent_role::AgentRole],
 ) -> Vec<TeamMember> {
     team.member_role_ids
         .iter()
@@ -182,7 +184,7 @@ pub fn scope_refusal(agent_type: AgentType, members: &[TeamMember]) -> Option<De
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::commands::agent_roles::AgentRole;
+    use crate::models::agent_role::AgentRole;
 
     fn role(id: &str, name: &str, agent_type: &str, soul: &str) -> AgentRole {
         AgentRole {

@@ -96,6 +96,25 @@ pub async fn init_database(
         tracing::warn!("[custom-agent] failed to hydrate custom agent registry: {e}");
     }
 
+    // [crewchat] One-time roster convergence (Phase 2.1): import the legacy
+    // `agent-roles.json` and the frozen Python roster into the custom-agent
+    // registry as `kind = 'role'` rows, then mark it done. Non-destructive
+    // (originals stay + a pre-import backup), idempotent via the marker, and a
+    // failure must not block startup — the registry stays usable either way.
+    match service::agent_role_service::migrate_legacy_rosters(&conn).await {
+        Ok(Some(report)) => {
+            tracing::info!(
+                "[crewchat][roles] legacy roster migration: codeg={} python={} skipped={} failed={}",
+                report.imported_codeg,
+                report.imported_python,
+                report.skipped_duplicate_names.len(),
+                report.failed_files.len()
+            );
+        }
+        Ok(None) => {}
+        Err(e) => tracing::warn!("[crewchat][roles] legacy roster migration failed: {e}"),
+    }
+
     // Load user-authorized workspace links before any file command can run, so
     // the workspace path guard follows exactly the symlinks the user created
     // and nothing else. A failure here fails *closed* (registry stays empty:

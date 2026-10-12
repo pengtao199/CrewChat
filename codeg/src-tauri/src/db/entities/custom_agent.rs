@@ -1,5 +1,11 @@
 use sea_orm::entity::prelude::*;
 
+/// [crewchat] Row kinds (Phase 2.1). `KIND_ACP` is the original concept — a
+/// launchable external ACP agent; `KIND_ROLE` is a crewchat roster role that
+/// shares the table but never launches as its own ACP server.
+pub const KIND_ACP: &str = "acp";
+pub const KIND_ROLE: &str = "role";
+
 /// A user-registered ACP agent. See `crate::acp::custom_registry` for how a row
 /// becomes launch metadata, and `crate::models::agent::AgentType::Custom` for
 /// how it is referenced from conversations.
@@ -34,6 +40,24 @@ pub struct Model {
     /// Whether MCP servers may be forwarded to the agent over the ACP wire.
     /// See `CustomAgentDef::supports_mcp`.
     pub supports_mcp: bool,
+    /// [crewchat] `acp` (the original launchable agent) or `role` (a crewchat
+    /// roster role; never launched as its own ACP server). See
+    /// `m20261012_000002_custom_agent_role_fields`.
+    pub kind: String,
+    /// [crewchat] Role rows only: the built-in CLI body's wire slug.
+    pub body: Option<String>,
+    /// [crewchat] Role rows only: the Soul document (personality).
+    pub instructions: String,
+    /// [crewchat] Role rows only: the Agents.md rules document.
+    pub rules: String,
+    /// [crewchat] Role rows only: brain model name.
+    pub brain_model: String,
+    /// [crewchat] Role rows only: brain model's CCR provider.
+    pub brain_provider: String,
+    /// [crewchat] Role rows only: JSON array of skill names.
+    pub skills_json: String,
+    /// [crewchat] Role rows only: JSON array of MCP server names.
+    pub mcp_json: String,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }

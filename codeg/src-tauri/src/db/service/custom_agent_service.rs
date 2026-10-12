@@ -69,6 +69,31 @@ pub async fn list_defs(conn: &DatabaseConnection) -> Result<Vec<CustomAgentDef>,
         .collect())
 }
 
+/// The LAUNCHABLE definitions — everything except crewchat roster roles
+/// (Phase 2.1). Roles share the table but are not custom ACP agents; they
+/// must never reach the registry hydration, the custom-agents settings list,
+/// or a launch path. Use this instead of [`list_defs`] anywhere "a custom
+/// agent" means something a user can connect to.
+pub async fn list_launchable_defs(conn: &DatabaseConnection) -> Result<Vec<CustomAgentDef>, DbError> {
+    let rows = custom_agent::Entity::find()
+        .filter(custom_agent::Column::Kind.ne(custom_agent::KIND_ROLE))
+        .all(conn)
+        .await?;
+    Ok(rows
+        .iter()
+        .filter_map(|row| {
+            let def = def_from_model(row);
+            if def.is_none() {
+                tracing::warn!(
+                    "[custom-agent] skipping unreadable row {:?} (bad spec_json or distribution_kind)",
+                    row.registry_id
+                );
+            }
+            def
+        })
+        .collect())
+}
+
 pub async fn get(
     conn: &DatabaseConnection,
     registry_id: &str,
@@ -137,6 +162,14 @@ pub async fn upsert(conn: &DatabaseConnection, def: &CustomAgentDef) -> Result<(
                 source: Set(def.source.as_str().to_string()),
                 version_probe: Set(def.version_probe.clone()),
                 supports_mcp: Set(def.supports_mcp),
+                kind: Set(custom_agent::KIND_ACP.to_string()),
+                body: Set(None),
+                instructions: Set(String::new()),
+                rules: Set(String::new()),
+                brain_model: Set(String::new()),
+                brain_provider: Set(String::new()),
+                skills_json: Set("[]".to_string()),
+                mcp_json: Set("[]".to_string()),
                 created_at: Set(now),
                 updated_at: Set(now),
             }
@@ -153,6 +186,9 @@ pub async fn upsert(conn: &DatabaseConnection, def: &CustomAgentDef) -> Result<(
 pub async fn delete(conn: &DatabaseConnection, registry_id: &str) -> Result<bool, DbError> {
     let result = custom_agent::Entity::delete_many()
         .filter(custom_agent::Column::RegistryId.eq(registry_id))
+        // Roster roles have their own delete; an ACP-agent delete must never
+        // reach across kinds on a colliding id.
+        .filter(custom_agent::Column::Kind.ne(custom_agent::KIND_ROLE))
         .exec(conn)
         .await?;
     Ok(result.rows_affected > 0)
@@ -161,7 +197,7 @@ pub async fn delete(conn: &DatabaseConnection, registry_id: &str) -> Result<bool
 /// Rebuild the process-global launch registry from the database. Call at
 /// startup and after every mutation.
 pub async fn hydrate_registry(conn: &DatabaseConnection) -> Result<(), DbError> {
-    let defs = list_defs(conn).await?;
+    let defs = list_launchable_defs(conn).await?;
     let errors = custom_registry::hydrate(&defs);
     for (id, err) in errors {
         tracing::warn!("[custom-agent] {id} is registered but not launchable: {err}");
@@ -297,6 +333,14 @@ mod tests {
             source: Set("registry".into()),
             version_probe: Set(None),
             supports_mcp: Set(true),
+            kind: Set(custom_agent::KIND_ACP.into()),
+            body: Set(None),
+            instructions: Set(String::new()),
+            rules: Set(String::new()),
+            brain_model: Set(String::new()),
+            brain_provider: Set(String::new()),
+            skills_json: Set("[]".into()),
+            mcp_json: Set("[]".into()),
             created_at: Set(Utc::now()),
             updated_at: Set(Utc::now()),
         };

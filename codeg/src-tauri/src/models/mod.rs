@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod agent_role;
 pub mod automation;
 pub mod background;
 pub mod canvas;
