@@ -159,6 +159,10 @@
 | `src-tauri/src/parsers/claude.rs`（批次 A·脚本） | `parsers/claude.rs`（3.67k）+ `parsers/claude/tests.rs`（4.39k） | 同上（批次 A 第 2 刀），过滤器 `parsers::claude::tests` 93 用例绿 |
 | `src-tauri/src/work_task/engine.rs`（批次 A·脚本） | `work_task/engine.rs`（7.29k）+ `work_task/engine/tests.rs`（5.71k） | 同上（第 3 刀，为 5.2 引擎收口先降上下文负担），过滤器 `work_task::engine::tests` 134 用例绿；3 处 item 级 `#[cfg(test)]` 测试助手按设计留源内 |
 | `src-tauri/src/commands/acp.rs`（批次 A·脚本） | `commands/acp/mod.rs`（13.9k）+ `commands/acp/diagnostics_tests.rs`（351 行） | 中部 `mod diagnostics_tests` 外移为同级子文件（第 4 刀），25 用例绿；7409 行起的 Pi 域是源码，按批次另行目录化 |
+| `src-tauri/src/acp/session_state.rs`（批次 A·脚本） | `acp/session_state.rs`（2.44k）+ `acp/session_state/tests.rs`（2.98k） | 同脚本（第 5 刀），过滤器 `acp::session_state::tests` 92 用例绿 |
+| `src-tauri/src/acp/background_watch.rs`（批次 A·脚本） | `acp/background_watch.rs`（1.87k）+ `acp/background_watch/tests.rs`（2.52k） | 同上（第 6 刀），过滤器 `acp::background_watch::tests` 64 用例绿 |
+| `src-tauri/src/acp/delegation/listener.rs`（批次 A·脚本） | `acp/delegation/listener.rs`（1.63k）+ `acp/delegation/listener/tests.rs`（2.39k） | 同上（第 7 刀，自有代码），过滤器 `acp::delegation::listener::tests` 41 用例绿 |
+| `src-tauri/src/commands/mcp.rs`（批次 A·脚本） | `commands/mcp.rs`（6.10k）+ `commands/mcp/tests.rs`（2.10k） | 同上（第 8 刀），过滤器 `commands::mcp::tests` 51 用例绿 |
 
 ## 构建与开发
 
