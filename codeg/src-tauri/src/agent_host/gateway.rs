@@ -181,29 +181,19 @@ pub fn claude_role_model_label(provider: &str, model: &str, one_million: bool) -
     }
 }
 
-/// The api key that makes the gateway answer as this profile (its discovered
-/// model list is filtered per profile). Falls back to the local gateway key.
-fn profile_api_key(config: &Value, profile_id: Option<&str>) -> Option<String> {
-    let keys = config.get("APIKEYS").and_then(Value::as_array)?;
-    let wanted = profile_id.map(|id| format!("profile:{id}"));
-    let pick = |matcher: &dyn Fn(&Value) -> bool| {
-        keys.iter()
-            .find(|entry| matcher(entry))
-            .and_then(|entry| entry.get("key"))
-            .and_then(Value::as_str)
-            .map(str::to_string)
-    };
-    if let Some(key) = wanted
-        .as_deref()
-        .and_then(|wanted| pick(&|entry: &Value| {
-            entry.get("id").and_then(Value::as_str) == Some(wanted)
-        }))
-    {
-        return Some(key);
-    }
-    pick(&|entry: &Value| {
-        entry.get("id").and_then(Value::as_str) == Some("local-gateway")
-    })
+/// The api key that makes the gateway answer (its discovered model list is
+/// filtered per key). The local gateway key, which sees every provider.
+fn local_gateway_api_key(config: &Value) -> Option<String> {
+    config
+        .get("APIKEYS")
+        .and_then(Value::as_array)?
+        .iter()
+        .find(|entry| {
+            entry.get("id").and_then(Value::as_str) == Some("local-gateway")
+        })
+        .and_then(|entry| entry.get("key"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 /// The claude-visible model ids the gateway answers with for `api_key`.
@@ -235,26 +225,6 @@ async fn claude_model_ids(gateway: &str, api_key: &str) -> Option<Vec<String>> {
     )
 }
 
-/// Ask the gateway for its claude-visible model ids and resolve the one that
-/// names `model`. Best-effort: any failure degrades to `None`.
-pub async fn claude_model_option_id(
-    config: &Value,
-    gateway: &str,
-    profile_id: Option<&str>,
-    model: &str,
-) -> Option<String> {
-    let api_key = profile_api_key(config, profile_id)?;
-    let ids = claude_model_ids(gateway, &api_key).await?;
-    let picked = pick_claude_gateway_model_id(&ids, model);
-    if picked.is_none() {
-        tracing::warn!(
-            "[agent-host] model {model} is not in the gateway's claude-visible list; \
-             leaving the session model option untouched"
-        );
-    }
-    picked
-}
-
 /// The exact client-visible id the gateway exposes for the first candidate it
 /// knows (`anthropic/claude-ccr-h<hex>` or its `[1m]` variant), or `None` when
 /// the gateway is unreachable or exposes none of them.
@@ -263,7 +233,7 @@ pub async fn gateway_claude_model_id(
     gateway: &str,
     candidates: &[String],
 ) -> Option<String> {
-    let api_key = profile_api_key(config, None)?;
+    let api_key = local_gateway_api_key(config)?;
     let ids = claude_model_ids(gateway, &api_key).await?;
     pick_claude_gateway_model_id_for(&ids, candidates)
 }

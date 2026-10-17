@@ -691,29 +691,12 @@ impl ConnectionManager {
         preferred_config_values: BTreeMap<String, String>,
         role: Option<crate::acp::delegation::spawner::RoleSpawnContext>,
     ) -> Result<String, AcpError> {
-        // [crewchat] Agent Host overlay (v1): point this session's model
-        // selector at CCR's client-visible model id, so the session runs on
-        // the model picked for this CLI (profile — and later, per member)
-        // instead of whatever the CLI's global config holds. The overlay only
-        // fills what the caller did not set: an explicit agent_defaults pick
-        // (`preferred_config_values`) outranks it, and `CODEG_AGENT_HOST_INJECT=0`
-        // (or an unreachable CCR) turns it off entirely.
-        //
-        // Phase 3.1: when the spawner already bound the session to a ROLE
-        // model (isolated home), the profile-model option is skipped — setting
-        // it would fight the settings.json the session started on.
-        let role_model_applied = role.as_ref().is_some_and(|role| role.model_applied);
-        let preferred_config_values = {
-            let mut merged = preferred_config_values;
-            if !role_model_applied {
-                if let Some(recipe) = crate::agent_host::recipe_for_agent(agent_type).await {
-                    for (key, value) in recipe.config_options {
-                        merged.entry(key).or_insert(value);
-                    }
-                }
-            }
-            merged
-        };
+        // [crewchat] The session's ACP config values are exactly what the
+        // caller asked for (`agent_defaults` picks, or a delegation's explicit
+        // model request). The Agent Host recipe deliberately contributes NO
+        // config options — see `agent_host`: claude cannot switch models at
+        // runtime, and Phase 3.1's isolated role home is what gives a member its
+        // model at process start.
         let role_mcp = role
             .as_ref()
             .map(|role| role.mcp.clone())

@@ -20,10 +20,10 @@
 //! pre-existing behavior. A missing/unreachable CCR ⇒ no overlay (best
 //! effort), never an error.
 //!
-//! Layout: this file is the launch recipe (env routing + the profile's model
-//! option); [`gateway`] is the CCR gateway's model catalog and how a roster
-//! brain maps onto it; [`role_home`] is Phase 3.1's per-role isolated claude
-//! home.
+//! Layout: this file is the launch recipe (env routing only); [`gateway`] is the
+//! CCR gateway's model catalog and how a roster brain maps onto it; [`role_home`]
+//! is Phase 3.1's per-role isolated claude home — the one mechanism that sets a
+//! member's model.
 
 mod gateway;
 mod role_home;
@@ -43,15 +43,20 @@ pub use role_home::{
     prune_stale_role_homes, ClaudeRoleHome,
 };
 
-/// The per-session overlay: env for routing (claude reads the base URLs at
-/// process start), plus ACP config options for the model choice — claude's
-/// model is picked via `session/set_config_option`, NOT `ANTHROPIC_MODEL`,
-/// because the CLI's own `settings.json` env wins over the process env
-/// (measured 2026-10-12) and a bare env name the gateway can't confirm aborts
-/// the session.
+/// The per-session overlay: env for routing. claude reads its base URL at
+/// process start, so the env trio is the whole launch-time contract.
+///
+/// The MODEL is deliberately NOT here. It is not an env var (`settings.json`'s
+/// env wins over the process env — measured 2026-10-12), and driving it through
+/// the ACP `session/set_config_option` channel cannot work either: claude only
+/// accepts the model its current configuration already names, so every attempt
+/// to switch a member onto another model fails with `Couldn't confirm` (seen on
+/// every member session in the 2026-10-17 logs). Phase 3.1's isolated role home
+/// is the working mechanism — it hands the CLI a settings.json that NAMES the
+/// member's model at process start — and a session without one simply runs on
+/// the CLI's own configured model. One mechanism, no error spam.
 pub struct AgentHostRecipe {
     pub env: BTreeMap<String, String>,
-    pub config_options: BTreeMap<String, String>,
 }
 
 /// Whether the overlay is on. On by default — the point of the feature is that
@@ -121,10 +126,7 @@ pub fn recipe_for_ccr_gateway(
                 }
                 env.insert(key.into(), hosts.join(","));
             }
-            Some(AgentHostRecipe {
-                env,
-                config_options: BTreeMap::new(),
-            })
+            Some(AgentHostRecipe { env })
         }
         // See the module docs: codex's overlay rides on `CODEX_HOME`, which
         // would move its session tree out of the parser's reach.
@@ -151,59 +153,23 @@ pub fn ccr_gateway_base(config: &Value) -> Option<String> {
         })
 }
 
-/// Read CCR's config and the gateway's claude-visible model list, and build
-/// the launch recipe for one agent. `None` on every "no overlay" path:
-/// injection disabled, CLI outside the recipe's scope, CCR unreachable, or a
-/// config shape we don't recognize. A model that the gateway does not expose
-/// to claude degrades to route-only (no model option) — never an error.
+/// Read CCR's config and the gateway's base URL, and build the launch recipe for
+/// one agent. `None` on every "no overlay" path: injection disabled, CLI outside
+/// the recipe's scope, CCR unreachable, or a config shape we don't recognize.
 pub async fn recipe_for_agent(agent_type: AgentType) -> Option<AgentHostRecipe> {
     if !injection_enabled() {
         return None;
     }
-    let kind = ccr_agent_kind(agent_type)?;
+    // Scope gate: a CLI outside CCR's registry gets no overlay, even if a later
+    // recipe builder learns to build one for it (see the module docs on codex).
+    if ccr_agent_kind(agent_type).is_none() {
+        return None;
+    }
     let config = crate::commands::ccr::ccr_call_core("getConfig", None)
         .await
         .ok()?;
     let gateway = ccr_gateway_base(&config)?;
-    let mut recipe = recipe_for_ccr_gateway(agent_type, &gateway)?;
-
-    // The enabled profile wins (same rule as the CLI page's binding card);
-    // a disabled one still names the CLI's configured model, which beats
-    // injecting nothing.
-    let profiles = config
-        .pointer("/profile/profiles")
-        .and_then(Value::as_array);
-    let profile = profiles.and_then(|list| {
-        list.iter()
-            .find(|profile| {
-                profile.get("agent").and_then(Value::as_str) == Some(kind)
-                    && profile.get("enabled").and_then(Value::as_bool) != Some(false)
-            })
-            .or_else(|| {
-                list.iter()
-                    .find(|profile| profile.get("agent").and_then(Value::as_str) == Some(kind))
-            })
-    });
-    if agent_type == AgentType::ClaudeCode {
-        let model = profile
-            .and_then(|profile| profile.get("model"))
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|model| !model.is_empty());
-        let profile_id = profile
-            .and_then(|profile| profile.get("id"))
-            .and_then(Value::as_str);
-        if let Some(model) = model {
-            if let Some(model_id) =
-                gateway::claude_model_option_id(&config, &gateway, profile_id, model).await
-            {
-                recipe
-                    .config_options
-                    .insert("model".into(), model_id);
-            }
-        }
-    }
-    Some(recipe)
+    recipe_for_ccr_gateway(agent_type, &gateway)
 }
 
 #[cfg(test)]
@@ -241,10 +207,10 @@ mod tests {
             Some("127.0.0.1,localhost,::1")
         );
         // The model is NOT an env var: claude's settings.json env wins over
-        // the process env, so the recipe routes via env and picks the model
-        // via the ACP config option instead.
+        // the process env, so the recipe routes via env and leaves the model to
+        // the role home (Phase 3.1) or the CLI's own configuration. Nothing in
+        // this recipe tries to switch the model at runtime.
         assert!(!recipe.env.contains_key("ANTHROPIC_MODEL"));
-        assert!(recipe.config_options.is_empty());
     }
 
     #[test]
