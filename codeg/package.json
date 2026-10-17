@@ -13,6 +13,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "verify": "node scripts/verify.mjs",
+    "split-tests": "node scripts/split-tests.mjs",
     "server:build": "cd src-tauri && cargo build --release --bin codeg-server --no-default-features --features server-bin",
     "server:dev": "cd src-tauri && cargo run --bin codeg-server --no-default-features --features server-bin",
     "browser:agent": "node scripts/build-browser-agent.mjs",
