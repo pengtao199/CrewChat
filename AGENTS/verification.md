@@ -10,6 +10,8 @@
 
 ## 最小自检（按改动类型选）
 
+**默认入口**：`cd codeg && node scripts/verify.mjs changed`——从 `git diff HEAD` 派生范围并打印计划（改了哪些文件、要跑哪几条命令）。改哪个模块只跑哪个模块：Rust 按该文件自己的 `#[cfg(test)] mod <name>` 精确过滤；无内联测试的业务文件算接线，只编译；`src/bin/**` 补 `cargo check --bins`；前端跑同名测试文件（没有同名测试则只 `tsc`）；locale JSON 跑键位对齐测试；Python 文件跑 `import` 冒烟。**不每步跑全量**：全量（`cargo test` / `pnpm test`）只在里程碑收口跑一次（用户 2026-10-17 拍板）。下表的检查项在此之上按改动类型补默认脚本覆盖不到的部分。
+
 | 改动类型 | 必须跑的最小验证 |
 | --- | --- |
 | Python 后端 | `uv run python -c "import crewchat.<模块>"` 并实调该能力（curl 或脚本） |

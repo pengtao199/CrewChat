@@ -18,7 +18,16 @@ Codeg（Code Generation）是一个多智能体编码工作台，它将多个智
 
 ## 代码检查与测试（任务完成后进行必要的检查）
 
-### 前端
+### 按改动派生最小验证（默认用这条）
+
+```bash
+cd codeg && node scripts/verify.mjs changed            # 从 git diff HEAD 派生范围
+cd codeg && node scripts/verify.mjs changed --dry-run  # 只打印计划，不跑
+```
+
+改哪个模块只跑哪个模块：Rust 按该文件自己的 `#[cfg(test)] mod <name>` 精确过滤、前端跑同名测试文件、locale JSON 跑键位对齐测试、`src/bin/**` 补 `cargo check --bins`。改动的完整清单和命令会打印出来，可直接作为验证证据。全量测试留给里程碑收口。
+
+### 全量（收口时）
 
 ```bash
 pnpm lint .                    # lint
