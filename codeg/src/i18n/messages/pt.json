@@ -3594,6 +3594,8 @@
         "noDetail": "No detail available yet.",
         "unknownAgent": "Subagente",
         "openDetail": "Ver conversa",
+        "expandDetail": "Ver detalhes",
+        "collapseDetail": "Ocultar detalhes",
         "resumed": "Retomado",
         "resumeDetail": "Detalhes da retomada",
         "resumeReasonLabel": "Motivo da retomada",

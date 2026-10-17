@@ -43,6 +43,13 @@ interface Props {
   avatarBadge?: ReactNode
   /** Omitted when the child conversation is unknown (nothing to open). */
   onOpenSession?: () => void
+  /**
+   * [crewchat] Phase 4.1: an affordance rendered between the label block and
+   * the open-session button — `DelegatedSubThread`'s inline member-stream
+   * toggle. Optional so the other cards built from this row
+   * (`ResumedDelegationCard`) keep the two-affordance shape they always had.
+   */
+  trailingAction?: ReactNode
 }
 
 export function DelegationCardRow({
@@ -54,6 +61,7 @@ export function DelegationCardRow({
   task,
   avatarBadge,
   onOpenSession,
+  trailingAction,
 }: Props) {
   const t = useTranslations("Folder.chat.delegation")
   const tTokens = useTranslations("Folder.statusBar.tokens")
@@ -114,6 +122,7 @@ export function DelegationCardRow({
           )}
         </div>
       </div>
+      {trailingAction}
       {onOpenSession && (
         <button
           type="button"

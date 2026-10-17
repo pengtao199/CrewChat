@@ -60,6 +60,19 @@ vi.mock("@/components/message/sub-agent-session-dialog", () => ({
     ) : null,
 }))
 
+// [crewchat] Phase 4.1: the card can host the child's stream inline (closed by
+// default), which pulls in the whole MessageListView graph. The expand/close
+// behavior itself lives in `delegated-sub-thread.inline.test.tsx`; here we only
+// need the import not to drag that graph in.
+vi.mock("@/components/message/live-transcript-view", () => ({
+  LiveTranscriptView: ({ conversationId }: { conversationId: number }) => (
+    <div
+      data-testid="live-transcript-view"
+      data-conversation-id={conversationId}
+    />
+  ),
+}))
+
 const { useDelegatedSubSession } =
   await import("@/hooks/use-delegated-sub-session")
 const mockedHook = vi.mocked(useDelegatedSubSession)
@@ -207,8 +220,8 @@ describe("DelegatedSubThread", () => {
     renderWithIntl(<DelegatedSubThread parentToolUseId="pt-1" input={input} />)
     expect(screen.getByText("starting")).toBeInTheDocument()
     expect(screen.queryByText("running")).not.toBeInTheDocument()
-    // No child conversation yet → no "Open conversation" button (and the card
-    // has no expand toggle at all under the slim design).
+    // No child conversation yet → no "Open conversation" button and no inline
+    // expand toggle either (both are gated on the same child id).
     expect(screen.queryByRole("button")).not.toBeInTheDocument()
     expect(screen.getByText("set things up")).toBeInTheDocument()
   })
@@ -332,6 +345,8 @@ describe("DelegatedSubThread", () => {
     expect(
       screen.queryByText(/All good, the build passed\./)
     ).not.toBeInTheDocument()
+    // …and the inline stream stays collapsed until it is asked for.
+    expect(screen.queryByTestId("delegation-inline-stream")).toBeNull()
   })
 
   it("badges 'awaiting approval' when the child has a pending permission (answered in the dialog, not inline)", () => {

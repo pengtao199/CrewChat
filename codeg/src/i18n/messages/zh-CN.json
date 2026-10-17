@@ -3594,6 +3594,8 @@
         "noDetail": "暂无详情。",
         "unknownAgent": "子智能体",
         "openDetail": "查看会话",
+        "expandDetail": "展开详情",
+        "collapseDetail": "收起详情",
         "resumed": "已恢复",
         "resumeDetail": "恢复详情",
         "resumeReasonLabel": "恢复原因",

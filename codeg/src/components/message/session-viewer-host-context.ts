@@ -87,6 +87,15 @@ export type SessionViewerRequest =
 
 export interface SessionViewerHostValue {
   open: (request: SessionViewerRequest) => void
+  /**
+   * Lower the drawer without any new request.
+   *
+   * Optional on purpose: `open` is the contract every consumer needs, and the
+   * only caller today is a card retracting its own inline member stream
+   * (`DelegatedSubThread`, `[crewchat]` Phase 4.1). A host that cannot close —
+   * the file-target test's stand-in, for instance — simply does not offer it.
+   */
+  close?: () => void
 }
 
 export const SessionViewerHostContext =

@@ -3594,6 +3594,8 @@
         "noDetail": "No detail available yet.",
         "unknownAgent": "Sub-agent",
         "openDetail": "Open conversation",
+        "expandDetail": "Expand details",
+        "collapseDetail": "Collapse details",
         "resumed": "Resumed",
         "resumeDetail": "Resume details",
         "resumeReasonLabel": "Resume reason",

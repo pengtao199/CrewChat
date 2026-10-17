@@ -61,6 +61,14 @@ export function SessionViewerHost({ children }: { children: React.ReactNode }) {
         setRequest(next)
         setOpen(true)
       },
+      // [crewchat] Phase 4.1: a delegation card can host the child's member
+      // stream inline instead. That inline view mounts the very same
+      // `LiveTranscriptView` (and so the same runtime-session bridge) as this
+      // drawer does — two of them on one conversation would mean two live
+      // bridges mirroring one connection, and either one's unmount calling
+      // `removeConversation` on a session the other is still showing. So a
+      // card that opens its inline view asks the drawer to step aside.
+      close: () => setOpen(false),
     }),
     []
   )

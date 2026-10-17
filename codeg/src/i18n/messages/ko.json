@@ -3594,6 +3594,8 @@
         "noDetail": "No detail available yet.",
         "unknownAgent": "하위 에이전트",
         "openDetail": "대화 보기",
+        "expandDetail": "상세 보기",
+        "collapseDetail": "상세 접기",
         "resumed": "재개됨",
         "resumeDetail": "재개 세부 정보",
         "resumeReasonLabel": "재개 사유",

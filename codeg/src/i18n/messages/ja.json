@@ -3594,6 +3594,8 @@
         "noDetail": "No detail available yet.",
         "unknownAgent": "サブエージェント",
         "openDetail": "会話を表示",
+        "expandDetail": "詳細を表示",
+        "collapseDetail": "詳細を閉じる",
         "resumed": "再開済み",
         "resumeDetail": "再開の詳細",
         "resumeReasonLabel": "再開理由",

@@ -3594,6 +3594,8 @@
         "noDetail": "No detail available yet.",
         "unknownAgent": "وكيل فرعي",
         "openDetail": "عرض المحادثة",
+        "expandDetail": "عرض التفاصيل",
+        "collapseDetail": "إخفاء التفاصيل",
         "resumed": "تم الاستئناف",
         "resumeDetail": "تفاصيل الاستئناف",
         "resumeReasonLabel": "سبب الاستئناف",
