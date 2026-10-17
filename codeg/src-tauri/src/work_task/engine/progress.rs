@@ -598,3 +598,21 @@ impl TaskEngine {
 
     // ── merge (two-stage, persisted intent, per-folder git mutex) ───────────
 }
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Cap on a task-derived conversation title. Long enough for a real card name,
+/// short enough that the sidebar row is not one giant ellipsis.
+pub(super) const CONVERSATION_TITLE_MAX_CHARS: usize = 80;
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The title the session a task produces carries: the task's own name, capped.
+/// It is LOCKED on the conversation row at launch (`conversation_service::
+/// lock_title`), so a board card and the session it spawned always read the
+/// same in the sidebar (issue #495).
+///
+/// One definition, because two callers must agree byte-for-byte: the launch-time
+/// seed here, and the rename propagation in `commands::work_task`, which
+/// recognises "still the task's name" by comparing against this exact value.
+pub(crate) fn conversation_title_for_task(task_title: &str) -> String {
+    first_chars(task_title.trim(), CONVERSATION_TITLE_MAX_CHARS)
+}

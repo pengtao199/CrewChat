@@ -1029,3 +1029,790 @@ impl TaskEngine {
         wake.notify_one();
     }
 }
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// How a launch composes its prompt.
+pub(super) enum LaunchMode {
+    /// First run: the task's own prompt blocks.
+    Fresh,
+    /// Retry after failure: resume the session if possible and ask to continue.
+    Retry,
+    /// A follow-up on a reviewed task: the user's text, framed by their intent,
+    /// plus whatever the composer attached out of band (images, pasted bytes).
+    Return {
+        intent: FollowUpIntent,
+        feedback: String,
+        attachments: Vec<serde_json::Value>,
+    },
+    /// Merge generation: the agent lands the task onto the base branch itself
+    /// (sync base into the worktree, resolve conflicts, merge into base). The
+    /// task sits in `merging` for the whole turn; the engine settles from git
+    /// truth, never from the agent's word.
+    Merge {
+        root_path: String,
+        base_branch: String,
+        work_branch: String,
+        /// "squash" | "merge"
+        strategy: String,
+        /// `None` → the agent writes the commit message itself.
+        message: Option<String>,
+        /// Whatever the user added in the merge dialog, verbatim. `None` when
+        /// they left it empty — which is every merge dispatched before this
+        /// existed, and the auto-merge sweep's every landing.
+        instructions: Option<String>,
+    },
+}
+
+impl LaunchMode {
+    /// The task status a launch of this mode expects to find when it starts.
+    fn expected_status(&self) -> WorkTaskStatus {
+        match self {
+            LaunchMode::Merge { .. } => WorkTaskStatus::Merging,
+            _ => WorkTaskStatus::Queued,
+        }
+    }
+
+    /// The status the task holds for the REST of the launch, once setup has
+    /// begun — what the cancel gates re-check. A merge generation stays
+    /// `merging` throughout; every other mode moves `queued → preparing` before
+    /// it touches the worktree.
+    fn in_flight_status(&self) -> WorkTaskStatus {
+        match self {
+            LaunchMode::Merge { .. } => WorkTaskStatus::Merging,
+            _ => WorkTaskStatus::Preparing,
+        }
+    }
+
+    /// Timeline `round` label for the prompt this mode composes. Every
+    /// follow-up intent shares the `return` stage: the folder's per-stage
+    /// prompt settings stay four stages wide, and the intent rides the `round`
+    /// event beside this label for the transcript's phase divider.
+    fn round_kind(&self) -> &'static str {
+        match self {
+            LaunchMode::Fresh => "work",
+            LaunchMode::Retry => "retry",
+            LaunchMode::Return { .. } => "return",
+            LaunchMode::Merge { .. } => "merge",
+        }
+    }
+
+    /// The follow-up intent this launch carries, for the `round` marker.
+    fn round_intent(&self) -> Option<FollowUpIntent> {
+        match self {
+            LaunchMode::Return { intent, .. } => Some(*intent),
+            _ => None,
+        }
+    }
+
+    /// Whether this launch may write to the worktree. A question is answered in
+    /// chat; everything else is work.
+    fn is_read_only(&self) -> bool {
+        matches!(
+            self,
+            LaunchMode::Return {
+                intent: FollowUpIntent::Question,
+                ..
+            }
+        )
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Pick the launch mode for a pump-driven launch from the task's history: a
+/// task with a prior conversation continues (retry semantics); one with no
+/// session to continue starts fresh. Explicit returns launch directly with
+/// `LaunchMode::Return`.
+///
+/// The bound session IS the whole criterion, which is what lets a transition
+/// decide how the next start behaves: `retry` (failed → queued) keeps the link
+/// and therefore continues, while `requeue_canceled` drops it so a task the
+/// user put back on the board runs from the top. `compose_prompt` must not
+/// read `Fresh` as "this task has no history" — see its doc.
+pub(super) fn launch_mode_for(task: &crate::db::entities::work_task::Model) -> LaunchMode {
+    if task.conversation_id.is_some() {
+        LaunchMode::Retry
+    } else {
+        LaunchMode::Fresh
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The branch the task was created FOR, if its config names one. A blank
+/// choice is no choice: the editor writes the empty string for "the project
+/// folder's current branch", which is also what every task predating the
+/// field carries.
+pub(super) fn chosen_base_branch(task: &crate::db::entities::work_task::Model) -> Option<String> {
+    serde_json::from_str::<WorkTaskConfig>(&task.config)
+        .ok()?
+        .base_branch
+        .map(|b| b.trim().to_string())
+        .filter(|b| !b.is_empty())
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Layered agent config: task override wins wholesale; else the folder's task
+/// settings; else the folder's default agent with no extra options.
+pub(super) fn effective_agent_config(
+    cfg: &WorkTaskConfig,
+    settings: &WorkTaskFolderSettings,
+    root: &crate::models::FolderDetail,
+) -> (
+    Option<String>,
+    Option<String>,
+    std::collections::BTreeMap<String, String>,
+) {
+    if let Some(agent) = cfg.agent_type.clone() {
+        return (Some(agent), cfg.mode_id.clone(), cfg.config_values.clone());
+    }
+    if let Some(agent) = settings.default_agent_type.clone() {
+        return (
+            Some(agent),
+            settings.mode_id.clone(),
+            settings.config_values.clone(),
+        );
+    }
+    let folder_default = root
+        .default_agent_type
+        .as_ref()
+        .and_then(|a| serde_json::to_value(a).ok())
+        .and_then(|v| v.as_str().map(String::from));
+    (
+        folder_default,
+        settings.mode_id.clone(),
+        settings.config_values.clone(),
+    )
+}
+
+/// Compose the prompt for a launch mode. Fresh runs replay the task's blocks.
+/// Retry/return compose against the session we actually got: a resumed session
+/// already carries the task context, while a fresh fallback session needs the
+/// full original description again. Every prompt ends with the worktree guard,
+/// then with whatever the folder's settings add for this stage.
+///
+/// "Fresh" is a mode, NOT a promise that the task is pristine: `requeue_canceled`
+/// drops the session link so a re-queued task starts over, which sends a task
+/// that already ran — worktree, branch and all — back through the fresh arm. Both
+/// replaying arms therefore read the instruction log rather than the mode.
+pub(super) async fn compose_prompt(
+    cfg: &WorkTaskConfig,
+    task: &crate::db::entities::work_task::Model,
+    mode: &LaunchMode,
+    settings: &WorkTaskFolderSettings,
+    resumed: bool,
+    conn: &sea_orm::DatabaseConnection,
+) -> Result<Vec<PromptInputBlock>, String> {
+    let mut blocks: Vec<PromptInputBlock> = Vec::new();
+    let original: Vec<PromptInputBlock> = cfg
+        .prompt_blocks
+        .iter()
+        .map(|v| serde_json::from_value::<PromptInputBlock>(v.clone()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("bad prompt blocks: {e}"))?;
+
+    // Whether this launch is (re)doing the task's ORIGINAL work order, as
+    // opposed to follow-up work the user asked for later. The worktree guard
+    // below keys its licence on this: a report-deliverable task forbids code
+    // changes on its original order, but a returned "now apply the fix" turn
+    // is precisely a change order and must get the normal write licence.
+    let mut original_work_order = false;
+    // A replay standing in for an unanswered question: it already says "do not
+    // change any files for it", so the guard must not hand back the commit
+    // grant three blocks later.
+    let mut replayed_question = false;
+
+    match mode {
+        LaunchMode::Fresh => {
+            if original.is_empty() {
+                return Err("prompt is empty".to_string());
+            }
+            // Read the log, not the mode. A fresh launch used to mean a task
+            // with no history at all; since a requeue drops the session link it
+            // also means "run this again from the top", and that task may owe
+            // the user an instruction its stopped generation never answered —
+            // a returned "rework this" is silently lost otherwise, and a
+            // returned question comes back as a work order with a full commit
+            // grant. Same two reads as the retry arm, for the same reasons.
+            let scan = instruction_scan(conn, task.id).await;
+            original_work_order = scan.interrupted.is_none();
+            replayed_question = matches!(scan.interrupted, Some(FollowUpIntent::Question));
+            // Only when a generation actually got as far as its own turn
+            // (`started_at` is written by `mark_running` and never cleared): a
+            // task canceled during setup has nothing in its worktree to warn
+            // about, and its prompt stays byte-identical to a first run's.
+            if task.started_at.is_some() {
+                blocks.push(PromptInputBlock::Text {
+                    text: "You are running this task again from the top: an earlier run was \
+                           stopped and the task was put back on the board, so this session \
+                           carries none of that run's context. Its worktree may still hold \
+                           that run's work — check the current state first and build on \
+                           whatever is already there instead of redoing it. The original task \
+                           was:"
+                        .to_string(),
+                });
+            }
+            blocks.extend(original);
+            push_replay(&mut blocks, &scan, resumed, task.id);
+        }
+        LaunchMode::Retry => {
+            blocks.push(PromptInputBlock::Text {
+                text: "The previous run of this task was interrupted. Continue working in \
+                       this worktree and complete the task."
+                    .to_string(),
+            });
+            if !resumed {
+                blocks.push(PromptInputBlock::Text {
+                    text: "The original task follows for reference:".to_string(),
+                });
+                blocks.extend(original);
+            }
+            // Replay whatever instruction the interrupted generation still
+            // owed the user, framed the way they meant it — an unanswered
+            // question must not come back as a work order.
+            let scan = instruction_scan(conn, task.id).await;
+            // A retry stands in for whichever turn was interrupted, and the
+            // licence follows THAT turn — `interrupted`, not the newest note:
+            // a retry/requeue note refines the turn it interrupts (a hint, a
+            // screenshot), it does not change what kind of turn it was. With
+            // no unsettled follow-up underneath, this is the original order
+            // again.
+            original_work_order = scan.interrupted.is_none();
+            replayed_question = matches!(scan.interrupted, Some(FollowUpIntent::Question));
+            push_replay(&mut blocks, &scan, resumed, task.id);
+        }
+        LaunchMode::Return {
+            intent,
+            feedback,
+            attachments,
+        } => {
+            if !resumed {
+                // Session resume failed — the fresh session has no context, so
+                // replay the task before the feedback.
+                blocks.push(PromptInputBlock::Text {
+                    text: "You are picking up a task whose previous session could not be \
+                           resumed. The worktree already contains that session's work. \
+                           The original task was:"
+                        .to_string(),
+                });
+                blocks.extend(original);
+            }
+            blocks.push(PromptInputBlock::Text {
+                text: follow_up_text(*intent, feedback),
+            });
+            blocks.extend(attachment_blocks(attachments, task.id));
+        }
+        LaunchMode::Merge {
+            root_path,
+            base_branch,
+            work_branch,
+            strategy,
+            message,
+            instructions,
+        } => {
+            if !resumed {
+                blocks.push(PromptInputBlock::Text {
+                    text: "You are picking up a task whose previous session could not be \
+                           resumed. The worktree already contains that session's work. \
+                           The original task was:"
+                        .to_string(),
+                });
+                blocks.extend(original);
+            }
+            let land_command = if strategy == "merge" {
+                format!(
+                    "git -C \"{root_path}\" merge --no-ff -m \"<message>\" {work_branch}"
+                )
+            } else {
+                format!(
+                    "git -C \"{root_path}\" merge --squash {work_branch} && \
+                     git -C \"{root_path}\" commit -m \"<message>\""
+                )
+            };
+            // Indented under step 3 rather than left dangling after it: it says
+            // what to substitute for that step's `<message>`, and read as a
+            // fourth line it looked like a fourth instruction.
+            let message_rule = match message {
+                Some(m) => format!("   Use exactly this commit message:\n   {m}"),
+                None => "   For `<message>`, write a concise Conventional Commits \
+                         message yourself, summarizing what this task changed."
+                    .to_string(),
+            };
+            // The user's own words get their own paragraph, before the closing
+            // rules — those rules stay last on purpose (same reason the standing
+            // worktree guard below is the last built-in block): whatever the
+            // user asked for, it does not license a push or a self-deletion.
+            let extra = match instructions {
+                Some(i) => format!("\nAlso follow these instructions from the user:\n{i}\n"),
+                None => String::new(),
+            };
+            blocks.push(PromptInputBlock::Text {
+                text: format!(
+                    "The user accepted this task — land it onto the base branch \
+                     `{base_branch}` now, doing all git operations yourself:\n\
+                     1. Commit any uncommitted changes in this worktree to the current \
+                     branch (`{work_branch}`).\n\
+                     2. Run `git merge {base_branch}` here and resolve every conflict so \
+                     both the base's changes and this task's intent survive; complete the \
+                     merge commit.\n\
+                     3. Land onto the base checkout at `{root_path}`:\n   {land_command}\n\
+                     {message_rule}\n\
+                     {extra}\n\
+                     Do NOT push, do NOT delete this worktree or its branch, and do not \
+                     change anything else on the base branch — leave the checkout at \
+                     `{root_path}` on `{base_branch}`, never switch branches there. \
+                     Finish with one short line saying what landed."
+                ),
+            });
+        }
+    }
+
+    // The standing worktree guard — a merge generation replaces it with its
+    // own instructions (it exists to forbid exactly what a merge must do).
+    //
+    // It is the LAST built-in block, so its licence clause is the last thing
+    // the agent reads: a read-only turn — and a report-deliverable original
+    // order — has to swap that clause out, or "commit to the current branch as
+    // you like" would quietly undo the intent's own "don't touch any file"
+    // instruction several blocks earlier.
+    if !matches!(mode, LaunchMode::Merge { .. }) {
+        let branch = task
+            .work_branch
+            .as_deref()
+            .map(|b| format!(" (branch `{b}`)"))
+            .unwrap_or_default();
+        let base = task
+            .base_branch
+            .as_deref()
+            .map(|b| format!(" (`{b}`)"))
+            .unwrap_or_default();
+        let licence = if mode.is_read_only() || replayed_question {
+            format!(
+                "This turn is a question, not a work order: answer it in your reply and do NOT \
+                 create, edit, delete or commit any file, and do not merge into, rebase onto, or \
+                 push the base branch{base}. If answering would require a change, describe the \
+                 change instead of making it."
+            )
+        } else if original_work_order && cfg.deliverable.as_deref() == Some(DELIVERABLE_REPORT) {
+            // Report-deliverable order (forge plan-first / review-only):
+            // the generic "commit as you like" grant would quietly undo the
+            // task's own "analysis only" instruction several blocks earlier —
+            // the licence must defer to the task text, not overrule it.
+            format!(
+                "This turn delivers a report, not code changes: put the full findings in your \
+                 final reply — the user reads them from there, and may return this task for \
+                 follow-up work afterwards. Commit only what the task's instructions \
+                 explicitly allow (often nothing), and do NOT merge into, rebase onto, or \
+                 push the base branch{base}."
+            )
+        } else {
+            format!(
+                "Commit to the current branch as you like, but do NOT merge into, rebase onto, \
+                 or push the base branch{base} — the user lands the result after review. Finish \
+                 with a short summary of what you did."
+            )
+        };
+        blocks.push(PromptInputBlock::Text {
+            text: format!(
+                "—— Work task context ——\nYou are working inside a dedicated git worktree for \
+                 this task{branch}. {licence}\nIf the `task_progress` and `task_complete` tools \
+                 are available to you, report milestones with `task_progress` as you go, and \
+                 call `task_complete` once right before you finish (verdict `success`, \
+                 `needs_review`, or `blocked`, plus a short summary).",
+            ),
+        });
+    }
+
+    // Whatever the user added in task settings, always last: it refines the
+    // built-in wording above it, and staying at the end keeps `prompt_head`
+    // (the transcript's round marker) on the prompt's own opening text.
+    blocks.extend(stage_prompt_block(settings, mode.round_kind()));
+    Ok(blocks)
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The user's own instructions for a stage: the `all` text (every stage) then
+/// the stage's own, as one trailing block. Empty when neither is configured.
+pub(super) fn stage_prompt_block(
+    settings: &WorkTaskFolderSettings,
+    stage: &str,
+) -> Option<PromptInputBlock> {
+    let extras: Vec<&str> = [STAGE_PROMPT_ALL, stage]
+        .into_iter()
+        .filter_map(|key| settings.stage_prompts.get(key))
+        .map(|text| text.trim())
+        .filter(|text| !text.is_empty())
+        .collect();
+    if extras.is_empty() {
+        return None;
+    }
+    Some(PromptInputBlock::Text {
+        text: format!("—— Additional instructions ——\n{}", extras.join("\n\n")),
+    })
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The prompt text for a follow-up on a reviewed task. The intent decides the
+/// framing, which is the whole point of having intents: the same sentence from
+/// the user means "fix this", "also do this" or "explain this" depending on it,
+/// and an agent told it was *returned* work will start editing either way.
+pub(super) fn follow_up_text(intent: FollowUpIntent, feedback: &str) -> String {
+    match intent {
+        // Historical wording, kept verbatim: this is what an unlabelled
+        // follow-up composes, so the default path is unchanged.
+        FollowUpIntent::Revise => format!(
+            "The user reviewed your work on this task and returned it with the following \
+             feedback. Address it in this same worktree:\n\n{feedback}"
+        ),
+        FollowUpIntent::Continue => format!(
+            "The user reviewed your work on this task and accepted it as it stands. Keep going \
+             in this same worktree with the following additional work — do not redo or second-\
+             guess what is already there:\n\n{feedback}"
+        ),
+        FollowUpIntent::Question => format!(
+            "The user has a question about your work on this task. Answer it directly in your \
+             reply. This is a question, not a work order: do not create, edit, delete or commit \
+             any file unless the user explicitly asks you to. If answering would require a \
+             change, describe the change instead of making it.\n\n{feedback}"
+        ),
+        FollowUpIntent::Verify => {
+            let base = "The user wants this task checked over before they accept it. Review your \
+                        own work: read the full diff of this worktree against the base branch \
+                        looking for bugs, leftovers, debug code and anything the task asked for \
+                        but you did not do; run the project's own checks or tests; and fix what \
+                        you find. Report what you checked and what you changed.";
+            if feedback.is_empty() {
+                base.to_string()
+            } else {
+                format!("{base}\n\nWhat they want you to pay attention to:\n\n{feedback}")
+            }
+        }
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The attachment blocks recorded on a `user_action` payload, if any. Absent on
+/// every event written before follow-ups could carry attachments, so a missing
+/// or malformed field simply means "nothing was attached".
+pub(super) fn payload_blocks(payload: &serde_json::Value) -> Vec<serde_json::Value> {
+    payload
+        .get("blocks")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default()
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Parse stored attachment blocks, dropping (with a warning) any that no longer
+/// deserialize. Unlike the task's own prompt, an attachment is an addition to
+/// the instruction — losing one must not stop the run that carries the rest.
+pub(super) fn attachment_blocks(raw: &[serde_json::Value], task_id: i32) -> Vec<PromptInputBlock> {
+    raw.iter()
+        .filter_map(|v| match serde_json::from_value::<PromptInputBlock>(v.clone()) {
+            Ok(block) => Some(block),
+            Err(e) => {
+                tracing::warn!("[work_task] task {task_id}: dropping bad attachment block: {e}");
+                None
+            }
+        })
+        .collect()
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// How long a launch waits for the agent to advertise what a prompt may carry,
+/// before sending its attached images in whatever shape they were stored. Only
+/// image-bearing prompts ever wait, and only until the handshake lands — which
+/// is the same round trip the prompt itself is about to need anyway.
+pub(super) const IMAGE_CAPABILITY_WAIT: Duration = Duration::from_secs(20);
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Whether this block carries image bytes in either of the two wire encodings.
+pub(super) fn carries_image(block: &PromptInputBlock) -> bool {
+    match block {
+        PromptInputBlock::Image { .. } => true,
+        PromptInputBlock::Resource {
+            mime_type, blob, ..
+        } => {
+            blob.is_some()
+                && mime_type
+                    .as_deref()
+                    .is_some_and(|m| m.starts_with("image/"))
+        }
+        _ => false,
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Swap every attached image into the shape the connected agent advertised.
+///
+/// Two wire encodings carry the same bytes: a native `Image` block, and a
+/// `Resource` whose `blob` holds them under an image mime type (what an agent
+/// that rejects image content but accepts embedded context takes). The composer
+/// picks one at compose time from a probe; this picks again at dispatch, when
+/// the session has actually said what it accepts.
+///
+/// Grok needs neither swap — it advertises both bits — but its images still get
+/// sorted per mime further downstream, in `acp::connection`, which is the last
+/// point that sees the blocks.
+///
+/// Only image-carrying blocks are touched, and only to move between those two
+/// encodings — never to invent or drop content. An agent that advertises
+/// neither is left alone: there is no third shape to reach for, and rewriting
+/// into one it also rejects would only obscure the error it is about to raise.
+pub(super) fn reencode_images(blocks: &mut [PromptInputBlock], caps: &PromptCapabilitiesInfo) {
+    for (index, block) in blocks.iter_mut().enumerate() {
+        match block {
+            PromptInputBlock::Image {
+                data,
+                mime_type,
+                uri,
+            } if !caps.image && caps.embedded_context => {
+                *block = PromptInputBlock::Resource {
+                    // A path-less image (a pasted screenshot) needs some stable
+                    // identifier; its position in this prompt is one.
+                    uri: uri
+                        .clone()
+                        .unwrap_or_else(|| format!("clipboard://work-task-image-{index}")),
+                    mime_type: Some(mime_type.clone()),
+                    text: None,
+                    blob: Some(std::mem::take(data)),
+                };
+            }
+            PromptInputBlock::Resource {
+                uri,
+                mime_type,
+                text: None,
+                blob: Some(blob),
+            } if caps.image
+                && !caps.embedded_context
+                && mime_type
+                    .as_deref()
+                    .is_some_and(|m| m.starts_with("image/")) =>
+            {
+                *block = PromptInputBlock::Image {
+                    data: std::mem::take(blob),
+                    mime_type: mime_type.clone().unwrap_or_default(),
+                    uri: Some(uri.clone()),
+                };
+            }
+            _ => {}
+        }
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// A restart note reaches the agent as context, not as the task itself.
+pub(super) fn restart_note_block(note: &str) -> PromptInputBlock {
+    PromptInputBlock::Text {
+        text: format!(
+            "The user restarted this task and left this note — take it into account:\n\n{note}"
+        ),
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// One-shot sink for the generation a launch actually operated on. The launch
+/// fills it as soon as it has read the row; `spawn_launch` reads it afterwards
+/// so a setup failure is attributed to the right generation.
+#[derive(Default)]
+pub(super) struct LaunchSeq(std::sync::Mutex<Option<i32>>);
+
+impl LaunchSeq {
+    // Poison-tolerant, matching the locks in `office_watch` and
+    // `background_watch`. The guarded value is a plain `Option<i32>` that
+    // cannot be left half-written, so a panic elsewhere in the launch has
+    // nothing to corrupt here, while `expect` would turn that unrelated panic
+    // into a permanent failure of every later launch. The schedule tick reaches
+    // this with nobody at the keyboard.
+    fn set(&self, run_seq: i32) {
+        *self.0.lock().unwrap_or_else(|p| p.into_inner()) = Some(run_seq);
+    }
+
+    fn get(&self) -> Option<i32> {
+        *self.0.lock().unwrap_or_else(|p| p.into_inner())
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// One-shot "this generation is live" report from a launch to whoever asked
+/// for it — today the merge click, which must not sit on the rest of the run.
+///
+/// Fire-once by construction, and callable from either side of the launch: the
+/// launch itself fires `Ok` the moment the agent is up and the row carries its
+/// coordinates, while the task that drives it fires the launch's error for
+/// every way of failing before that point. Whichever comes first wins; the
+/// other is a no-op, so a failure AFTER a successful dispatch stays on the card
+/// instead of being reported to a caller that has already been told the merge
+/// started.
+pub(super) struct DispatchSignal(std::sync::Mutex<Option<oneshot::Sender<Result<(), String>>>>);
+
+impl DispatchSignal {
+    pub(super) fn new() -> (Self, oneshot::Receiver<Result<(), String>>) {
+        let (tx, rx) = oneshot::channel();
+        (Self(std::sync::Mutex::new(Some(tx))), rx)
+    }
+
+    pub(super) fn fire(&self, result: Result<(), String>) {
+        // Poison-tolerant for the same reason as `LaunchSeq`: the fire-once
+        // guarantee is the `take()`, not the lock's poison flag, and refusing
+        // to fire after an unrelated panic would leave the caller waiting on a
+        // oneshot that is never sent.
+        let sender = self.0.lock().unwrap_or_else(|p| p.into_inner()).take();
+        if let Some(sender) = sender {
+            let _ = sender.send(result);
+        }
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Ownership of a task's in-flight launch slot: which folder it counts
+/// against, plus a token so only the launch that took the slot can release it.
+pub(super) struct LaunchOwner {
+    pub(super) folder_id: i32,
+    pub(super) token: u64,
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// A task's setup (init command) kill slot, open for the whole preparing phase.
+///
+/// The slot deliberately does NOT hold the child's pid. Only the task that
+/// spawned the child ever kills it, so a pid can never be signalled after it
+/// has been reaped (and possibly recycled by the OS onto an unrelated
+/// process). A canceller just raises `kill_requested` and rings `wake`.
+pub(super) struct SetupChild {
+    /// A cancel arrived: refuse to start an init command, and kill a live one.
+    pub(super) kill_requested: bool,
+    /// Generation that owns the slot — a stale cancel must not stop a newer run.
+    pub(super) run_seq: i32,
+    /// Rung by the canceller, awaited by whoever is running the child.
+    pub(super) wake: Arc<Notify>,
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Marker file (in the worktree's PRIVATE git dir, so it can never show up in
+/// `git status` or be committed) recording that the folder's init command
+/// completed successfully in this worktree.
+pub(super) const SETUP_MARKER: &str = "codeg-task-init-ok";
+
+pub(super) async fn setup_marker_present(wt_path: &str) -> bool {
+    match task_git::git_dir(wt_path).await {
+        Ok(dir) => dir.join(SETUP_MARKER).exists(),
+        // Can't resolve the git dir → assume not initialized. Re-running an
+        // init command is wasteful at worst; skipping one is a broken tree.
+        Err(_) => false,
+    }
+}
+
+pub(super) async fn write_setup_marker(wt_path: &str) {
+    match task_git::git_dir(wt_path).await {
+        Ok(dir) => {
+            if let Err(e) = tokio::fs::write(dir.join(SETUP_MARKER), b"").await {
+                tracing::warn!("[work_task] could not write the setup marker: {e}");
+            }
+        }
+        Err(e) => tracing::warn!("[work_task] could not resolve the worktree git dir: {e}"),
+    }
+}
+
+/// Best-effort kill of a child's whole process tree. Killing only the direct
+/// child is not enough: the init command runs as `sh -c "<line>"`, and the real
+/// work (`pnpm install` and its downloads) happens in descendants that would
+/// otherwise keep running. Deliberately not `kill_on_drop`, which SIGKILLs the
+/// shell first and reparents the descendants out of reach — same rationale as
+/// `commands::office_tools::stream_install_or_kill_tree`.
+pub(super) async fn kill_process_tree(pid: Option<u32>) {
+    let Some(pid) = pid else { return };
+    if let Err(e) = kill_tree::tokio::kill_tree(pid).await {
+        tracing::warn!("[work_task] kill_tree failed for setup pid {pid}: {e}");
+    }
+}
+
+pub(super) async fn still_expected(
+    conn: &sea_orm::DatabaseConnection,
+    task_id: i32,
+    run_seq: i32,
+    expected: WorkTaskStatus,
+) -> bool {
+    matches!(
+        work_task_service::get_model(conn, task_id).await,
+        Ok(t) if t.status == expected && t.run_seq == run_seq
+    )
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Head of the first text block of a prompt — the transcript viewer matches
+/// user turns against it to place round dividers.
+pub(super) fn prompt_head(blocks: &[PromptInputBlock]) -> String {
+    blocks
+        .iter()
+        .find_map(|b| match b {
+            PromptInputBlock::Text { text } => Some(first_chars(text.trim(), 160)),
+            _ => None,
+        })
+        .unwrap_or_default()
+}
+
+/// Run one shell command line in `cwd`, capturing combined output. stdin is
+/// null (a command waiting on input sees EOF); no timeout by design — the
+/// result write is generation-guarded, so a runaway command can only waste its
+/// own process. Returns (exit code, trailing output capped to
+/// `PREFLIGHT_TAIL_CHARS`).
+pub(super) async fn run_shell_capture(line: &str, cwd: &str) -> Result<(Option<i32>, String), String> {
+    let out = shell_command(line, cwd)
+        .output()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(combine_capture(&out))
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The platform's shell invocation for one command line, ready to `output()` or
+/// `spawn()`. stdin is null so a command waiting on input sees EOF.
+pub(super) fn shell_command(line: &str, cwd: &str) -> tokio::process::Command {
+    #[cfg(not(windows))]
+    let mut command = {
+        let mut c = crate::process::tokio_command("/bin/sh");
+        c.arg("-c").arg(line);
+        c
+    };
+    #[cfg(windows)]
+    let mut command = {
+        let comspec = std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string());
+        let mut c = crate::process::tokio_command(comspec);
+        c.arg("/C").arg(line);
+        c
+    };
+    command.current_dir(cwd);
+    command.stdin(std::process::Stdio::null());
+    command
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// (exit code, trailing combined output) of a finished shell capture.
+pub(super) fn combine_capture(out: &std::process::Output) -> (Option<i32>, String) {
+    let mut combined = String::from_utf8_lossy(&out.stdout).into_owned();
+    combined.push_str(&String::from_utf8_lossy(&out.stderr));
+    (
+        out.status.code(),
+        tail_chars(&combined, PREFLIGHT_TAIL_CHARS),
+    )
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+pub(super) fn tail_chars(s: &str, n: usize) -> String {
+    let trimmed = s.trim_end();
+    let count = trimmed.chars().count();
+    if count <= n {
+        return trimmed.to_string();
+    }
+    trimmed.chars().skip(count - n).collect()
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+pub(super) fn parse_agent_type(s: &str) -> Result<AgentType, String> {
+    serde_json::from_value(serde_json::Value::String(s.to_string()))
+        .map_err(|_| format!("unknown agent type: {s}"))
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+pub(super) fn first_chars(s: &str, n: usize) -> String {
+    s.chars().take(n).collect()
+}

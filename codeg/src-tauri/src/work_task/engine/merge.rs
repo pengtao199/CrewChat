@@ -517,3 +517,133 @@ impl TaskEngine {
 
     // ── deliver to the forge (push + pull request) ──────────────────────────
 }
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// What a merge request actually did. Merges into one base branch are serial,
+/// so a click that finds the folder's slot busy takes a place in line instead
+/// of failing — and the caller has to be able to tell the user which happened.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MergeDispatch {
+    /// The merge generation is running now.
+    Dispatched,
+    /// Parked on the row; the folder's merge pump dispatches it when the slot
+    /// frees.
+    Queued,
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Row-level auto-merge eligibility: everything the sweep can decide without
+/// touching git. Mirrors what the board offers — a task whose merge button the
+/// user would not see (nothing to land) or would not press yet (red or pending
+/// preflight, an error banner from an earlier attempt) is not auto-merged.
+///
+/// - `files_changed == 0` is the "complete" button's territory: dispatching a
+///   merge generation there would land nothing and bounce. `None` (stats
+///   unreadable) merges, exactly like the UI defaults to the merge button.
+/// - With a preflight configured, only a green light qualifies; `None` means
+///   the light is not written yet (the post-preflight hook re-sweeps) and a
+///   red light waits for the user. Without one, there is no gate.
+/// - `last_error` present = an earlier merge failed or was refused; retrying
+///   unattended would loop, so the row waits for the user (any claim or a
+///   fresh dispatch clears it).
+pub(super) fn auto_merge_candidate(
+    task: &crate::db::entities::work_task::Model,
+    settings: &WorkTaskFolderSettings,
+) -> bool {
+    if task.status != WorkTaskStatus::Review {
+        return false;
+    }
+    // Forge-sourced tasks never auto-merge: their prompt embeds text authored
+    // by arbitrary external users, so landing without a human review would be
+    // an injection -> main-branch pipeline. A hard rule, deliberately not a
+    // setting — the user's explicit merge click on the card is unaffected.
+    if task.source_kind.is_some() {
+        return false;
+    }
+    if task.last_error.is_some() {
+        return false;
+    }
+    // A merge the user queued is theirs to land, with the commit message and
+    // the worktree choice THEY picked. The unattended dispatch has neither, so
+    // the queue's own drain owns this row (and clears the intent in the same
+    // CAS that starts the merge, which makes the row a normal candidate again).
+    //
+    // Any value in the column counts, parseable or not: the authoritative gate
+    // is `begin_merge`'s `PendingMerge IS NULL` filter, SQL cannot parse the
+    // JSON, and a looser predicate here would just dispatch into a CAS that
+    // misses every time — a sweep spinning on a row it can never land.
+    if task.pending_merge.is_some() {
+        return false;
+    }
+    if task.files_changed == Some(0) {
+        return false;
+    }
+    if preflight_configured(settings) {
+        let passed = task
+            .preflight
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<WorkTaskPreflight>(s).ok())
+            .is_some_and(|p| p.status == "passed");
+        if !passed {
+            return false;
+        }
+    }
+    true
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Whether the folder's settings would make `run_preflight` attempt a command
+/// at all — the sweep's gate must not wait for a light that will never be
+/// written.
+pub(super) fn preflight_configured(settings: &WorkTaskFolderSettings) -> bool {
+    settings
+        .preflight_command
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|c| !c.is_empty())
+        || settings.preflight_command_id.is_some()
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Why a queue-bound CAS missed. With a claim it can be either "the row left
+/// review" or "this queued merge is no longer the one on the row" (withdrawn,
+/// or edited into a different one) — the pump treats both the same way, and
+/// both are races it should lose quietly rather than banner.
+pub(super) fn missed_queue_cas(claim: Option<&QueuedMergeClaim>) -> String {
+    match claim {
+        Some(_) => "the queued merge was changed or withdrawn before it could start".to_string(),
+        None => "task left review before the merge was queued".to_string(),
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The order the folder's merge queue drains in: oldest request first, task id
+/// breaking a tie. Mirrored client-side by `mergeQueueRanks`, so the place in
+/// line a card shows is the order the pump actually dispatches in.
+pub(super) fn queue_order(
+    intent: &WorkTaskQueuedMerge,
+    task: &crate::db::entities::work_task::Model,
+) -> (chrono::DateTime<chrono::Utc>, i32) {
+    (intent.queued_at, task.id)
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Merge-dispatch refusals that mean "someone else is (or just was) handling
+/// this" rather than "this merge cannot work": the losing side of a race with
+/// a click, another sweep or a user action. Matched on `merge_task`'s own
+/// wording (same file, a screen up) — these are skipped silently, because the
+/// next settle re-sweeps, while every other refusal banners the row.
+pub(super) fn is_benign_merge_race(error: &str) -> bool {
+    error.contains("not in review")
+        || error.contains("left review")
+        || error.contains("already merging")
+        || is_queued_merge_superseded(error)
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The one benign race the drain cannot simply step over: the user withdrew or
+/// edited the very merge it was dispatching (see [`missed_queue_cas`]). Their
+/// word replaces the whole snapshot — a re-read, not a skip.
+pub(super) fn is_queued_merge_superseded(error: &str) -> bool {
+    error.contains("changed or withdrawn")
+}

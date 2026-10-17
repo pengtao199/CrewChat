@@ -430,3 +430,32 @@ impl TaskEngine {
         }
     }
 }
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Why [`TaskEngine::cleanup_task`] did not remove a worktree.
+///
+/// The two answers are not interchangeable to `work_task_delete_core`, which
+/// tombstones the task immediately afterwards. A cleanup that TRIED AND FAILED
+/// leaves stale bookkeeping behind and the delete may proceed over it. A
+/// cleanup that was REFUSED to protect work must stop it: the tombstone takes
+/// the card, its `cleanup_state` and its retry entry all at once, stranding a
+/// directory the user was told would be deleted with nothing left anywhere to
+/// say why — the failure mode a plain `Err` swallowed by a `warn!` produces.
+#[derive(Debug)]
+pub struct CleanupBlocked {
+    pub message: String,
+    /// The worktree was left standing deliberately, and still holds work.
+    pub holds_work: bool,
+}
+
+impl CleanupBlocked {
+    /// Tried, could not finish. Callers may proceed past it.
+    fn failed(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            holds_work: false,
+        }
+    }
+}
+
+pub(super) static ENGINE: OnceLock<Arc<TaskEngine>> = OnceLock::new();

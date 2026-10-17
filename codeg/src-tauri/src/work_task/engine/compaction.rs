@@ -553,3 +553,67 @@ impl TaskEngine {
 
     // ── event settlement ────────────────────────────────────────────────────
 }
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// A launch's in-flight pre-prompt compaction, keyed by task in
+/// [`TaskEngine::compacting`]. Holds the connection the compaction turn runs
+/// on so a cancel can abort that turn without the task lock, and the generation
+/// that owns it so a stale cancel cannot abort a newer run's compaction.
+pub(super) struct CompactRun {
+    pub(super) run_seq: i32,
+    pub(super) conn_id: String,
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Everything [`TaskEngine::compact_before_prompt`] needs about the launch it
+/// is running inside. A struct rather than a parameter list because four of
+/// the fields are bare `i32`s in a row — named at the call site, a transposed
+/// pair is a compile error instead of a task compacting someone else's session.
+pub(super) struct CompactRequest<'a> {
+    pub(super) task_id: i32,
+    pub(super) run_seq: i32,
+    pub(super) conn_id: &'a str,
+    pub(super) agent_type: AgentType,
+    pub(super) settings: &'a WorkTaskFolderSettings,
+    /// The WORKTREE folder the conversation belongs to — same value the round's
+    /// own prompt is linked with.
+    pub(super) folder_id: i32,
+    pub(super) conversation_id: i32,
+    /// Status this generation holds for the rest of the launch, which the
+    /// cancel gates re-check (`preparing`, or `merging` for a merge round).
+    pub(super) in_flight: WorkTaskStatus,
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// One context-window occupancy reading, plus where it came from — the source
+/// rides the timeline event because "live" and "transcript" answer slightly
+/// different questions (what the agent has loaded vs. what its last turn
+/// recorded), and a surprising percentage is only debuggable with it.
+pub(super) struct ContextReading {
+    pub(super) percent: f64,
+    pub(super) used: Option<u64>,
+    pub(super) size: Option<u64>,
+    pub(super) source: &'static str,
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// How a compaction turn ended: `"ok"` / `"canceled"` / `"failed"`, plus the
+/// stop reason or error worth showing beside it.
+pub(super) struct CompactOutcome {
+    pub(super) status: &'static str,
+    pub(super) detail: Option<String>,
+}
+
+impl CompactOutcome {
+    fn new(status: &'static str, detail: Option<String>) -> Self {
+        Self { status, detail }
+    }
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// One decimal place, for percentages written to the timeline — the same
+/// precision the composer's context ring shows, so the two never read as
+/// disagreeing about the same session.
+pub(super) fn round1(percent: f64) -> f64 {
+    (percent * 10.0).round() / 10.0
+}

@@ -1042,3 +1042,92 @@ impl TaskEngine {
 
     // ── merge pump (the folder's one merge slot) ────────────────────────────
 }
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// What a refused push-back most likely means, read off git's own words.
+///
+/// Deliberately narrow. Whatever this returns is printed to a human as advice,
+/// so the only two shapes recognised are the ones git states plainly, and
+/// everything else is `Unknown` — which prints no advice at all. An unhelpful
+/// message costs a reader a moment; a confident wrong one sends them to change
+/// a setting that was never the problem.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum PushRefusal {
+    /// The remote refused the account: no write access, or a fork whose author
+    /// did not allow maintainer edits.
+    Permission,
+    /// The branch has commits the task's branch does not, so a fast-forward
+    /// push cannot apply. Routine on a long-lived pull request: the author
+    /// pushed, or merged the base branch in, after this task was triggered.
+    BranchMoved,
+    Unknown,
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// Match on git's stderr, which reaches here inside the delivery error string.
+/// Permission is tested first: a forge that refuses the push outright can also
+/// mention "rejected", and being told the wrong one of these two is precisely
+/// the failure this classification exists to stop.
+pub(super) fn classify_push_refusal(error: &str) -> PushRefusal {
+    let lower = error.to_lowercase();
+    // The status codes are matched in the phrasing git and curl actually
+    // print, not as bare digits: "403" on its own also matches a branch called
+    // `fix/403-page` or a repository named after an issue number, and the whole
+    // point of this function is to stop it handing out confident wrong advice.
+    let permission = [
+        "permission to",
+        "denied to",
+        "error: 403",
+        "error: 401",
+        "http 403",
+        "http 401",
+        "status code 403",
+        "status code 401",
+        "authentication failed",
+        "write access",
+        "read-only",
+        "protected branch",
+        "pre-receive hook declined",
+    ];
+    if permission.iter().any(|needle| lower.contains(needle)) {
+        return PushRefusal::Permission;
+    }
+    let moved = [
+        "non-fast-forward",
+        "fetch first",
+        "updates were rejected",
+        "[rejected]",
+        "behind its remote",
+        "stale info",
+    ];
+    if moved.iter().any(|needle| lower.contains(needle)) {
+        return PushRefusal::BranchMoved;
+    }
+    PushRefusal::Unknown
+}
+
+// [crewchat] 从 engine.rs 归口（批次 B 第 2 步）
+/// The repository a pull-request task's push-back lands in: the HEAD
+/// repository recorded at trigger time — the fork, when the pull request comes
+/// from one. A row that recorded none falls back to the source repository:
+/// builds that predate the field refused forks at trigger, so their rows are
+/// same-repo by construction. `Err` is the one head codeg cannot push to ever —
+/// a fork it cannot name (GitLab's unresolved `project-{id}` placeholder, or a
+/// fork deleted since GitHub hydrated the row).
+pub(super) fn pull_push_repo(meta: &ForgeSourceMeta) -> Result<String, String> {
+    let recorded = meta
+        .head_repo
+        .as_deref()
+        .map(str::trim)
+        .filter(|r| !r.is_empty())
+        .unwrap_or(&meta.owner_repo);
+    crate::forge::normalize_repo(recorded).ok_or_else(|| {
+        format!(
+            "{} #{} comes from a fork whose repository codeg cannot see (it may be private or \
+             deleted), so there is nowhere to push the work back to — its commits stay on the \
+             task's local branch",
+            meta.provider.change_noun(),
+            meta.number
+        )
+    })
+}
