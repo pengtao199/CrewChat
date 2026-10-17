@@ -36,6 +36,10 @@
 
 全部带 `[crewchat]` 标记，`rg '\[crewchat\]' codeg/` 可列出，便于升级时重放：
 
+> **语言集已收窄（2026-10-17）**：界面语言只保留 `en` / `zh-CN`。下表里早先写作
+> 「`src/i18n/messages/*.json`（10 语言）」的行，**重放时只落到 `en` / `zh-CN`**
+> 两个文件；其余 8 个语言文件已删除。收窄本身见表末几行。
+
 | 文件 | 改动 | 原因 |
 | --- | --- | --- |
 | `src/test-setup.ts` | 文件末尾追加 `[crewchat]` 兜底：Node ≥ 25 下为 `localStorage` / `sessionStorage` 提供可用的 `Storage` 实例 | 本机 Node 26 上 Node 自带 Web Storage 全局与 vitest/jsdom 冲突，751 个用例失败（Node 24 基线全绿）；上游 CI 固定 Node 24，暂未处理 |
@@ -117,6 +121,15 @@
 | `src/components/settings/ccr-model-settings.tsx` | 顶部挂 `CcrDaemonCard` | 落点（一行） |
 | `src/i18n/messages/*.json`（10 语言） | `CcrModelSettings` 增 13 个 `daemon*` 子键（中英繁实翻，其余语言实翻） | 同上 |
 | `scripts/verify.mjs`（新增，`pnpm verify`） | Phase 5.1.1 按改动派生最小验证：从 `git diff HEAD` 分类改动文件 → Rust 按该文件自己的 `#[cfg(test)] mod <name>` 精确过滤（无内联测试 = 接线，只编译）、`src/bin/**` 补 `--bins`、前端跑同名测试文件（无则只 `tsc`）、locale JSON 跑键位对齐、Python 跑 `import`；`--dry-run` 只打印计划 | 一轮改动不该付全量测试的代价（用户 2026-10-17 拍板）；`cargo test --lib` 仍编译整个 crate，省的是「跑什么」与「一次构建而不是 check+test 两次」 |
+| `src/i18n/messages/*.json`（10 → 2 语言） | **界面语言只保留 `en` / `zh-CN`**：删除 `zh-TW` / `ja` / `ko` / `es` / `de` / `fr` / `pt` / `ar` 八个文案文件；`Language` 命名空间与 `ChatChannelSettings.language` 各自去掉退役语言的语言名 | 产品决定：界面只提供中英文（`AGENTS.md` 的语言一节已同步） |
+| `src/lib/types.ts`、`src/lib/i18n.ts`、`src/i18n/messages.ts`、`src/i18n/global.d.ts` | `AppLocale` / `IntlLocale` 收窄为 `en`+`zh_cn` / `en`+`zh-CN`；映射表与 `isIntlLocale` 同步；`mapLocaleTagToAppLocale` 去掉其余语言分支，**`zh` 系统标签（含 `zh-TW` / `zh-Hant` / `zh-HK`）一律落到 `zh_cn`**，不再有 `zh_tw` | 同上；中文只发简体，繁体系统标签仍应读中文而不是掉到英文 |
+| `src/lib/date-fns-locale.ts`、`src/components/i18n-provider.tsx`、`src/components/conversations/search-command-dialog.tsx` | date-fns 映射只留 `enUS` / `zhCN`；`i18n-provider` 删掉 `dir="rtl"` 分支（已无 RTL 语言）；搜索弹窗的日历 locale 同步收窄 | 同上 |
+| `next.config.ts` | next-intl 预编译 `experimental.messages.locales` 收窄为 `["en", "zh-CN"]`（不删会因文案文件已不存在而构建失败） | 同上 |
+| `src/components/settings/system-network-settings.tsx`、`src/components/settings/channel-other-tab.tsx` | 应用语言选择器与「消息语言」下拉只列中英文（含各自的文案表与 `<SelectItem>`） | 同上 |
+| `src-tauri/src/models/system.rs` | `AppLocale` 收窄为 `En` / `ZhCn`；**手写 `Deserialize`**：`"zh_cn"` → `ZhCn`，其余（含已退役语言）→ `En`，使旧 `system_language_settings` 行仍能读出而不是报解析失败 | 同上；`load_system_language_settings` 解析失败是硬错误，旧库必须容忍 |
+| `src-tauri/src/commands/windows.rs` | `window_titles_for` 只留中英文窗口标题 | 同上 |
+| `src-tauri/src/chat_channel/i18n.rs`、`src-tauri/src/commands/chat_channel.rs` | `Lang` 枚举收窄为 `En` / `ZhCn`，约 90 处 `match` 去掉退役语言分支；`from_str_lossy` 只认中英文；`set_chat_message_language` 允许列表改 `["en", "zh-cn"]` | 同上；`Lang::from_str_lossy` 对未知值本就有 En 兜底 |
+| `src/i18n/messages.test.ts`、`src/components/settings/system-network-settings.test.tsx`、`src/components/settings/release-notes.test.tsx`、`src/components/shared/directory-browser.test.tsx` | 键位对齐 / ICU / 本地化用例收窄到两种语言；原「本地化 + RTL」用例改用 `zh-CN`（已无 RTL 语言可测） | 同上 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 

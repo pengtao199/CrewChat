@@ -102,7 +102,7 @@ INSTA_UPDATE=auto cargo test --features test-utils     # 自动写新 .snap
 
 #### 国际化（`i18n/`）
 
-- 支持 10 种语言：英语、简体中文、繁体中文、日语、韩语、西班牙语、德语、法语、葡萄牙语、阿拉伯语
+- 支持 2 种语言：英语、简体中文
 - 使用 next-intl 框架，消息文件存放在 `i18n/messages/`
 
 ### 数据流
