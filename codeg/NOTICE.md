@@ -155,6 +155,10 @@
 | `src/components/conversations/conversation-detail-panel.tsx` | `conversation-detail-panel/index.tsx` + `conversation-tab-view.tsx` + `helpers.ts` + `split-strip.tsx` | 巨型面板目录化（3.2k → 面板 670 / 视图 2.4k / 纯函数 62 / 角条 48）；6 个源码级测试改指新路径（含一个双源拆分），语义零改动。视图的 hook 级二次拆分列为后续批次 |
 | `src-tauri/src/commands/conversations/mod.rs`（职责外移，非目录化） | `acp/delegation/meta_writer.rs`（`historical_delegation_meta`）+ `commands/conversations/mod.rs` 只留走 turn 的注入胶水 | 历史委派 meta 构造器按「一个形状一个归属」移入 meta 模块，与 `build_delegation_meta` 并列（两者必须同形状）；`commands/conversations/mod.rs` 2.8k → 2.76k，新函数在原地有 2 个直接用例；115 + 7 用例绿 |
 | `src-tauri/src/commands/ccr.rs`（职责外移） | `ccr/client.rs`（管理面传输：URL / token 解析、RPC 转发、地址解析与回环判据）+ `commands/ccr.rs` 只留 `#[tauri::command]` 适配 + `ccr/supervisor.rs`（托管） | 原来「怎么连 CCR」和「CCR 起没起」都要写进命令层；拆开后传输唯一归属，命令层 91 → 45 行，托管单独一层（判据是纯函数，可测） |
+| `src-tauri/src/parsers/codex.rs`（2026-10-17，批次 A·脚本） | `parsers/codex.rs`（6.86k）+ `parsers/codex/tests.rs`（9.88k） | 内嵌测试外移，`scripts/split-tests.mjs` 执行：文件只放模块 body 字节（缩进不动），原地留 `#[cfg(test)] mod tests;`，过滤器 `parsers::codex::tests` 198 用例绿 |
+| `src-tauri/src/parsers/claude.rs`（批次 A·脚本） | `parsers/claude.rs`（3.67k）+ `parsers/claude/tests.rs`（4.39k） | 同上（批次 A 第 2 刀），过滤器 `parsers::claude::tests` 93 用例绿 |
+| `src-tauri/src/work_task/engine.rs`（批次 A·脚本） | `work_task/engine.rs`（7.29k）+ `work_task/engine/tests.rs`（5.71k） | 同上（第 3 刀，为 5.2 引擎收口先降上下文负担），过滤器 `work_task::engine::tests` 134 用例绿；3 处 item 级 `#[cfg(test)]` 测试助手按设计留源内 |
+| `src-tauri/src/commands/acp.rs`（批次 A·脚本） | `commands/acp/mod.rs`（13.9k）+ `commands/acp/diagnostics_tests.rs`（351 行） | 中部 `mod diagnostics_tests` 外移为同级子文件（第 4 刀），25 用例绿；7409 行起的 Pi 域是源码，按批次另行目录化 |
 
 ## 构建与开发
 
