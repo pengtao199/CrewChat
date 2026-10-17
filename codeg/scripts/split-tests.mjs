@@ -6,12 +6,15 @@
 //     LEVEL of a .rs file. Item-level attrs (`#[cfg(test)] fn …` — a test
 //     helper living in source) and already-external declarations
 //     (`#[cfg(test)] mod <name>;`) are reported but never touched.
-//   - extract moves each block VERBATIM into a sibling file `…/<name>.rs`
-//     (for a `foo.rs` parent, into the `foo/` dir the compiler already looks
-//     in) and replaces it in place with `#[cfg(test)] mod <name>;`. The
-//     module path is identical before and after (`foo::<name>`), so name
-//     resolution, `use super::*` chains and verify.mjs's per-module cargo
-//     filters are unchanged — only the file location moves.
+//   - extract moves each module's BODY (the items between the braces, bytes
+//     untouched) into a sibling file `…/<name>.rs` (for a `foo.rs` parent,
+//     into the `foo/` dir the compiler already looks in) and replaces the
+//     block in place with `#[cfg(test)] mod <name>;` — the declaration keeps
+//     the name and the cfg, so the wrapper text itself must NOT travel into
+//     the file (that would nest the path: `foo::<name>::<name>`). The module
+//     path is identical before and after (`foo::<name>`), so name resolusion,
+//     `use super::*` chains and verify.mjs's per-module cargo filters are
+//     unchanged — only the file location moves.
 //   - No reordering, no reformatting, no rewriting. Anything unexpected
 //     (unbalanced braces, existing target file, `include_str!` inside the
 //     block, uncommitted changes in the source file) aborts instead of
@@ -227,8 +230,11 @@ export function findTestModules(src) {
   return found
 }
 
-// Split a source into { source, files } — extracted blocks become verbatim
-// standalone files; their original position keeps a bare declaration.
+// Split a source into { source, files } — each extracted module becomes a
+// standalone file holding the module BODY (the declaration `#[cfg(test)] mod
+// <name>;` that replaces the block carries the name and the cfg; writing the
+// wrapper into the file would nest the path one level deeper:
+// `foo::tests::tests`). The original position keeps a bare declaration.
 // All-or-nothing: throws before writing anything if an extracted block
 // embeds include_str!/include_bytes! (fixture paths would need a human
 // decision) or if two blocks share a name.
@@ -252,8 +258,12 @@ export function planExtraction(src, blocks) {
   let source = src
   const files = []
   for (const b of [...modules].sort((a, z) => z.start - a.start)) {
-    const text = src.slice(b.start, b.end)
-    files.push({ name: b.name, text: text.endsWith("\n") ? text : text + "\n" })
+    // Body = strictly between the braces; drop the wrapper's own leading
+    // newline so the file starts on the first item (the byte-identical
+    // style the earlier manual splits used, indentation untouched).
+    let body = src.slice(b.open + 1, b.end - 1)
+    if (body.startsWith("\n")) body = body.slice(1)
+    files.push({ name: b.name, text: body.endsWith("\n") ? body : body + "\n" })
     source =
       source.slice(0, b.start) +
       `#[cfg(test)]\nmod ${b.name};\n` +
@@ -458,8 +468,9 @@ function selftest() {
       throw new Error(`expected 1 module named tests`)
     const plan = planExtraction(src, blocks)
     eq(plan.source, "fn a() {}\n\n#[cfg(test)]\nmod tests;\n\n")
-    eq(plan.files.length, 1)
-    eq(plan.files[0].text, src.split("fn a() {}\n\n")[1])
+    // File holds the BODY only (src lines 4..11: the items between the
+    // braces) — the wrapper stays behind as the bare declaration.
+    eq(plan.files[0].text, src.split("\n").slice(4, 12).join("\n") + "\n")
   })
   check("mid-file module + item cfg + declaration", () => {
     const src = [
@@ -513,7 +524,8 @@ function selftest() {
     eq(blocks.length, 1)
     eq(blocks[0].name, "tests")
     const plan = planExtraction(src, blocks)
-    eq(plan.files[0].text, src.split("\n").slice(1).join("\n") + "\n")
+    // Body = src lines 3..5; the inner `mod inner` stays nested in the body.
+    eq(plan.files[0].text, src.split("\n").slice(3, 6).join("\n") + "\n")
   })
   check("unbalanced brace refuses", () => {
     const src = [
