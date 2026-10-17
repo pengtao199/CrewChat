@@ -90,7 +90,7 @@ pub async fn build_claude_role_home(
     if !injection_enabled() || model.trim().is_empty() {
         return None;
     }
-    let config = crate::commands::ccr::ccr_call_core("getConfig", None)
+    let config = crate::ccr::client::call("getConfig", None)
         .await
         .ok()?;
     let gateway = ccr_gateway_base(&config)?;

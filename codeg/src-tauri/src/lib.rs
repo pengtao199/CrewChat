@@ -29,6 +29,8 @@ pub mod backgrounds;
 /// Built-in browser. Only its wire types and its grant rules compile in server
 /// mode — see `browser/mod.rs` for why those two, and only those two.
 pub mod browser;
+// [crewchat] CCR runtime — management transport + 5.1 supervision.
+pub mod ccr;
 pub mod chat_channel;
 pub mod commands;
 pub mod computer;
@@ -670,6 +672,10 @@ mod tauri_app {
             .manage(std::sync::Arc::new(
                 crate::workspace_transfer::WorkspaceTransferManager::new_from_env(),
             ))
+            // 5.1 CCR 托管: the manager for CCR's own management process. The
+            // guard loop is started in `setup` (and mirrored in
+            // `bin/codeg_server.rs`); the settings card reads this handle.
+            .manage(crate::ccr::CcrSupervisor::from_env())
             .manage(std::sync::Arc::new(
                 web::event_bridge::WebEventBroadcaster::new(),
             ))
@@ -1327,6 +1333,19 @@ mod tauri_app {
                 ) {
                     tauri::async_runtime::spawn(crate::work_task::run_task_engine(engine));
                 }
+
+                // 5.1 CCR 托管: probe CCR's management process, adopt it when it
+                // is already up, start it when it is not, and keep watching so a
+                // crash recovers without the user starting CCR by hand. One per
+                // process; mirrored in `bin/codeg_server.rs`. Off switch for
+                // users who manage CCR themselves: `CODEG_CCR_SUPERVISE=0`.
+                // Spawned on Tauri's runtime: `setup` has no tokio reactor.
+                tauri::async_runtime::spawn(
+                    app.state::<std::sync::Arc<crate::ccr::CcrSupervisor>>()
+                        .inner()
+                        .clone()
+                        .guard_loop(),
+                );
 
                 // OS `codeg://` URLs. Register the listener after the DB is
                 // live so a warm-start click can look the conversation up.
@@ -2226,6 +2245,8 @@ mod tauri_app {
                 model_provider_commands::delete_model_provider,
                 ccr_commands::ccr_health,
                 ccr_commands::ccr_call,
+                ccr_commands::ccr_supervisor_state,
+                ccr_commands::ccr_supervisor_start,
                 agent_roles_commands::agent_roles_list,
                 agent_roles_commands::agent_roles_save,
                 agent_roles_commands::agent_roles_delete,

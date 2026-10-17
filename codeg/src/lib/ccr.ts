@@ -149,6 +149,45 @@ export function ccrRestartGateway(): Promise<unknown> {
 }
 
 /**
+ * 5.1 CCR 托管 — the state of CCR's *management process* (the daemon that owns
+ * the gateway), as probed by the backend supervisor. Distinct from
+ * `CcrGatewayStatus`, which describes the proxy inside it.
+ */
+export type CcrDaemonState =
+  | "disabled"
+  | "running"
+  | "stopped"
+  | "starting"
+  | "failed"
+
+export interface CcrDaemonStatus {
+  enabled: boolean
+  webUrl: string
+  tokenConfigured: boolean
+  /** Resolved `ccr` CLI; null when this process cannot start one. */
+  bin: string | null
+  state: CcrDaemonState
+  /** True when the running instance was started by Codeg (vs. adopted). */
+  managed: boolean
+  pid: number | null
+  lastCheckMs: number | null
+  consecutiveFailures: number
+  lastError: string | null
+  /** Why auto-start is unavailable (null = it is available). */
+  blockedReason: string | null
+}
+
+/** 探活: probe the management process (starts nothing). */
+export function ccrSupervisorState(): Promise<CcrDaemonStatus> {
+  return getTransport().call("ccr_supervisor_state")
+}
+
+/** 接管 / 拉起: adopt a running instance, or start one when it is down. */
+export function ccrSupervisorStart(): Promise<CcrDaemonStatus> {
+  return getTransport().call("ccr_supervisor_start")
+}
+
+/**
  * Read CCR's config. The management server is known to hand back an empty view
  * while it is persisting (observed on v3.1.3), so retry briefly before giving
  * the page an empty config it would render as "no providers".

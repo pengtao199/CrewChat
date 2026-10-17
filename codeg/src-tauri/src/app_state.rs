@@ -28,6 +28,11 @@ pub struct AppState {
     pub web_server_state: WebServerState,
     pub chat_channel_manager: ChatChannelManager,
     pub workspace_transfer: Arc<WorkspaceTransferManager>,
+    /// 5.1 CCR 托管: probes CCR's management process, adopts it when it is
+    /// already up, starts it when it is not, and keeps watching (guard task).
+    /// Shared by the settings card (status / start), the boot path, and both
+    /// runtimes.
+    pub ccr_supervisor: Arc<crate::ccr::CcrSupervisor>,
     /// Latest ambient `PetState` written by `pet_state_subscriber_task`.
     /// Read by `pet_get_current_state` so a freshly-opened pet window can
     /// pick up the current state without waiting for the next transition.
@@ -272,6 +277,10 @@ impl AppState {
                 crate::workspace_transfer::WorkspaceTransferManager::new_for_tests(
                     std::time::Duration::from_secs(60),
                 ),
+            ),
+            // Tests must never probe or spawn anything.
+            ccr_supervisor: crate::ccr::CcrSupervisor::new(
+                crate::ccr::CcrSupervisorOptions::disabled_for_test(),
             ),
             pet_state: crate::pet_state_mapper::new_pet_state_handle(),
             delegation_broker,

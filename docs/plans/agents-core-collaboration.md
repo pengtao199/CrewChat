@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-17 (Asia/Shanghai)
-Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.1.1 / 3.1.2 / 3.1.3 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；Phase 4.1 卡内内联成员流 🟡（代码完成、测试绿，真机验收待用户）；4.1.1 卡显示成员名 ✅（含一处 `DelegationLink` 成员身份修正）。0.3 路由注入完成；**模型注入通道已删**（3.1.2：claude 运行期切模型不可用，按角色定模型只留 3.1 的隔离 home）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 5 平台收尾）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.1.1 / 3.1.2 / 3.1.3 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；Phase 4.1 卡内内联成员流 🟡（代码完成、测试绿，真机验收待用户）；4.1.1 卡显示成员名 ✅（含一处 `DelegationLink` 成员身份修正）。0.3 路由注入完成；**模型注入通道已删**（3.1.2：claude 运行期切模型不可用，按角色定模型只留 3.1 的隔离 home）。**5.1 CCR 托管 ✅ + 5.1.1 验证脚本按改动拆 ✅**（真机复测：`探活 → 接管 → 拉起 → 守护` 全链路待用户验收）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -87,7 +87,8 @@ Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Ph
 
 ### Phase 5 · 平台收尾
 
-- **5.1 CCR 托管**：探活 → 接管 / 拉起 → 守护 → 状态卡。→ 做到：用户不再手动起 CCR；崩溃自动恢复。
+- **5.1 CCR 托管** ✅ 2026-10-17（真机复测通过；待用户过目状态卡）：**探活 / 接管 / 拉起 / 守护 / 状态卡**——用户不再手动起 CCR，崩溃自动恢复。**刻意不重造进程管理**：CCR 自带 `ccr start`（daemon 化、写 `~/.claude-code-router/service.json`、幂等复用已验证实例）。Codeg 只做四件事：① **探活**——对管理地址做 **TCP connect**（故意不走 RPC：可达性才是「接管 or 拉起」的判据，且不依赖 token 正确，token 不对也不会误启第二个实例抢端口）；② **接管**——可达即采纳，不问是谁起的，也**不停**用户的实例；③ **拉起**——仅当不可达，且 **回环地址 + `CCR_WEB_AUTH_TOKEN` 已固定 + 能解析出 `ccr` CLI**（`CCR_BIN` → `PATH`）三者同时满足，否则只报 `blocked_reason`（与 `last_error` 分开）；④ **守护**——20→40→80→160→300s 退避封顶，**只起不停**（停是用户决定），总开关 `CODEG_CCR_SUPERVISE=0`。结构：新模块 `src-tauri/src/ccr/`（`client.rs` 收拢管理面传输——URL/token 契约与 RPC 转发从 `commands/ccr.rs` 移出，命令层只剩适配；`supervisor.rs` 托管，判据与退避是纯函数，13 用例）；`AppState.ccr_supervisor` 两模式同一实例，桌面 `lib.rs` setup 与 `bin/codeg_server.rs` 各起一次守护（`guard_loop` 由调用方选运行时：`setup` 无 tokio reactor，用 `tauri::async_runtime::spawn`）；路由 `POST /api/ccr_supervisor_state` / `/api/ccr_supervisor_start` + 同名 Tauri 命令；模型页顶部新增「CCR 服务」卡（状态 / 由 Codeg 启动·Codeg 之外启动 / pid / CLI / 无法自启原因 / 上次错误 / 启动·重试·重新探活），与既有 `GatewayCard` 相邻：**卡管宿主，网关卡管代理**；10 语言文案 + 5 个组件用例。**真机复测**：前台实例在跑时 `state=running, managed=false` 且不启第二个实例（3458 仅一个监听者）；杀掉 CCR（7733+7878）后 5s 探到 `stopped`、15s 变 `running, managed=true, pid=67852`，此后 45s 稳定；`service.json` 的 `ccr_web_token` 仍是固定的那个，经薄代理 `getConfig` 返回 **200** 并读出供应商 `OpenCode Go`。**未验证**：桌面端只做编译验证（运行期未实测）；经网关的模型调用需 CLI 自身凭证，未跑。规则同步：`AGENTS/gateway.md`（托管契约 + 三个环境变量）、`codeg/NOTICE.md`。
+- **5.1.1 验证脚本按改动拆** ✅ 2026-10-17（用户要求「每次只测改动的」）：`codeg/scripts/verify.mjs`（`pnpm verify`）——`changed` 从 `git diff HEAD`（含未跟踪文件）派生范围并**先打印将执行的命令**（即验证证据）：改哪个 Rust 文件就按该文件自己的 `#[cfg(test)] mod <name>` 取**精确过滤器**（如 `ccr::supervisor::tests`；无内联测试的业务文件算接线，只编译），`src/bin/**` 补 `cargo check --bins`，`tests/` 补 `--tests`；前端跑**同名测试文件**（无则只 `tsc`）；locale JSON 跑键位对齐；Python 跑 `import` 冒烟。`--dry-run` 只打印计划。**诚实边界**：`cargo test --lib` 仍编译整个 crate（一 crate 一测试二进制），省的是「跑什么」与「一次构建而不是 check+test 两次」；全量（`cargo test` / `pnpm test`）留给里程碑收口。规则落 `AGENTS/verification.md` 与 `codeg/AGENTS.md`。
 - **5.2 引擎状态页 / 用量页**收口。
 - **5.3 CLI 覆盖补齐**：gemini / hermes 连接器；opencode / pi profile 启用。
 - **5.4 打包**：dmg + 首次运行向导（供应商预设 → key → profiles）。
@@ -110,15 +111,15 @@ Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Ph
 - 开工先按 `AGENTS/` 索引读对应规则（`ui.md` / `api-contract.md` / `agent-model.md` / `truth-sources.md` / `bodies.md` / `verification.md` / `upstream.md`）。
 - **拆分纪律（重要）**：触达大文件时**先把新逻辑做成独立模块 / 新文件，再接线**，不往大文件里持续堆内容；**并主动把既有上游大文件拆开**（结构拆分，见 `AGENTS/upstream.md` 四档法与 `codeg/NOTICE.md` 的拆分表——2026-10-12 用户拍板，源项目源码同样拆）。已明确的巨型文件：`settings/acp-agent-settings.tsx`、`acp/connection.rs`、`acp/delegation/broker.rs`、`conversations/conversation-detail-panel.tsx`（Rust 侧第一轮测试外移已登记进 NOTICE）。主文件只留小集成点（`[crewchat]` 标记范围尽量小）。可参考的已落地做法：就绪卡拆成 `agent-readiness-card.tsx` + `use-agent-ccr-binding.ts`，主文件只留挂载。
 - 每步独立小提交：一步一个主题，失败可单独回退；不把多步混进一个提交（见 `AGENTS/git.md`：分批提交、不推送）。
-- 验证顺序：prettier → eslint → tsc → vitest → build；Rust：cargo check / clippy / test；每步收口全量测试绿。
-- server 模式：3080 起法（`CCR_WEB_URL/TOKEN`、`CODEG_STATIC_DIR/DATA_DIR/HOST/PORT`）；前端改动重建 `codeg/out`。
+- 验证顺序：**按改动派生最小验证**——`cd codeg && node scripts/verify.mjs changed`（改哪个模块只跑哪个模块：Rust 按 `#[cfg(test)] mod` 精确过滤、前端按同名测试文件、locale 跑键位对齐、`src/bin/**` 补 `--bins` 编译），`--dry-run` 先看计划；**不每步跑全量**，全量（`pnpm test` / `cargo test --features test-utils`）只在里程碑收口时跑一次（用户 2026-10-17 拍板）。prettier / eslint / tsc 同理只在触达的前端范围先跑。
+- server 模式：3080 起法（`CCR_WEB_URL/TOKEN`、`CODEG_STATIC_DIR/DATA_DIR/HOST/PORT`，5.1 起另加 `CCR_BIN` 指向 `ccr` CLI）；前端改动重建 `codeg/out`。
 - 上游改动走四档法（含结构拆分）+ NOTICE 登记；计划与文档随步同步。
 - 每步收口门槛：全量测试绿 + 场景真机证据（截图 / request-log）+ 文档同步 + 工作区干净。
 
 ### 关键地标（省去考古）
 
-| 面 | 落点 |
-| --- | --- |
+| 面 | 落**按改动派生最小验证**——`cd cod|g && node scrpts/vify.mjschangd`（改哪个模块只跑哪个模块：Ru按`#[cfg(et)]mod`精确过滤、前端按同名测试文件、local 跑键位对齐、`rc/bin/**`补`--ns` 编译），`--ry-run` 先看计划**不每步跑全量**，全量（`pnpm te` / ` test --features test-utils`）只在里程碑收口时跑一次（用户 2026-10-17拍板）。prettiresntc 同理只在触达的前端范围先跑
+| --- | --- |`，5.1 起另加 `CCR_BIN` 指向 `ccr CLI
 | 委派内核 | `codeg/src-tauri/src/acp/delegation/{broker,spawner,types}.rs`（1.3 约束落点：broker 前置检查） |
 | 提示帧注入 | `codeg/src-tauri/src/acp/agent_mentions.rs`（1.3 团队帧落点） |
 | 会话表 | `codeg/src-tauri/src/models/conversation.rs` + `db/entities/conversation.rs`（1.1 落点） |
@@ -126,7 +127,7 @@ Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Ph
 | 委派卡 / 抽屉 | `codeg/src/components/message/{delegated-sub-thread,sub-agent-session-dialog}.tsx` |
 | 花名册页 / 就绪卡 | `codeg/src/components/settings/agent-roles/`、`agent-readiness-card.tsx` |
 | codeg-mcp 解析 | `codeg/src-tauri/src/acp/connection.rs`（`CODEG_MCP_BIN`） |
-| CCR 层 | `codeg/src/lib/ccr.ts` + `codeg/src-tauri/src/commands/ccr.rs` |
+| CCR 层 | `codeg/src/lib/ccr.ts` + `codeg/src-tauri/src/ccr/`（`client` 传输 / `supervisor` 托管）+ `commands/ccr.rs`（命令适配） |
 
 ## 风险与注意
 

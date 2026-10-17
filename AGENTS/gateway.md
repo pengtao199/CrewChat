@@ -11,7 +11,17 @@
 - **控制面**：CCR 管理进程（默认 `127.0.0.1:3458`），RPC 入口 `POST /api/ccr/rpc`（头 `x-ccr-web-auth`）；
 - **网关**：本地代理（默认 `127.0.0.1:3456`），按 profile 把请求转给上游。
 
-Codeg 工作台的模型页经薄代理操作 CCR：后端 `ccr_call` / `ccr_health`（`codeg/src-tauri/src/commands/ccr.rs`），前端 `codeg/src/lib/ccr.ts` 与 `codeg/src/components/settings/ccr/` 下的组件。
+Codeg 工作台的模型页经薄代理操作 CCR：后端 `ccr_call` / `ccr_health`（`codeg/src-tauri/src/commands/ccr.rs`，传输在 `codeg/src-tauri/src/ccr/client.rs`），前端 `codeg/src/lib/ccr.ts` 与 `codeg/src/components/settings/ccr/` 下的组件。
+
+**CCR 进程由 Codeg 托管（5.1）。** 管理进程本身是独立进程，以前要用户手动起。现在 `codeg/src-tauri/src/ccr/supervisor.rs` 负责：探活（TCP，不看 token）→ 已在运行就直接接管（不打扰）→ 不可达且满足条件才 `ccr start`（CCR 自带 daemon：写 `service.json`、幂等复用）→ 守护循环按退避重试。**只起不停**，停是用户决定。环境契约：
+
+| 变量 | 作用 |
+| --- | --- |
+| `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` | 管理面地址与 token（token 必须固定，否则本地拉起的实例会用随机 token，Codeg 对不上） |
+| `CCR_BIN` | `ccr` CLI 路径（打包时必需；不设则从 `PATH` 找） |
+| `CODEG_CCR_SUPERVISE=0` | 关掉托管（自己管 CCR 的用户） |
+
+托管只在回环地址 + token 已固定 + 能解析出 `ccr` CLI 时生效，否则只在状态卡上报「无法自启」的原因。
 
 **Python 侧不再有网关。** 旧的 cc-switch 代理核心（`gateway/cc-switch/`、`ccsw-proxy`）已移除：Python 身体不再注入模型，改为使用各自 CLI 的登录与用户配置（见 `AGENTS/bodies.md`）。模型统一管理只走 CCR。
 
@@ -27,6 +37,7 @@ Codeg 工作台的模型页经薄代理操作 CCR：后端 `ccr_call` / `ccr_hea
 - 新增推理端点：只改 CCR 配置（模型页操作或直接改 CCR 配置），不动 Python / Codeg 代码。
 - 某 CLI 拿不到某端点时：先确认该 CLI 在 CCR 里有 profile，再看端点是否要 transform，最后才怀疑端点。
 - 改 CCR 自身代码前读 `ccr/NOTICE.md`（变更清单）与 `AGENTS/upstream.md`（同步规则）；我们的改动带 `[crewchat]` 标记。
+- 改托管逻辑：进程管理交给 `ccr start/stop`，不要在 Codeg 里重造 daemon / pidfile；探活判据（回环 / token / CLI）在 `supervisor.rs` 的纯函数里，改判据先补用例。
 
 ## 禁止项
 

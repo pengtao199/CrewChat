@@ -248,6 +248,11 @@ async fn async_main() -> ExitCode {
         });
     }
 
+    // 5.1 CCR 托管: probe / adopt / start / guard for CCR's own management
+    // process. Started before the router so the first status request sees a
+    // live probe, and so a cold machine has CCR coming up while the UI loads.
+    let ccr_supervisor = codeg_lib::ccr::CcrSupervisor::from_env();
+
     // Create shared broadcaster + internal ACP event bus.
     let broadcaster = Arc::new(WebEventBroadcaster::new());
     let event_bus_metrics = Arc::new(codeg_lib::acp::EventBusMetrics::default());
@@ -300,10 +305,15 @@ async fn async_main() -> ExitCode {
         computer_service: std::sync::OnceLock::new(),
         system_op_lock: codeg_lib::app_state::default_system_op_lock(),
         update_state: codeg_lib::app_state::default_update_state(),
+        ccr_supervisor,
     });
     state
         .connection_manager
         .install_chat_channel(state.chat_channel_manager.clone_ref());
+
+    // The guard loop (mirrored from `lib.rs` setup). Off switch:
+    // `CODEG_CCR_SUPERVISE=0`.
+    tokio::spawn(state.ccr_supervisor.clone().guard_loop());
 
     // Logging phase 3: wire the emitter so the Logs viewer's live tail
     // (`logs://appended`) reaches WS clients.

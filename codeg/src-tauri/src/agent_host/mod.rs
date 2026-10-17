@@ -165,7 +165,7 @@ pub async fn recipe_for_agent(agent_type: AgentType) -> Option<AgentHostRecipe> 
     if ccr_agent_kind(agent_type).is_none() {
         return None;
     }
-    let config = crate::commands::ccr::ccr_call_core("getConfig", None)
+    let config = crate::ccr::client::call("getConfig", None)
         .await
         .ok()?;
     let gateway = ccr_gateway_base(&config)?;

@@ -854,6 +854,13 @@ pub(crate) async fn do_start_web_server_tauri(
             .unwrap_or_else(|| {
                 Arc::new(crate::workspace_transfer::WorkspaceTransferManager::new_from_env())
             }),
+        // Reuse the supervisor Tauri registered and whose guard loop is
+        // already running — the HTTP card must see the same instance (and its
+        // in-memory `managed` flag), not a second prober.
+        ccr_supervisor: app
+            .try_state::<Arc<crate::ccr::CcrSupervisor>>()
+            .map(|state| state.inner().clone())
+            .unwrap_or_else(crate::ccr::CcrSupervisor::from_env),
         // Reuse the same handle the Tauri-mode subscriber writes to so HTTP
         // and webview readers see the identical snapshot.
         pet_state: app

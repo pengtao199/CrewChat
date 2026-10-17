@@ -108,6 +108,15 @@
 | `src/hooks/use-member-role-name.ts`（新增）＋ `src/hooks/use-delegation-card-model.ts`、`src/components/message/delegation-card-row.tsx` | 成员名解析 hook（role id → 名册名；名册读不到或角色已删回落 `null`，不显示占位）；卡模型暴露 `memberName`；行渲染主标签 = 成员名、次要标记 = CLI 名（无成员时与原来完全一致） | 成员名从 meta 流到卡面 |
 | `src/components/message/delegated-sub-thread.tsx`、`resumed-delegation-card.tsx` | 从卡模型取 `memberName` 传给 `DelegationCardRow` | 同上 |
 | `src/lib/delegation-card.test.ts`、`src/components/message/delegation-card-row.test.tsx`（新增） | meta 解析 2 例（读出 `member_role_id` / 空串与缺失同为 `null`）＋ 行渲染 2 例（成员名 + CLI 次要标记；无成员回落 CLI 名） | 同上 |
+| `src-tauri/src/ccr/`（`mod.rs` / `client.rs` / `supervisor.rs`；新增） | Phase 5.1 CCR 托管：`client.rs` 收拢管理面**传输**（`CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` 契约、RPC 转发，从 `commands/ccr.rs` 移出）；`supervisor.rs` 探活（TCP，不看 token）/ 接管（可达即采纳）/ 拉起（仅回环 + token 已固定 + 能解析 `ccr` CLI 时 `ccr start`）/ 守护（20→300s 退避封顶）/ `CcrDaemonStatus`；判据与退避是纯函数（13 用例） | 管理进程以前要用户手动起；进程管理仍交给 CCR 自带的 `ccr start`（daemon + `service.json`），Codeg 不重造 |
+| `src-tauri/src/commands/ccr.rs` | 传输移出后只剩命令适配：`ccr_health` / `ccr_call` / `ccr_supervisor_state` / `ccr_supervisor_start` | 一个契约一个归属；命令层只管适配 |
+| `src-tauri/src/web/handlers/ccr.rs`、`src-tauri/src/web/router.rs` | 新增 `POST /api/ccr_supervisor_state` / `/api/ccr_supervisor_start`（[crewchat] 自有 `/api/*`，与 `api-contract.md` 的 Python `/api/v1` 契约无关） | Codeg 双模式规范 |
+| `src-tauri/src/app_state.rs`、`src-tauri/src/lib.rs`、`src-tauri/src/bin/codeg_server.rs`、`src-tauri/src/web/mod.rs` | `AppState.ccr_supervisor`（两模式同一实例；桌面 setup 与 server 各起一次守护，网页服务复用 Tauri 已 manage 的那个）；`CODEG_CCR_SUPERVISE=0` 关托管 | 接线 |
+| `src/lib/ccr.ts` | 增 `CcrDaemonStatus` / `ccrSupervisorState` / `ccrSupervisorStart` | 5.1 状态卡数据层 |
+| `src/components/settings/ccr/ccr-daemon-card.tsx`（新增）＋ `ccr-daemon-card.test.tsx`（新增，5 用例） | 「CCR 服务」卡：状态徽标 + 由 Codeg 启动 / Codeg 之外启动 + pid + CLI 路径 + 无法自启原因 + 上次错误 + 启动 / 重试 / 重新探活；**只起不停** | 托管状态要看得见；与 `GatewayCard`（网关本体）上下相邻：卡管宿主，网关卡管代理 |
+| `src/components/settings/ccr-model-settings.tsx` | 顶部挂 `CcrDaemonCard` | 落点（一行） |
+| `src/i18n/messages/*.json`（10 语言） | `CcrModelSettings` 增 13 个 `daemon*` 子键（中英繁实翻，其余语言实翻） | 同上 |
+| `scripts/verify.mjs`（新增，`pnpm verify`） | Phase 5.1.1 按改动派生最小验证：从 `git diff HEAD` 分类改动文件 → Rust 按该文件自己的 `#[cfg(test)] mod <name>` 精确过滤（无内联测试 = 接线，只编译）、`src/bin/**` 补 `--bins`、前端跑同名测试文件（无则只 `tsc`）、locale JSON 跑键位对齐、Python 跑 `import`；`--dry-run` 只打印计划 | 一轮改动不该付全量测试的代价（用户 2026-10-17 拍板）；`cargo test --lib` 仍编译整个 crate，省的是「跑什么」与「一次构建而不是 check+test 两次」 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 
@@ -128,6 +137,7 @@
 | `src/components/settings/acp-agent-settings.tsx` | `acp-agent-settings/index.tsx` + `agent-reorder-item.tsx` + `acp-agent-settings/helpers/*`（types / context / env / config-text / claude / gemini / opencode / cline / openclaw / grok / codex / codex-toml / hermes / deepseek / important-config / draft / version / checks） | 前端最大文件拆分（12.9k → 页面组件 8.7k + 18 个 helpers，全部 <1k；测试零改动 157 用例绿） |
 | `src/components/conversations/conversation-detail-panel.tsx` | `conversation-detail-panel/index.tsx` + `conversation-tab-view.tsx` + `helpers.ts` + `split-strip.tsx` | 巨型面板目录化（3.2k → 面板 670 / 视图 2.4k / 纯函数 62 / 角条 48）；6 个源码级测试改指新路径（含一个双源拆分），语义零改动。视图的 hook 级二次拆分列为后续批次 |
 | `src-tauri/src/commands/conversations/mod.rs`（职责外移，非目录化） | `acp/delegation/meta_writer.rs`（`historical_delegation_meta`）+ `commands/conversations/mod.rs` 只留走 turn 的注入胶水 | 历史委派 meta 构造器按「一个形状一个归属」移入 meta 模块，与 `build_delegation_meta` 并列（两者必须同形状）；`commands/conversations/mod.rs` 2.8k → 2.76k，新函数在原地有 2 个直接用例；115 + 7 用例绿 |
+| `src-tauri/src/commands/ccr.rs`（职责外移） | `ccr/client.rs`（管理面传输：URL / token 解析、RPC 转发、地址解析与回环判据）+ `commands/ccr.rs` 只留 `#[tauri::command]` 适配 + `ccr/supervisor.rs`（托管） | 原来「怎么连 CCR」和「CCR 起没起」都要写进命令层；拆开后传输唯一归属，命令层 91 → 45 行，托管单独一层（判据是纯函数，可测） |
 
 ## 构建与开发
 
@@ -171,11 +181,14 @@ cd codeg && \
   CODEG_STATIC_DIR=$PWD/out \
   CCR_WEB_URL=http://127.0.0.1:3458 \
   CCR_WEB_AUTH_TOKEN=$(cat ../.data/ccr/dev-token) \
+  CCR_BIN=$PWD/../.data/ccr/node_modules/.bin/ccr \
   CODEG_MCP_BIN=$PWD/src-tauri/target/debug/codeg-mcp \
   ./src-tauri/target/debug/codeg-server
 ```
 
 - `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN`：模型页与就绪卡的 CCR 薄代理走这里。
+- `CCR_BIN`：5.1 托管用它拉起 CCR（`ccr start`）；不设则从 `PATH` 找 `ccr`，找不到就只报「无法自启」。
+  `CODEG_CCR_SUPERVISE=0` 关掉托管（默认开）。
 - 委派开关：「设置 → 多智能体协同 → 启用委托」（`delegation.enabled`，默认关）。
 
 Rust 侧检查（在 `codeg/src-tauri/` 下执行）：

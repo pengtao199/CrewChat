@@ -1572,6 +1572,15 @@ pub fn build_router(
         // ─── CCR model management（[crewchat] 模型层的唯一内核）───
         .route("/ccr_health", post(handlers::ccr::ccr_health))
         .route("/ccr_call", post(handlers::ccr::ccr_call))
+        // 5.1 CCR 托管：管理进程的探活 / 接管 / 拉起（守护线程见 ccr::supervisor）
+        .route(
+            "/ccr_supervisor_state",
+            post(handlers::ccr::ccr_supervisor_state),
+        )
+        .route(
+            "/ccr_supervisor_start",
+            post(handlers::ccr::ccr_supervisor_start),
+        )
         // ─── [crewchat] Agent 角色花名册（「Agents」设置页）───
         .route(
             "/agent_roles_list",

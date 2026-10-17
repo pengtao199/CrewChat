@@ -35,6 +35,7 @@ import {
   type CcrProviderPreset,
 } from "@/lib/ccr"
 import { readDisabledModels, writeDisabledModels } from "@/lib/ccr-model-memory"
+import { CcrDaemonCard } from "./ccr/ccr-daemon-card"
 import { GatewayCard } from "./ccr/gateway-card"
 import { ProviderCard } from "./ccr/provider-card"
 import { ProviderDialog } from "./ccr/provider-dialog"
@@ -309,6 +310,8 @@ export function CcrModelSettings() {
           </div>
         </section>
       )}
+
+      <CcrDaemonCard />
 
       <GatewayCard
         health={health}
