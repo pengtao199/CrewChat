@@ -163,6 +163,14 @@
 | `src-tauri/src/acp/background_watch.rs`（批次 A·脚本） | `acp/background_watch.rs`（1.87k）+ `acp/background_watch/tests.rs`（2.52k） | 同上（第 6 刀），过滤器 `acp::background_watch::tests` 64 用例绿 |
 | `src-tauri/src/acp/delegation/listener.rs`（批次 A·脚本） | `acp/delegation/listener.rs`（1.63k）+ `acp/delegation/listener/tests.rs`（2.39k） | 同上（第 7 刀，自有代码），过滤器 `acp::delegation::listener::tests` 41 用例绿 |
 | `src-tauri/src/commands/mcp.rs`（批次 A·脚本） | `commands/mcp.rs`（6.10k）+ `commands/mcp/tests.rs`（2.10k） | 同上（第 8 刀），过滤器 `commands::mcp::tests` 51 用例绿 |
+| `src-tauri/src/parsers/opencode.rs`（批次 A·脚本，5.3 铺路） | `parsers/opencode.rs`（2.48k）+ `parsers/opencode/tests.rs`（1.85k） | 第 9 刀，过滤器 41 用例绿 |
+| `src-tauri/src/parsers/pi.rs`（批次 A·脚本，5.3 铺路） | `parsers/pi.rs`（1.50k）+ `parsers/pi/tests.rs`（1.36k） | 第 10 刀，过滤器 38 用例绿 |
+| `src-tauri/src/parsers/gemini.rs`（批次 A·脚本，5.3 铺路） | `parsers/gemini.rs`（1.07k）+ `parsers/gemini/tests.rs`（0.72k） | 第 11 刀，过滤器 22 用例绿 |
+| `src-tauri/src/parsers/hermes.rs`（批次 A·脚本，5.3 铺路） | `parsers/hermes.rs`（0.85k）+ `parsers/hermes/tests.rs`（0.18k） | 第 12 刀，过滤器 12 用例绿 |
+| `src-tauri/src/acp/question.rs`（批次 A·脚本，4.x 铺路） | `acp/question.rs`（1.79k）+ `acp/question/tests.rs`（1.76k） | 第 13 刀，过滤器 56 用例绿 |
+| `src-tauri/src/db/service/work_task_service.rs`（批次 A·脚本，5.2 铺路） | `work_task_service.rs`（2.84k）+ `work_task_service/tests.rs`（2.20k） | 第 14 刀，过滤器 43 用例绿 |
+| `src-tauri/src/db/service/token_usage_service.rs`（批次 A·脚本，用量页铺路） | `token_usage_service.rs`（0.75k）+ `token_usage_service/tests.rs`（0.72k） | 第 15 刀，过滤器 18 用例绿 |
+| `src-tauri/src/commands/token_usage.rs`（批次 A·脚本，用量页铺路） | `commands/token_usage.rs`（1.22k）+ `commands/token_usage/tests.rs`（0.78k） | 第 16 刀，过滤器 32 用例绿 |
 
 ## 构建与开发
 
