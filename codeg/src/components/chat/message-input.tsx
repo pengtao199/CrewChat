@@ -83,6 +83,7 @@ import {
 } from "@/components/chat/conversation-context-bar"
 import { ComposerContextUsage } from "@/components/chat/composer-context-usage"
 import { ComposerConnectionStatus } from "@/components/chat/composer-connection-status"
+import { AgentBrainChip } from "@/components/chat/agent-brain-chip"
 import { InlineModeSelector } from "@/components/chat/mode-selector"
 import {
   InlineSessionConfigSelector,
@@ -95,6 +96,10 @@ import {
   type SessionSelectorGroup,
   type SessionSelectorSetting,
 } from "@/components/chat/session-selectors-panel"
+import {
+  brainOptionCurrentLabel,
+  splitAgentConfigOptions,
+} from "@/lib/agent-brain-options"
 import {
   deriveModelGroups,
   isModelConfigOption,
@@ -917,6 +922,20 @@ export function MessageInput({
     () => vocabulary.configOptions(configOptions ?? []),
     [configOptions, vocabulary]
   )
+  // [crewchat] The Agent's brain — the model and the reasoning level — is shown
+  // but not switchable: it is bound on the Agents page and a roster-bound session
+  // cannot re-point it, so the composer must not offer a control that cannot
+  // work. See agent-brain-options.ts.
+  //
+  // `hasConfigOptions` deliberately stays keyed off the FULL list: the brain is
+  // still a config option as far as the loading placeholders and the
+  // mode-selector exclusivity are concerned, and re-pointing those at the
+  // switchable half would silently change which chrome appears.
+  const { brain: brainConfigOptions, switchable: switchableConfigOptions } =
+    useMemo(
+      () => splitAgentConfigOptions(availableConfigOptions),
+      [availableConfigOptions]
+    )
   const hasConfigOptions = availableConfigOptions.length > 0
   const hasModes = availableModes.length > 0
 
@@ -1784,8 +1803,20 @@ export function MessageInput({
           label={showConfigLoading ? t("loadingSettings") : t("loadingMode")}
         />
       )}
-      {hasConfigOptions &&
-        availableConfigOptions.map((option) => {
+      {/* [crewchat] The brain first, and inert: the model and the reasoning level
+          read as chips so what is actually running stays visible, but they carry
+          no dropdown — see agent-brain-chip.tsx for why a padlock, not a menu. */}
+      {brainConfigOptions.length > 0 &&
+        brainConfigOptions.map((option) => (
+          <AgentBrainChip
+            key={`brain:${option.id}`}
+            option={option}
+            label={brainOptionCurrentLabel(option)}
+            readOnlyHint={t("brainReadOnlyHint")}
+          />
+        ))}
+      {switchableConfigOptions.length > 0 &&
+        switchableConfigOptions.map((option) => {
           // On/off options flip in place — a dropdown for a binary choice is a
           // wasted interaction.
           if (option.kind.type === "boolean") {
@@ -1845,8 +1876,11 @@ export function MessageInput({
   // `showModeSelector`), but both are mapped so the panel stays agnostic.
   const collapsedSettings = useMemo<SessionSelectorSetting[]>(() => {
     const result: SessionSelectorSetting[] = []
+    // [crewchat] Brain options never reach the rail: the panel's only affordance
+    // is "pick a value", and the brain has no pickable value. It renders as
+    // read-only chips above the panel instead (see the collapsed popover below).
     if (hasConfigOptions) {
-      for (const option of availableConfigOptions) {
+      for (const option of switchableConfigOptions) {
         // An on/off option becomes a two-item headerless group — the same shape
         // the mode picker below uses — so the panel needs no toggle affordance
         // of its own.
@@ -1963,7 +1997,7 @@ export function MessageInput({
     return result
   }, [
     hasConfigOptions,
-    availableConfigOptions,
+    switchableConfigOptions,
     showModeSelector,
     availableModes,
     effectiveModeId,
@@ -2334,6 +2368,27 @@ export function MessageInput({
                           }
                           className="w-[22rem] max-w-[calc(100vw-1rem)] p-1"
                         >
+                          {/* [crewchat] The brain rides above the rail: it belongs
+                              to the same "agent settings" surface, but it has no
+                              value to pick, so it never enters the panel. The
+                              divider only appears when a rail follows it. */}
+                          {brainConfigOptions.length > 0 && (
+                            <div
+                              className={cn(
+                                "flex flex-wrap items-center gap-1 px-1 pb-1",
+                                collapsedSettings.length > 0 && "mb-1 border-b"
+                              )}
+                            >
+                              {brainConfigOptions.map((option) => (
+                                <AgentBrainChip
+                                  key={`brain:${option.id}`}
+                                  option={option}
+                                  label={brainOptionCurrentLabel(option)}
+                                  readOnlyHint={t("brainReadOnlyHint")}
+                                />
+                              ))}
+                            </div>
+                          )}
                           {showConfigLoading && (
                             <SelectorLoadingChip label={t("loadingSettings")} />
                           )}

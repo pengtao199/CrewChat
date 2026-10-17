@@ -3222,6 +3222,7 @@
         "toggleOn": "On",
         "toggleOff": "Off",
         "agentSettings": "Agent settings",
+        "brainReadOnlyHint": "Decided by this Agent's configuration. Not switchable inside a conversation.",
         "searchModel": "Search models...",
         "searchModelAria": "Search models",
         "modelListLabel": "Models",

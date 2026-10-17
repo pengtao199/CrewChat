@@ -1048,6 +1048,64 @@ const MODEL_OPTION: SessionConfigOptionInfo = {
 
 const MSGS = enMessages.Folder.chat.messageInput
 
+// A model whose values carry a `provider/` prefix — the shape the composer used
+// to group and strip before the brain went read-only. It still has to resolve to
+// the same prefix-stripped label on the chip.
+const GROUPED_MODEL: SessionConfigOptionInfo = {
+  id: "model",
+  name: "Model",
+  description: "Pick the model",
+  category: null,
+  kind: {
+    type: "select",
+    current_value: "anthropic/claude-opus",
+    options: [
+      {
+        value: "anthropic/claude-opus",
+        name: "anthropic/claude-opus",
+        description: null,
+      },
+      { value: "openai/gpt-4o", name: "openai/gpt-4o", description: null },
+    ],
+    groups: [],
+  },
+}
+
+// The other half of the brain: identified by ACP's own `thought_level` category,
+// which is the signal that survives a relabel.
+const REASONING_OPTION: SessionConfigOptionInfo = {
+  id: "reasoning_effort",
+  name: "Reasoning",
+  description: "How hard the model thinks before answering",
+  category: "thought_level",
+  kind: {
+    type: "select",
+    current_value: "high",
+    options: [
+      { value: "low", name: "Low", description: null },
+      { value: "high", name: "High", description: null },
+    ],
+    groups: [],
+  },
+}
+
+// A config option that stays adjustable — nothing about it belongs to the brain.
+const SWITCHABLE_SELECT: SessionConfigOptionInfo = {
+  id: "approval_preset",
+  name: "Approval preset",
+  description: "How tool calls are approved",
+  category: null,
+  kind: {
+    type: "select",
+    current_value: "ask",
+    options: [
+      { value: "ask", name: "Ask", description: "Prompt every time" },
+      { value: "auto", name: "Auto", description: "Run without asking" },
+    ],
+    groups: [],
+  },
+}
+
 // Cline 3.0.50's `auto_approve` — the first boolean config option any pinned
 // agent ships. Both the wide inline row and the collapsed popover are always in
 // the DOM (a container query, which jsdom does not evaluate, picks one), so a
@@ -1150,7 +1208,10 @@ describe("MessageInput selector loading placeholder", () => {
       </NextIntlClientProvider>
     )
     expect(screen.queryByRole("status")).toBeNull()
-    expect(screen.getByRole("button", { name: /Model/ })).toBeInTheDocument()
+    // The model still shows up — as the brain's read-only chip, not a picker.
+    expect(
+      screen.getByLabelText(`Model: Default. ${MSGS.brainReadOnlyHint}`)
+    ).toBeInTheDocument()
   })
 
   it("renders no selector affordance at all when nothing is loading or known", async () => {
@@ -1174,7 +1235,8 @@ describe("MessageInput collapsed selectors popover", () => {
     const user = userEvent.setup()
     const onConfigOptionChange = vi.fn()
     const { container } = renderInput({
-      configOptions: [MODEL_OPTION],
+      // A switchable option: the model can no longer reach this rail.
+      configOptions: [SWITCHABLE_SELECT],
       onConfigOptionChange,
     })
     await waitFor(() =>
@@ -1187,104 +1249,16 @@ describe("MessageInput collapsed selectors popover", () => {
     const popover = await screen.findByRole("dialog", { name: settingsLabel })
     // The left rail shows the setting as a title + current value row.
     expect(
-      within(popover).getByRole("button", { name: /Model/ })
+      within(popover).getByRole("button", { name: /Approval preset/ })
     ).toBeInTheDocument()
 
     // Options are plain buttons (native clicks) — selecting fires the change.
-    await user.click(within(popover).getByRole("button", { name: /Opus/ }))
-    expect(onConfigOptionChange).toHaveBeenCalledWith("model", "opus")
+    await user.click(within(popover).getByRole("button", { name: /Auto/ }))
+    expect(onConfigOptionChange).toHaveBeenCalledWith("approval_preset", "auto")
 
     // Selecting a value closes the controlled popover.
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: settingsLabel })).toBeNull()
-    )
-  })
-
-  it("groups model values by their provider prefix in the cog Popover", async () => {
-    const user = userEvent.setup()
-    const onConfigOptionChange = vi.fn()
-    const groupedModel: SessionConfigOptionInfo = {
-      id: "model",
-      name: "Model",
-      description: "Pick the model",
-      category: null,
-      kind: {
-        type: "select",
-        current_value: "anthropic/claude-opus",
-        options: [
-          {
-            value: "anthropic/claude-opus",
-            name: "anthropic/claude-opus",
-            description: null,
-          },
-          { value: "openai/gpt-4o", name: "openai/gpt-4o", description: null },
-        ],
-        groups: [],
-      },
-    }
-    const { container } = renderInput({
-      configOptions: [groupedModel],
-      onConfigOptionChange,
-    })
-    await waitFor(() =>
-      expect(container.querySelector('[role="textbox"]')).not.toBeNull()
-    )
-
-    const settingsLabel = enMessages.Folder.chat.messageInput.agentSettings
-    await user.click(screen.getByRole("button", { name: settingsLabel }))
-    const popover = await screen.findByRole("dialog", { name: settingsLabel })
-
-    // The detail pane carries one header per provider namespace…
-    expect(within(popover).getByText("anthropic")).toBeInTheDocument()
-    expect(within(popover).getByText("openai")).toBeInTheDocument()
-
-    // …and the option label drops the redundant `openai/` prefix, while the
-    // committed value stays the full id. (Pick the non-current model so its
-    // label is unique to the detail pane, not echoed in the left-rail summary.)
-    await user.click(within(popover).getByRole("button", { name: /gpt-4o/ }))
-    expect(onConfigOptionChange).toHaveBeenCalledWith("model", "openai/gpt-4o")
-  })
-
-  it("uses a searchable virtualized list for a long model list", async () => {
-    const user = userEvent.setup()
-    const onConfigOptionChange = vi.fn()
-    const options = Array.from({ length: 30 }, (_, i) => ({
-      value: `openrouter/model-${i}`,
-      name: `openrouter/model-${i}`,
-      description: null,
-    }))
-    const bigModel: SessionConfigOptionInfo = {
-      id: "model",
-      name: "Model",
-      description: null,
-      category: null,
-      kind: {
-        type: "select",
-        current_value: "openrouter/model-0",
-        options,
-        groups: [],
-      },
-    }
-    const { container } = renderInput({
-      configOptions: [bigModel],
-      onConfigOptionChange,
-    })
-    await waitFor(() =>
-      expect(container.querySelector('[role="textbox"]')).not.toBeNull()
-    )
-
-    const settingsLabel = enMessages.Folder.chat.messageInput.agentSettings
-    await user.click(screen.getByRole("button", { name: settingsLabel }))
-    const popover = await screen.findByRole("dialog", { name: settingsLabel })
-
-    // A long list (> threshold) renders the searchable combobox, not plain rows.
-    const search = within(popover).getByRole("combobox")
-    await user.type(search, "model-17")
-    // Filtering narrows to the one match; the full id is committed on click.
-    await user.click(within(popover).getByRole("option", { name: /model-17/ }))
-    expect(onConfigOptionChange).toHaveBeenCalledWith(
-      "model",
-      "openrouter/model-17"
     )
   })
 
@@ -1313,6 +1287,70 @@ describe("MessageInput collapsed selectors popover", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: settingsLabel })).toBeNull()
     )
+  })
+})
+
+// [crewchat] The Agent's brain — the model it thinks with and the effort it
+// thinks at — is bound on the Agents page and cannot be re-pointed inside a
+// conversation. The composer must therefore show it without offering a picker.
+// These assertions are that contract: the live value stays visible, and nothing
+// here is clickable.
+describe("MessageInput agent brain is read-only", () => {
+  afterEach(() => cleanup())
+
+  async function renderBrain(options: SessionConfigOptionInfo[]) {
+    const { container } = renderInput({ configOptions: options })
+    await waitFor(() =>
+      expect(container.querySelector('[role="textbox"]')).not.toBeNull()
+    )
+  }
+
+  it("shows the model as an inert chip carrying the value it is really running", async () => {
+    await renderBrain([GROUPED_MODEL])
+
+    // Labelled the way the picker used to label it: the provider prefix is
+    // stripped (the option's own name implies it) while the committed value
+    // stays the full id. Resolving that is the point — the chip has to show what
+    // is actually running, not a restatement of the binding.
+    const chip = screen.getByLabelText(
+      `Model: claude-opus. ${MSGS.brainReadOnlyHint}`
+    )
+    expect(chip.tagName).toBe("SPAN")
+    // No menu to open — that is the whole change.
+    expect(screen.queryByRole("button", { name: /Model/ })).toBeNull()
+  })
+
+  it("treats the reasoning level as part of the brain", async () => {
+    await renderBrain([REASONING_OPTION])
+
+    // Matched by ACP's `thought_level` category, not by its id or label.
+    expect(
+      screen.getByLabelText(`Reasoning: High. ${MSGS.brainReadOnlyHint}`)
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /Reasoning/ })).toBeNull()
+  })
+
+  it("keeps the brain out of the cog Popover's pickable rail", async () => {
+    const user = userEvent.setup()
+    await renderBrain([GROUPED_MODEL, SWITCHABLE_SELECT])
+
+    await user.click(screen.getByRole("button", { name: MSGS.agentSettings }))
+    const popover = await screen.findByRole("dialog", {
+      name: MSGS.agentSettings,
+    })
+
+    // The chip rides above the rail…
+    expect(
+      within(popover).getByLabelText(
+        `Model: claude-opus. ${MSGS.brainReadOnlyHint}`
+      )
+    ).toBeInTheDocument()
+    // …while the rail — whose only affordance is "pick a value" — offers the
+    // switchable option and nothing else.
+    expect(
+      within(popover).getByRole("button", { name: /Approval preset/ })
+    ).toBeInTheDocument()
+    expect(within(popover).queryByRole("button", { name: /Model/ })).toBeNull()
   })
 })
 

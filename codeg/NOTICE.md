@@ -130,6 +130,10 @@
 | `src-tauri/src/commands/windows.rs` | `window_titles_for` 只留中英文窗口标题 | 同上 |
 | `src-tauri/src/chat_channel/i18n.rs`、`src-tauri/src/commands/chat_channel.rs` | `Lang` 枚举收窄为 `En` / `ZhCn`，约 90 处 `match` 去掉退役语言分支；`from_str_lossy` 只认中英文；`set_chat_message_language` 允许列表改 `["en", "zh-cn"]` | 同上；`Lang::from_str_lossy` 对未知值本就有 En 兜底 |
 | `src/i18n/messages.test.ts`、`src/components/settings/system-network-settings.test.tsx`、`src/components/settings/release-notes.test.tsx`、`src/components/shared/directory-browser.test.tsx` | 键位对齐 / ICU / 本地化用例收窄到两种语言；原「本地化 + RTL」用例改用 `zh-CN`（已无 RTL 语言可测） | 同上 |
+| `src/lib/agent-brain-options.ts`（新增） | Agent「大脑」判定与拆分：`isBrainConfigOption`（模型按 `isModelConfigOption`、推理按 id / ACP `thought_level` 类别识别）、`splitAgentConfigOptions`（大脑 vs 可调）、`brainOptionCurrentLabel`（走 `modelListGroups` 解析当前值，保留 `provider/` 前缀剥离） | 大脑=模型+推理，只读；按稳定 id / category 判定而非显示文案 |
+| `src/components/chat/agent-brain-chip.tsx`（新增） | 只读 chip：复用 `buttonVariants({variant:"ghost",size:"xs"})` 度量，`Lock` 图标替代下拉箭头，`SelectorTooltip` 说明为何不可改（用 `span` 而非 `disabled` Button，否则 `disabled:pointer-events-none` 会吞掉 tooltip 的 hover） | 「可见但不可调」需要一个既保留既有 chip 观感、又不假装可点的替身 |
+| `src/components/chat/message-input.tsx` | composer 接线：config option 拆为 `brainConfigOptions` / `switchableConfigOptions`；inline 行先渲染只读 brain chip，再渲染可调项；折叠 cog 面板顶部加 brain chip 行、其 rail 只保留可调项。`hasConfigOptions` 仍按**全部**选项推导，加载态与 mode 互斥语义不变 | 会话中不允许切换模型；大脑不进「选值」面板 |
+| `src/components/chat/message-input.test.tsx` | 断言模型下拉的两个用例删除（行为已不可达），折叠面板用例改用一个可调 select；新增「大脑只读」三条：模型/推理渲染为不可点 chip 且显示真实值、cog 面板 rail 不含大脑 | 同上 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 

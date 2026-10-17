@@ -3222,6 +3222,7 @@
         "toggleOn": "开",
         "toggleOff": "关",
         "agentSettings": "智能体设置",
+        "brainReadOnlyHint": "由该 Agent 的配置决定，会话中不可更改。",
         "searchModel": "搜索模型...",
         "searchModelAria": "搜索模型",
         "modelListLabel": "模型",
