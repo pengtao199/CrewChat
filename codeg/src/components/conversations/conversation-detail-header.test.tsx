@@ -43,6 +43,11 @@ vi.mock("@/stores/app-workspace-store", () => {
   }
   const useStore = (selector: (s: typeof state) => unknown) => selector(state)
   useStore.getState = () => state
+  // [crewchat] The header embeds `TeamMemberStrip` (Phase 1.4), whose import
+  // graph reaches `acp-connections-context` → `notification-session` →
+  // `tab-store`; that last module subscribes to this store at import time. A
+  // fake carrying only `getState` blows the suite up before a single test runs.
+  useStore.subscribe = () => () => {}
   return { useAppWorkspaceStore: useStore }
 })
 vi.mock("@/stores/conversation-runtime-store", () => ({

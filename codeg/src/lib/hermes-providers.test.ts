@@ -5,7 +5,7 @@ import { HERMES_PROVIDERS } from "./types"
 
 /**
  * The Hermes provider table is mirrored in two languages: the Rust source of
- * truth (`src-tauri/src/commands/acp.rs`, derived from Hermes' own auth.py
+ * truth (`src-tauri/src/commands/acp/mod.rs`, derived from Hermes' own auth.py
  * PROVIDER_REGISTRY) and this TS table the settings UI binds to. They must stay
  * in lockstep — a drift would let the panel offer a provider the backend rejects,
  * or map a key to the wrong `.env` variable. This test parses the Rust table and
@@ -14,7 +14,7 @@ import { HERMES_PROVIDERS } from "./types"
 describe("HERMES_PROVIDERS Rust↔TS parity", () => {
   it("matches the backend HERMES_PROVIDERS table", () => {
     // vitest runs from the project root.
-    const rustPath = join(process.cwd(), "src-tauri/src/commands/acp.rs")
+    const rustPath = join(process.cwd(), "src-tauri/src/commands/acp/mod.rs")
     const rust = readFileSync(rustPath, "utf8")
     const start = rust.indexOf("const HERMES_PROVIDERS: &[HermesProvider] = &[")
     expect(start).toBeGreaterThan(-1)

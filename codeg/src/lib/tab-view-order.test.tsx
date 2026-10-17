@@ -126,7 +126,7 @@ describe("conversation views across a strip reorder", () => {
     const panel = readFileSync(
       resolve(
         process.cwd(),
-        "src/components/conversations/conversation-detail-panel.tsx"
+        "src/components/conversations/conversation-detail-panel/index.tsx"
       ),
       "utf8"
     )

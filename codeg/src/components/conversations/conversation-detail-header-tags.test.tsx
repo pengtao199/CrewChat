@@ -47,6 +47,10 @@ vi.mock("@/stores/app-workspace-store", () => {
   const useStore = (selector: (s: typeof full) => unknown) =>
     selector({ ...full, ...h.state })
   useStore.getState = () => ({ ...full, ...h.state })
+  // [crewchat] Same reason as `conversation-detail-header.test.tsx`: the
+  // header's `TeamMemberStrip` graph imports `tab-store`, which subscribes to
+  // this store at module scope.
+  useStore.subscribe = () => () => {}
   return { useAppWorkspaceStore: useStore }
 })
 vi.mock("@/stores/conversation-runtime-store", () => ({
