@@ -3929,17 +3929,10 @@ export interface SystemProxySettings {
   no_proxy?: string | null
 }
 
-export type AppLocale =
-  | "en"
-  | "zh_cn"
-  | "zh_tw"
-  | "ja"
-  | "ko"
-  | "es"
-  | "de"
-  | "fr"
-  | "pt"
-  | "ar"
+// [crewchat] The languages the app ships. English + Simplified Chinese only;
+// every other locale was retired (see `lib/i18n.ts` for how a stored/OS locale
+// that is no longer shipped resolves).
+export type AppLocale = "en" | "zh_cn"
 export type LanguageMode = "system" | "manual"
 
 export interface SystemLanguageSettings {

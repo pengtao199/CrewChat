@@ -3,8 +3,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import arMessages from "@/i18n/messages/ar.json"
 import enMessages from "@/i18n/messages/en.json"
+import zhCNMessages from "@/i18n/messages/zh-CN.json"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import type { DirectoryEntry } from "@/lib/types"
 import {
@@ -50,7 +50,7 @@ function Harness({
   keepOpen = false,
 }: {
   allowCreateFolder?: boolean
-  locale?: "en" | "ar"
+  locale?: "en" | "zh-CN"
   /** Report the dialog's close requests without acting on them. */
   keepOpen?: boolean
 }) {
@@ -64,7 +64,7 @@ function Harness({
   return (
     <NextIntlClientProvider
       locale={locale}
-      messages={locale === "ar" ? arMessages : enMessages}
+      messages={locale === "zh-CN" ? zhCNMessages : enMessages}
     >
       <Dialog
         open={open}
@@ -464,22 +464,20 @@ describe("DirectoryBrowser — new folder", () => {
     ).toBeEnabled()
   })
 
-  it("speaks the locale, right-to-left included", async () => {
+  it("speaks the locale it is given", async () => {
     api.createDirectory.mockRejectedValue(
       appError("already_exists", "newFolder.errors.alreadyExists", {
         name: "work",
       })
     )
-    render(<Harness locale="ar" />)
+    render(<Harness locale="zh-CN" />)
     await screen.findByText("work")
-    fireEvent.click(screen.getByRole("button", { name: "مجلد جديد" }))
-    const input = screen.getByRole("textbox", { name: "اسم المجلد" })
+    fireEvent.click(screen.getByRole("button", { name: "新建文件夹" }))
+    const input = screen.getByRole("textbox", { name: "文件夹名称" })
     fireEvent.change(input, { target: { value: "work" } })
     await act(async () => {
       fireEvent.keyDown(input, { key: "Enter" })
     })
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "«work» موجود هنا بالفعل."
-    )
+    expect(await screen.findByRole("alert")).toHaveTextContent("“work”已存在。")
   })
 })

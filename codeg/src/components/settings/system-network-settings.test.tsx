@@ -99,16 +99,8 @@ vi.mock("remark-gfm", () => ({ default: () => undefined }))
 
 import { SystemNetworkSettings } from "./system-network-settings"
 import { UpdateProvider } from "@/components/providers/update-provider"
-import arMessages from "@/i18n/messages/ar.json"
-import deMessages from "@/i18n/messages/de.json"
 import enMessages from "@/i18n/messages/en.json"
-import esMessages from "@/i18n/messages/es.json"
-import frMessages from "@/i18n/messages/fr.json"
-import jaMessages from "@/i18n/messages/ja.json"
-import koMessages from "@/i18n/messages/ko.json"
-import ptMessages from "@/i18n/messages/pt.json"
 import zhCNMessages from "@/i18n/messages/zh-CN.json"
-import zhTWMessages from "@/i18n/messages/zh-TW.json"
 import {
   getSystemAutostartSettings,
   getSystemProxySettings,
@@ -777,16 +769,8 @@ describe("SystemNetworkSettings — proxy bypass list", () => {
 
 describe("SystemNetworkSettings — proxy bypass hint in every locale", () => {
   it.each([
-    ["ar", arMessages],
-    ["de", deMessages],
     ["en", enMessages],
-    ["es", esMessages],
-    ["fr", frMessages],
-    ["ja", jaMessages],
-    ["ko", koMessages],
-    ["pt", ptMessages],
     ["zh-CN", zhCNMessages],
-    ["zh-TW", zhTWMessages],
   ] as const)(
     "%s writes every value the way the field takes it",
     (_, messages) => {

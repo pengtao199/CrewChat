@@ -252,9 +252,10 @@ export function AppI18nProvider({
   const appReady = languageSettingsLoaded && localeReady
   const activeIntlLocale = toIntlLocale(messagesLocale)
 
+  // [crewchat] No RTL locale ships any more, so the `dir` attribute is no
+  // longer written here.
   useEffect(() => {
     document.documentElement.lang = activeIntlLocale
-    document.documentElement.dir = activeIntlLocale === "ar" ? "rtl" : "ltr"
   }, [activeIntlLocale])
 
   const contextValue = useMemo<AppI18nContextValue>(

@@ -9,18 +9,9 @@ const withNextIntl = createNextIntlPlugin({
     messages: {
       path: "./src/i18n/messages",
       format: "json",
-      locales: [
-        "en",
-        "zh-CN",
-        "zh-TW",
-        "ja",
-        "ko",
-        "es",
-        "de",
-        "fr",
-        "pt",
-        "ar",
-      ],
+      // [crewchat] Only the two shipped locales — the other message files were
+      // deleted, so listing them here would break the precompile step.
+      locales: ["en", "zh-CN"],
       precompile: true,
     },
   },

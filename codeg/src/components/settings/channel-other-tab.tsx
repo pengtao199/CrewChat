@@ -14,18 +14,8 @@ import {
 } from "@/components/ui/select"
 import { getChatMessageLanguage, setChatMessageLanguage } from "@/lib/api"
 
-const SUPPORTED_LANGUAGES = [
-  "en",
-  "zh-cn",
-  "zh-tw",
-  "ja",
-  "ko",
-  "es",
-  "de",
-  "fr",
-  "pt",
-  "ar",
-] as const
+// [crewchat] Message language for chat channels — the two shipped locales only.
+const SUPPORTED_LANGUAGES = ["en", "zh-cn"] as const
 
 export function ChannelOtherTab() {
   const t = useTranslations("ChatChannelSettings.language")

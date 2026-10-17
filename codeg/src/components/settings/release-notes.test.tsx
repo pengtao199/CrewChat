@@ -27,7 +27,7 @@ function renderNotes(locale: Locale, notes = BILINGUAL) {
 
 describe("ReleaseNotes", () => {
   it("renders the Chinese half for a Chinese interface", () => {
-    for (const locale of ["zh-CN", "zh-TW"] as const) {
+    for (const locale of ["zh-CN"] as const) {
       const { unmount } = renderNotes(locale)
       expect(screen.getByTestId("markdown").textContent).toBe(CHINESE)
       unmount()
@@ -35,7 +35,7 @@ describe("ReleaseNotes", () => {
   })
 
   it("renders the English half everywhere else", () => {
-    for (const locale of ["en", "ja", "de"] as const) {
+    for (const locale of ["en"] as const) {
       const { unmount } = renderNotes(locale)
       expect(screen.getByTestId("markdown").textContent).toBe(ENGLISH)
       unmount()

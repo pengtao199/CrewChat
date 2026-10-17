@@ -2,15 +2,7 @@
   "Language": {
     "followSystem": "Follow System",
     "english": "English",
-    "simplifiedChinese": "Simplified Chinese",
-    "traditionalChinese": "Traditional Chinese",
-    "japanese": "Japanese",
-    "korean": "Korean",
-    "spanish": "Spanish",
-    "german": "German",
-    "french": "French",
-    "portuguese": "Portuguese",
-    "arabic": "Arabic"
+    "simplifiedChinese": "Simplified Chinese"
   },
   "GitCredentialDialog": {
     "title": "Authentication Required",
@@ -4360,15 +4352,7 @@
       "saved": "Message language saved.",
       "saveFailed": "Failed to save message language.",
       "en": "English",
-      "zh-cn": "Simplified Chinese",
-      "zh-tw": "Traditional Chinese",
-      "ja": "Japanese",
-      "ko": "Korean",
-      "es": "Spanish",
-      "de": "German",
-      "fr": "French",
-      "pt": "Portuguese",
-      "ar": "Arabic"
+      "zh-cn": "Simplified Chinese"
     }
   },
   "ModelProviderSettings": {
