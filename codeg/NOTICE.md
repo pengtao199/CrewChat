@@ -95,6 +95,13 @@
 | `src-tauri/src/acp/session_state.rs`、`acp/manager/mod.rs`、`db/mod.rs` | `SessionState::role_mcp`；`spawn_agent*` 增角色参数（非委派调用传 None）；启动点清扫旧角色 home | 接线 + 运维 |
 | `src/hooks/use-child-usage.ts`（新增）＋ `src/components/message/delegation-card-row.tsx`、`delegated-sub-thread.tsx` | Phase 3.2 按成员用量：委派卡在子回合终态时按次拉取子会话 `session_stats`（与「会话详情」同口径：`Folder.statusBar.tokens` 文案 + `formatTokenCount`），显示 输入 / 输出 tokens 与时长；按子会话缓存，失败静默 | 同一任务的各成员用量可横向对比 |
 | `src/i18n/messages/*.json`（10 语言） | `Folder.chat.delegation` 增 `usageTitle`（中英繁实翻，其余英文） | 同上 |
+| `src/components/message/delegated-sub-thread.tsx` | Phase 4.1 卡内内联成员流：卡可展开子会话实时流（`LiveTranscriptView`，默认收起、固定高度）；与抽屉**互斥**——任一方式打开即让另一方退出（`viewerHost?.close?.()`），因为两者挂同一个实时桥（同一子会话两个桥会互相清空） | 不开抽屉也能看成员进度，不影响现有卡与抽屉（4.1） |
+| `src/components/message/delegation-card-row.tsx` | 新增可选 `trailingAction` 槽（标签块与「查看会话」之间，承载内联开关）；其余用此行的卡（`ResumedDelegationCard`）仍是两动作形态 | 同上 |
+| `src/components/message/session-viewer-host-context.ts`、`session-viewer-host.tsx` | `SessionViewerHostValue` 增可选 `close?()`（内联流打开时请抽屉让位；不提供该方法的 host 依旧可用） | 同上 |
+| `src/components/message/delegated-sub-thread.inline.test.tsx`（新增） | 内联流 8 例：默认单行、展开指向子会话与子连接、可折叠、无子会话无开关、与抽屉互斥（双向）、同一时刻只挂一个桥、卡自身行不变 | 同上 |
+| `src/i18n/messages/*.json`（10 语言） | `Folder.chat.delegation` 增 `expandDetail` / `collapseDetail`（中英繁实翻，其余英文） | 同上 |
+| `src/lib/hermes-providers.test.ts`、`src/lib/tab-view-order.test.tsx` | 源码路径断言改指结构拆分后的落点（`src-tauri/src/commands/acp/mod.rs`、`src/components/conversations/conversation-detail-panel/index.tsx`） | 结构拆分（第一批 / 第四批）漏改这两处，全量测试一直红；同批其他源码级测试已改 |
+| `src/components/conversations/conversation-detail-header.test.tsx`、`conversation-detail-header-tags.test.tsx` | `@/stores/app-workspace-store` fake 补 `subscribe`（同 `team-member-strip.test.tsx` 既有写法） | Phase 1.4 的 `TeamMemberStrip` 把 `acp-connections-context → notification-session → tab-store`（模块级 `subscribe`）带进会话头的导入图，只带 `getState` 的 fake 会让整个 suite 在收集期崩 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 

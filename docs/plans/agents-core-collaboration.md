@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
-Updated: 2026-10-12 (Asia/Shanghai)
-Status: In Progress（Phase 3 收口）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；下一步 Phase 4 体验增强（4.1 卡内内联成员流 / 4.2 @提及联动 / 4.3 异步回流）。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库，全量测试绿。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Updated: 2026-10-17 (Asia/Shanghai)
+Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；Phase 4.1 卡内内联成员流 🟡（代码完成、测试绿，真机验收待用户）。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -77,7 +77,7 @@ Status: In Progress（Phase 3 收口）。Phase 1 协作 v1 已收口；Phase 2 
 
 ### Phase 4 · 体验增强
 
-- **4.1 卡内内联展开成员流**（复用 LiveTranscriptView）：不开抽屉也能看成员进度。→ 做到：可选展开，不影响现有卡与抽屉。
+- **4.1 卡内内联展开成员流** 🟡 2026-10-17（复用 `LiveTranscriptView`；代码完成、测试绿，真机验收待用户）：委派卡新增内联流开关——`trailingAction` 槽位（标签块与「查看会话」之间）展开固定高度（`h-80`）的子会话实时流，默认收起（不进内联流的用户看到的仍是单行卡）；**内联与抽屉互斥**——`SessionViewerHostValue` 增可选 `close?()`，任一方式打开即让另一方退出（两者挂同一个实时桥，同一子会话两个桥会互相清空）。开关仅在 `childConversationId` 已知时出现。测试：新增 `delegated-sub-thread.inline.test.tsx` 8 例（默认单行 / 展开指向子会话与子连接 / 折叠 / 无子会话无开关 / 双向互斥 / 只挂一个桥 / 卡自身行不变），既有卡测试补 mock 与断言；prettier / eslint / tsc 零告警；全量 `vitest` 8942 例绿（含同批修掉的两处拆分裂缝，见下）。**同时收尾两处历史红**：① `hermes-providers.test.ts` / `tab-view-order.test.tsx` 的源码路径断言改指拆分后落点（`commands/acp/mod.rs`、`conversation-detail-panel/index.tsx`）；② `conversation-detail-header{,-tags}.test.tsx` 的 `app-workspace-store` fake 补 `subscribe`（1.4 的 `TeamMemberStrip` 把 `tab-store` 的模块级 `subscribe` 带进头部导入图，只带 `getState` 的 fake 令整个 suite 在收集期崩）。→ 做到：可选展开，不影响现有卡与抽屉。
 - **4.2 @提及与团队联动**：输入 @ 时团队成员置顶高亮、非成员提示。→ 做到：@ 候选与团队一致。
 - **4.3 异步回流**：长任务完成有明确提示与「让管理员汇总」入口。→ 做到：后台任务不丢、有回来路。
 
