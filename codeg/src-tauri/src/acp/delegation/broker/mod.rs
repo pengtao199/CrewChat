@@ -65,6 +65,7 @@ use crate::acp::delegation::meta_writer::{
     build_delegation_meta, is_synthetic_parent_tool_use_id, DelegationMetaWriter, NoopMetaWriter,
 };
 use crate::acp::delegation::spawner::{ConnectionSpawner, DelegationLink};
+use crate::acp::delegation::task_id::canonical_task_id;
 use crate::acp::delegation::team::{NoopTeamLookup, TeamLookup, TeamMember};
 use crate::models::agent_role::AgentRole;
 use crate::acp::delegation::types::{

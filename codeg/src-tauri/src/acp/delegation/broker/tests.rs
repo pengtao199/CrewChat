@@ -259,6 +259,31 @@
         assert_eq!(report.message.as_deref(), Some("Running."));
     }
 
+    /// Models sometimes echo a task id back with its separators mangled: a live
+    /// session (2026-10-17) sent every `-` as CR, and the poll answered
+    /// `Unknown task id` for a task that was running. The lookup repairs the
+    /// separators — and hands the repaired id back, so the next call is clean.
+    #[tokio::test]
+    async fn status_repairs_a_separator_mangled_task_id() {
+        let mock = Arc::new(MockSpawner::new());
+        mock.queue_spawn(Ok("child-conn-1".into())).await;
+        mock.queue_send(Ok(42)).await;
+        let broker =
+            DelegationBroker::new(mock.clone() as Arc<dyn ConnectionSpawner>, shallow_lookup());
+        enable_delegation(&broker).await;
+
+        let ack = broker.start_delegation(request(1, "pt-1")).await;
+        let task_id = ack.task_id.clone().expect("running task carries an id");
+        let mangled = task_id.replace('-', "\r");
+        assert_ne!(mangled, task_id, "the id must carry separators to mangle");
+
+        let report = broker
+            .get_task_status("parent-conn", Some(1), &mangled, StatusWait::Immediate)
+            .await;
+        assert_eq!(report.status, TaskStatus::Running);
+        assert_eq!(report.task_id.as_deref(), Some(task_id.as_str()));
+    }
+
     // -- Blocked sub-agents (#447) -----------------------------------------
 
     fn permission_block(request_id: &str, title: &str) -> BlockedOn {
@@ -4943,6 +4968,52 @@
             .get_task_status("parent-conn", Some(1), &task_id, StatusWait::Immediate)
             .await;
         assert_eq!(report.status, TaskStatus::Completed);
+    }
+
+    /// A mangled id must still cancel: a parent that cannot name a runaway
+    /// child cannot stop it. Same corruption as the status test.
+    #[tokio::test]
+    async fn cancel_repairs_a_separator_mangled_task_id() {
+        let mock = Arc::new(MockSpawner::new());
+        mock.queue_spawn(Ok("child-conn-1".into())).await;
+        mock.queue_send(Ok(42)).await;
+        let broker =
+            DelegationBroker::new(mock.clone() as Arc<dyn ConnectionSpawner>, shallow_lookup());
+        enable_delegation(&broker).await;
+
+        let ack = broker.start_delegation(request(1, "pt-1")).await;
+        let task_id = ack.task_id.clone().expect("running task carries an id");
+        let mangled = task_id.replace('-', "\r");
+
+        let report = broker
+            .cancel_task_by_id("parent-conn", Some(1), &mangled)
+            .await;
+        assert_eq!(report.status, TaskStatus::Canceled);
+        assert_eq!(report.task_id.as_deref(), Some(task_id.as_str()));
+    }
+
+    /// Resume takes the same repair: a canceled task stays resumable even when
+    /// the parent names it imperfectly.
+    #[tokio::test]
+    async fn resume_repairs_a_separator_mangled_task_id() {
+        let (mock, _lookup, broker) = resume_harness(Some(resume_ctx(TaskStatus::Canceled))).await;
+        mock.queue_spawn(Ok("child-conn-1".into())).await;
+        mock.queue_send(Ok(42)).await;
+        let ack = broker.start_delegation(request(1, "pt-orig")).await;
+        let task_id = ack.task_id.unwrap();
+        let canceled = broker
+            .cancel_task_by_id("parent-conn", Some(1), &task_id)
+            .await;
+        assert_eq!(canceled.status, TaskStatus::Canceled);
+
+        mock.queue_resume_spawn(Ok(ResumedSpawn::fresh("child-conn-2")))
+            .await;
+        mock.queue_resume_send(Ok(())).await;
+        let report = broker
+            .resume_delegation(resume_request(&task_id.replace('-', "\r")))
+            .await;
+        assert_eq!(report.status, TaskStatus::Running);
+        assert_eq!(report.task_id.as_deref(), Some(task_id.as_str()));
     }
 
     /// A still-running task is NOT resumable — and stays untouched.

@@ -299,6 +299,10 @@ impl DelegationBroker {
         parent_conversation_id: Option<i32>,
         task_id: &str,
     ) -> DelegationTaskReport {
+        // Repair an imperfectly echoed id before anything looks it up (see
+        // `canonical_task_id`); the report echoes the repaired form.
+        let repaired = canonical_task_id(task_id);
+        let task_id = repaired.as_deref().unwrap_or(task_id);
         let drained = {
             let mut inner = self.pending.inner.lock().await;
             if let Some(c) = inner.completed.get(task_id) {

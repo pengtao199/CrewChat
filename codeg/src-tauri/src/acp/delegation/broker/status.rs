@@ -152,6 +152,16 @@ impl DelegationBroker {
         if task_ids.is_empty() {
             return Vec::new();
         }
+        // Repair ids the caller echoed back imperfectly before anything looks
+        // them up — the maps are keyed by the id Codeg minted (see
+        // `canonical_task_id`). A well-formed id passes through unchanged, and
+        // the repaired form is what every report echoes back, so the caller's
+        // next poll is correct.
+        let repaired: Vec<String> = task_ids
+            .iter()
+            .map(|id| canonical_task_id(id).unwrap_or_else(|| id.clone()))
+            .collect();
+        let task_ids = repaired.as_slice();
         // A bounded wait gets a single fixed deadline; Immediate and Infinite
         // carry none — Immediate returns on the first pass, Infinite parks on
         // `result_notify` until a task is terminal or newly blocked.

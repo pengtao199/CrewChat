@@ -104,7 +104,10 @@ pub(crate) fn not_resumable_report(
 }
 
 impl DelegationBroker {
-    pub async fn resume_delegation(&self, req: ResumeDelegationRequest) -> DelegationTaskReport {
+    pub async fn resume_delegation(&self, mut req: ResumeDelegationRequest) -> DelegationTaskReport {
+        // Repair an imperfectly echoed id before anything looks it up — every
+        // report below echoes the repaired form (see `canonical_task_id`).
+        req.task_id = canonical_task_id(&req.task_id).unwrap_or(req.task_id);
         // Same parent-cancel coverage contract as `start_delegation`: register
         // the in-flight setup FIRST so a parent cancel landing anywhere from
         // here to park reaches it; deregistered on every exit path.
