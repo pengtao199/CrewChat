@@ -375,6 +375,92 @@ pub fn build_delegation_meta(
     serde_json::Value::Object(outer)
 }
 
+/// Build the `meta["codeg.delegation"]` value for a delegation child loaded
+/// from the DB (the cold-reload path), from the child row's own snapshot.
+/// Mirrors the shape [`build_delegation_meta`] produces at runtime, but only
+/// includes the fields the DB can vouch for: `status`,
+/// `child_conversation_id`, `agent_type`, `task_id`, `task_preview` and
+/// `member_role_id`. `child_connection_id` is omitted (no live connection for
+/// a historical view; the frontend's parser treats it as optional).
+///
+/// Kept in this module — next to [`build_delegation_meta`] — so the one
+/// `codeg.delegation` shape has one owner and the live and replayed builders
+/// cannot drift apart on field naming.
+///
+/// The last three are pure FALLBACKS on the frontend
+/// (`use-delegation-card-model.ts` prefers the parsed `raw_input` and the live
+/// binding), so supplying them can't override a better source. They exist for
+/// the cards that have no better source: a `resume_delegation` call — whose
+/// arguments are only `{task_id, reason}` — and a `delegate_to_agent` call on a
+/// host whose announcements never carry arguments (Cursor).
+///
+/// Status mapping:
+///  - `in_progress` → `running` (still streaming or about to)
+///  - `pending_review` → `completed` (set by `TurnComplete { stop_reason:
+///    "end_turn" }` — the success path; the live broker writes `completed`
+///    for this same outcome, see `acp/delegation/broker.rs` Ok arm).
+///  - `completed` → `completed`
+///  - `cancelled` → `failed` with NO `error_code`. The DB's `Cancelled`
+///    variant covers both user-cancel and turn-failure modes (refusal,
+///    max_tokens, max_turn_requests, empty, unknown — see
+///    `acp/lifecycle.rs` TurnComplete branch), and the broker writes a
+///    distinct `error_code` per failure mode at runtime. Since the DB
+///    persists only the bucket and not the specific code, we cannot
+///    truthfully label the failure here — emit `failed` without a code
+///    rather than mislabel non-cancel failures as `"canceled"`.
+///  - other (defensive) → `running`
+pub(crate) fn historical_delegation_meta(
+    child: &crate::models::conversation::DbConversationSummary,
+) -> serde_json::Value {
+    let status: &str = match child.status.as_str() {
+        "in_progress" => "running",
+        "pending_review" | "completed" => "completed",
+        "cancelled" => "failed",
+        _ => "running",
+    };
+    let mut obj = serde_json::Map::new();
+    obj.insert("status".into(), serde_json::Value::String(status.into()));
+    obj.insert(
+        "child_conversation_id".into(),
+        serde_json::Value::Number(child.id.into()),
+    );
+    obj.insert(
+        "agent_type".into(),
+        serde_json::Value::String(child.agent_type.as_wire().into_owned()),
+    );
+    if let Some(task_id) = child.delegation_call_id.as_deref() {
+        obj.insert("task_id".into(), serde_json::Value::String(task_id.into()));
+    }
+    // The child row's title was seeded from the original task text — the same
+    // substitute the broker uses for `task_preview` when it resumes a task.
+    if let Some(title) = child
+        .title
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
+        obj.insert(
+            "task_preview".into(),
+            serde_json::Value::String(title.into()),
+        );
+    }
+    // [crewchat] The member role the child runs as, off the row's own team
+    // snapshot — the card's name label after a reload, when the live meta is
+    // gone. Mirrors the broker's `member_role_id` meta field.
+    if let Some(role_id) = child
+        .team
+        .as_ref()
+        .map(|team| team.leader_role_id.trim())
+        .filter(|role_id| !role_id.is_empty())
+    {
+        obj.insert(
+            "member_role_id".into(),
+            serde_json::Value::String(role_id.into()),
+        );
+    }
+    serde_json::Value::Object(obj)
+}
+
 /// True when the broker handed out a synthetic placeholder
 /// `parent_tool_use_id` (no matching ACP tool_call_id exists). Skipping
 /// meta writes for these avoids spamming `ToolCallUpdate` events with a
@@ -386,6 +472,72 @@ pub fn is_synthetic_parent_tool_use_id(id: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::entities::conversation::ConversationKind;
+    use crate::models::agent::AgentType;
+    use crate::models::conversation::{ConversationTeam, DbConversationSummary};
+
+    /// A delegation child row as the reload path sees it. `team` is the child's
+    /// own snapshot of the room it ran in.
+    fn summary_child(team: Option<ConversationTeam>) -> DbConversationSummary {
+        let now = chrono::Utc::now();
+        DbConversationSummary {
+            id: 42,
+            folder_id: 1,
+            title: Some("do x".into()),
+            title_locked: false,
+            agent_type: AgentType::ClaudeCode,
+            status: "completed".into(),
+            kind: ConversationKind::Delegate,
+            model: None,
+            git_branch: None,
+            external_id: None,
+            message_count: 0,
+            child_count: 0,
+            created_at: now,
+            updated_at: now,
+            pinned_at: None,
+            parent_id: Some(1),
+            parent_tool_use_id: Some("tu-1".into()),
+            delegation_call_id: Some("call-1".into()),
+            team,
+            origin_cwd: None,
+            tag_ids: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn historical_meta_carries_the_member_role_from_the_team_snapshot() {
+        // The reload path's only source of "which member ran this": the child
+        // row's own team snapshot. It is what keeps the card's NAME label
+        // after a refresh, when the live meta is gone.
+        let child = summary_child(Some(ConversationTeam {
+            leader_role_id: "backend-architect".into(),
+            member_role_ids: Vec::new(),
+        }));
+        assert_eq!(
+            historical_delegation_meta(&child)["member_role_id"],
+            "backend-architect"
+        );
+    }
+
+    #[test]
+    fn historical_meta_omits_the_member_role_without_one() {
+        // No team (a plain session), and a blank leader id, both mean "no
+        // member to name" — the field must be absent, not empty, so the
+        // frontend keeps the agent label instead of looking up "".
+        let plain = summary_child(None);
+        assert!(historical_delegation_meta(&plain)
+            .get("member_role_id")
+            .is_none());
+
+        let blank = summary_child(Some(ConversationTeam {
+            leader_role_id: "  ".into(),
+            member_role_ids: Vec::new(),
+        }));
+        assert!(historical_delegation_meta(&blank)
+            .get("member_role_id")
+            .is_none());
+    }
 
     #[test]
     fn build_meta_includes_provided_fields() {

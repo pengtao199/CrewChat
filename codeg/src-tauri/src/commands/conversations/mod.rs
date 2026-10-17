@@ -1100,81 +1100,6 @@ pub async fn import_selected_sessions(
     import_selected_sessions_core(&db.conn, &EventEmitter::Tauri(app), selections).await
 }
 
-/// Build the `meta["codeg.delegation"]` value for a delegation child loaded
-/// from the DB. Mirrors the shape produced at runtime by
-/// `acp::delegation::meta_writer::build_delegation_meta`, but only includes
-/// the fields the DB can vouch for: `status`, `child_conversation_id`,
-/// `task_id`, `task_preview` and `agent_type`. `child_connection_id` is
-/// omitted (no live connection for a historical view; the frontend's parser
-/// treats it as optional).
-///
-/// The last three are pure FALLBACKS on the frontend
-/// (`use-delegation-card-model.ts` prefers the parsed `raw_input` and the live
-/// binding), so supplying them can't override a better source. They exist for
-/// the cards that have no better source: a `resume_delegation` call — whose
-/// arguments are only `{task_id, reason}` — and a `delegate_to_agent` call on a
-/// host whose announcements never carry arguments (Cursor).
-///
-/// Status mapping:
-///  - `in_progress` → `running` (still streaming or about to)
-///  - `pending_review` → `completed` (set by `TurnComplete { stop_reason:
-///    "end_turn" }` — the success path; the live broker writes `completed`
-///    for this same outcome, see `acp/delegation/broker.rs` Ok arm).
-///  - `completed` → `completed`
-///  - `cancelled` → `failed` with NO `error_code`. The DB's `Cancelled`
-///    variant covers both user-cancel and turn-failure modes (refusal,
-///    max_tokens, max_turn_requests, empty, unknown — see
-///    `acp/lifecycle.rs` TurnComplete branch), and the broker writes a
-///    distinct `error_code` per failure mode at runtime. Since the DB
-///    persists only the bucket and not the specific code, we cannot
-///    truthfully label the failure here — emit `failed` without a code
-///    rather than mislabel non-cancel failures as `"canceled"`.
-///  - other (defensive) → `running`
-fn build_historical_delegation_meta(child: &DbConversationSummary) -> serde_json::Value {
-    let status: &str = match child.status.as_str() {
-        "in_progress" => "running",
-        "pending_review" | "completed" => "completed",
-        "cancelled" => "failed",
-        _ => "running",
-    };
-    let mut obj = serde_json::Map::new();
-    obj.insert("status".into(), serde_json::Value::String(status.into()));
-    obj.insert(
-        "child_conversation_id".into(),
-        serde_json::Value::Number(child.id.into()),
-    );
-    obj.insert(
-        "agent_type".into(),
-        serde_json::Value::String(child.agent_type.as_wire().into_owned()),
-    );
-    if let Some(task_id) = child.delegation_call_id.as_deref() {
-        obj.insert("task_id".into(), serde_json::Value::String(task_id.into()));
-    }
-    // The child row's title was seeded from the original task text — the same
-    // substitute the broker uses for `task_preview` when it resumes a task.
-    if let Some(title) = child.title.as_deref().map(str::trim).filter(|t| !t.is_empty()) {
-        obj.insert(
-            "task_preview".into(),
-            serde_json::Value::String(title.into()),
-        );
-    }
-    // [crewchat] The member role the child runs as, off the row's own team
-    // snapshot — the card's name label after a reload, when the live meta is
-    // gone. Mirrors the broker's `member_role_id` meta field.
-    if let Some(role_id) = child
-        .team
-        .as_ref()
-        .map(|team| team.leader_role_id.trim())
-        .filter(|role_id| !role_id.is_empty())
-    {
-        obj.insert(
-            "member_role_id".into(),
-            serde_json::Value::String(role_id.into()),
-        );
-    }
-    serde_json::Value::Object(obj)
-}
-
 /// The broker-minted task id a `delegate_to_agent` result announces. Codex
 /// persists the ack as prose (`Delegation successful. task_id=<id>. Call
 /// get_delegation_status …`); other hosts return `{"task_id":"<id>"}` — both
@@ -1353,7 +1278,7 @@ fn inject_delegation_meta(turns: &mut [MessageTurn], children: &[DbConversationS
                 };
             if let Some(child) = child {
                 *meta = Some(serde_json::json!({
-                    "codeg.delegation": build_historical_delegation_meta(child),
+                    "codeg.delegation": crate::acp::delegation::meta_writer::historical_delegation_meta(child),
                 }));
             }
         }
