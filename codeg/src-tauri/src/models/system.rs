@@ -12,20 +12,33 @@ pub struct SystemProxySettings {
     pub no_proxy: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+// [crewchat] Only English and Simplified Chinese remain: every other language
+// (Traditional Chinese, Japanese, Korean, Spanish, German, French, Portuguese,
+// Arabic) was retired across the app.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum AppLocale {
     #[default]
     En,
     ZhCn,
-    ZhTw,
-    Ja,
-    Ko,
-    Es,
-    De,
-    Fr,
-    Pt,
-    Ar,
+}
+
+// [crewchat] Deserialization is deliberately tolerant: a settings row written by
+// a build that still offered the retired locales must keep parsing (anything
+// but `zh_cn` — `en`, `zh_tw`, `ja`, … — becomes English) instead of making
+// `load_system_language_settings` fail with
+// "Failed to parse stored language settings" and break the settings page.
+impl<'de> serde::Deserialize<'de> for AppLocale {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = String::deserialize(deserializer)?;
+        Ok(match raw.as_str() {
+            "zh_cn" => AppLocale::ZhCn,
+            _ => AppLocale::En,
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]

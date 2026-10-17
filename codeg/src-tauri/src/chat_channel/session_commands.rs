@@ -6,6 +6,7 @@ use std::time::Instant;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 use tokio::sync::Mutex;
 
+// [crewchat] `Lang` only has En / ZhCn now.
 use super::i18n::{self, Lang};
 use super::manager::ChatChannelManager;
 use super::session_bridge::{ActiveSession, SessionBridge};
@@ -1598,7 +1599,7 @@ async fn send_chat_prompt_linked(
 
 fn topic_has_active_session(lang: Lang, prefix: &str) -> String {
     match lang {
-        Lang::ZhCn | Lang::ZhTw => {
+        Lang::ZhCn => {
             format!("当前 topic 已有活跃会话。请继续发送 follow-up，或先使用 {prefix}cancel。")
         }
         _ => format!(
@@ -1609,7 +1610,7 @@ fn topic_has_active_session(lang: Lang, prefix: &str) -> String {
 
 fn no_topic_session_use_task_or_resume(lang: Lang, prefix: &str) -> String {
     match lang {
-        Lang::ZhCn | Lang::ZhTw => {
+        Lang::ZhCn => {
             format!("当前 topic 尚未绑定会话。使用 {prefix}task <描述> 开始，或 {prefix}resume <id> 恢复。")
         }
         _ => format!(
@@ -1620,7 +1621,7 @@ fn no_topic_session_use_task_or_resume(lang: Lang, prefix: &str) -> String {
 
 fn topic_create_failed(lang: Lang, detail: &str) -> String {
     match lang {
-        Lang::ZhCn | Lang::ZhTw => format!(
+        Lang::ZhCn => format!(
             "创建 Telegram topic 失败：{detail}\n请确认当前 chat 是 forum supergroup，且 bot 拥有管理 topics 权限。"
         ),
         _ => format!(
@@ -1631,7 +1632,7 @@ fn topic_create_failed(lang: Lang, detail: &str) -> String {
 
 fn topic_resume_failed(lang: Lang, conversation_id: i32, detail: &str) -> String {
     match lang {
-        Lang::ZhCn | Lang::ZhTw => {
+        Lang::ZhCn => {
             format!("当前 topic 已绑定会话 #{conversation_id}，但恢复 agent 失败：{detail}")
         }
         _ => format!(
@@ -1647,7 +1648,7 @@ fn general_topic_task_created_message(
     folder_name: &str,
 ) -> RichMessage {
     let body = match lang {
-        Lang::ZhCn | Lang::ZhTw => {
+        Lang::ZhCn => {
             format!(
                 "已创建新 topic 并启动任务：[{}] #{} @ {}",
                 agent_type, conversation_id, folder_name
@@ -1663,7 +1664,7 @@ fn general_topic_task_created_message(
 
 fn callback_expired_or_invalid(lang: Lang, prefix: &str) -> String {
     match lang {
-        Lang::ZhCn | Lang::ZhTw => {
+        Lang::ZhCn => {
             format!("这个按钮已失效。请重新发送 {prefix}folder 或 {prefix}agent。")
         }
         _ => format!("This button is no longer valid. Send {prefix}folder or {prefix}agent again."),

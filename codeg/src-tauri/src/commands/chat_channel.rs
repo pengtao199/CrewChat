@@ -261,9 +261,8 @@ pub async fn set_chat_message_language_core(
     language: String,
 ) -> Result<(), AppCommandError> {
     // Validate language code
-    let valid = [
-        "en", "zh-cn", "zh-tw", "ja", "ko", "es", "de", "fr", "pt", "ar",
-    ];
+    // [crewchat] Only English and Simplified Chinese are supported.
+    let valid = ["en", "zh-cn"];
     let lang_lower = language.to_lowercase();
     if !valid.contains(&lang_lower.as_str()) {
         return Err(AppCommandError::invalid_input(format!(

@@ -492,6 +492,8 @@ struct WindowTitles {
     import_sessions: &'static str,
 }
 
+// [crewchat] Only English and Simplified Chinese remain; English is the
+// fallback for anything else.
 fn window_titles_for(locale: crate::models::system::AppLocale) -> WindowTitles {
     use crate::models::system::AppLocale;
     match locale {
@@ -503,78 +505,6 @@ fn window_titles_for(locale: crate::models::system::AppLocale) -> WindowTitles {
             push: "推送",
             project_boot: "项目启动器",
             import_sessions: "导入本地会话",
-        },
-        AppLocale::ZhTw => WindowTitles {
-            settings: "設定",
-            commit: "提交程式碼",
-            merge: "解決衝突",
-            stash: "暫存",
-            push: "推送",
-            project_boot: "專案啟動器",
-            import_sessions: "匯入本機工作階段",
-        },
-        AppLocale::Ja => WindowTitles {
-            settings: "設定",
-            commit: "コミット",
-            merge: "コンフリクトの解決",
-            stash: "スタッシュ",
-            push: "プッシュ",
-            project_boot: "プロジェクトブート",
-            import_sessions: "ローカルセッションをインポート",
-        },
-        AppLocale::Ko => WindowTitles {
-            settings: "설정",
-            commit: "커밋",
-            merge: "충돌 해결",
-            stash: "스태시",
-            push: "푸시",
-            project_boot: "프로젝트 부트",
-            import_sessions: "로컬 세션 가져오기",
-        },
-        AppLocale::Es => WindowTitles {
-            settings: "Configuración",
-            commit: "Confirmar",
-            merge: "Resolver conflictos",
-            stash: "Reserva",
-            push: "Enviar",
-            project_boot: "Inicio de Proyecto",
-            import_sessions: "Importar sesiones locales",
-        },
-        AppLocale::De => WindowTitles {
-            settings: "Einstellungen",
-            commit: "Commit",
-            merge: "Konflikte lösen",
-            stash: "Stash",
-            push: "Push",
-            project_boot: "Projekt-Starter",
-            import_sessions: "Lokale Sitzungen importieren",
-        },
-        AppLocale::Fr => WindowTitles {
-            settings: "Paramètres",
-            commit: "Valider",
-            merge: "Résoudre les conflits",
-            stash: "Réserve",
-            push: "Pousser",
-            project_boot: "Lanceur de projet",
-            import_sessions: "Importer les sessions locales",
-        },
-        AppLocale::Pt => WindowTitles {
-            settings: "Configurações",
-            commit: "Confirmar",
-            merge: "Resolver conflitos",
-            stash: "Stash",
-            push: "Enviar",
-            project_boot: "Inicializador de Projeto",
-            import_sessions: "Importar sessões locais",
-        },
-        AppLocale::Ar => WindowTitles {
-            settings: "الإعدادات",
-            commit: "الالتزام",
-            merge: "حل التعارضات",
-            stash: "إخفاء",
-            push: "دفع",
-            project_boot: "مُنشئ المشروع",
-            import_sessions: "استيراد الجلسات المحلية",
         },
         AppLocale::En => WindowTitles {
             settings: "Settings",
@@ -2364,6 +2294,8 @@ struct TrayLabels {
     quit: &'static str,
 }
 
+// [crewchat] Only English and Simplified Chinese remain; English is the
+// fallback for anything else.
 #[cfg(feature = "tauri-runtime")]
 fn tray_labels_for(locale: crate::models::system::AppLocale) -> TrayLabels {
     use crate::models::system::AppLocale;
@@ -2371,38 +2303,6 @@ fn tray_labels_for(locale: crate::models::system::AppLocale) -> TrayLabels {
         AppLocale::ZhCn => TrayLabels {
             show_workspace: "显示工作台",
             quit: "退出 Codeg",
-        },
-        AppLocale::ZhTw => TrayLabels {
-            show_workspace: "顯示工作臺",
-            quit: "退出 Codeg",
-        },
-        AppLocale::Ja => TrayLabels {
-            show_workspace: "ワークスペースを表示",
-            quit: "Codeg を終了",
-        },
-        AppLocale::Ko => TrayLabels {
-            show_workspace: "워크스페이스 표시",
-            quit: "Codeg 종료",
-        },
-        AppLocale::Es => TrayLabels {
-            show_workspace: "Mostrar el área de trabajo",
-            quit: "Salir de Codeg",
-        },
-        AppLocale::De => TrayLabels {
-            show_workspace: "Arbeitsbereich anzeigen",
-            quit: "Codeg beenden",
-        },
-        AppLocale::Fr => TrayLabels {
-            show_workspace: "Afficher l'espace de travail",
-            quit: "Quitter Codeg",
-        },
-        AppLocale::Pt => TrayLabels {
-            show_workspace: "Mostrar área de trabalho",
-            quit: "Sair do Codeg",
-        },
-        AppLocale::Ar => TrayLabels {
-            show_workspace: "إظهار مساحة العمل",
-            quit: "إنهاء Codeg",
         },
         AppLocale::En => TrayLabels {
             show_workspace: "Show Workspace",

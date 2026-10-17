@@ -6,6 +6,7 @@ use sea_orm::DatabaseConnection;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
+// [crewchat] `Lang` only has En / ZhCn now.
 use super::i18n::Lang;
 use super::session_bridge::{PendingPermission, SessionBridge};
 use super::tool_detail::{format_tool_call_detail, truncate_str};
@@ -250,7 +251,7 @@ async fn handle_acp_envelope(
                             .send_to_target(
                                 &target,
                                 &RichMessage::error(match lang {
-                                    Lang::ZhCn | Lang::ZhTw => {
+                                    Lang::ZhCn => {
                                         "无法启动任务：该智能体会话已归属于另一个对话。"
                                             .to_string()
                                     }
@@ -576,7 +577,7 @@ async fn handle_acp_envelope(
                 let lang = get_lang(db).await;
                 let prefix = get_prefix(db).await;
                 let body = match lang {
-                    Lang::ZhCn | Lang::ZhTw => {
+                    Lang::ZhCn => {
                         format!("Agent 请求权限: {tool_desc}\n\n{prefix}approve 批准 | {prefix}deny 拒绝 | {prefix}approve always 自动批准")
                     }
                     _ => {
@@ -586,7 +587,7 @@ async fn handle_acp_envelope(
 
                 let msg = RichMessage {
                     title: Some(match lang {
-                        Lang::ZhCn | Lang::ZhTw => "权限请求".to_string(),
+                        Lang::ZhCn => "权限请求".to_string(),
                         _ => "Permission Request".to_string(),
                     }),
                     body,
@@ -622,13 +623,13 @@ async fn handle_acp_envelope(
 
                 let msg = RichMessage::info(body)
                     .with_title(match lang {
-                        Lang::ZhCn | Lang::ZhTw => "任务完成",
+                        Lang::ZhCn => "任务完成",
                         _ => "Turn Complete",
                     })
                     .with_field("Agent", agent_type)
                     .with_field(
                         match lang {
-                            Lang::ZhCn | Lang::ZhTw => "结束原因",
+                            Lang::ZhCn => "结束原因",
                             _ => "Stop Reason",
                         },
                         localize_stop_reason(stop_reason, lang),
@@ -692,7 +693,7 @@ async fn handle_acp_envelope(
             let lang = get_lang(db).await;
             let msg = RichMessage {
                 title: Some(match lang {
-                    Lang::ZhCn | Lang::ZhTw => "Agent 错误".to_string(),
+                    Lang::ZhCn => "Agent 错误".to_string(),
                     _ => "Agent Error".to_string(),
                 }),
                 body: format!("[{agent_type}] {message}"),
@@ -802,7 +803,7 @@ async fn clear_session_route(
 fn format_completion(content: &str, tool_count: usize, lang: Lang) -> String {
     if content.is_empty() {
         return match lang {
-            Lang::ZhCn | Lang::ZhTw => format!("(无文本输出, {tool_count} 次工具调用)"),
+            Lang::ZhCn => format!("(无文本输出, {tool_count} 次工具调用)"),
             _ => format!("(No text output, {tool_count} tool calls)"),
         };
     }
@@ -814,7 +815,7 @@ fn format_completion(content: &str, tool_count: usize, lang: Lang) -> String {
                 "\n\n[{} {}]",
                 tool_count,
                 match lang {
-                    Lang::ZhCn | Lang::ZhTw => "次工具调用",
+                    Lang::ZhCn => "次工具调用",
                     _ => "tool calls",
                 }
             ));
@@ -838,7 +839,7 @@ fn format_completion(content: &str, tool_count: usize, lang: Lang) -> String {
     let tail = &content[tail_start..];
 
     match lang {
-        Lang::ZhCn | Lang::ZhTw => {
+        Lang::ZhCn => {
             format!(
                 "{head}\n\n...\n\n{tail}\n\n[完整回复: {} 字符, {tool_count} 次工具调用]",
                 content.len()
@@ -862,73 +863,6 @@ fn localize_stop_reason(reason: &str, lang: Lang) -> String {
             "stop_sequence" => "遇到停止序列",
             "error" => "错误",
             "timeout" => "超时",
-            other => other,
-        },
-        Lang::ZhTw => match reason {
-            "end_turn" => "正常結束",
-            "cancelled" => "已取消",
-            "max_tokens" => "達到最大長度",
-            "stop_sequence" => "遇到停止序列",
-            "error" => "錯誤",
-            "timeout" => "逾時",
-            other => other,
-        },
-        Lang::Ja => match reason {
-            "end_turn" => "正常終了",
-            "cancelled" => "キャンセル",
-            "max_tokens" => "最大トークン数到達",
-            "stop_sequence" => "停止シーケンス",
-            "error" => "エラー",
-            "timeout" => "タイムアウト",
-            other => other,
-        },
-        Lang::Ko => match reason {
-            "end_turn" => "정상 종료",
-            "cancelled" => "취소됨",
-            "max_tokens" => "최대 길이 도달",
-            "stop_sequence" => "정지 시퀀스",
-            "error" => "오류",
-            "timeout" => "시간 초과",
-            other => other,
-        },
-        Lang::Es => match reason {
-            "end_turn" => "Finalizado",
-            "cancelled" => "Cancelado",
-            "max_tokens" => "Longitud máxima alcanzada",
-            "error" => "Error",
-            "timeout" => "Tiempo agotado",
-            other => other,
-        },
-        Lang::De => match reason {
-            "end_turn" => "Abgeschlossen",
-            "cancelled" => "Abgebrochen",
-            "max_tokens" => "Maximale Länge erreicht",
-            "error" => "Fehler",
-            "timeout" => "Zeitüberschreitung",
-            other => other,
-        },
-        Lang::Fr => match reason {
-            "end_turn" => "Terminé",
-            "cancelled" => "Annulé",
-            "max_tokens" => "Longueur maximale atteinte",
-            "error" => "Erreur",
-            "timeout" => "Délai dépassé",
-            other => other,
-        },
-        Lang::Pt => match reason {
-            "end_turn" => "Concluído",
-            "cancelled" => "Cancelado",
-            "max_tokens" => "Comprimento máximo atingido",
-            "error" => "Erro",
-            "timeout" => "Tempo esgotado",
-            other => other,
-        },
-        Lang::Ar => match reason {
-            "end_turn" => "اكتمل",
-            "cancelled" => "ملغى",
-            "max_tokens" => "تم بلوغ الحد الأقصى",
-            "error" => "خطأ",
-            "timeout" => "انتهت المهلة",
             other => other,
         },
         Lang::En => match reason {
