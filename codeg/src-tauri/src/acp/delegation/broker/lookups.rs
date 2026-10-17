@@ -50,6 +50,11 @@ pub struct ChildResumeContext {
     /// The child row's title (originally seeded from the delegated task text) —
     /// bounded and reused as the resumed task's `task_preview` label.
     pub title: Option<String>,
+    /// [crewchat] The member role the child runs as, read back off the child
+    /// row's own team snapshot (`leader_role_id`, stamped at spawn — Phase
+    /// 2.2). Re-stated on the resumed run's meta so the parent's card keeps the
+    /// member's name across a resume (meta is replace-wholesale).
+    pub member_role_id: Option<String>,
 }
 
 
@@ -171,6 +176,10 @@ impl ChildStatusLookup for DbChildStatusLookup {
             folder_id: summary.folder_id,
             working_dir,
             title: summary.title,
+            member_role_id: summary
+                .team
+                .map(|team| team.leader_role_id)
+                .filter(|role_id| !role_id.is_empty()),
         })
     }
 }

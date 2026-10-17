@@ -25,6 +25,12 @@ pub(crate) struct RunningTask {
     /// because the cancel/teardown paths hand around the drained
     /// `RunningTask` by value without its map key.
     pub(crate) task_id: String,
+    /// [crewchat] The roster role id of the member this child runs as, resolved
+    /// by `team::pick_member` at spawn. Carried for the same replace-wholesale
+    /// reason as `task_preview`: the terminal/cancel meta writes must be able to
+    /// re-state it, or the parent card would lose the member's name once the
+    /// child finishes. `None` when the member list couldn't name one.
+    pub(crate) member_role_id: Option<String>,
     /// MCP-side opaque handle minted by the companion per `tools/call`. The
     /// listener forwards it through `DelegationRequest`; we keep it here so
     /// `cancel_by_external_handle` can find the entry. `None` for delegations

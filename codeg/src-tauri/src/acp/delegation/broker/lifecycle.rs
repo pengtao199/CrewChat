@@ -228,6 +228,15 @@ impl DelegationBroker {
                 role.model
             );
         }
+        // [crewchat] The SAME member the role facts came from — resolved once so
+        // the child row's role stamp, the parent card's label, and the session's
+        // actual persona can never disagree (a second, agent-type-only lookup
+        // would pick the first same-CLI member and mislabel the card whenever a
+        // team fields two members on one CLI).
+        let member_role_id = member_role
+            .as_ref()
+            .map(|role| role.role_id.clone())
+            .filter(|role_id| !role_id.is_empty());
         let child_connection_id = match self
             .spawner
             .spawn(
@@ -287,11 +296,12 @@ impl DelegationBroker {
             // frame. The member list was already resolved for the scope gate
             // above; an empty team (or an unresolvable member) leaves this
             // `None` and the child runs without a persona, as before.
-            member_role_id: team_members
-                .iter()
-                .find(|member| member.agent_type == req.agent_type.as_wire())
-                .map(|member| member.role_id.clone())
-                .filter(|role_id| !role_id.is_empty()),
+            //
+            // This reuses the member `pick_member` chose — the one whose brain /
+            // MCP the child actually runs with — rather than re-deriving it by
+            // agent type, which was wrong for any team with two members on the
+            // same CLI. (Cloned: the same id also rides the parent card's meta.)
+            member_role_id: member_role_id.clone(),
         };
 
         // Reserve this delegation (both ids) BEFORE sending its first prompt.
@@ -362,6 +372,7 @@ impl DelegationBroker {
                 None,
                 Some(&task_preview),
                 Some(&call_id),
+                member_role_id.as_deref(),
             ),
         )
         .await;
@@ -498,6 +509,7 @@ impl DelegationBroker {
                             agent_type: req.agent_type,
                             task_preview: task_preview.clone(),
                             task_id: call_id.clone(),
+                            member_role_id: member_role_id.clone(),
                             external_handle: req.external_handle.clone(),
                             started_at,
                             last_surfaced_block: None,
@@ -525,6 +537,7 @@ impl DelegationBroker {
                     &outcome,
                     &task_preview,
                     &call_id,
+                    member_role_id.as_deref(),
                 )
                 .await;
                 self.result_notify.notify_waiters();
@@ -552,6 +565,7 @@ impl DelegationBroker {
                         Some(setup_duration_ms),
                         Some(&task_preview),
                         Some(&call_id),
+                        member_role_id.as_deref(),
                     ),
                 )
                 .await;
@@ -626,6 +640,7 @@ impl DelegationBroker {
                             Some(duration_ms),
                             Some(&task_preview),
                             Some(&call_id),
+                            member_role_id.as_deref(),
                         ),
                     )
                     .await;
@@ -715,6 +730,7 @@ impl DelegationBroker {
                 &outcome,
                 &task.task_preview,
                 &task.task_id,
+                task.member_role_id.as_deref(),
             )
             .await;
             self.result_notify.notify_waiters();
@@ -745,6 +761,7 @@ impl DelegationBroker {
         outcome: &DelegationOutcome,
         task_preview: &str,
         task_id: &str,
+        member_role_id: Option<&str>,
     ) {
         let meta = match outcome {
             DelegationOutcome::Ok(ok) => build_delegation_meta(
@@ -756,6 +773,7 @@ impl DelegationBroker {
                 Some(duration_ms),
                 Some(task_preview),
                 Some(task_id),
+                member_role_id,
             ),
             DelegationOutcome::Err { code, .. } => build_delegation_meta(
                 "failed",
@@ -766,6 +784,7 @@ impl DelegationBroker {
                 Some(duration_ms),
                 Some(task_preview),
                 Some(task_id),
+                member_role_id,
             ),
         };
         self.write_meta_if_real(parent_connection_id, parent_tool_use_id, meta)

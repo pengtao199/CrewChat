@@ -4790,6 +4790,7 @@
             folder_id: 7,
             working_dir: Some("/work".into()),
             title: Some("do x".into()),
+            member_role_id: Some("backend-architect".into()),
         }
     }
 

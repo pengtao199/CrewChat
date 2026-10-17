@@ -82,6 +82,15 @@ export type ParsedMeta = {
    * `{task_id, reason}`.
    */
   agentType: AgentType | null
+  /**
+   * [crewchat] Roster role id of the member this child runs as — the identity
+   * the card's NAME label resolves from. Written on every broker meta write
+   * (live delegate + resume) and by the historical injection from the child
+   * row's own team snapshot, so a card keeps its member name across a refresh.
+   * `null` when the delegation resolved no member (plain session, or a role the
+   * roster no longer lists) — the card falls back to the agent label.
+   */
+  memberRoleId: string | null
 }
 
 /**
@@ -91,7 +100,8 @@ export type ParsedMeta = {
  *
  * The shape mirrors what the broker writes via `DelegationMetaWriter`:
  *   `{ "codeg.delegation": { status, child_connection_id?,
- *     child_conversation_id?, error_code?, task_preview?, task_id? } }`
+ *     child_conversation_id?, error_code?, task_preview?, task_id?,
+ *     member_role_id? } }`
  */
 export function parseDelegationMeta(
   meta: Record<string, unknown> | null | undefined
@@ -123,6 +133,7 @@ export function parseDelegationMeta(
   const error_code = obj["error_code"]
   const task_preview = obj["task_preview"]
   const task_id = obj["task_id"]
+  const member_role_id = obj["member_role_id"]
   return {
     status,
     childConnectionId:
@@ -134,6 +145,10 @@ export function parseDelegationMeta(
       typeof task_preview === "string" && task_preview ? task_preview : null,
     taskId: typeof task_id === "string" && task_id ? task_id : null,
     agentType: coerceAgentType(obj["agent_type"]),
+    memberRoleId:
+      typeof member_role_id === "string" && member_role_id
+        ? member_role_id
+        : null,
   }
 }
 

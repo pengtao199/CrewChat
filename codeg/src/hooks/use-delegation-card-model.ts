@@ -23,6 +23,7 @@ import {
   type ConnectionState,
 } from "@/contexts/acp-connections-context"
 import { useDelegatedSubSession } from "@/hooks/use-delegated-sub-session"
+import { useMemberRoleName } from "@/hooks/use-member-role-name"
 import {
   isAffirmedResume,
   parseDelegateTaskId,
@@ -55,6 +56,12 @@ export interface DelegationCardSource {
 
 export interface DelegationCardModel {
   agentType: AgentType | null
+  /**
+   * [crewchat] Roster name of the member this child runs as, when the card can
+   * resolve one — the label the row leads with. `null` keeps the agent label as
+   * the row's only label.
+   */
+  memberName: string | null
   task: string | null
   taskId: string | null
   status: DelegationCardStatus
@@ -181,6 +188,14 @@ export function useDelegationCardModel(
   const childLive = useDelegationChildLive(childConnectionId)
   const childAwaitingPermission = childLive?.pendingPermission != null
 
+  // [crewchat] The member label. The live binding carries no role (it is a
+  // parent↔child transport mapping), so the roster id comes from the meta on
+  // every path there is: the broker's live writes, its resume re-writes, and
+  // the reload injection from the child's own row. Ids are stable identity, so
+  // the DISPLAY name is resolved here against the roster instead of being frozen
+  // into the card — a rename stays visible on old cards.
+  const memberName = useMemberRoleName(parsedMeta?.memberRoleId ?? null)
+
   // Live binding → the call's own `agent_type` argument → the broker report's
   // `agent_type` → the historical meta injected from the child's DB row. The
   // last two are what a `resume_delegation` card runs on: its arguments name a
@@ -203,6 +218,7 @@ export function useDelegationCardModel(
 
   return {
     agentType,
+    memberName,
     // Parsed raw_input first (full text on hosts that carry it), then the
     // live binding's preview, then the broker meta — the latter two are the
     // only sources on hosts whose announcements never carry arguments

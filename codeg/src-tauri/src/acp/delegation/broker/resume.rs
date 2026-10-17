@@ -512,6 +512,7 @@ impl DelegationBroker {
                 None,
                 Some(&task_preview),
                 Some(&call_id),
+                ctx.member_role_id.as_deref(),
             ),
         )
         .await;
@@ -610,6 +611,7 @@ impl DelegationBroker {
                             agent_type: ctx.agent_type,
                             task_preview: task_preview.clone(),
                             task_id: call_id.clone(),
+                            member_role_id: ctx.member_role_id.clone(),
                             external_handle: req.external_handle.clone(),
                             started_at,
                             last_surfaced_block: None,
@@ -633,6 +635,7 @@ impl DelegationBroker {
                     &outcome,
                     &task_preview,
                     &call_id,
+                    ctx.member_role_id.as_deref(),
                 )
                 .await;
                 self.result_notify.notify_waiters();
@@ -656,6 +659,7 @@ impl DelegationBroker {
                         Some(setup_duration_ms),
                         Some(&task_preview),
                         Some(&call_id),
+                        ctx.member_role_id.as_deref(),
                     ),
                 )
                 .await;
@@ -724,6 +728,7 @@ impl DelegationBroker {
                             Some(duration_ms),
                             Some(&task_preview),
                             Some(&call_id),
+                            ctx.member_role_id.as_deref(),
                         ),
                     )
                     .await;

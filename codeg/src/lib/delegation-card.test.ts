@@ -205,6 +205,31 @@ describe("parseDelegationMeta task fields", () => {
       })?.agentType
     ).toBe("custom:my-cli")
   })
+
+  it("surfaces the member role id the card's name label resolves from", () => {
+    const parsed = parseDelegationMeta({
+      "codeg.delegation": {
+        status: "running",
+        member_role_id: "backend-architect",
+      },
+    })
+    expect(parsed?.memberRoleId).toBe("backend-architect")
+  })
+
+  it("leaves memberRoleId null when no member was resolved", () => {
+    // A plain session, or a delegation whose member list resolved nothing —
+    // the card keeps the agent label. An empty string is the same as absent:
+    // it names no role, so it must not become a lookup key.
+    expect(
+      parseDelegationMeta({ "codeg.delegation": { status: "running" } })
+        ?.memberRoleId
+    ).toBeNull()
+    expect(
+      parseDelegationMeta({
+        "codeg.delegation": { status: "running", member_role_id: "" },
+      })?.memberRoleId
+    ).toBeNull()
+  })
 })
 
 describe("parseToolOutput agent type", () => {

@@ -105,6 +105,7 @@ export function ResumedDelegationCard({
 
   const {
     agentType,
+    memberName,
     task,
     taskId,
     status,
@@ -144,6 +145,7 @@ export function ResumedDelegationCard({
         <div className="min-w-0 flex-1">
           <DelegationCardRow
             agentType={agentType}
+            memberName={memberName}
             taskId={taskId}
             status={status}
             errorCode={errorCode}

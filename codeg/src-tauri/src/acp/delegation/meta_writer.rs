@@ -288,6 +288,7 @@ pub fn build_delegation_meta(
     duration_ms: Option<u64>,
     task_preview: Option<&str>,
     task_id: Option<&str>,
+    member_role_id: Option<&str>,
 ) -> serde_json::Value {
     let mut inner = serde_json::Map::new();
     inner.insert(
@@ -354,6 +355,18 @@ pub fn build_delegation_meta(
             serde_json::Value::String(id.to_string()),
         );
     }
+    // The delegable member's roster role id — the identity the card's name
+    // label resolves from. Carried on EVERY write for the same replace-wholesale
+    // reason as `task_preview` / `task_id`: a terminal write that dropped it
+    // would erase the running write's label. `None` for a delegation the member
+    // list could not resolve (no team, or a member with no roster role), and the
+    // card falls back to the agent label.
+    if let Some(id) = member_role_id {
+        inner.insert(
+            "member_role_id".to_string(),
+            serde_json::Value::String(id.to_string()),
+        );
+    }
     let mut outer = serde_json::Map::new();
     outer.insert(
         DELEGATION_META_KEY.to_string(),
@@ -385,6 +398,7 @@ mod tests {
             None,
             Some("run the tests"),
             Some("task-abc"),
+            Some("backend-architect"),
         );
         let inner = v.get(DELEGATION_META_KEY).unwrap().as_object().unwrap();
         assert_eq!(inner.get("status").unwrap().as_str().unwrap(), "running");
@@ -408,11 +422,15 @@ mod tests {
             "run the tests"
         );
         assert_eq!(inner.get("task_id").unwrap().as_str().unwrap(), "task-abc");
+        assert_eq!(
+            inner.get("member_role_id").unwrap().as_str().unwrap(),
+            "backend-architect"
+        );
     }
 
     #[test]
     fn build_meta_with_error_code() {
-        let v = build_delegation_meta("failed", None, Some(7), Some("timeout"), None, None, None, None);
+        let v = build_delegation_meta("failed", None, Some(7), Some("timeout"), None, None, None, None, None);
         let inner = v.get(DELEGATION_META_KEY).unwrap().as_object().unwrap();
         assert_eq!(inner.get("status").unwrap().as_str().unwrap(), "failed");
         assert_eq!(
@@ -433,6 +451,7 @@ mod tests {
             None,
             None,
             Some(1234),
+            None,
             None,
             None,
         );
@@ -486,7 +505,7 @@ mod tests {
             .write_meta(
                 "p1",
                 "tu-1",
-                build_delegation_meta("running", None, Some(9), None, None, None, None, None),
+                build_delegation_meta("running", None, Some(9), None, None, None, None, None, None),
             )
             .await;
         assert!(
@@ -505,7 +524,7 @@ mod tests {
             .write_meta(
                 "p1",
                 "tu-1",
-                build_delegation_meta("completed", None, Some(9), None, None, None, None, None),
+                build_delegation_meta("completed", None, Some(9), None, None, None, None, None, None),
             )
             .await;
         assert!(

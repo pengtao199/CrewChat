@@ -266,6 +266,7 @@ impl DelegationBroker {
                 Some(duration_ms),
                 Some(&task.task_preview),
                 Some(&task.task_id),
+                task.member_role_id.as_deref(),
             ),
         )
         .await;

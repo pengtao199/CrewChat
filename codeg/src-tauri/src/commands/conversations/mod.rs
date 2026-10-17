@@ -1158,6 +1158,20 @@ fn build_historical_delegation_meta(child: &DbConversationSummary) -> serde_json
             serde_json::Value::String(title.into()),
         );
     }
+    // [crewchat] The member role the child runs as, off the row's own team
+    // snapshot — the card's name label after a reload, when the live meta is
+    // gone. Mirrors the broker's `member_role_id` meta field.
+    if let Some(role_id) = child
+        .team
+        .as_ref()
+        .map(|team| team.leader_role_id.trim())
+        .filter(|role_id| !role_id.is_empty())
+    {
+        obj.insert(
+            "member_role_id".into(),
+            serde_json::Value::String(role_id.into()),
+        );
+    }
     serde_json::Value::Object(obj)
 }
 

@@ -1,8 +1,14 @@
 "use client"
 
 /**
- * The one row every sub-agent delegation card is built from: avatar, agent
- * label, `#taskId`, status badge, task preview, and the "查看会话" affordance.
+ * The one row every sub-agent delegation card is built from: avatar, member
+ * name, agent label, `#taskId`, status badge, task preview, and the "查看会话"
+ * affordance.
+ *
+ * The primary label is the MEMBER's roster name when the card resolved one
+ * (`memberName`), with the CLI as a secondary marker; without a member (a plain
+ * session, a delegation the broker couldn't tie to a role, or a role since
+ * deleted) the CLI label stands alone as it originally did.
  *
  * Shared by `DelegatedSubThread` (the `delegate_to_agent` card) and
  * `ResumedDelegationCard` (the `resume_delegation` card) so the two can never
@@ -30,6 +36,16 @@ import type { AgentType } from "@/lib/types"
 
 interface Props {
   agentType: AgentType | null
+  /**
+   * [crewchat] The member's roster NAME this child runs as (Phase 4.1.1) —
+   * resolved upstream from the delegation meta's `member_role_id`. It becomes
+   * the row's primary label; the CLI (`Claude Code`) drops to a secondary
+   * marker, because WHICH teammate did the work is what the reader needs first
+   * and the engine is already carried by the avatar. `null` for a delegation
+   * that resolved no member (or one the roster no longer lists) — then the CLI
+   * label stands alone, exactly as before.
+   */
+  memberName?: string | null
   /** [crewchat] Per-member usage once the child's turn is terminal (Phase 3.2);
    *  omitted while running and for children whose stats are unavailable. */
   usage?: DelegationUsage | null
@@ -54,6 +70,7 @@ interface Props {
 
 export function DelegationCardRow({
   agentType,
+  memberName,
   taskId,
   status,
   errorCode,
@@ -82,8 +99,13 @@ export function DelegationCardRow({
         <div className="min-w-0 flex-1 space-y-0.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">
-              {agentType ? getAgentLabel(agentType) : t("unknownAgent")}
+              {memberName ?? (agentType ? getAgentLabel(agentType) : t("unknownAgent"))}
             </span>
+            {memberName && (
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {agentType ? getAgentLabel(agentType) : t("unknownAgent")}
+              </span>
+            )}
             {taskId && (
               <span
                 className="shrink-0 font-mono text-xs text-muted-foreground"
