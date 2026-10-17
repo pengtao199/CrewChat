@@ -171,6 +171,7 @@
 | `src-tauri/src/db/service/work_task_service.rs`（批次 A·脚本，5.2 铺路） | `work_task_service.rs`（2.84k）+ `work_task_service/tests.rs`（2.20k） | 第 14 刀，过滤器 43 用例绿 |
 | `src-tauri/src/db/service/token_usage_service.rs`（批次 A·脚本，用量页铺路） | `token_usage_service.rs`（0.75k）+ `token_usage_service/tests.rs`（0.72k） | 第 15 刀，过滤器 18 用例绿 |
 | `src-tauri/src/commands/token_usage.rs`（批次 A·脚本，用量页铺路） | `commands/token_usage.rs`（1.22k）+ `commands/token_usage/tests.rs`（0.78k） | 第 16 刀，过滤器 32 用例绿 |
+| `src-tauri/src/work_task/engine.rs`（批次 B·目录化） | `engine/mod.rs`（mod.rs 919 行）+ 8 个 impl 分片子模块 + `worktree / outstanding / tools` 归口件 | 第一步：impl TaskEngine 按职责八分（launch/deliver/merge/compaction/progress/events/cleanup/pump）；第二步：53 个自由条目按使用者归口九个子模块；mod.rs 只留类型、boot 入口、emit 与生命周期核心。`compact` 子模块因撞名改 `compaction`；跨块互调的私有方法/字段按 house 惯例升 `pub(super)`，`conversation_title_for_task` 保持 pub(crate)、`CleanupBlocked`/`EngineWorkTaskTools` 保持 pub 供上层再导出；work_task 全域 140 用例全绿 |
 
 ## 构建与开发
 
