@@ -8,12 +8,23 @@
 //! same `apiKeyHelper` the global settings uses (the key itself stays in CCR —
 //! no secret is written here), with the shared state directories symlinked
 //! back so transcripts, plugins and skills keep working.
+//!
+//! A brain the gateway cannot confirm against its claude-visible list means NO
+//! role home at all: claude's ACP adapter aborts a session started on a label
+//! it cannot confirm, so the member falls back to the CLI's own (CCR-managed)
+//! configuration instead — the session survives, it just does not get the
+//! roster's model. [`claude_role_model_candidates`] makes the roster's shapes
+//! (provider id, display name, or the model alone) find the same ids.
+//!
+//! [`claude_role_model_candidates`]: super::gateway::claude_role_model_candidates
 
 use std::collections::BTreeMap;
 
 use serde_json::Value;
 
-use super::gateway::{claude_role_model_label, gateway_claude_model_id};
+use super::gateway::{
+    claude_role_model_candidates, claude_role_model_label, gateway_claude_model_id,
+};
 use super::{ccr_gateway_base, injection_enabled, recipe_for_ccr_gateway};
 use crate::models::AgentType;
 
@@ -85,15 +96,25 @@ pub async fn build_claude_role_home(
     let gateway = ccr_gateway_base(&config)?;
     let route_env = recipe_for_ccr_gateway(AgentType::ClaudeCode, &gateway)?.env;
 
-    // Use the EXACT client-visible id the gateway exposes for this pair (the
-    // `anthropic/claude-ccr-h<hex>[1m]` form) when it has one — claude's ACP
-    // adapter refuses a model it cannot confirm against the discovered list
-    // (~5 s, no request reaches the gateway), where `claude -p` merely warns.
-    // The bare `provider/model` pair is only the fallback.
-    let composite = claude_role_model_label(provider, model, false);
-    let model_label = gateway_claude_model_id(&config, &gateway, &composite)
-        .await
-        .unwrap_or_else(|| claude_role_model_label(provider, model, false));
+    // Resolve the model label BEFORE creating anything. claude's ACP adapter
+    // refuses a model it cannot confirm against its discovered list (~5 s, no
+    // request reaches the gateway), where `claude -p` only warns — so pinning
+    // an unconfirmable label would abort the member's session outright. A
+    // brain the gateway does not expose (a roster still naming a retired
+    // model, say) therefore degrades to the CLI's own CCR-managed
+    // configuration, exactly the rule the launch recipe follows.
+    let candidates = claude_role_model_candidates(&config, provider, model);
+    let model_label = match gateway_claude_model_id(&config, &gateway, &candidates).await {
+        Some(label) => label,
+        None => {
+            tracing::warn!(
+                "[agent-host] role {role_key} brain {} is not in the gateway's \
+                 claude-visible list; the session runs on the CLI's configured model",
+                claude_role_model_label(provider, model, false)
+            );
+            return None;
+        }
+    };
 
     let (api_key_helper, enabled_plugins) = global_claude_settings_bits();
     let settings = claude_role_settings_with_plugins(

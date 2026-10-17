@@ -35,7 +35,8 @@ use serde_json::Value;
 use crate::models::AgentType;
 
 pub use gateway::{
-    claude_role_model_label, claude_virtual_model_hex, pick_claude_gateway_model_id,
+    claude_role_model_candidates, claude_role_model_label, claude_virtual_model_hex,
+    pick_claude_gateway_model_id, pick_claude_gateway_model_id_for, provider_display_name,
 };
 pub use role_home::{
     build_claude_role_home, claude_role_settings, claude_role_settings_with_plugins,

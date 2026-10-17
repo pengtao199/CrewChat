@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
 Updated: 2026-10-17 (Asia/Shanghai)
-Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；Phase 4.1 卡内内联成员流 🟡（代码完成、测试绿，真机验收待用户）。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.1.1 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；Phase 4.1 卡内内联成员流 🟡（代码完成、测试绿，真机验收待用户）。0.3 路由注入完成、模型注入通道就绪（生产化随 3.1，见「Agent Host 实测笔记」）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 
 ## Goal（终态）
 
@@ -73,6 +73,7 @@ Status: In Progress（Phase 4 体验增强）。Phase 1 协作 v1 已收口；Ph
 ### Phase 3 · 成员模型与用量
 
 - **3.1 子代理模型注入** ✅ 2026-10-12：成员角色的大脑（model/provider）在委派 spawn 时落成**每会话一个全新的隔离 `CLAUDE_CONFIG_DIR`**：settings.json = 路由 env + 网关切片的精确虚拟 ID（`anthropic/claude-ccr-h<hex>[1m]`）+ 继承全局 apiKeyHelper / enabledPlugins，`projects/plugins/todos/…` 软链回共享目录（历史解析照常）。实测教训：**隔离 home 不能复用**——第二次会话静默失败（Connected → Error ~5.4s、adapter 无 `session/create`），故每次子会话新建 + 启动清扫 24h 旧目录；`agent_defaults` 兜底（无角色模型时仍走 0.3 配方通道）。另加 `team::pick_member`：同 CLI 多成员按 task 文本中的角色名（管理员 owner 约定）消歧，最早提及优先、无提及退回首个。真机：同会话两成员 甲(pro) / 乙(flash) 均启动成功（子行 `external_id` 落库），request-log 出现 `mimo-v2.6-pro` 与 `mimo-v2.6-flash` 各 200。测试：agent_host 11 + 相关 3102 用例绿。v1 边界：非 claude CLI（codex 等自有 provider，非 CCR）暂不注入。→ 做到：同一任务两成员两模型，request-log 为证。
+- **3.1.1 角色大脑解析与降级** ✅ 2026-10-17（修 3.1 的现场缺陷，用户真机报错 `Couldn't confirm model "75f800be/deepseek-flash"`）：`agent_host.rs` 按职责拆为 `agent_host/{mod,gateway,role_home}.rs`（启动配方 / 网关模型目录 / 角色隔离 home），网关侧两处重复的 `/v1/models` 读取合并为一处。**缺陷**：隔离 home 在网关解析不到精确 ID 时**回落到裸 `provider/model`** 写进 `ANTHROPIC_MODEL`，而 claude 的 ACP adapter 对确认不了的模型直接中断会话（0.3 配方通道有"不在列表 → 只保留路由注入"的兜底，3.1 这条路径没有），于是「成员角色 + 旧大脑」的会话一起即死。**修复**：① 解析不到 → **不建角色 home**，会话回落 CLI 自身（CCR 托管）配置，只告警不中断；② 大脑形状放宽——provider 可填 id 或显示名（按 CCR `Providers[]` 映射后编码）、省略 provider 时按各 provider 显示名逐个尝试、仍无果则在**唯一** provider 下按模型名的 hex 后缀匹配（同名的多个 provider 不猜）。**真机核对**（在线网关 19 个 claude 可见 ID × 9 角色）：修复前 2/9 可解析，修复后 6/9（`75f800be/mimo-v2.6-flash` 这类旧 provider + 有效模型名救回；无 provider 的 `deepseek-v4.1-flash` 也能定位）；余 3 个安全降级——`后端工程师` 的 `deepseek-flash` 在网关**并不存在**（需用户改成在线模型，如 `deepseek-v4.1-flash`），`管理员` / `文档维护专家` 非 claude、本就不走该通道。测试：agent_host 15 用例（新增 4）、clippy 无新增告警。→ 做到：会话不再因模型确认失败而中断；花名册里的旧 provider 不再必然失效。
 - **3.2 按成员用量** ✅ 2026-10-12：委派卡在子回合**终态**时按次拉取子会话解析统计（`get_folder_conversation` 的 `session_stats`），显示「输入 / 输出 tokens · 时长」；与「会话详情」同一数据源与同一文案（`Folder.statusBar.tokens` 的 input/output、`formatTokenCount`），口径一致；按子会话缓存、失败静默、进行中不请求（卡片仍是状态 + 导航 + 一行用量）。真机数据路径：`get_folder_conversation(75)` → `total_usage {input 19698, output 662}`、`total_tokens 24456`、`duration 15.6s`（甲成员的子会话）。测试：hook 5 + 卡片用例；message 目录 628 用例绿、tsc / eslint 零告警；前端已重建（`out/`）。v1 边界：成本未显示（codeg 侧只记 tokens / 时长；成本在 CCR 请求日志，另开）。→ 做到：口径与用量文档一致。
 
 ### Phase 4 · 体验增强

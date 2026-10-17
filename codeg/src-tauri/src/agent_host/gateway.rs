@@ -44,6 +44,125 @@ pub fn pick_claude_gateway_model_id(
         .map(|id| (*id).clone())
 }
 
+/// The first candidate the gateway exposes to claude, as the exact
+/// client-visible id (`anthropic/claude-ccr-h<hex>[1m]`).
+pub fn pick_claude_gateway_model_id_for(
+    model_ids: &[String],
+    candidates: &[String],
+) -> Option<String> {
+    if let Some(id) = candidates
+        .iter()
+        .find_map(|candidate| pick_claude_gateway_model_id(model_ids, candidate))
+    {
+        return Some(id);
+    }
+    // No candidate matched a whole `provider/model` encoding. A roster's
+    // provider can be stale (it named a gateway CCR no longer has) while the
+    // MODEL is still served, so accept a bare model name when exactly ONE
+    // provider serves it — guessing between providers would be worse than
+    // degrading to the CLI's own configuration.
+    candidates
+        .iter()
+        .filter(|candidate| !candidate.contains('/'))
+        .find_map(|model| pick_claude_gateway_model_id_by_model(model_ids, model))
+}
+
+/// The id for a model named WITHOUT a usable provider, matched on the hex
+/// suffix CCR encodes for it. Only a unique provider qualifies.
+fn pick_claude_gateway_model_id_by_model(model_ids: &[String], model: &str) -> Option<String> {
+    let needle = claude_virtual_model_hex(model);
+    let hits: Vec<&String> = model_ids
+        .iter()
+        .filter(|id| {
+            gateway_id_hex(id)
+                .is_some_and(|hex| hex.len() > needle.len() && hex.ends_with(&needle))
+        })
+        .collect();
+    let mut providers: Vec<&str> = hits
+        .iter()
+        .map(|id| id.strip_suffix("[1m]").unwrap_or(id))
+        .collect();
+    providers.sort_unstable();
+    providers.dedup();
+    if providers.len() != 1 {
+        return None;
+    }
+    hits.iter()
+        .find(|id| id.to_lowercase().ends_with("[1m]"))
+        .or_else(|| hits.first())
+        .map(|id| (*id).clone())
+}
+
+/// The hex CCR encodes into a client-visible id, with the `[1m]` suffix
+/// stripped. `None` on an id that is not one of ours.
+fn gateway_id_hex(model_id: &str) -> Option<&str> {
+    let (_, hex) = model_id.split_once("claude-ccr-h")?;
+    Some(hex.strip_suffix("[1m]").unwrap_or(hex))
+}
+
+/// The display name CCR encodes into its claude-visible model ids for a
+/// provider the roster named. The roster may hold either the provider's id
+/// (`opencode-go-chat-completions`) or its display name (`OpenCode Go`), but
+/// the gateway only ever encodes the NAME (`h<hex of "OpenCode Go/model">`),
+/// so an id must be mapped before the lookup. Anything unrecognized passes
+/// through unchanged — the lookup then simply misses and the caller degrades.
+pub fn provider_display_name(config: &Value, provider: &str) -> String {
+    let provider = provider.trim();
+    if provider.is_empty() {
+        return String::new();
+    }
+    let named = config
+        .get("Providers")
+        .and_then(Value::as_array)
+        .and_then(|providers| {
+            providers.iter().find_map(|entry| {
+                let name = entry.get("name").and_then(Value::as_str)?;
+                let id = entry.get("id").and_then(Value::as_str);
+                let hit = id == Some(provider) || name == provider;
+                hit.then(|| name.to_string())
+            })
+        });
+    named.unwrap_or_else(|| provider.to_string())
+}
+
+/// Candidate `provider/model` labels for a role brain, most specific first.
+/// A roster may name the provider by id, by display name, or omit it
+/// altogether (the model alone) — the caller resolves them against the
+/// gateway's discovered list and takes the first that matches.
+pub fn claude_role_model_candidates(config: &Value, provider: &str, model: &str) -> Vec<String> {
+    let model = model.trim();
+    if model.is_empty() {
+        return Vec::new();
+    }
+    let mut candidates: Vec<String> = Vec::new();
+    let mut push = |label: String| {
+        if !label.is_empty() && !candidates.contains(&label) {
+            candidates.push(label);
+        }
+    };
+    let provider = provider.trim();
+    if provider.is_empty() {
+        // No provider: the model may live under any of CCR's providers, so try
+        // each one's display name before falling back to the bare model.
+        if let Some(providers) = config.get("Providers").and_then(Value::as_array) {
+            for entry in providers {
+                if let Some(name) = entry.get("name").and_then(Value::as_str) {
+                    push(claude_role_model_label(name, model, false));
+                }
+            }
+        }
+    } else {
+        push(claude_role_model_label(
+            &provider_display_name(config, provider),
+            model,
+            false,
+        ));
+        push(claude_role_model_label(provider, model, false));
+    }
+    push(model.to_string());
+    candidates
+}
+
 /// The client-visible model label for a role: `provider/model`, mirroring the
 /// shape CCR's own claude wrapper writes into the global settings. A gateway
 /// listing that exposes only the `[1m]` variant of the pair earns the suffix.
@@ -136,17 +255,17 @@ pub async fn claude_model_option_id(
     picked
 }
 
-/// The exact client-visible id the gateway exposes for `provider/model`
-/// (`anthropic/claude-ccr-h<hex>` or its `[1m]` variant), or `None` when the
-/// gateway is unreachable or does not expose the pair.
+/// The exact client-visible id the gateway exposes for the first candidate it
+/// knows (`anthropic/claude-ccr-h<hex>` or its `[1m]` variant), or `None` when
+/// the gateway is unreachable or exposes none of them.
 pub async fn gateway_claude_model_id(
     config: &Value,
     gateway: &str,
-    composite: &str,
+    candidates: &[String],
 ) -> Option<String> {
     let api_key = profile_api_key(config, None)?;
     let ids = claude_model_ids(gateway, &api_key).await?;
-    pick_claude_gateway_model_id(&ids, composite)
+    pick_claude_gateway_model_id_for(&ids, candidates)
 }
 
 #[cfg(test)]
@@ -194,5 +313,95 @@ mod tests {
         assert_eq!(claude_role_model_label("OpenCode Go", "mimo-v2.6-pro[1m]", true), "OpenCode Go/mimo-v2.6-pro[1m]");
         // A role with no provider still names a model.
         assert_eq!(claude_role_model_label("", "opencode/big-pickle", false), "opencode/big-pickle");
+    }
+
+    fn one_provider_config() -> Value {
+        serde_json::json!({
+            "Providers": [
+                { "id": "opencode-go-chat-completions", "name": "OpenCode Go" }
+            ]
+        })
+    }
+
+    #[test]
+    fn a_provider_id_resolves_to_its_display_name() {
+        let config = one_provider_config();
+        // The gateway only encodes display NAMES, so an id from the roster must
+        // be mapped; an unknown value passes through (and simply won't match).
+        assert_eq!(provider_display_name(&config, "opencode-go-chat-completions"), "OpenCode Go");
+        assert_eq!(provider_display_name(&config, "OpenCode Go"), "OpenCode Go");
+        assert_eq!(provider_display_name(&config, "75f800be"), "75f800be");
+        assert_eq!(provider_display_name(&config, "  "), "");
+    }
+
+    #[test]
+    fn role_candidates_cover_the_id_the_name_and_the_bare_model() {
+        let config = one_provider_config();
+        assert_eq!(
+            claude_role_model_candidates(&config, "opencode-go-chat-completions", "mimo-v2.6-flash"),
+            vec![
+                "OpenCode Go/mimo-v2.6-flash".to_string(),
+                "opencode-go-chat-completions/mimo-v2.6-flash".to_string(),
+                "mimo-v2.6-flash".to_string(),
+            ]
+        );
+        // No provider: every known provider is tried before the bare model.
+        assert_eq!(
+            claude_role_model_candidates(&config, "", "deepseek-v4.1-flash"),
+            vec![
+                "OpenCode Go/deepseek-v4.1-flash".to_string(),
+                "deepseek-v4.1-flash".to_string(),
+            ]
+        );
+        assert!(claude_role_model_candidates(&config, "OpenCode Go", "  ").is_empty());
+    }
+
+    #[test]
+    fn picks_the_first_candidate_the_gateway_exposes() {
+        let hex = claude_virtual_model_hex("OpenCode Go/mimo-v2.6-flash");
+        let ids = vec![format!("anthropic/claude-ccr-h{hex}[1m]")];
+        let candidates = vec![
+            // A roster still holding a retired brain — the gateway knows none
+            // of its forms.
+            "75f800be/deepseek-flash".to_string(),
+            "deepseek-flash".to_string(),
+            "OpenCode Go/mimo-v2.6-flash".to_string(),
+        ];
+        assert_eq!(
+            pick_claude_gateway_model_id_for(&ids, &candidates).as_deref(),
+            Some(format!("anthropic/claude-ccr-h{hex}[1m]").as_str())
+        );
+        // None of them exposed → the caller degrades to the CLI's own config.
+        assert!(pick_claude_gateway_model_id_for(&ids, &["75f800be/deepseek-flash".to_string()])
+            .is_none());
+    }
+
+    #[test]
+    fn a_stale_provider_still_resolves_a_model_only_one_provider_serves() {
+        let hex = claude_virtual_model_hex("OpenCode Go/mimo-v2.6-flash");
+        let ids = vec![
+            format!("anthropic/claude-ccr-h{hex}"),
+            format!("anthropic/claude-ccr-h{hex}[1m]"),
+        ];
+        // The roster's provider (`75f800be`) is one CCR no longer has, but the
+        // model is served by exactly one provider → pin its `[1m]` id.
+        let candidates =
+            claude_role_model_candidates(&one_provider_config(), "75f800be", "mimo-v2.6-flash");
+        assert_eq!(
+            pick_claude_gateway_model_id_for(&ids, &candidates).as_deref(),
+            Some(format!("anthropic/claude-ccr-h{hex}[1m]").as_str())
+        );
+
+        // The same model name under TWO providers is ambiguous: never guess.
+        let other = claude_virtual_model_hex("Other/mimo-v2.6-flash");
+        let ambiguous = vec![ids[1].clone(), format!("anthropic/claude-ccr-h{other}[1m]")];
+        assert!(pick_claude_gateway_model_id_for(&ambiguous, &candidates).is_none());
+
+        // A model under one provider but without the `[1m]` variant still works.
+        let plain = vec![format!("anthropic/claude-ccr-h{hex}")];
+        assert_eq!(
+            pick_claude_gateway_model_id_for(&plain, &candidates).as_deref(),
+            Some(format!("anthropic/claude-ccr-h{hex}").as_str())
+        );
     }
 }
