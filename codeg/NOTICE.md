@@ -213,7 +213,8 @@ pnpm server:dev
 - 桌面模式的数据目录默认是系统目录（`~/Library/Application Support/app.codeg`），
   `CODEG_DATA_DIR` 可覆盖；**从终端启动**才带得上 CCR 三件套
   （`CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` / `CCR_BIN`）——双击启动没有它们，模型页与
-  按角色模型注入会降级。
+  按角色模型注入会降级。**（2026-10-19 起：URL 与 token 已能从 CCR 自己的
+  `service.json` 自动发现，双击启动可用；`CCR_BIN` 仍只认 env 或 PATH。）**
 - **别来回切换 feature 集**：`tauri dev`（默认 features）与 `server-bin` 是两套编译产物，
   来回切会让整份 crate 全量重编（约 3 分钟），增量缓存白丢。哪个回路就用到底。
 

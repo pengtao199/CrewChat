@@ -17,7 +17,7 @@ Codeg 工作台的模型页经薄代理操作 CCR：后端 `ccr_call` / `ccr_hea
 
 | 变量 | 作用 |
 | --- | --- |
-| `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` | 管理面地址与 token（token 必须固定，否则本地拉起的实例会用随机 token，Codeg 对不上） |
+| `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` | 管理面地址与 token。**两者都有发现回退**：CCR 自己写 `<ccr home>/service.json`（`url` 带 `?ccr_web_token=…`），Codeg 读它，所以双击启动的桌面应用无需任何环境变量；env 仍然优先（CI / 远程管理地址 / 故意覆盖 token）。token 仍建议固定，否则本地拉起的实例每次用随机 token（Codeg 能从 service.json 重新读到，但历史日志里的旧 token 就作废了） |
 | `CCR_BIN` | `ccr` CLI 路径（打包时必需；不设则从 `PATH` 找） |
 | `CODEG_CCR_SUPERVISE=0` | 关掉托管（自己管 CCR 的用户） |
 

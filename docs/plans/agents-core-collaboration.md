@@ -120,6 +120,8 @@ Next: 4.4 Agent 优先（`3c199f8`）✅、4.2 团队 @ 联动（`510d45a`）✅
 - **5.3 CLI 覆盖补齐**：gemini / hermes 连接器；opencode / pi profile 启用。
 - **5.4 打包**：dmg + 首次运行向导（供应商预设 → key → profiles）。
 
+- **5.1.2 CCR 端点自动发现（双击可用）** 🟡 2026-10-19（用户真机反馈：桌面版显示「未配置访问 token」）：根因是 URL/token **只认环境变量**，而双击启动的桌面 app 没有 env → 模型页与按角色模型注入一起降级。修法：`ccr/client.rs` 改为 **env → CCR 自己的 `<ccr home>/service.json` → 默认回环**（`ccr start` 写的那份文件里，`url` 带 `?ccr_web_token=…`；这也是 5.1 托管已经在用的同一份文件）。**刻意不把 `serviceToken` 当 web token**（那是服务身份，用错就 401）——为此单列一条用例。`health()` 增 `tokenSource`（`env` / `service-file` / 无），模型页把来源写出来（「已配置（已从 CCR 的 service.json 自动发现）」）。真机：**不带任何 `CCR_*` 变量**重启后端 → `/api/ccr_health` 报 `tokenConfigured: true` + `tokenSource: "service-file"`，`agent_role_model_face`（需要读 CCR 配置）正常返回。测试：`ccr::client` 6 例（新增 3，含"不误用 serviceToken"与坏 JSON 容错）。**残留**：`CCR_BIN`（拉起 CCR 用）仍只认 env 或 PATH——双击场景下若 CCR 没在跑，Codeg 只能报"无法自启"；补发现（如 `<ccr home>/bin/ccr`）待做。
+
 ### Phase 6 · 收口
 
 - **6.1 文档对齐**：README、`AGENTS/agent-model.md`、`bodies.md`、`gateway.md`、计划索引；Python 编排定位改写（参考 / 冻结）；本计划完成后移入 `archive/`。
