@@ -40,13 +40,19 @@ use crate::models::AgentType;
 
 use super::{ccr_gateway_base, injection_enabled};
 
-/// The env var the codex overlay points its provider at (`env_key` in the
-/// generated `config.toml`). Prefixed so it cannot collide with a user's own
-/// variable, and never written to disk.
+/// The env var the overlay hands non-claude bodies their gateway key in: codex
+/// reads it by name (`env_key` in the generated `config.toml`), opencode
+/// references it as `{env:…}` in its JSON. Prefixed so it cannot collide with a
+/// user's own variable, and never written to disk.
 pub const CODEX_GATEWAY_KEY_ENV: &str = "CODEG_CCR_GATEWAY_KEY";
 
-/// The `model_providers` table name the overlay writes.
-const CODEX_GATEWAY_PROVIDER: &str = "crewchat";
+/// The same variable, named for what opencode does with it. One value, two
+/// names on purpose: the variable is shared, the reading side is not.
+pub const OPENCODE_GATEWAY_KEY_ENV: &str = CODEX_GATEWAY_KEY_ENV;
+
+/// The provider table name both overlays write (`[model_providers.crewchat]` for
+/// codex, `provider.crewchat` for opencode).
+const GATEWAY_PROVIDER: &str = "crewchat";
 
 /// A session that must run inside an overlay home.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,7 +88,7 @@ pub enum OverlayOutcome {
 /// user-facing copy material.
 pub fn overlay_support(body: AgentType) -> Result<(), String> {
     match body {
-        AgentType::ClaudeCode | AgentType::Codex => Ok(()),
+        AgentType::ClaudeCode | AgentType::Codex | AgentType::OpenCode => Ok(()),
         _ => Err(format!("{body:?} has no per-role model overlay yet")),
     }
 }
@@ -133,6 +139,7 @@ pub async fn prepare_role_overlay(
             }
         }
         AgentType::Codex => codex_overlay(home_root, role_key, model).await,
+        AgentType::OpenCode => open_code_overlay(home_root, role_key, model).await,
         // `overlay_support` above already rejected every other body, so this arm
         // is unreachable by construction: adding a body means adding BOTH its
         // arm here and its `overlay_support` entry, never one of the two.
@@ -163,7 +170,7 @@ async fn codex_overlay(home_root: &Path, role_key: &str, model: &str) -> Overlay
     // Confirm the gateway actually serves this model before pinning it: an
     // unconfirmable pick must degrade to the CLI's own configuration, exactly
     // as claude's does, instead of failing every turn.
-    let Some(model) = super::gateway::codex_gateway_model(&config, model) else {
+    let Some(model) = super::gateway::provider_gateway_model(&config, model) else {
         return OverlayOutcome::Unavailable(format!("the gateway does not serve {model}"));
     };
 
@@ -199,6 +206,121 @@ async fn codex_overlay(home_root: &Path, role_key: &str, model: &str) -> Overlay
     })
 }
 
+/// opencode's overlay: one layered config file naming the roster model and
+/// pointing opencode's provider at CCR, with the gateway key referenced as
+/// `{env:…}` so the file reveals nothing.
+///
+/// Deliberately NOT a home mirror like codex's. opencode merges
+/// `$OPENCODE_CONFIG` AFTER the user's global config (the order is documented in
+/// `parsers::opencode_context_window::config_files`), so their providers, MCP
+/// servers and permissions stay in force and we only override the model route —
+/// half the machinery of the codex overlay, for the same result.
+///
+/// Measured 2026-10-19: `opencode run` under such a layering answered through the
+/// gateway (`client=opencode provider=OpenCode Go model=mimo-v2.6-flash 200`),
+/// and the `{env:…}` form worked identically.
+async fn open_code_overlay(home_root: &Path, role_key: &str, model: &str) -> OverlayOutcome {
+    let config = match crate::ccr::client::call("getConfig", None).await {
+        Ok(config) => config,
+        Err(error) => return OverlayOutcome::Unavailable(format!("CCR is unreachable: {error}")),
+    };
+    let Some(gateway) = ccr_gateway_base(&config) else {
+        return OverlayOutcome::Unavailable("CCR exposes no gateway endpoint".into());
+    };
+    let Some(key) = gateway_client_key(&config, "opencode") else {
+        return OverlayOutcome::Unavailable("CCR has no client key to hand opencode".into());
+    };
+    // Same rule as codex: a model the gateway does not serve degrades to the
+    // CLI's own configuration instead of failing every turn.
+    let Some(model) = super::gateway::provider_gateway_model(&config, model) else {
+        return OverlayOutcome::Unavailable(format!("the gateway does not serve {model}"));
+    };
+    let rendered = match open_code_overlay_config(&model, &gateway, OPENCODE_GATEWAY_KEY_ENV) {
+        Ok(rendered) => rendered,
+        Err(error) => return OverlayOutcome::Unavailable(error),
+    };
+
+    let Some(home) = fresh_overlay_dir(home_root, role_key) else {
+        return OverlayOutcome::Unavailable("the overlay directory could not be created".into());
+    };
+    let config_path = home.join("opencode.json");
+    if let Err(error) = std::fs::write(&config_path, rendered) {
+        return OverlayOutcome::Unavailable(format!("opencode.json not written: {error}"));
+    }
+
+    let mut env = BTreeMap::new();
+    env.insert(
+        "OPENCODE_CONFIG".into(),
+        config_path.to_string_lossy().to_string(),
+    );
+    env.insert(OPENCODE_GATEWAY_KEY_ENV.into(), key);
+    tracing::info!(
+        "[agent-host] opencode role config layered at {} (model {model})",
+        config_path.display()
+    );
+    OverlayOutcome::Applied(SessionOverlay {
+        body: AgentType::OpenCode,
+        env,
+        home,
+        model_label: model,
+    })
+}
+
+/// Pure: the `opencode.json` an opencode overlay home carries.
+///
+/// Layered over the user's own config by opencode itself, so this file only says
+/// "this provider exists" and "run this model"; the key is an `{env:…}`
+/// reference (opencode resolves it at load), which keeps the file secret-free.
+pub fn open_code_overlay_config(
+    model: &str,
+    gateway_base: &str,
+    key_env: &str,
+) -> Result<String, String> {
+    let model = model.trim();
+    if model.is_empty() {
+        return Err("empty model".into());
+    }
+    let base = gateway_base.trim().trim_end_matches('/');
+    if base.is_empty() {
+        return Err("empty gateway base url".into());
+    }
+
+    let mut options = serde_json::Map::new();
+    options.insert(
+        "baseURL".to_string(),
+        serde_json::Value::String(format!("{base}/v1")),
+    );
+    options.insert(
+        "apiKey".to_string(),
+        serde_json::Value::String(format!("{{env:{key_env}}}")),
+    );
+    let mut models = serde_json::Map::new();
+    models.insert(model.to_string(), serde_json::json!({ "name": model }));
+    let mut provider = serde_json::Map::new();
+    provider.insert(
+        "npm".to_string(),
+        serde_json::Value::String("@ai-sdk/openai-compatible".to_string()),
+    );
+    provider.insert(
+        "name".to_string(),
+        serde_json::Value::String("CCR (crewchat)".to_string()),
+    );
+    provider.insert("options".to_string(), serde_json::Value::Object(options));
+    provider.insert("models".to_string(), serde_json::Value::Object(models));
+    let mut providers = serde_json::Map::new();
+    providers.insert(
+        GATEWAY_PROVIDER.to_string(),
+        serde_json::Value::Object(provider),
+    );
+
+    let document = serde_json::json!({
+        "$schema": "https://opencode.ai/config.json",
+        "model": format!("{GATEWAY_PROVIDER}/{model}"),
+        "provider": serde_json::Value::Object(providers),
+    });
+    serde_json::to_string_pretty(&document).map_err(|error| error.to_string())
+}
+
 /// Pure: the `config.toml` an overlay home runs on. Inherits the user's own
 /// configuration (so sandboxing, approvals, MCP servers and marketplaces are
 /// unchanged), then pins the model and the gateway route on top.
@@ -224,7 +346,7 @@ pub fn codex_overlay_config(
         .map_err(|e| format!("invalid codex config.toml: {e}"))?;
 
     doc["model"] = toml_edit::value(model);
-    doc["model_provider"] = toml_edit::value(CODEX_GATEWAY_PROVIDER);
+    doc["model_provider"] = toml_edit::value(GATEWAY_PROVIDER);
 
     // The provider table is ours end to end, so it is replaced wholesale rather
     // than merged: a stale `env_key`/`wire_api` from an earlier build must not
@@ -240,7 +362,7 @@ pub fn codex_overlay_config(
     let providers =
         doc["model_providers"].or_insert(toml_edit::Item::Table(toml_edit::Table::new()));
     if let Some(table) = providers.as_table_mut() {
-        table.insert(CODEX_GATEWAY_PROVIDER, toml_edit::Item::Table(provider));
+        table.insert(GATEWAY_PROVIDER, toml_edit::Item::Table(provider));
     } else {
         return Err("config.toml has a non-table model_providers".into());
     }
@@ -516,6 +638,31 @@ command = "codegraph"
             doc["model_providers"]["crewchat"]["base_url"].as_str(),
             Some("http://gw:1/v1")
         );
+    }
+
+    #[test]
+    fn opencode_config_declares_the_provider_and_references_the_key_by_env() {
+        let rendered =
+            open_code_overlay_config("mimo-v2.6-flash", "http://127.0.0.1:3456/", "K").unwrap();
+        let doc: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        assert_eq!(doc["model"].as_str(), Some("crewchat/mimo-v2.6-flash"));
+        let provider = &doc["provider"]["crewchat"];
+        assert_eq!(provider["npm"].as_str(), Some("@ai-sdk/openai-compatible"));
+        assert_eq!(
+            provider["options"]["baseURL"].as_str(),
+            Some("http://127.0.0.1:3456/v1")
+        );
+        // The key is a REFERENCE, never the value — opening the file must not
+        // reveal a secret.
+        assert_eq!(provider["options"]["apiKey"].as_str(), Some("{env:K}"));
+        assert!(provider["models"]["mimo-v2.6-flash"].is_object());
+        assert!(!rendered.contains("sk-"));
+    }
+
+    #[test]
+    fn opencode_config_rejects_empty_inputs() {
+        assert!(open_code_overlay_config("  ", "http://gw:1", "K").is_err());
+        assert!(open_code_overlay_config("m", "  ", "K").is_err());
     }
 
     #[test]

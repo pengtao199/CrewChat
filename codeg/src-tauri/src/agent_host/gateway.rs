@@ -250,16 +250,18 @@ async fn claude_model_ids(gateway: &str, api_key: &str) -> Option<Vec<String>> {
     )
 }
 
-/// The model NAME a codex session must send to the gateway, or `None` when the
-/// gateway does not serve it.
+/// The model NAME a non-claude session must send to the gateway, or `None` when
+/// the gateway does not serve it.
 ///
-/// codex's provider points at the gateway's OpenAI **responses** face, which
-/// takes the model exactly as the roster writes it — no client-author-prefixed
-/// virtual id is involved, unlike claude (verified 2026-10-18: a bare
-/// `mimo-v2.6-flash` against `/v1/responses` answered 200 through OpenCode Go).
-/// The check exists so a roster naming a model the gateway does not have
-/// degrades to the CLI's own configuration instead of failing mid-turn.
-pub fn codex_gateway_model(config: &Value, model: &str) -> Option<String> {
+/// The bodies that are not claude reach the gateway through an OpenAI-shaped
+/// face — codex via **responses**, opencode via **chat-completions** — and both
+/// take the model exactly as the roster writes it; no client-author-prefixed
+/// virtual id is involved, unlike claude (verified 2026-10-18/19: a bare
+/// `mimo-v2.6-flash` answered 200 through `/v1/responses` AND
+/// `/v1/chat/completions`). The check exists so a roster naming a model the
+/// gateway does not have degrades to the CLI's own configuration instead of
+/// failing mid-turn.
+pub fn provider_gateway_model(config: &Value, model: &str) -> Option<String> {
     let wanted = model.trim();
     if wanted.is_empty() {
         return None;
@@ -326,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn codex_model_must_be_served_by_some_provider() {
+    fn cd_mxdel_must_be_served_by_some_provider() {
         let config = json!({
             "Providers": [
                 { "name": "OpenCode Go", "models": ["mimo-v2.6-flash", "deepseek-v4.1-flash"] },
@@ -335,22 +337,22 @@ mod tests {
         });
         // Served by name, from either list, and matched case-insensitively.
         assert_eq!(
-            codex_gateway_model(&config, "mimo-v2.6-flash").as_deref(),
+            provider_gateway_model(&config, "mimo-v2.6-flash").as_deref(),
             Some("mimo-v2.6-flash")
         );
         assert_eq!(
-            codex_gateway_model(&config, " MiMo-V2.6-Flash ").as_deref(),
+            provider_gateway_model(&config, " MiMo-V2.6-Flash ").as_deref(),
             Some("mimo-v2.6-flash")
         );
         assert_eq!(
-            codex_gateway_model(&config, "step-5-preview-free").as_deref(),
+            provider_gateway_model(&config, "step-5-preview-free").as_deref(),
             Some("step-5-preview-free")
         );
         // A retired model (or a provider that is not configured at all) is not
         // pinnable: the caller degrades instead of 404-ing every turn.
-        assert!(codex_gateway_model(&config, "deepseek-flash").is_none());
-        assert!(codex_gateway_model(&config, "  ").is_none());
-        assert!(codex_gateway_model(&json!({}), "m").is_none());
+        assert!(provider_gateway_model(&config, "deepseek-flash").is_none());
+        assert!(provider_gateway_model(&config, "  ").is_none());
+        assert!(provider_gateway_model(&json!({}), "m").is_none());
     }
 
     #[test]

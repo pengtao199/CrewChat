@@ -143,7 +143,10 @@ pub async fn body_model_face(body: AgentType) -> BodyModelFace {
         return BodyModelFace::undetermined("CCR exposes no gateway endpoint".into());
     };
     match body {
-        AgentType::Codex => BodyModelFace {
+        // codex and opencode reach the gateway through OpenAI-shaped faces
+        // (responses / chat-completions), both taking the provider's own model
+        // names — so they share one list.
+        AgentType::Codex | AgentType::OpenCode => BodyModelFace {
             supported: true,
             reason: None,
             models: all_provider_models(&config),
