@@ -36,8 +36,30 @@ for bin in codeg-mcp codeg-computer-helper; do
 done
 
 echo "== 3/3 tauri build（release，关闭更新产物）=="
+# A failure here is usually ONLY the .dmg step (`bundle_dmg.sh` needs to mount an
+# image, which fails when the host is busy or Finder is unavailable). The .app is
+# produced BEFORE that step, and the .app is what gets installed — so decide on
+# the artifact, not on the exit code.
+set +e
 ./node_modules/.bin/tauri build \
   --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+BUNDLE_STATUS=$?
+set -e
+
+APP="src-tauri/target/release/bundle/macos/codeg.app"
+if [ ! -d "$APP" ]; then
+  echo "!! 没有打出 codeg.app（tauri build 退出码 ${BUNDLE_STATUS}）" >&2
+  exit 1
+fi
+if [ "$BUNDLE_STATUS" -ne 0 ]; then
+  echo "   note: tauri build 退出码 ${BUNDLE_STATUS}——通常是 .dmg 那步失败；.app 已就绪，继续安装。"
+fi
+
+echo "== 安装到 /Applications =="
+rm -rf /Applications/codeg.app
+ditto "$APP" /Applications/codeg.app
+xattr -dr com.apple.quarantine /Applications/codeg.app 2>/dev/null || true
+echo "   installed: /Applications/codeg.app ($(defaults read /Applications/codeg.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null))"
 
 echo "== 产物 =="
 ls -la src-tauri/target/release/bundle/macos 2>/dev/null || true
