@@ -729,16 +729,18 @@
     "selectLeftMcp": "Select an MCP on the left."
   },
   "TeamSelector": {
-    "aria": "Team picker",
-    "buttonEmpty": "Single agent",
-    "buttonSet": "Team · {count}",
+    "aria": "Agent picker",
+    "buttonEmpty": "Choose Agent",
+    "buttonAgent": "Agent · {name}",
+    "buttonTeam": "Agent · {name} +{count}",
+    "buttonSet": "Agent · {count}",
     "loading": "Loading roster…",
     "empty": "No agents in the roster yet — create one on the Agents page.",
-    "leaderLabel": "Leader (plans & delegates)",
+    "leaderLabel": "Agent (plans & delegates)",
     "membersLabel": "Members (delegatable)",
     "defaultBadge": "Default",
     "memberToggleAria": "Toggle member {name}",
-    "clear": "Clear team (single-agent session)"
+    "clear": "Clear Agent (plain single-agent session)"
   },
   "TeamMemberStrip": {
     "aria": "Team member status",
@@ -3223,6 +3225,7 @@
         "toggleOff": "Off",
         "agentSettings": "Agent settings",
         "brainReadOnlyHint": "Decided by this Agent's configuration. Not switchable inside a conversation.",
+        "engineFromAgentHint": "Set by the Agent above — pick a different Agent to change it.",
         "searchModel": "Search models...",
         "searchModelAria": "Search models",
         "modelListLabel": "Models",

@@ -134,6 +134,7 @@
 | `src/components/chat/agent-brain-chip.tsx`（新增） | 只读 chip：复用 `buttonVariants({variant:"ghost",size:"xs"})` 度量，`Lock` 图标替代下拉箭头，`SelectorTooltip` 说明为何不可改（用 `span` 而非 `disabled` Button，否则 `disabled:pointer-events-none` 会吞掉 tooltip 的 hover） | 「可见但不可调」需要一个既保留既有 chip 观感、又不假装可点的替身 |
 | `src/components/chat/message-input.tsx` | composer 接线：config option 拆为 `brainConfigOptions` / `switchableConfigOptions`；inline 行先渲染只读 brain chip，再渲染可调项；折叠 cog 面板顶部加 brain chip 行、其 rail 只保留可调项。`hasConfigOptions` 仍按**全部**选项推导，加载态与 mode 互斥语义不变 | 会话中不允许切换模型；大脑不进「选值」面板 |
 | `src/components/chat/message-input.test.tsx` | 断言模型下拉的两个用例删除（行为已不可达），折叠面板用例改用一个可调 select；新增「大脑只读」三条：模型/推理渲染为不可点 chip 且显示真实值、cog 面板 rail 不含大脑 | 同上 |
+| `src/components/conversations/conversation-detail-panel/conversation-tab-view.tsx`、`src/components/chat/team-selector.tsx`（+ `.test.tsx`）、`src/i18n/messages/*.json` 的 `TeamSelector` 命名空间 | 会话起点「Agent 优先」：Agent（花名册角色）排到 CLI 选择器之前；选中的 Agent 决定引擎（`team.leader_role_id` → 角色的 body），CLI 选择器随即只读并带一行说明。按钮改为显示 Agent 名——原来只选 leader 时显示「Team · 1」，看不出是谁在跑；`aria` / `leaderLabel`（Leader→Agent）/ 清除项文案一并改为 Agent 说法 | 会话页从「以 CLI 为核心」改为「以 Agent 为核心」；「花名册角色即本会话运行的 Agent」正是后端 `team` 列的语义（delegation child 就是这么落的），空成员表本来就被所有消费方当作「无成员」 |
 
 ## 结构拆分登记（2026-10-12 起；规则见 `AGENTS/upstream.md`）
 

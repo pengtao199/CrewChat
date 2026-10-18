@@ -6,6 +6,7 @@ import {
   Check,
   Copy,
   Loader2,
+  Lock,
   Plus,
   RefreshCw,
 } from "lucide-react"
@@ -51,6 +52,7 @@ import { useFeedbackEnabled } from "@/hooks/use-feedback-enabled"
 import { useSessionFeedback } from "@/hooks/use-session-feedback"
 import { AgentSelector } from "@/components/chat/agent-selector"
 import { TeamSelector } from "@/components/chat/team-selector"
+import { listAgentRolesCached, type AgentRole } from "@/lib/agent-roles"
 import { ChatInput } from "@/components/chat/chat-input"
 import { WelcomeHero, WelcomeTip } from "@/components/chat/welcome-hero"
 import { QuickActions } from "@/components/chat/quick-actions"
@@ -250,6 +252,59 @@ export const ConversationTabView = memo(function ConversationTabView({
   // [crewchat] The team picked for a draft (Phase 1.2). It rides on the row
   // the first send creates; already-persisted tabs never read it.
   const [draftTeam, setDraftTeam] = useState<ConversationTeam | null>(null)
+
+  // [crewchat] The draft's Agent, and the engine that follows from it.
+  //
+  // "The role this conversation runs as" already rides the `team` column's
+  // `leader_role_id` with no members — the exact shape the backend stamps on a
+  // delegation child (`conversation_service::create`), and every team consumer
+  // treats an empty member list as "nothing to gate, nothing to frame". A roster
+  // role binds a body, so once an Agent is picked the engine stops being a free
+  // choice: it follows the Agent and the CLI picker becomes a readout. With no
+  // Agent (empty roster, or nothing picked yet) the CLI picker is unchanged.
+  const [draftRoster, setDraftRoster] = useState<AgentRole[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    listAgentRolesCached()
+      .then((roles) => {
+        if (!cancelled) setDraftRoster(roles)
+      })
+      .catch(() => {
+        // An unreachable roster degrades to "no Agent" — the engine stays the
+        // user's own choice rather than becoming a blank one.
+        if (!cancelled) setDraftRoster([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const draftLeaderRole = useMemo(
+    () =>
+      draftRoster?.find((role) => role.id === draftTeam?.leader_role_id) ??
+      null,
+    [draftRoster, draftTeam]
+  )
+
+  // The engine follows the Agent at the moment of the pick, NOT on every render:
+  // `AgentSelector` reports a fallback when the chosen body is missing from its
+  // list, and an effect that kept re-asserting the Agent's body would fight that
+  // fallback forever.
+  const handleDraftTeamChange = useCallback(
+    (next: ConversationTeam | null) => {
+      setDraftTeam(next)
+      const role =
+        draftRoster?.find((item) => item.id === next?.leader_role_id) ?? null
+      if (!role?.agent_type) return
+      const nextAgentType = role.agent_type as AgentType
+      setDraftAgentType(nextAgentType)
+      setModeId(getSavedModeId(nextAgentType))
+      setAgentConnectError(null)
+    },
+    [draftRoster]
+  )
+
+  const engineGovernedByAgent = Boolean(draftLeaderRole?.agent_type)
   const selectedAgent = conversationId != null ? agentType : draftAgentType
   // Seed from localStorage so the React state reflects the user's saved
   // mode for this agent immediately on mount. Without this seed, a reuse-
@@ -2307,7 +2362,18 @@ export const ConversationTabView = memo(function ConversationTabView({
                 onSelect={handleQuickAction}
                 agentType={selectedAgent}
               />
+              {/* [crewchat] Agent first: the roster role IS "the role this
+                  conversation runs as", so picking the Agent is the primary
+                  act and the engine below follows from it — a readout once an
+                  Agent governs it. (Twin of the draft-header picker below;
+                  both write the same draft state.) */}
               <div className="flex justify-center">
+                <TeamSelector
+                  value={draftTeam}
+                  onChange={handleDraftTeamChange}
+                />
+              </div>
+              <div className="flex flex-col items-center gap-1">
                 <AgentSelector
                   // The selector spans the row it is given (it has to measure
                   // how much room it has), so the centring lives inside it now
@@ -2324,13 +2390,18 @@ export const ConversationTabView = memo(function ConversationTabView({
                     )
                   }}
                   onOpenAgentsSettings={handleOpenAgentsSettings}
-                  disabled={isConnecting || dbConversationId != null}
+                  disabled={
+                    isConnecting ||
+                    dbConversationId != null ||
+                    engineGovernedByAgent
+                  }
                 />
-              </div>
-              {/* [crewchat] Team picker (Phase 1.2) — the welcome-mode twin of
-                  the draft header's picker; both write the same draft state. */}
-              <div className="flex justify-center">
-                <TeamSelector value={draftTeam} onChange={setDraftTeam} />
+                {engineGovernedByAgent && (
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Lock className="size-3 shrink-0" aria-hidden="true" />
+                    {tCmp("engineFromAgentHint")}
+                  </p>
+                )}
               </div>
               {composerBlockedMessage ? (
                 <div className="flex w-full items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -2397,25 +2468,36 @@ export const ConversationTabView = memo(function ConversationTabView({
       ) : showDraftHeader ? (
         <div className="flex h-full min-h-0 flex-col">
           <div className="px-4 pt-3 pb-2">
-            <AgentSelector
-              defaultAgentType={selectedAgent}
-              onSelect={handleAgentSelect}
-              onFallback={handleAgentFallback}
-              onAgentsLoaded={(agents) => {
-                setAgentsLoaded(true)
-                setUsableAgentCount(
-                  agents.filter((agent) => agent.enabled && agent.available)
-                    .length
-                )
-              }}
-              onOpenAgentsSettings={handleOpenAgentsSettings}
-              disabled={isConnecting || dbConversationId != null}
-            />
-            {/* [crewchat] Team picker (Phase 1.2): the group this conversation
-                runs with, chosen before the first send creates the row. Empty
-                keeps it a plain single-agent session. */}
-            <div className="mt-2">
-              <TeamSelector value={draftTeam} onChange={setDraftTeam} />
+            {/* [crewchat] Agent first (see the welcome-mode twin above): the
+                roster role is what the conversation runs as, so it is picked
+                before the engine that follows from it. An empty team keeps the
+                session a plain single-agent one. */}
+            <TeamSelector value={draftTeam} onChange={handleDraftTeamChange} />
+            <div className="mt-2 flex flex-col items-start gap-1">
+              <AgentSelector
+                defaultAgentType={selectedAgent}
+                onSelect={handleAgentSelect}
+                onFallback={handleAgentFallback}
+                onAgentsLoaded={(agents) => {
+                  setAgentsLoaded(true)
+                  setUsableAgentCount(
+                    agents.filter((agent) => agent.enabled && agent.available)
+                      .length
+                  )
+                }}
+                onOpenAgentsSettings={handleOpenAgentsSettings}
+                disabled={
+                  isConnecting ||
+                  dbConversationId != null ||
+                  engineGovernedByAgent
+                }
+              />
+              {engineGovernedByAgent && (
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Lock className="size-3 shrink-0" aria-hidden="true" />
+                  {tCmp("engineFromAgentHint")}
+                </p>
+              )}
             </div>
             {composerBlockedMessage ? (
               <div className="mt-2 flex w-full items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">

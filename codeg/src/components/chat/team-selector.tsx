@@ -18,7 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { listAgentRoles, type AgentRole } from "@/lib/agent-roles"
+import { listAgentRolesCached, type AgentRole } from "@/lib/agent-roles"
 import type { ConversationTeam } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -37,13 +37,14 @@ export function TeamSelector({
   const [open, setOpen] = useState(false)
   const [roles, setRoles] = useState<AgentRole[] | null>(null)
 
-  // Load the roster when the picker is first opened, so the draft's first
-  // paint stays free of a roster fetch. A failed load degrades to "empty
-  // roster" — the picker explains and the session stays single-agent.
+  // The roster loads eagerly rather than on first open: the closed button names
+  // the chosen Agent, and `listAgentRolesCached` shares a single promise with
+  // the conversation shell's own resolution — so this costs no extra request.
+  // A failed load degrades to "empty roster" — the picker explains and the
+  // session stays single-agent.
   useEffect(() => {
-    if (!open || roles !== null) return
     let cancelled = false
-    listAgentRoles()
+    listAgentRolesCached()
       .then((list) => {
         if (!cancelled) setRoles(list)
       })
@@ -53,10 +54,25 @@ export function TeamSelector({
     return () => {
       cancelled = true
     }
-  }, [open, roles])
+  }, [])
 
   const selectedLeaderId = value?.leader_role_id ?? null
   const memberCount = value ? 1 + value.member_role_ids.length : 0
+
+  // The leader IS the Agent this conversation runs as, so the button names it
+  // instead of counting heads: "Team · 1" for a leader-only pick (the common
+  // case now that the Agent leads) said nothing about who is running.
+  const leaderRole = useMemo(
+    () => roles?.find((role) => role.id === selectedLeaderId) ?? null,
+    [roles, selectedLeaderId]
+  )
+  const buttonLabel = !value
+    ? t("buttonEmpty")
+    : leaderRole && memberCount > 1
+      ? t("buttonTeam", { name: leaderRole.name, count: memberCount - 1 })
+      : leaderRole
+        ? t("buttonAgent", { name: leaderRole.name })
+        : t("buttonSet", { count: memberCount })
 
   // The default leader: the roster's manager role when one exists (its name
   // follows the built-in `crewchat-manager` convention), else the head of the
@@ -98,7 +114,7 @@ export function TeamSelector({
           aria-label={t("aria")}
         >
           <Users className="h-3.5 w-3.5" />
-          {value ? t("buttonSet", { count: memberCount }) : t("buttonEmpty")}
+          {buttonLabel}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-0">
