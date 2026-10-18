@@ -1,5 +1,11 @@
 # 领域模型
 
+> **定位（2026-10-18）**：本文件描述的是 **Python 编排层（`src/crewchat/`）的领域模型**，
+> 该层已**冻结为参考**（见 `docs/plans/agents-core-collaboration.md` 拍板 #6），不再是产品运行时。
+> 产品当前的花名册与协作由 Codeg 承载：**Agent 定义存 Codeg 数据目录 `codeg.db` 的
+> `custom_agent`（`kind='role'`），唯一可写入口是 Agents 页**（见 `AGENTS/truth-sources.md`）。
+> 文中「文件」指 Python 侧的 `.data/agents/*.jsonc`，自 Phase 2.1 起冻结只读。
+
 ## 适用范围
 
 涉及 Agent、大脑（模型端点）、引擎（执行能力）、工具、技能、MCP、记忆、规则，以及会话与 Agent 的绑定关系时。
@@ -56,7 +62,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 | id | 用户可见 | 引擎 | 职责 | 不做什么 |
 | --- | --- | --- | --- | --- |
-| `agent-helper` | Agent 助手 | CLI（要能读文件、改花名册） | 读写 `.data/agents/*.jsonc`，按本文件调优别人的大脑 / 引擎 / 技能 / MCP / 记忆 / 人格 | 不写产品代码，不改 `.data/providers.jsonc` 里的密钥 |
+| `agent-helper` | Agent 助手 | CLI（要能读文件、改花名册） | 经 Agents 页改花名册（`custom_agent` 的角色行），按本文件调优别人的大脑 / 引擎 / 技能 / MCP / 记忆 / 人格 | 不写产品代码，不改 CCR 供应商配置里的密钥 |
 | `crewchat-manager` | 管理员 | CLI（与成员相同，默认 `opencode`） | 群聊 Leader：规划、委派、汇总 | 不代替成员写完整个任务；人格里写明只规划、委派、汇总 |
 
 管理员也是普通 CLI Agent，必须显式配大脑。恢复模板不覆盖已有文件。
@@ -65,16 +71,16 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 ### 助手怎么改一份 Agent
 
-1. 先读本文件和 `AGENTS/truth-sources.md`，再读目标 `.data/agents/<id>.jsonc`。
+1. 先读本文件和 `AGENTS/truth-sources.md`，再读目标角色（Agents 页，数据在 `codeg.db` 的 `custom_agent`）。
 2. 按六个组成逐项看：大脑是否可用、引擎是否匹配职责、技能是否对口、MCP 是否对口、要不要记忆、`role` / `goal` / `backstory` 是否只描述角色而不是某个仓库。
-3. 只改花名册文件。密钥只存在 CCR 的供应商配置（与编排层 `.data/providers.jsonc`），禁止抄进 Agent。
+3. 只改花名册（`custom_agent` 的角色行）。密钥只存在 CCR 的供应商配置，禁止抄进 Agent。
 4. 给会写代码的 Agent 开 `memory`，并挂它真正用得上的技能 / MCP；管理员用 CLI，人格约束它只规划、委派、汇总。
 
 ## 四、原则
 
 - **大脑与引擎解耦**：任意大脑可驱动任意引擎，模型接入经 CCR 归一化（见 `AGENTS/gateway.md`）。禁止在引擎实现里写死模型来源。
 - **Agent 是独立实体**：不属于任何项目，可被多个项目引用。
-- **文件是真相源**：Agent 定义存放 `.data/agents/*.jsonc`（全局花名册，`settings.agents_home`），界面是编辑器而非存储。
+- **花名册真相源在 Codeg**：Agent 定义存 Codeg 数据目录 `codeg.db` 的 `custom_agent`（`kind='role'`），界面（Agents 页）就是唯一写入方。Python 侧的 `.data/agents/*.jsonc` 已冻结为只读历史。
 - **CLI 引擎自带大脑是默认**：`codex` / `claude` / `opencode` 不显式配 `brain` 时用各自 CLI 的默认模型；显式配了就用配的。
 - **工具是能力而不是身份**：给 Agent 加工具不改变它是谁。
 

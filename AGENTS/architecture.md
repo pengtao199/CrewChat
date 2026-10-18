@@ -132,7 +132,7 @@ UI 发送
 
 ## 文件系统陷阱
 
-- **`AGENTS/` 与 `agents/` 在 macOS 上同一个目录**（默认大小写不敏感）。规则目录用 `AGENTS/`；Agent 定义是全局花名册，放在数据目录 `.data/agents/`（`settings.agents_home`）。
+- **`AGENTS/` 与 `agents/` 在 macOS 上同一个目录**（默认大小写不敏感）。规则目录用 `AGENTS/`；Python 侧的历史 Agent 定义在 `.data/agents/`（`settings.agents_home`，Phase 2.1 起冻结只读），当前花名册在 Codeg 的 `codeg.db`（`custom_agent`）。
 - 新增任何目录名前，确认它与既有目录仅大小写不同 —— 那会静默合并，且 `git` 会把两边内容混在一起。
 - 类似风险：`UI/` 与 `ui/`、`Docs/` 与 `docs/`。
 

@@ -2,7 +2,7 @@
 
 ## 适用范围
 
-新增或移动任何持久化数据、决定配置写到哪里、改动 `agents/`、`.data/`、`~/.agents/` 时。
+新增或移动任何持久化数据、决定配置写到哪里、改动 `AGENTS/`、`.data/`、`~/.agents/` 时。
 
 ## 目标
 
@@ -12,7 +12,8 @@
 
 | 数据 | 路径 | 格式 | 跨工具共享 | 可提交 |
 | --- | --- | --- | --- | --- |
-| Agent 定义（全局花名册） | `.data/agents/*.jsonc` | JSONC | 否 | 否 |
+| Agent 定义（全局花名册） | Codeg 数据目录的 `codeg.db` → `custom_agent`（`kind='role'`） | SQLite | 否 | 否 |
+| 花名册遗留存储（冻结只读） | `.data/agents/*.jsonc`、`.data/codeg/agent-roles.json` | JSONC / JSON | 否 | 否 |
 | 大脑池（通用 provider） | `.data/providers.jsonc` | JSONC | 否 | **否（含 key）** |
 | 模型供应商 / 路由 / 密钥（CCR） | CCR 的 home（本机 `~/.claude-code-router/`） | SQLite（`config.sqlite`） | 否 | 否 |
 | 项目列表（工作区/一等公民） | `.data/projects.json` | JSON | 否 | 否 |
@@ -32,14 +33,14 @@
 - **模型统一管理在 CCR**：供应商 / 路由的真相源是 CCR（经模型页写入）；Python 编排层保留自己的大脑池 `.data/providers.jsonc`（`core/providers.py`），但身体执行不再注入模型——CLI 用哪个模型由 CCR 写进其全局配置（见 `AGENTS/gateway.md`）。
 - **界面必须标注位置**：任何会写入文件的操作，界面要显示「保存到 → 路径」。
 - **权限审批在 Codeg**：Python 侧没有权限开关与卡片（自跑身体时兜底放行，见 `AGENTS/bodies.md`）；产品面的审批走 Codeg。
-- **Agent 全局，与工作区解耦**：agent 是「公司的人」，定义存 `.data/agents/`（`settings.agents_home`），**不归任何项目**；团队的多个 agent 可在不同工作区协作。旧仓库内 `config/agents` 首次访问时一次性迁入（`.data/.agents-migrated` 标记，只做一次）。
+- **Agent 全局，与工作区解耦**：agent 是「公司的人」，**不归任何项目**；团队的多个 agent 可在不同工作区协作。花名册的**唯一可写入口是 Codeg 的 Agents 页**（`agent_roles_save` → Codeg 数据目录 `codeg.db` 的 `custom_agent` 表，`kind='role'`）。`.data/agents/*.jsonc` 与 `.data/codeg/agent-roles.json` 是 Phase 2.1 之前的历史存储：已由一次性迁移导入（标记 `app_metadata.crewchat.agent_roles_migrated`），此后**冻结只读**，只作备份保留。
 - **会话的工作区可选（cwd 三态）**：绑了工作区 → 用该 `project.path`；没绑 → 每会话一个沙盒目录 `.data/workspaces/<session_key>`（避免并发互踩）。侧栏把未绑定的会话显示在「会话工作区」分组下。
 - **项目是一等公民、工作区就是项目目录**：`Project.path`（一个文件夹）既是 agent 的执行 cwd，也是这个项目的协作工作区（agent 定义是全局的，不归项目）。**会话可选归属一个项目**（`conversations.project_id` 可空）：`api/chat.py` 按会话的项目建 Session，未绑定时用每会话沙盒。项目列表存 `.data/projects.json`（经 `core/projects.py` 读写），不在客户端用 `extra.workspace` 当真相源。
 - **用量统计归我们、且只算我们发起的**：用量由身体运行时上报（`ExecResult.usage`）、`api/chat.py` 落进 `.data/crewchat.db` 的 `usage_events`。不读 CLI 自己的用量库——那里掺了用户在终端里裸跑 CLI 的消耗。只有经本 app 发起的 CLI 身体产生了用量才落库。
 
 ## 具体规则
 
-- 修改 Agent 只写 `.data/agents/<id>.jsonc`，不写数据库副本。
+- 修改 Agent 只经 Agents 页写 `codeg.db` 的 `custom_agent`（角色行）；不再写 `.data/agents/*.jsonc`（冻结只读）。
 - 读取技能/MCP 一律通过 `providers.py` 的 `available_skills()` / `shared_mcp_servers()`，不自行拼路径。
 - `.data/` 整体被 gitignore；新增本地状态放进 `.data/`，不要放仓库根目录。
 - 新增配置文件时，先判断它是否属于「跨工具共享」（`~/.agents/`）还是「本项目私有」（`.data/`）。
@@ -50,7 +51,7 @@
 - 不在代码里硬编码绝对路径（例如 `/Users/xxx/...`）；一律经 `config` 推导。
 - 不把 `~/.agents/` 的内容复制进 `.data/`。
 - 不让同一份配置有两个可写入口（例如界面和手改文件同时被支持却不同步）。
-- 不把密钥写进 `.data/agents/*.jsonc`、日志或错误信息。
+- 不把密钥写进花名册（`custom_agent` 的角色行）、日志或错误信息。
 
 ## 检查
 
