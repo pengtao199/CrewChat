@@ -910,6 +910,10 @@ pub(crate) mod cleanup;
 pub use self::cleanup::*;
 pub use self::tools::*;
 use self::compaction::*;
+// Only the engine's own tests reach into `deliver` directly; the lib build has
+// no unqualified user, so the glob is scoped to the test build (an unscoped one
+// is an unused-import warning).
+#[cfg(test)]
 use self::deliver::*;
 use self::launch::*;
 use self::merge::*;
