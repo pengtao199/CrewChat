@@ -117,6 +117,7 @@ Next: 4.4 Agent 优先（`3c199f8`）✅、4.2 团队 @ 联动（`510d45a`）✅
 - 每步独立小提交：一步一个主题，失败可单独回退；不把多步混进一个提交（见 `AGENTS/git.md`：分批提交、不推送）。
 - 验证顺序：**按改动派生最小验证**——`cd codeg && node scripts/verify.mjs changed`（改哪个模块只跑哪个模块：Rust 按 `#[cfg(test)] mod` 精确过滤、前端按同名测试文件、locale 跑键位对齐、`src/bin/**` 补 `--bins` 编译），`--dry-run` 先看计划；**不每步跑全量**，全量（`pnpm test` / `cargo test --features test-utils`）只在里程碑收口时跑一次（用户 2026-10-17 拍板）。prettier / eslint / tsc 同理只在触达的前端范围先跑。
 - server 模式：3080 起法（`CCR_WEB_URL/TOKEN`、`CODEG_STATIC_DIR/DATA_DIR/HOST/PORT`，5.1 起另加 `CCR_BIN` 指向 `ccr` CLI）；前端改动重建 `codeg/out`。
+- **开发回路**：日常用桌面 `pnpm tauri dev`（前端 HMR、Rust 自动增量重启；跑 `codeg-dev.db`），server 模式只用于验收（真库 / 3080 浏览器）；**别来回切 feature 集**（会全量重编）。打包与验证的完整约定见 `codeg/NOTICE.md`「开发回路与打包」。
 - 上游改动走四档法（含结构拆分）+ NOTICE 登记；计划与文档随步同步。
 - 每步收口门槛：全量测试绿 + 场景真机证据（截图 / request-log）+ 文档同步 + 工作区干净。
 

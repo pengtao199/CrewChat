@@ -201,6 +201,43 @@ pnpm server:build
 pnpm server:dev
 ```
 
+### [crewchat] 开发回路与打包（本仓库约定）
+
+**日常开发用桌面 dev，不用 server 模式迭代。**
+
+- `pnpm tauri dev`：前端走 Next dev server（**HMR，改完秒级生效**），Rust 改动由 Tauri
+  自动增量编译并重启窗口。**不需要重新打包**——`pnpm tauri build` 是发版动作。
+- 桌面 dev 跑的是 **`codeg-dev.db`**（`db/mod.rs`：仅 `debug + tauri-runtime` 会换名），
+  与 server / release 用的 `codeg.db` **不是同一个库**。要用真实数据就先
+  `cp <data dir>/codeg.db <data dir>/codeg-dev.db`（此后两边分叉），或在 dev 库里重建需要的角色。
+- 桌面模式的数据目录默认是系统目录（`~/Library/Application Support/app.codeg`），
+  `CODEG_DATA_DIR` 可覆盖；**从终端启动**才带得上 CCR 三件套
+  （`CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` / `CCR_BIN`）——双击启动没有它们，模型页与
+  按角色模型注入会降级。
+- **别来回切换 feature 集**：`tauri dev`（默认 features）与 `server-bin` 是两套编译产物，
+  来回切会让整份 crate 全量重编（约 3 分钟），增量缓存白丢。哪个回路就用到底。
+
+**release 打包的两个坑**（本机验证过）：
+
+1. `bundle.createUpdaterArtifacts: true` 需要更新签名私钥，本机没有 → 直接 `tauri build`
+   会在**最后一步**才失败。本地打包关掉它，并且把前置手工跑掉（`beforeBuildCommand` 里的
+   `pnpm build` 会被系统 pnpm 9 拒掉）：
+   ```bash
+   cd codeg
+   ./node_modules/.bin/next build                        # 前端静态导出
+   node src-tauri/scripts/prepare-sidecars.mjs           # sidecar（release 编译）
+   ./node_modules/.bin/tauri build --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+   ```
+2. `src-tauri/binaries/<bin>-<triple>` 必须是**非 0 字节**的真实二进制。cargo 的 build script
+   会先写 0 字节占位，而 0 字节被当作"没找到"——**包装得上、委派工具却静默缺失**。
+   打包前务必跑一次 `prepare-sidecars`。
+
+**模型是否真的生效，用日志判，不靠看界面**：`POST /api/acp_connect`（带 `roleId`）→
+`POST /api/acp_prompt` → 查 CCR 的 `~/.claude-code-router/app-data/request-logs.sqlite`
+（`client` / `provider` / `model` / `status_code`）。同时 `codeg-server` 日志里的
+`[agent-host]` 行会说明该会话是 **Applied**（跑角色模型）还是 **Unsupported / Unavailable**
+（跑 CLI 自己的模型）。
+
 ### [crewchat] server 模式启动（本仓库约定）
 
 `codeg-server` 与 `codeg-mcp` 必须**成对**：多智能体委派（`delegate_to_agent`）由

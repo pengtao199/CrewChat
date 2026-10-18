@@ -18,9 +18,13 @@
 //!
 //! The gateway ROUTE is the same for both and comes from the single `getConfig`
 //! payload the env recipe already reads, so URL, model list and client key can
-//! never disagree with each other. Keys stay out of the overlay: claude reads
-//! them through the `apiKeyHelper` it already trusts, codex through `env_key`
-//! naming an env var we set on the process.
+//! never disagree with each other.
+//!
+//! Secrets: the gateway key WE resolve never lands in an overlay — claude reads
+//! it through the `apiKeyHelper` it already trusts, codex through `env_key`
+//! naming an env var we set on the process. A codex overlay DOES inherit the
+//! user's own `config.toml` verbatim, so whatever tokens THEIR file carries are
+//! copied into it too (under the private `<data dir>`, pruned with the home).
 //!
 //! Scope today: claude (done in Phase 3.1, reused here) and codex. Every other
 //! body reports [`OverlayOutcome::Unsupported`] instead of silently running on
