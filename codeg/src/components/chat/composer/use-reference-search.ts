@@ -1,9 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
 import { useAcpAgents } from "@/hooks/use-acp-agents"
 import { useFileTree, type FlatFileEntry } from "@/hooks/use-file-tree"
+import { listAgentRolesCached, type AgentRole } from "@/lib/agent-roles"
 import { gitLog, listAllConversations } from "@/lib/api"
 import type {
   AcpAgentInfo,
@@ -17,6 +25,10 @@ import {
   fileToSuggestion,
   sessionToSuggestion,
 } from "./suggestion/adapters"
+import {
+  teamMemberToSuggestion,
+  type TeamMentionMember,
+} from "./suggestion/team"
 import type {
   ReferenceSearch,
   SuggestionGroup,
@@ -43,6 +55,19 @@ export interface ReferenceGroupLabels {
   session: string
   commit: string
   skill: string
+  /** [crewchat] Heading of the pinned team-members group (Phase 4.2). */
+  team: string
+}
+
+/**
+ * [crewchat] Row hints the panel appends when the conversation has a team
+ * (Phase 4.2). Only used then — a single-agent session's rows are untouched.
+ */
+export interface ReferenceHintLabels {
+  /** Marker on a row that IS a delegation target of this team. */
+  member: string
+  /** Marker on an agent this team would reject a delegation to. */
+  nonMember: string
 }
 
 /**
@@ -55,6 +80,13 @@ export const DEFAULT_GROUP_LABELS: ReferenceGroupLabels = {
   session: "Sessions",
   commit: "Commits",
   skill: "Skills",
+  team: "Team",
+}
+
+/** English fallbacks for {@link ReferenceHintLabels}. */
+export const DEFAULT_HINT_LABELS: ReferenceHintLabels = {
+  member: "In team",
+  nonMember: "Not in this team",
 }
 
 /** Raw, already-loaded data the pure group builder turns into suggestions. */
@@ -67,6 +99,12 @@ export interface ReferenceSearchSources {
   commits: GitLogEntry[]
   /** Repo identity for commit URIs; null disables the commit group. */
   repoKey: string | null
+  /**
+   * [crewchat] Roster members of the conversation's team, in the order the team
+   * was configured. Empty (the default) for a single-agent session: the pinned
+   * team group and the member hints only exist when there is a team.
+   */
+  teamMembers?: TeamMentionMember[]
 }
 
 /** Case-insensitive substring match against an adapted item's searchable text. */
@@ -83,17 +121,36 @@ function suggestionMatches(item: SuggestionItem, lowerQuery: string): boolean {
 
 /**
  * Pure: filter + adapt the raw sources into the fixed-order grouped suggestions
- * the `@` panel renders (files → agents → sessions → commits). Each group is
- * independently capped at {@link MAX_PER_GROUP}; empty groups are kept
- * (the popup hides them) so the order is always stable. Extracted from the hook
- * so the matching/ordering/dedup logic is testable without React.
+ * the `@` panel renders (files → agents → sessions → commits), with the
+ * conversation's team members pinned as a leading `team` group when there is a
+ * team ([crewchat] Phase 4.2). Each group is independently capped at
+ * {@link MAX_PER_GROUP}; empty groups are kept (the popup hides them) so the
+ * order is always stable — EXCEPT the team group, which is omitted entirely for
+ * a single-agent session so the panel is byte-identical to before. Extracted
+ * from the hook so the matching/ordering/dedup logic is testable without React.
  */
 export function buildReferenceGroups(
   query: string,
   sources: ReferenceSearchSources,
-  labels: ReferenceGroupLabels = DEFAULT_GROUP_LABELS
+  labels: ReferenceGroupLabels = DEFAULT_GROUP_LABELS,
+  hints: ReferenceHintLabels = DEFAULT_HINT_LABELS
 ): SuggestionGroup[] {
   const q = query.trim().toLowerCase()
+
+  // [crewchat] Team members first (Phase 4.2). Only enabled agents can be
+  // mentioned at all; a member whose roster entry names a disabled CLI would be
+  // a delegation the backend gate accepts but the launcher cannot start, so it
+  // is left to the agent group's own enabled filter rather than duplicated
+  // here. Members are filtered by name (their identity) + body.
+  const teamMembers = sources.teamMembers ?? []
+  const teamItems: SuggestionItem[] =
+    teamMembers.length > 0
+      ? teamMembers
+          .map(teamMemberToSuggestion)
+          .filter((item) => suggestionMatches(item, q))
+          .slice(0, MAX_PER_GROUP)
+      : []
+  const teamBodies = new Set(teamMembers.map((member) => member.agentType))
 
   // Files: filter the (potentially large) list on its pre-lowered fields before
   // paying to adapt the survivors. `truncated` is a cheap boolean — set when a
@@ -121,7 +178,16 @@ export function buildReferenceGroups(
     .filter((agent) => agent.enabled)
     .map(agentToSuggestion)
     .filter((item) => suggestionMatches(item, q))
-  const agentItems = agentMatches.slice(0, MAX_PER_GROUP)
+  // [crewchat] With a team, each agent row says whether delegating to it would
+  // be accepted (the backend rejects anything outside the member set). Applied
+  // AFTER the query filter so a hint can never itself match a search.
+  const agentItems = agentMatches.slice(0, MAX_PER_GROUP).map((item) => {
+    if (teamMembers.length === 0) return item
+    const hint = teamBodies.has(item.reference.id)
+      ? hints.member
+      : hints.nonMember
+    return { ...item, detail: item.detail ? `${hint} · ${item.detail}` : hint }
+  })
 
   const sessionMatches = sources.sessions
     .map(sessionToSuggestion)
@@ -144,6 +210,16 @@ export function buildReferenceGroups(
   }
 
   return [
+    ...(teamMembers.length > 0
+      ? [
+          {
+            kind: "team" as const,
+            label: labels.team,
+            items: teamItems,
+            truncated: teamMembers.length > MAX_PER_GROUP,
+          },
+        ]
+      : []),
     {
       kind: "file",
       label: labels.file,
@@ -185,6 +261,16 @@ export interface UseReferenceSearchOptions {
   enabled?: boolean
   /** Localized group headings; English fallbacks when omitted. */
   labels?: ReferenceGroupLabels
+  /** [crewchat] Localized team-row hints; English fallbacks when omitted. */
+  hints?: ReferenceHintLabels
+  /**
+   * [crewchat] Roster role ids of the conversation's team members (Phase 4.2),
+   * in team order. Empty/omitted for a single-agent session (or a host with no
+   * team concept), in which case the roster is never fetched and the panel is
+   * unchanged. Resolved through the shared cached roster promise, so several
+   * composers and the delegation cards cost one request between them.
+   */
+  teamMemberRoleIds?: readonly string[]
 }
 
 /**
@@ -209,6 +295,8 @@ export function useReferenceSearch({
   defaultPath,
   enabled = true,
   labels,
+  hints,
+  teamMemberRoleIds,
 }: UseReferenceSearchOptions): ReferenceSearch {
   const path = defaultPath || null
 
@@ -217,6 +305,51 @@ export function useReferenceSearch({
     enabled,
   })
   const { agents } = useAcpAgents()
+
+  // [crewchat] Resolve the team's role ids against the roster (Phase 4.2). The
+  // effect is keyed on the joined ids so a store refresh that hands us a fresh
+  // but equal array does not refetch or re-render the panel. The state carries
+  // the key it was loaded for, so a stale roster is never read for a newer id
+  // set (and no synchronous reset is needed when the ids go empty).
+  const teamRoleIds = teamMemberRoleIds ?? []
+  const teamRoleIdsKey = teamRoleIds.join("|")
+  const [rosterState, setRosterState] = useState<{
+    key: string
+    roles: AgentRole[]
+  } | null>(null)
+  useEffect(() => {
+    if (!teamRoleIdsKey) return
+    let cancelled = false
+    listAgentRolesCached()
+      .then((roles) => {
+        if (!cancelled) setRosterState({ key: teamRoleIdsKey, roles })
+      })
+      .catch(() => {
+        // An unreachable roster degrades to "no team group": the panel keeps
+        // its normal groups rather than claiming a team it cannot name.
+        if (!cancelled) setRosterState({ key: teamRoleIdsKey, roles: [] })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [teamRoleIdsKey])
+
+  const roster =
+    rosterState && rosterState.key === teamRoleIdsKey ? rosterState.roles : null
+
+  const teamMembers = useMemo<TeamMentionMember[]>(() => {
+    if (!teamRoleIdsKey || !roster) return []
+    const byId = new Map(roster.map((role) => [role.id, role]))
+    return teamRoleIdsKey
+      .split("|")
+      .map((roleId) => byId.get(roleId))
+      .filter((role): role is AgentRole => role != null)
+      .map((role) => ({
+        roleId: role.id,
+        name: role.name,
+        agentType: role.agent_type,
+      }))
+  }, [teamRoleIdsKey, roster])
 
   // Mirror every changing source into a ref so `search` can stay identity-stable
   // (see the doc comment). Initialized from the first render so the refs are
@@ -229,6 +362,8 @@ export function useReferenceSearch({
   const pathRef = useRef(path)
   const enabledRef = useRef(enabled)
   const labelsRef = useRef(labels)
+  const hintsRef = useRef(hints)
+  const teamMembersRef = useRef(teamMembers)
 
   // `pathRef` and `enabledRef` gate the post-await freshness check in `search`,
   // so they must reflect the *committed* folder/enabled state synchronously at
@@ -251,7 +386,9 @@ export function useReferenceSearch({
         : { root: null, files: [] }
     agentsRef.current = agents
     labelsRef.current = labels
-  }, [allFiles, loaded, path, agents, labels])
+    hintsRef.current = hints
+    teamMembersRef.current = teamMembers
+  }, [allFiles, loaded, path, agents, labels, hints, teamMembers])
 
   // Lazily-fetched network sources, key-cached so repeat searches reuse the
   // in-flight/resolved promise while a folder switch refetches.
@@ -343,8 +480,10 @@ export function useReferenceSearch({
         sessions,
         commits,
         repoKey: path,
+        teamMembers: teamMembersRef.current,
       },
-      labelsRef.current ?? DEFAULT_GROUP_LABELS
+      labelsRef.current ?? DEFAULT_GROUP_LABELS,
+      hintsRef.current ?? DEFAULT_HINT_LABELS
     )
   }, [])
 }

@@ -306,6 +306,20 @@ export const ConversationTabView = memo(function ConversationTabView({
 
   const engineGovernedByAgent = Boolean(draftLeaderRole?.agent_type)
   const selectedAgent = conversationId != null ? agentType : draftAgentType
+  // [crewchat] Team members for the `@` panel (Phase 4.2). A persisted session
+  // reads the row's `team` from the workspace store (the same refresh-safe
+  // source the header strip uses); a draft — which has no row yet — reads the
+  // team the picker just chose. Either way an empty list keeps the panel's team
+  // group out of the session, so a single-agent conversation is unaffected.
+  const persistedTeam = useAppWorkspaceStore(
+    useShallow((s) => {
+      if (conversationId == null) return null
+      return s.conversations.find((c) => c.id === conversationId)?.team ?? null
+    })
+  )
+  const composerTeamMemberRoleIds =
+    (dbConversationId != null ? persistedTeam : draftTeam)?.member_role_ids ??
+    []
   // Seed from localStorage so the React state reflects the user's saved
   // mode for this agent immediately on mount. Without this seed, a reuse-
   // path connect (idle window after a refresh, before the agent is GC'd)
@@ -2288,6 +2302,7 @@ export const ConversationTabView = memo(function ConversationTabView({
       agentType={selectedAgent}
       availableCommands={connectionCommands}
       attachmentTabId={tabId}
+      teamMemberRoleIds={composerTeamMemberRoleIds}
       draftStorageKey={draftStorageKey}
       hideInput={isWelcomeMode || Boolean(acpLoadError)}
       injectContent={composerInject}
@@ -2446,6 +2461,7 @@ export const ConversationTabView = memo(function ConversationTabView({
                 agentType={selectedAgent}
                 availableCommands={connectionCommands}
                 attachmentTabId={tabId}
+                teamMemberRoleIds={composerTeamMemberRoleIds}
                 draftStorageKey={draftStorageKey}
                 isActive={isActive}
                 showActiveFlow={showActiveFlow}

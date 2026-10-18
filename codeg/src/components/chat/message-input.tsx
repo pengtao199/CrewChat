@@ -212,6 +212,12 @@ interface MessageInputProps {
   commandsLoading?: boolean
   promptCapabilities: PromptCapabilitiesInfo
   attachmentTabId?: string | null
+  /**
+   * [crewchat] Roster role ids of this conversation's team members (Phase 4.2).
+   * Empty for a single-agent session, which keeps the `@` panel's team group and
+   * member hints out of it entirely.
+   */
+  teamMemberRoleIds?: readonly string[]
   /** Identity + switching for a composer that isn't in a tab (a canvas card).
    *  Passed straight to the folder picker below the composer; without it that
    *  picker falls back to the workspace's active tab. */
@@ -389,6 +395,7 @@ export function MessageInput({
   commandsLoading = false,
   promptCapabilities,
   attachmentTabId,
+  teamMemberRoleIds,
   folderPickerOverride,
   draftStorageKey,
   isActive = false,
@@ -560,16 +567,23 @@ export function MessageInput({
     )
   }, [])
 
-  // Localized group headings + panel chrome for the `@` mention panel.
-  const { groupLabels: referenceGroupLabels, uiLabels: mentionUiLabels } =
-    useComposerMentionLabels()
+  // [crewchat] Localized group headings + panel chrome for the `@` mention panel.
+  const {
+    groupLabels: referenceGroupLabels,
+    hintLabels: mentionHintLabels,
+    uiLabels: mentionUiLabels,
+  } = useComposerMentionLabels()
 
   // Live data sources for the unified `@` mention panel. Pre-warmed only while
   // this composer is the active one (`enabled`). Referentially stable.
+  // [crewchat] For a team conversation this also carries the team's members, so
+  // the panel can pin them and mark which agents a delegation would be refused.
   const referenceSearch = useReferenceSearch({
     defaultPath: defaultPath ?? null,
     enabled: isActive,
     labels: referenceGroupLabels,
+    hints: mentionHintLabels,
+    teamMemberRoleIds: teamMemberRoleIds,
   })
 
   // Debounced v2 draft persistence. We snapshot the Tiptap *document* (JSON, not

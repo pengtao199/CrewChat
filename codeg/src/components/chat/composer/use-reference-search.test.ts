@@ -8,11 +8,12 @@ import type {
   GitLogEntry,
 } from "@/lib/types"
 
-import type { ReferenceKind } from "./types"
-import type { SuggestionGroup } from "./suggestion/types"
+import type { SuggestionGroup, SuggestionGroupKind } from "./suggestion/types"
+import type { TeamMentionMember } from "./suggestion/team"
 import {
   buildReferenceGroups,
   DEFAULT_GROUP_LABELS,
+  DEFAULT_HINT_LABELS,
   useReferenceSearch,
   type ReferenceSearchSources,
 } from "./use-reference-search"
@@ -87,8 +88,16 @@ function emptySources(
   }
 }
 
-const itemsOf = (groups: SuggestionGroup[], kind: ReferenceKind) =>
+const itemsOf = (groups: SuggestionGroup[], kind: SuggestionGroupKind) =>
   groups.find((g) => g.kind === kind)?.items ?? []
+
+function makeTeamMember(
+  roleId: string,
+  name: string,
+  agentType: string
+): TeamMentionMember {
+  return { roleId, name, agentType }
+}
 
 // --- pure builder -----------------------------------------------------------
 
@@ -126,6 +135,7 @@ describe("buildReferenceGroups", () => {
       session: "会话",
       commit: "提交",
       skill: "技能",
+      team: "团队",
     }
     const groups = buildReferenceGroups("", emptySources(), labels)
     expect(itemsOf(groups, "file")).toBeDefined()
@@ -277,6 +287,140 @@ describe("buildReferenceGroups", () => {
     )
     expect(itemsOf(groups, "agent")).toHaveLength(2)
   })
+
+  // --- team group (Phase 4.2) ----------------------------------------------
+
+  it("omits the team group entirely without a team (panel unchanged)", () => {
+    const groups = buildReferenceGroups(
+      "",
+      emptySources({ agents: [makeAgent("codex")] })
+    )
+    expect(groups.map((g) => g.kind)).toEqual([
+      "file",
+      "agent",
+      "session",
+      "commit",
+    ])
+    // No team → no hints on the agent rows either.
+    expect(itemsOf(groups, "agent")[0].detail).toBe(null)
+  })
+
+  it("pins the team group first with members by roster name", () => {
+    const groups = buildReferenceGroups(
+      "",
+      emptySources({
+        agents: [makeAgent("claude_code", { name: "Claude Code" })],
+        teamMembers: [
+          makeTeamMember("r1", "后端工程师", "claude_code"),
+          makeTeamMember("r2", "前端工程师", "codex"),
+        ],
+      })
+    )
+    expect(groups.map((g) => g.kind)).toEqual([
+      "team",
+      "file",
+      "agent",
+      "session",
+      "commit",
+    ])
+    const team = groups[0]
+    expect(team.label).toBe(DEFAULT_GROUP_LABELS.team)
+    expect(team.items.map((i) => i.reference.label)).toEqual([
+      "后端工程师",
+      "前端工程师",
+    ])
+    // A member mention is an ordinary agent reference — the backend routes and
+    // gates on exactly this link.
+    expect(team.items[0].reference.refType).toBe("agent")
+    expect(team.items[0].reference.uri).toBe("codeg://agent/claude_code")
+  })
+
+  it("filters the team group by member name or body", () => {
+    const sources = () =>
+      emptySources({
+        teamMembers: [
+          makeTeamMember("r1", "后端工程师", "claude_code"),
+          makeTeamMember("r2", "前端工程师", "codex"),
+        ],
+      })
+    expect(itemsOf(buildReferenceGroups("后端", sources()), "team")).toHaveLength(
+      1
+    )
+    expect(itemsOf(buildReferenceGroups("codex", sources()), "team")).toHaveLength(
+      1
+    )
+    expect(itemsOf(buildReferenceGroups("nope", sources()), "team")).toHaveLength(
+      0
+    )
+  })
+
+  it("marks member and non-member agents in the agent group", () => {
+    const groups = buildReferenceGroups(
+      "",
+      emptySources({
+        agents: [
+          makeAgent("claude_code", { name: "Claude Code" }),
+          makeAgent("gemini", { name: "Gemini" }),
+        ],
+        teamMembers: [makeTeamMember("r1", "后端工程师", "claude_code")],
+      })
+    )
+    const agents = itemsOf(groups, "agent")
+    expect(agents[0].detail).toBe(DEFAULT_HINT_LABELS.member)
+    expect(agents[1].detail).toBe(DEFAULT_HINT_LABELS.nonMember)
+  })
+
+  it("keeps the agent description after the hint", () => {
+    const groups = buildReferenceGroups(
+      "",
+      emptySources({
+        agents: [makeAgent("gemini", { description: "Google CLI" })],
+        teamMembers: [makeTeamMember("r1", "后端工程师", "claude_code")],
+      })
+    )
+    expect(itemsOf(groups, "agent")[0].detail).toBe(
+      `${DEFAULT_HINT_LABELS.nonMember} · Google CLI`
+    )
+  })
+
+  it("never lets a hint word match a query", () => {
+    // The hint is applied after filtering, so searching for its own text finds
+    // nothing rather than every agent row.
+    const groups = buildReferenceGroups(
+      "Not in this team",
+      emptySources({
+        agents: [makeAgent("gemini", { name: "Gemini" })],
+        teamMembers: [makeTeamMember("r1", "后端工程师", "claude_code")],
+      })
+    )
+    expect(itemsOf(groups, "agent")).toHaveLength(0)
+  })
+
+  it("accepts injected team heading and hints", () => {
+    const labels = { ...DEFAULT_GROUP_LABELS, team: "团队" }
+    const hints = { member: "成员", nonMember: "非成员" }
+    const groups = buildReferenceGroups(
+      "",
+      emptySources({
+        agents: [makeAgent("gemini", { name: "Gemini" })],
+        teamMembers: [makeTeamMember("r1", "后端工程师", "claude_code")],
+      }),
+      labels,
+      hints
+    )
+    expect(groups[0].label).toBe("团队")
+    expect(itemsOf(groups, "agent")[0].detail).toBe("非成员")
+  })
+
+  it("caps the team group and flags the overflow", () => {
+    const teamMembers = Array.from({ length: 51 }, (_, i) =>
+      makeTeamMember(`r${i}`, `成员${i}`, "claude_code")
+    )
+    const groups = buildReferenceGroups("", emptySources({ teamMembers }))
+    const team = groups.find((g) => g.kind === "team")
+    expect(team?.items).toHaveLength(50)
+    expect(team?.truncated).toBe(true)
+  })
 })
 
 // --- hook --------------------------------------------------------------------
@@ -286,6 +430,7 @@ const mocks = vi.hoisted(() => ({
   files: { allFiles: [] as FlatFileEntry[], loaded: false },
   listAllConversations: vi.fn(),
   gitLog: vi.fn(),
+  listAgentRolesCached: vi.fn(),
 }))
 
 vi.mock("@/hooks/use-file-tree", () => ({
@@ -304,12 +449,17 @@ vi.mock("@/lib/api", () => ({
     mocks.listAllConversations(...args),
   gitLog: (...args: unknown[]) => mocks.gitLog(...args),
 }))
+vi.mock("@/lib/agent-roles", () => ({
+  listAgentRolesCached: (...args: unknown[]) =>
+    mocks.listAgentRolesCached(...args),
+}))
 
 describe("useReferenceSearch", () => {
   beforeEach(() => {
     mocks.agents = []
     mocks.files = { allFiles: [], loaded: false }
     mocks.listAllConversations.mockReset().mockResolvedValue([])
+    mocks.listAgentRolesCached.mockReset().mockResolvedValue([])
     mocks.gitLog
       .mockReset()
       .mockResolvedValue({ entries: [], has_upstream: false })
@@ -507,5 +657,72 @@ describe("useReferenceSearch", () => {
     expect(mocks.listAllConversations).toHaveBeenCalledTimes(2)
     // …which succeeds and populates the group.
     expect(itemsOf(second, "session")).toHaveLength(1)
+  })
+
+  // --- team resolution (Phase 4.2) -----------------------------------------
+
+  it("never touches the roster without team member ids", async () => {
+    const { result } = renderHook(() => useReferenceSearch({ enabled: true }))
+    let groups!: SuggestionGroup[]
+    await act(async () => {
+      groups = (await result.current("")) as SuggestionGroup[]
+    })
+    expect(mocks.listAgentRolesCached).not.toHaveBeenCalled()
+    expect(groups.map((g) => g.kind)).not.toContain("team")
+  })
+
+  it("resolves team member ids into the pinned group, in team order", async () => {
+    mocks.listAgentRolesCached.mockResolvedValue([
+      { id: "r2", name: "前端工程师", agent_type: "codex" },
+      { id: "r1", name: "后端工程师", agent_type: "claude_code" },
+    ])
+
+    const { result } = renderHook(() =>
+      useReferenceSearch({ enabled: true, teamMemberRoleIds: ["r1", "r2"] })
+    )
+    // Flush the roster fetch (and the ref mirror it triggers) before searching,
+    // the way a real keystroke lands after the cached roster resolved.
+    await act(async () => {})
+    let groups!: SuggestionGroup[]
+    await act(async () => {
+      groups = (await result.current("")) as SuggestionGroup[]
+    })
+
+    expect(mocks.listAgentRolesCached).toHaveBeenCalledTimes(1)
+    expect(groups[0].kind).toBe("team")
+    expect(groups[0].items.map((i) => i.reference.label)).toEqual([
+      "后端工程师",
+      "前端工程师",
+    ])
+  })
+
+  it("skips team ids the roster no longer knows", async () => {
+    mocks.listAgentRolesCached.mockResolvedValue([
+      { id: "r1", name: "后端工程师", agent_type: "claude_code" },
+    ])
+
+    const { result } = renderHook(() =>
+      useReferenceSearch({ enabled: true, teamMemberRoleIds: ["r1", "gone"] })
+    )
+    await act(async () => {})
+    let groups!: SuggestionGroup[]
+    await act(async () => {
+      groups = (await result.current("")) as SuggestionGroup[]
+    })
+    expect(groups[0].items.map((i) => i.reference.id)).toEqual(["claude_code"])
+  })
+
+  it("degrades to no team group when the roster is unreachable", async () => {
+    mocks.listAgentRolesCached.mockRejectedValue(new Error("offline"))
+
+    const { result } = renderHook(() =>
+      useReferenceSearch({ enabled: true, teamMemberRoleIds: ["r1"] })
+    )
+    await act(async () => {})
+    let groups!: SuggestionGroup[]
+    await act(async () => {
+      groups = (await result.current("")) as SuggestionGroup[]
+    })
+    expect(groups.map((g) => g.kind)).not.toContain("team")
   })
 })

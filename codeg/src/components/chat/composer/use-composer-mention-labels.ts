@@ -4,11 +4,16 @@ import { useMemo } from "react"
 import { useTranslations } from "next-intl"
 
 import type { MentionUiLabels } from "./suggestion/types"
-import type { ReferenceGroupLabels } from "./use-reference-search"
+import type {
+  ReferenceGroupLabels,
+  ReferenceHintLabels,
+} from "./use-reference-search"
 
 export interface ComposerMentionLabels {
   /** Group headings, doubling as the panel's tab labels. */
   groupLabels: ReferenceGroupLabels
+  /** [crewchat] Row hints for a team conversation (Phase 4.2). */
+  hintLabels: ReferenceHintLabels
   /** Empty / loading / listbox name / "more results" / count announcement. */
   uiLabels: MentionUiLabels
 }
@@ -33,6 +38,14 @@ export function useComposerMentionLabels(): ComposerMentionLabels {
       session: t("mentionGroupSession"),
       commit: t("mentionGroupCommit"),
       skill: t("mentionGroupSkill"),
+      team: t("mentionGroupTeam"),
+    }),
+    [t]
+  )
+  const hintLabels = useMemo<ReferenceHintLabels>(
+    () => ({
+      member: t("mentionTeamMemberHint"),
+      nonMember: t("mentionTeamNonMemberHint"),
     }),
     [t]
   )
@@ -46,5 +59,5 @@ export function useComposerMentionLabels(): ComposerMentionLabels {
     }),
     [t]
   )
-  return { groupLabels, uiLabels }
+  return { groupLabels, hintLabels, uiLabels }
 }

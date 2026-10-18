@@ -1,5 +1,18 @@
 import type { ReferenceAttrs, ReferenceKind } from "../types"
 
+/**
+ * [crewchat] Group kinds the `@` panel can display.
+ *
+ * Every value except `team` is also a {@link ReferenceKind} — a group of that
+ * kind inserts references of the same kind. `team` is DISPLAY-ONLY (Phase 4.2):
+ * its rows are roster members of the conversation's team and carry ordinary
+ * `refType: "agent"` references, so a member mention serializes and routes
+ * exactly like any other agent mention. It exists so the team's members can be
+ * pinned as their own panel tab without inventing a sixth reference kind (which
+ * would need its own badge, serialization and routing).
+ */
+export type SuggestionGroupKind = ReferenceKind | "team"
+
 /** One selectable row: the reference to insert plus display hints. */
 export interface SuggestionItem {
   /** The reference inserted when this row is chosen. */
@@ -12,7 +25,7 @@ export interface SuggestionItem {
 
 /** A labeled group of suggestions, one per reference kind / data source. */
 export interface SuggestionGroup {
-  kind: ReferenceKind
+  kind: SuggestionGroupKind
   /** Display heading for the group. */
   label: string
   items: SuggestionItem[]

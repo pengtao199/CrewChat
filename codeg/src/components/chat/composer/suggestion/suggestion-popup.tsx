@@ -16,23 +16,40 @@ import { isImeCompositionKey } from "@/lib/ime-composition"
 import { cn } from "@/lib/utils"
 
 import { ReferenceIcon } from "../badges/reference-badge"
-import type { ReferenceAttrs, ReferenceKind } from "../types"
+import type { ReferenceAttrs } from "../types"
 import type { MentionRenderState } from "./mention-suggestion"
 import { placeAnchoredPopup, readViewport } from "./popup-position"
 import type {
   ReferenceSearch,
   SuggestionGroup,
+  SuggestionGroupKind,
   SuggestionPopupHandle,
 } from "./types"
 
 const FETCH_DEBOUNCE_MS = 150
 
-// Tab order in the panel: agent first (per product decision), then the rest in
+// Tab order in the panel: [crewchat] the conversation's team members first
+// (Phase 4.2 — they are the delegation targets), then agent, then the rest in
 // their usual order. This is a *display* order; the search provider keeps its
 // own (file-first) group order, which other code/tests depend on. `skill` is
 // intentionally absent — skills, commands and experts are inserted via the `/`
 // and `$` triggers, not the `@` panel.
-const TAB_ORDER: readonly ReferenceKind[] = [
+//
+// A kind only gets a tab when its group is actually present in the result, so a
+// single-agent session (no `team` group) renders exactly the four tabs it
+// always did.
+const TAB_ORDER: readonly SuggestionGroupKind[] = [
+  "team",
+  "agent",
+  "file",
+  "session",
+  "commit",
+]
+
+/** The strip every session has always had, i.e. {@link TAB_ORDER} without the
+ *  [crewchat] team tab. Kept as a value (not a recompute) so the no-team panel
+ *  is exactly what it was before Phase 4.2. */
+const LEGACY_TAB_ORDER: readonly SuggestionGroupKind[] = [
   "agent",
   "file",
   "session",
@@ -41,7 +58,8 @@ const TAB_ORDER: readonly ReferenceKind[] = [
 
 // English fallbacks for the tab labels; the host injects localized ones. `skill`
 // is kept for type completeness (`ReferenceKind`) though it is not a shown tab.
-const DEFAULT_TAB_LABELS: Record<ReferenceKind, string> = {
+const DEFAULT_TAB_LABELS: Record<SuggestionGroupKind, string> = {
+  team: "Team",
   agent: "Agents",
   file: "Files",
   session: "Sessions",
@@ -92,7 +110,7 @@ function isAnchorHidden(el: HTMLElement): boolean {
  * options are rendered). Only one panel is open at a time, so ids never collide.
  */
 export const MENTION_LISTBOX_ID = "mention-listbox"
-export const mentionOptionId = (kind: ReferenceKind, index: number) =>
+export const mentionOptionId = (kind: SuggestionGroupKind, index: number) =>
   `mention-option-${kind}-${index}`
 
 export interface SuggestionPopupProps {
@@ -116,7 +134,7 @@ export interface SuggestionPopupProps {
   /** Non-selectable hint shown under a tab whose matches were capped. */
   moreLabel?: string
   /** Localized per-kind tab labels (English fallbacks apply when omitted). */
-  tabLabels?: Record<ReferenceKind, string>
+  tabLabels?: Partial<Record<SuggestionGroupKind, string>>
   /**
    * The composer box the panel lines up with. When given, the panel adopts that
    * box's width and left edge and opens above it — the same geometry as the
@@ -175,7 +193,7 @@ export const SuggestionPopup = forwardRef<
   // The tab the user explicitly chose (via Tab/click), or null to auto-follow
   // the first non-empty tab. Pinning survives subsequent keystrokes within this
   // open session; reopening the panel remounts and resets it to null.
-  const [pinnedTab, setPinnedTab] = useState<ReferenceKind | null>(null)
+  const [pinnedTab, setPinnedTab] = useState<SuggestionGroupKind | null>(null)
   const [pos, setPos] = useState<{
     left: number
     top: number
@@ -220,14 +238,24 @@ export const SuggestionPopup = forwardRef<
     () => new Map(result.groups.map((group) => [group.kind, group])),
     [result.groups]
   )
-  // Auto-target the first non-empty tab (agent-first) until the user pins one,
-  // so a file/session/… query never strands the user on an empty agent tab.
+  // [crewchat] The team tab appears only when the search actually returned a
+  // team group (Phase 4.2, i.e. the conversation has a team). Everything else
+  // keeps the legacy fixed strip — including while the search is empty — so the
+  // panel's tabs never shift except for the one case that adds a tab.
+  const tabs = useMemo(
+    () => (groupByKind.has("team") ? TAB_ORDER : LEGACY_TAB_ORDER),
+    [groupByKind]
+  )
+  // Auto-target the first non-empty tab (team first, then agent) until the user
+  // pins one, so a file/session/… query never strands the user on an empty tab.
+  // The final fallback keeps a tab selected even while the search is still
+  // stale/empty (no groups yet), matching the old fixed TAB_ORDER[0] behavior.
   const firstNonEmpty = useMemo(
     () =>
-      TAB_ORDER.find(
-        (kind) => (groupByKind.get(kind)?.items.length ?? 0) > 0
-      ) ?? TAB_ORDER[0],
-    [groupByKind]
+      tabs.find((kind) => (groupByKind.get(kind)?.items.length ?? 0) > 0) ??
+      tabs[0] ??
+      TAB_ORDER[0],
+    [tabs, groupByKind]
   )
   const activeTab = pinnedTab ?? firstNonEmpty
   const activeGroup = useMemo(
@@ -417,12 +445,10 @@ export const SuggestionPopup = forwardRef<
             return true
           case "Tab": {
             // Tab / Shift+Tab move between tabs (pinning the choice); Enter still
-            // selects. Wraps around the five tabs.
+            // selects. Wraps around the tabs currently shown.
             const dir = event.shiftKey ? -1 : 1
-            const at = TAB_ORDER.indexOf(activeTab)
-            setPinnedTab(
-              TAB_ORDER[(at + dir + TAB_ORDER.length) % TAB_ORDER.length]
-            )
+            const at = tabs.indexOf(activeTab)
+            setPinnedTab(tabs[(at + dir + tabs.length) % tabs.length])
             setSelectedIndex(0)
             return true
           }
@@ -451,10 +477,11 @@ export const SuggestionPopup = forwardRef<
         }
       },
     }),
-    [flat, selectedIndex, activeTab, onSelect, onClose, state.range]
+    [flat, selectedIndex, activeTab, tabs, onSelect, onClose, state.range]
   )
 
-  const activeLabel = tabLabels[activeTab]
+  const activeLabel =
+    tabLabels[activeTab] ?? DEFAULT_TAB_LABELS[activeTab] ?? activeTab
   const truncated = !stale && activeGroup?.truncated === true
   const liveStatus = stale
     ? loadingLabel
@@ -514,7 +541,7 @@ export const SuggestionPopup = forwardRef<
           aria-orientation="horizontal"
           className="flex shrink-0 gap-0.5 overflow-x-auto border-b border-border p-1"
         >
-          {TAB_ORDER.map((kind) => {
+          {tabs.map((kind) => {
             const isActive = kind === activeTab
             const count = stale ? 0 : (groupByKind.get(kind)?.items.length ?? 0)
             return (
@@ -541,7 +568,7 @@ export const SuggestionPopup = forwardRef<
                     : "text-muted-foreground hover:bg-accent/50"
                 )}
               >
-                <span>{tabLabels[kind]}</span>
+                <span>{tabLabels[kind] ?? DEFAULT_TAB_LABELS[kind]}</span>
                 {!stale && count > 0 && (
                   <span className="rounded bg-muted px-1 text-[0.7rem] tabular-nums text-muted-foreground">
                     {count}

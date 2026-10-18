@@ -290,6 +290,35 @@ describe("SuggestionPopup", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(4)
   })
 
+  it("grows a team tab (first, auto-targeted) only when the team group is present", async () => {
+    const teamRef = {
+      refType: "agent" as const,
+      id: "claude_code",
+      label: "后端工程师",
+      uri: "codeg://agent/claude_code",
+      meta: { agentType: "claude_code" as const },
+    }
+    const teamSearch: ReferenceSearch = () => [
+      {
+        kind: "team",
+        label: "Team",
+        items: [{ reference: teamRef }],
+      },
+      { kind: "agent", label: "Agents", items: [{ reference: agentRef }] },
+    ]
+    mountPopup({ search: teamSearch })
+
+    // Five tabs, and the team tab is the first non-empty one → default target.
+    expect(await screen.findByText("后端工程师")).toBeInTheDocument()
+    expect(screen.getAllByRole("tab")).toHaveLength(5)
+    expect(screen.getByRole("tab", { selected: true })).toHaveAccessibleName(
+      /Team/
+    )
+    // The agent tab's row is not shown until that tab is active — the two are
+    // distinct reference rows despite sharing `refType: "agent"`.
+    expect(screen.queryByText("Codex Helper")).toBeNull()
+  })
+
   it("selects the active tab's highlighted row on Enter (default = first agent)", async () => {
     const { ref, onSelect } = mountPopup()
     await screen.findByText("Codex Helper")

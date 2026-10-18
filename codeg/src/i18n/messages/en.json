@@ -3260,7 +3260,10 @@
         "mentionGroupAgent": "Agents",
         "mentionGroupSession": "Sessions",
         "mentionGroupCommit": "Commits",
-        "mentionGroupSkill": "Skills"
+        "mentionGroupSkill": "Skills",
+        "mentionGroupTeam": "Team",
+        "mentionTeamMemberHint": "In team",
+        "mentionTeamNonMemberHint": "Not in this team"
       },
       "messageQueue": {
         "addToQueue": "Queue message",

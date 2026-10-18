@@ -88,6 +88,9 @@ interface ConversationShellProps {
   agentType?: AgentType | null
   availableCommands?: AvailableCommandInfo[] | null
   attachmentTabId?: string | null
+  /** [crewchat] Roster role ids of this conversation's team members (Phase 4.2);
+   *  forwarded to the composer's `@` panel. See `MessageInput`. */
+  teamMemberRoleIds?: readonly string[]
   /** Pass-through: see `MessageInput`. */
   folderPickerOverride?: ConversationFolderPickerOverride
   draftStorageKey?: string | null
@@ -189,6 +192,7 @@ export function ConversationShell({
   agentType,
   availableCommands,
   attachmentTabId,
+  teamMemberRoleIds,
   folderPickerOverride,
   draftStorageKey,
   getSentHistory,
@@ -307,6 +311,7 @@ export function ConversationShell({
               agentType={agentType}
               availableCommands={availableCommands}
               attachmentTabId={attachmentTabId}
+              teamMemberRoleIds={teamMemberRoleIds}
               folderPickerOverride={folderPickerOverride}
               draftStorageKey={draftStorageKey}
               getSentHistory={getSentHistory}
