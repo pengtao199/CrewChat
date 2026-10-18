@@ -27,10 +27,7 @@ pub fn claude_virtual_model_hex(model: &str) -> String {
 /// preferred (that is the one CCR's own claude wrapper pins). `None` when the
 /// model is not exposed to claude — the caller then leaves the model option
 /// alone rather than pin something claude would refuse to confirm.
-pub fn pick_claude_gateway_model_id(
-    model_ids: &[String],
-    model: &str,
-) -> Option<String> {
+pub fn pick_claude_gateway_model_id(model_ids: &[String], model: &str) -> Option<String> {
     let needle = format!("h{}", claude_virtual_model_hex(model));
     let needle_lower = needle.to_lowercase();
     let matches: Vec<&String> = model_ids
@@ -74,8 +71,7 @@ fn pick_claude_gateway_model_id_by_model(model_ids: &[String], model: &str) -> O
     let hits: Vec<&String> = model_ids
         .iter()
         .filter(|id| {
-            gateway_id_hex(id)
-                .is_some_and(|hex| hex.len() > needle.len() && hex.ends_with(&needle))
+            gateway_id_hex(id).is_some_and(|hex| hex.len() > needle.len() && hex.ends_with(&needle))
         })
         .collect();
     let mut providers: Vec<&str> = hits
@@ -188,9 +184,7 @@ fn local_gateway_api_key(config: &Value) -> Option<String> {
         .get("APIKEYS")
         .and_then(Value::as_array)?
         .iter()
-        .find(|entry| {
-            entry.get("id").and_then(Value::as_str) == Some("local-gateway")
-        })
+        .find(|entry| entry.get("id").and_then(Value::as_str) == Some("local-gateway"))
         .and_then(|entry| entry.get("key"))
         .and_then(Value::as_str)
         .map(str::to_string)
@@ -225,6 +219,40 @@ async fn claude_model_ids(gateway: &str, api_key: &str) -> Option<Vec<String>> {
     )
 }
 
+/// The model NAME a codex session must send to the gateway, or `None` when the
+/// gateway does not serve it.
+///
+/// codex's provider points at the gateway's OpenAI **responses** face, which
+/// takes the model exactly as the roster writes it — no client-author-prefixed
+/// virtual id is involved, unlike claude (verified 2026-10-18: a bare
+/// `mimo-v2.6-flash` against `/v1/responses` answered 200 through OpenCode Go).
+/// The check exists so a roster naming a model the gateway does not have
+/// degrades to the CLI's own configuration instead of failing mid-turn.
+pub fn codex_gateway_model(config: &Value, model: &str) -> Option<String> {
+    let wanted = model.trim();
+    if wanted.is_empty() {
+        return None;
+    }
+    let providers = config.get("Providers").and_then(Value::as_array)?;
+    for provider in providers {
+        // `models` is what the provider serves; `autoFetchKnownModels` is what
+        // its catalog probe found. Either is a legitimate source — a freshly
+        // added provider may only have the fetched list.
+        for field in ["models", "autoFetchKnownModels"] {
+            let Some(entries) = provider.get(field).and_then(Value::as_array) else {
+                continue;
+            };
+            for entry in entries {
+                let Some(name) = entry.as_str() else { continue };
+                if name.trim().eq_ignore_ascii_case(wanted) {
+                    return Some(name.trim().to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 /// The exact client-visible id the gateway exposes for the first candidate it
 /// knows (`anthropic/claude-ccr-h<hex>` or its `[1m]` variant), or `None` when
 /// the gateway is unreachable or exposes none of them.
@@ -241,6 +269,7 @@ pub async fn gateway_claude_model_id(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn virtual_model_hex_matches_the_gateway_encoding() {
@@ -266,6 +295,34 @@ mod tests {
     }
 
     #[test]
+    fn codex_model_must_be_served_by_some_provider() {
+        let config = json!({
+            "Providers": [
+                { "name": "OpenCode Go", "models": ["mimo-v2.6-flash", "deepseek-v4.1-flash"] },
+                { "name": "Other", "autoFetchKnownModels": ["step-5-preview-free"] }
+            ]
+        });
+        // Served by name, from either list, and matched case-insensitively.
+        assert_eq!(
+            codex_gateway_model(&config, "mimo-v2.6-flash").as_deref(),
+            Some("mimo-v2.6-flash")
+        );
+        assert_eq!(
+            codex_gateway_model(&config, " MiMo-V2.6-Flash ").as_deref(),
+            Some("mimo-v2.6-flash")
+        );
+        assert_eq!(
+            codex_gateway_model(&config, "step-5-preview-free").as_deref(),
+            Some("step-5-preview-free")
+        );
+        // A retired model (or a provider that is not configured at all) is not
+        // pinnable: the caller degrades instead of 404-ing every turn.
+        assert!(codex_gateway_model(&config, "deepseek-flash").is_none());
+        assert!(codex_gateway_model(&config, "  ").is_none());
+        assert!(codex_gateway_model(&json!({}), "m").is_none());
+    }
+
+    #[test]
     fn falls_back_to_the_plain_id_and_none_when_absent() {
         let hex = claude_virtual_model_hex("OpenCode Go/mimo-v2.5");
         let ids = vec![format!("anthropic/claude-ccr-h{hex}")];
@@ -278,11 +335,23 @@ mod tests {
 
     #[test]
     fn role_model_label_mirrors_the_global_shape() {
-        assert_eq!(claude_role_model_label("OpenCode Go", "mimo-v2.6-pro", false), "OpenCode Go/mimo-v2.6-pro");
-        assert_eq!(claude_role_model_label("OpenCode Go", "mimo-v2.6-pro", true), "OpenCode Go/mimo-v2.6-pro[1m]");
-        assert_eq!(claude_role_model_label("OpenCode Go", "mimo-v2.6-pro[1m]", true), "OpenCode Go/mimo-v2.6-pro[1m]");
+        assert_eq!(
+            claude_role_model_label("OpenCode Go", "mimo-v2.6-pro", false),
+            "OpenCode Go/mimo-v2.6-pro"
+        );
+        assert_eq!(
+            claude_role_model_label("OpenCode Go", "mimo-v2.6-pro", true),
+            "OpenCode Go/mimo-v2.6-pro[1m]"
+        );
+        assert_eq!(
+            claude_role_model_label("OpenCode Go", "mimo-v2.6-pro[1m]", true),
+            "OpenCode Go/mimo-v2.6-pro[1m]"
+        );
         // A role with no provider still names a model.
-        assert_eq!(claude_role_model_label("", "opencode/big-pickle", false), "opencode/big-pickle");
+        assert_eq!(
+            claude_role_model_label("", "opencode/big-pickle", false),
+            "opencode/big-pickle"
+        );
     }
 
     fn one_provider_config() -> Value {
@@ -298,7 +367,10 @@ mod tests {
         let config = one_provider_config();
         // The gateway only encodes display NAMES, so an id from the roster must
         // be mapped; an unknown value passes through (and simply won't match).
-        assert_eq!(provider_display_name(&config, "opencode-go-chat-completions"), "OpenCode Go");
+        assert_eq!(
+            provider_display_name(&config, "opencode-go-chat-completions"),
+            "OpenCode Go"
+        );
         assert_eq!(provider_display_name(&config, "OpenCode Go"), "OpenCode Go");
         assert_eq!(provider_display_name(&config, "75f800be"), "75f800be");
         assert_eq!(provider_display_name(&config, "  "), "");
@@ -308,7 +380,11 @@ mod tests {
     fn role_candidates_cover_the_id_the_name_and_the_bare_model() {
         let config = one_provider_config();
         assert_eq!(
-            claude_role_model_candidates(&config, "opencode-go-chat-completions", "mimo-v2.6-flash"),
+            claude_role_model_candidates(
+                &config,
+                "opencode-go-chat-completions",
+                "mimo-v2.6-flash"
+            ),
             vec![
                 "OpenCode Go/mimo-v2.6-flash".to_string(),
                 "opencode-go-chat-completions/mimo-v2.6-flash".to_string(),
@@ -342,8 +418,10 @@ mod tests {
             Some(format!("anthropic/claude-ccr-h{hex}[1m]").as_str())
         );
         // None of them exposed → the caller degrades to the CLI's own config.
-        assert!(pick_claude_gateway_model_id_for(&ids, &["75f800be/deepseek-flash".to_string()])
-            .is_none());
+        assert!(
+            pick_claude_gateway_model_id_for(&ids, &["75f800be/deepseek-flash".to_string()])
+                .is_none()
+        );
     }
 
     #[test]

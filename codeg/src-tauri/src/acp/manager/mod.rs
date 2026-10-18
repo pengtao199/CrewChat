@@ -3916,31 +3916,44 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
         .await
         .map_err(|e| SpawnerError::Spawn(e.to_string()))?;
 
-        // [crewchat] Phase 3.1 — a member with its own brain model runs in an
-        // isolated claude home whose settings.json pins that model (claude
-        // reads its model at startup, and settings env beats the process env).
-        // Any other agent type keeps the CLI's configured model for now.
+        // [crewchat] The role's brain model, pinned the way THIS body can be
+        // pinned: an overlay home the CLI reads its model from at startup
+        // (claude: `CLAUDE_CONFIG_DIR`; codex: `CODEX_HOME`). Every body that
+        // cannot be pinned says so instead of quietly running the CLI's own
+        // model — a roster pick that is not in effect must be visible in the
+        // logs, not assumed.
         if let Some(context) = role.as_mut() {
-            if agent_type == AgentType::ClaudeCode && !context.model.trim().is_empty() {
-                let home_root = self.data_dir.join("role-sessions");
-                if let Some(home) = crate::agent_host::build_claude_role_home(
-                    &home_root,
-                    &context.role_id,
-                    &context.model_provider,
-                    &context.model,
-                )
-                .await
-                {
-                    runtime_env.insert(
-                        "CLAUDE_CONFIG_DIR".into(),
-                        home.config_dir.to_string_lossy().to_string(),
-                    );
+            let outcome = crate::agent_host::prepare_role_overlay(
+                &self.data_dir.join("role-sessions"),
+                agent_type,
+                &context.role_id,
+                &context.model_provider,
+                &context.model,
+            )
+            .await;
+            match outcome {
+                crate::agent_host::OverlayOutcome::Applied(overlay) => {
+                    runtime_env.extend(overlay.env);
                     context.model_applied = true;
                     tracing::info!(
                         "[crewchat][role] member session runs on the role model {} \
                          (home {})",
-                        home.model_label,
-                        home.config_dir.display()
+                        overlay.model_label,
+                        overlay.home.display()
+                    );
+                }
+                crate::agent_host::OverlayOutcome::Unsupported(reason) => {
+                    tracing::warn!(
+                        "[crewchat][role] role {} cannot be pinned on this body ({reason}); \
+                         the session runs on the CLI's own model",
+                        context.role_id
+                    );
+                }
+                crate::agent_host::OverlayOutcome::Unavailable(reason) => {
+                    tracing::warn!(
+                        "[crewchat][role] role {} model not applied ({reason}); \
+                         the session runs on the CLI's own model",
+                        context.role_id
                     );
                 }
             }

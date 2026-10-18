@@ -9,23 +9,25 @@
 //! routing per session — which is also what Phase 3.1 needs to give different
 //! members different models.
 //!
-//! Scope (v1): claude only. codex's overlay would need `CODEX_HOME` pointed at
-//! CCR's profile home, and codeg's own parser resolves codex sessions from the
-//! process-level `CODEX_HOME` — moving the session tree would break history
-//! parsing. That stays deferred to 3.1 alongside the member-model work.
+//! Scope: claude and codex. claude's overlay is the per-role home in
+//! [`role_home`] (a settings.json that NAMES the model at process start);
+//! codex's is the same shape through `CODEX_HOME` — see [`overlay`], which owns
+//! the shared mechanism and the per-body dispatch. Every other body reports
+//! "unsupported" rather than silently running on the CLI's own model.
 //!
 //! Wiring: `build_runtime_env_for_agent` merges the recipe into every spawned
-//! session (user-initiated and delegation children share that point). Off
-//! switch: `CODEG_AGENT_HOST_INJECT=0` ⇒ no overlay at all, exactly the
-//! pre-existing behavior. A missing/unreachable CCR ⇒ no overlay (best
-//! effort), never an error.
+//! session (user-initiated and delegation children share that point), and
+//! [`overlay::prepare_role_overlay`] adds the per-role MODEL overlay wherever a
+//! session's role is known. Off switch: `CODEG_AGENT_HOST_INJECT=0` ⇒ no
+//! overlay at all, exactly the pre-existing behavior. A missing/unreachable
+//! CCR ⇒ no overlay (best effort), never an error.
 //!
 //! Layout: this file is the launch recipe (env routing only); [`gateway`] is the
 //! CCR gateway's model catalog and how a roster brain maps onto it; [`role_home`]
-//! is Phase 3.1's per-role isolated claude home — the one mechanism that sets a
-//! member's model.
+//! is claude's isolated home; [`overlay`] is the per-body model overlay.
 
 mod gateway;
+pub mod overlay;
 mod role_home;
 
 use std::collections::BTreeMap;
@@ -38,6 +40,10 @@ pub use gateway::{
     claude_role_model_candidates, claude_role_model_label, claude_virtual_model_hex,
     pick_claude_gateway_model_id, pick_claude_gateway_model_id_for, provider_display_name,
 };
+pub use overlay::{
+    apply_connect_role_overlay, prepare_role_overlay, OverlayOutcome, SessionOverlay,
+    CODEX_GATEWAY_KEY_ENV,
+};
 pub use role_home::{
     build_claude_role_home, claude_role_settings, claude_role_settings_with_plugins,
     prune_stale_role_homes, ClaudeRoleHome,
@@ -46,15 +52,14 @@ pub use role_home::{
 /// The per-session overlay: env for routing. claude reads its base URL at
 /// process start, so the env trio is the whole launch-time contract.
 ///
-/// The MODEL is deliberately NOT here. It is not an env var (`settings.json`'s
-/// env wins over the process env — measured 2026-10-12), and driving it through
-/// the ACP `session/set_config_option` channel cannot work either: claude only
-/// accepts the model its current configuration already names, so every attempt
-/// to switch a member onto another model fails with `Couldn't confirm` (seen on
-/// every member session in the 2026-10-17 logs). Phase 3.1's isolated role home
-/// is the working mechanism — it hands the CLI a settings.json that NAMES the
-/// member's model at process start — and a session without one simply runs on
-/// the CLI's own configured model. One mechanism, no error spam.
+/// The MODEL is deliberately NOT here — see [`overlay`], which pins it through
+/// the CLI's own config file instead. Rationale, measured: claude ignores a
+/// model in the process env (`settings.json`'s env wins) and refuses a runtime
+/// switch to anything its configuration does not already name; codex reads its
+/// model from `config.toml` at startup. Either way the model has to be in a
+/// FILE the CLI owns at launch, which is exactly what a per-role overlay home
+/// provides. A session without one runs on the CLI's own configured model —
+/// and the caller reports that instead of pretending the roster won.
 pub struct AgentHostRecipe {
     pub env: BTreeMap<String, String>,
 }
@@ -128,8 +133,9 @@ pub fn recipe_for_ccr_gateway(
             }
             Some(AgentHostRecipe { env })
         }
-        // See the module docs: codex's overlay rides on `CODEX_HOME`, which
-        // would move its session tree out of the parser's reach.
+        // codex's ROUTE is not env: it is a provider table in the CLI's own
+        // config.toml, which the per-role overlay home writes ([`overlay`]).
+        // Nothing here may claim otherwise.
         _ => None,
     }
 }
@@ -161,13 +167,10 @@ pub async fn recipe_for_agent(agent_type: AgentType) -> Option<AgentHostRecipe> 
         return None;
     }
     // Scope gate: a CLI outside CCR's registry gets no overlay, even if a later
-    // recipe builder learns to build one for it (see the module docs on codex).
-    if ccr_agent_kind(agent_type).is_none() {
-        return None;
-    }
-    let config = crate::ccr::client::call("getConfig", None)
-        .await
-        .ok()?;
+    // recipe builder learns to build one for it (codex's route lives in its
+    // config file; see [`overlay`]).
+    ccr_agent_kind(agent_type)?;
+    let config = crate::ccr::client::call("getConfig", None).await.ok()?;
     let gateway = ccr_gateway_base(&config)?;
     recipe_for_ccr_gateway(agent_type, &gateway)
 }
@@ -178,8 +181,8 @@ mod tests {
 
     #[test]
     fn claude_recipe_carries_the_route_env() {
-        let recipe = recipe_for_ccr_gateway(AgentType::ClaudeCode, "http://127.0.0.1:3456/")
-            .unwrap();
+        let recipe =
+            recipe_for_ccr_gateway(AgentType::ClaudeCode, "http://127.0.0.1:3456/").unwrap();
         assert_eq!(
             recipe.env.get("ANTHROPIC_BASE_URL").map(String::as_str),
             Some("http://127.0.0.1:3456")
@@ -219,7 +222,7 @@ mod tests {
     }
 
     #[test]
-    fn codex_is_out_of_scope_for_v1() {
+    fn codex_gets_no_env_recipe_because_its_route_lives_in_its_config_file() {
         assert!(recipe_for_ccr_gateway(AgentType::Codex, "http://127.0.0.1:3456").is_none());
     }
 }

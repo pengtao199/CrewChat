@@ -90,9 +90,7 @@ pub async fn build_claude_role_home(
     if !injection_enabled() || model.trim().is_empty() {
         return None;
     }
-    let config = crate::ccr::client::call("getConfig", None)
-        .await
-        .ok()?;
+    let config = crate::ccr::client::call("getConfig", None).await.ok()?;
     let gateway = ccr_gateway_base(&config)?;
     let route_env = recipe_for_ccr_gateway(AgentType::ClaudeCode, &gateway)?.env;
 
@@ -258,30 +256,41 @@ pub fn prune_stale_role_homes(home_root: &std::path::Path, max_age: std::time::D
     }
 }
 
-/// A filesystem-safe directory name for a role id.
-fn sanitize_role_key(role_key: &str) -> String {
-    let cleaned: String = role_key
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
-        .collect();
-    if cleaned.is_empty() {
-        "role".to_string()
-    } else {
-        cleaned
-    }
-}
+/// A filesystem-safe directory name for a role id. Single implementation lives
+/// in [`super::overlay`] so the claude home and the other bodies can never
+/// disagree about a role's directory name.
+use super::overlay::sanitize_role_key;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn role_keys_become_safe_directory_names() {
+        // The sanitizer itself lives in `overlay`; this pins the contract the
+        // claude home relies on.
+        assert_eq!(sanitize_role_key("71119f47-2863"), "71119f47-2863");
+        assert_eq!(sanitize_role_key("a/b\\c d"), "a-b-c-d");
+        assert_eq!(sanitize_role_key(""), "role");
+    }
+
+    #[test]
     fn role_settings_carry_route_env_model_and_the_helper() {
         let mut route = BTreeMap::new();
-        route.insert("ANTHROPIC_BASE_URL".to_string(), "http://127.0.0.1:3456".to_string());
-        let settings = claude_role_settings(&route, "OpenCode Go/mimo-v2.6-pro[1m]", Some("/ccr/key"));
-        assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:3456");
-        assert_eq!(settings["env"]["ANTHROPIC_MODEL"], "OpenCode Go/mimo-v2.6-pro[1m]");
+        route.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            "http://127.0.0.1:3456".to_string(),
+        );
+        let settings =
+            claude_role_settings(&route, "OpenCode Go/mimo-v2.6-pro[1m]", Some("/ccr/key"));
+        assert_eq!(
+            settings["env"]["ANTHROPIC_BASE_URL"],
+            "http://127.0.0.1:3456"
+        );
+        assert_eq!(
+            settings["env"]["ANTHROPIC_MODEL"],
+            "OpenCode Go/mimo-v2.6-pro[1m]"
+        );
         assert_eq!(settings["env"]["TZ"], "UTC");
         assert_eq!(settings["apiKeyHelper"], "/ccr/key");
         // No key material of our own: the helper PRINTS the key at runtime.
@@ -292,14 +301,9 @@ mod tests {
     fn role_settings_omit_a_missing_helper() {
         let settings = claude_role_settings(&BTreeMap::new(), "Provider/model", None);
         assert!(settings.get("apiKeyHelper").is_none());
-        assert!(claude_role_settings(&BTreeMap::new(), "m", Some("  ")).get("apiKeyHelper").is_none());
-    }
-
-    #[test]
-    fn role_keys_become_safe_directory_names() {
-        assert_eq!(sanitize_role_key("71119f47-2863"), "71119f47-2863");
-        assert_eq!(sanitize_role_key("a/b\\c d"), "a-b-c-d");
-        assert_eq!(sanitize_role_key(""), "role");
+        assert!(claude_role_settings(&BTreeMap::new(), "m", Some("  "))
+            .get("apiKeyHelper")
+            .is_none());
     }
 
     #[test]
