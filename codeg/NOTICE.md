@@ -220,14 +220,13 @@ pnpm server:dev
 **release 打包的两个坑**（本机验证过）：
 
 1. `bundle.createUpdaterArtifacts: true` 需要更新签名私钥，本机没有 → 直接 `tauri build`
-   会在**最后一步**才失败。本地打包关掉它，并且把前置手工跑掉（`beforeBuildCommand` 里的
-   `pnpm build` 会被系统 pnpm 9 拒掉）：
+   会在**最后一步**才失败。本地打包用脚本（它关掉更新产物，并替掉跑不起来的
+   `beforeBuildCommand`——系统 pnpm 9 会拒掉 `pnpm build`）：
    ```bash
-   cd codeg
-   ./node_modules/.bin/next build                        # 前端静态导出
-   node src-tauri/scripts/prepare-sidecars.mjs           # sidecar（release 编译）
-   ./node_modules/.bin/tauri build --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+   cd codeg && bash scripts/package-mac.sh
    ```
+   等价的三条手工命令是：`next build` → `prepare-sidecars.mjs` → `tauri build --config
+   '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'`。
 2. `src-tauri/binaries/<bin>-<triple>` 必须是**非 0 字节**的真实二进制。cargo 的 build script
    会先写 0 字节占位，而 0 字节被当作"没找到"——**包装得上、委派工具却静默缺失**。
    打包前务必跑一次 `prepare-sidecars`。
