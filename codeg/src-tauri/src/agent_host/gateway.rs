@@ -96,6 +96,37 @@ fn gateway_id_hex(model_id: &str) -> Option<&str> {
     Some(hex.strip_suffix("[1m]").unwrap_or(hex))
 }
 
+/// Decode a client-visible id back into the `(provider display name, model)` CCR
+/// encoded — the inverse of [`claude_virtual_model_hex`], and what lets the
+/// roster page list exactly the models a claude session may be pinned to.
+/// `None` on an id that is not one of ours, or whose hex is not UTF-8.
+pub fn decode_claude_virtual_model(model_id: &str) -> Option<(String, String)> {
+    let hex = gateway_id_hex(model_id)?;
+    if hex.len() % 2 != 0 {
+        return None;
+    }
+    let bytes: Option<Vec<u8>> = (0..hex.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(hex.get(at..at + 2)?, 16).ok())
+        .collect();
+    let decoded = String::from_utf8(bytes?).ok()?;
+    let (provider, model) = decoded.split_once('/')?;
+    let provider = provider.trim();
+    let model = model.trim();
+    if provider.is_empty() || model.is_empty() {
+        return None;
+    }
+    Some((provider.to_string(), model.to_string()))
+}
+
+/// The claude face's model ids, read live from the gateway (`/v1/models` with the
+/// claude user agent). `None` when CCR is unreachable or has no usable key —
+/// the caller reports "cannot determine" rather than an empty choice set.
+pub async fn claude_face_ids(config: &Value, gateway: &str) -> Option<Vec<String>> {
+    let api_key = local_gateway_api_key(config)?;
+    claude_model_ids(gateway, &api_key).await
+}
+
 /// The display name CCR encodes into its claude-visible model ids for a
 /// provider the roster named. The roster may hold either the provider's id
 /// (`opencode-go-chat-completions`) or its display name (`OpenCode Go`), but

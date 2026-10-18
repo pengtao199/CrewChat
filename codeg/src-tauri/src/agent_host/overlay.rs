@@ -74,6 +74,19 @@ pub enum OverlayOutcome {
     Unavailable(String),
 }
 
+/// Which bodies have a per-role model overlay — the SINGLE source of truth.
+///
+/// The launcher ([`prepare_role_overlay`]) and the roster page's honest
+/// reporting ([`crate::agent_host::faces`]) both read this, so the UI can never
+/// promise a body the launcher cannot actually pin. `Err(reason)` is
+/// user-facing copy material.
+pub fn overlay_support(body: AgentType) -> Result<(), String> {
+    match body {
+        AgentType::ClaudeCode | AgentType::Codex => Ok(()),
+        _ => Err(format!("{body:?} has no per-role model overlay yet")),
+    }
+}
+
 /// Pin one roster role's session to its brain model, for the body that will run
 /// it. `home_root` is the disposable root (`<data>/role-sessions`).
 pub async fn prepare_role_overlay(
@@ -88,6 +101,9 @@ pub async fn prepare_role_overlay(
     }
     if model.trim().is_empty() {
         return OverlayOutcome::Unavailable("the role has no model configured".into());
+    }
+    if let Err(reason) = overlay_support(body) {
+        return OverlayOutcome::Unsupported(reason);
     }
     match body {
         // Claude's overlay landed in Phase 3.1 and stays where it is: it hands
@@ -117,7 +133,12 @@ pub async fn prepare_role_overlay(
             }
         }
         AgentType::Codex => codex_overlay(home_root, role_key, model).await,
-        _ => OverlayOutcome::Unsupported(format!("{body:?} has no per-role model overlay yet")),
+        // `overlay_support` above already rejected every other body, so this arm
+        // is unreachable by construction: adding a body means adding BOTH its
+        // arm here and its `overlay_support` entry, never one of the two.
+        other => {
+            OverlayOutcome::Unsupported(format!("{other:?} has no per-role model overlay yet"))
+        }
     }
 }
 

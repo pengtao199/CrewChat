@@ -17,6 +17,17 @@ use crate::db::AppDatabase;
 
 pub use crate::models::agent_role::AgentRole;
 
+/// What one body can be pinned to, for the roster page.
+///
+/// Thin on purpose: the resolution lives in [`crate::agent_host::body_model_face`]
+/// (pure helpers + the live gateway reads), so there is ONE answer to "which
+/// models can this engine actually run" rather than one per surface.
+pub async fn agent_role_model_face_core(
+    agent_type: crate::models::agent::AgentType,
+) -> Result<crate::agent_host::BodyModelFace, AppCommandError> {
+    Ok(crate::agent_host::body_model_face(agent_type).await)
+}
+
 pub async fn agent_roles_list_core(db: &AppDatabase) -> Result<Vec<AgentRole>, AppCommandError> {
     Ok(agent_role_service::list_roles(&db.conn).await?)
 }
@@ -38,10 +49,7 @@ pub async fn agent_roles_save_core(
     Ok(agent_role_service::save_role(&db.conn, role).await?)
 }
 
-pub async fn agent_roles_delete_core(
-    db: &AppDatabase,
-    id: &str,
-) -> Result<bool, AppCommandError> {
+pub async fn agent_roles_delete_core(db: &AppDatabase, id: &str) -> Result<bool, AppCommandError> {
     Ok(agent_role_service::delete_role(&db.conn, id).await?)
 }
 
@@ -69,4 +77,12 @@ pub async fn agent_roles_delete(
     db: tauri::State<'_, AppDatabase>,
 ) -> Result<bool, AppCommandError> {
     agent_roles_delete_core(&db, &id).await
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+pub async fn agent_role_model_face(
+    agent_type: crate::models::agent::AgentType,
+) -> Result<crate::agent_host::BodyModelFace, AppCommandError> {
+    agent_role_model_face_core(agent_type).await
 }

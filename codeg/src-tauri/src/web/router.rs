@@ -1594,6 +1594,10 @@ pub fn build_router(
             "/agent_roles_delete",
             post(handlers::agent_roles::agent_roles_delete),
         )
+        .route(
+            "/agent_role_model_face",
+            post(handlers::agent_roles::agent_role_model_face),
+        )
         // ─── Quick Messages ───
         .route(
             "/quick_messages_list",

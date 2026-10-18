@@ -26,6 +26,7 @@
 //! CCR gateway's model catalog and how a roster brain maps onto it; [`role_home`]
 //! is claude's isolated home; [`overlay`] is the per-body model overlay.
 
+mod faces;
 mod gateway;
 pub mod overlay;
 mod role_home;
@@ -36,13 +37,15 @@ use serde_json::Value;
 
 use crate::models::AgentType;
 
+pub use faces::{body_model_face, BodyModelFace, RoleModelOption};
 pub use gateway::{
     claude_role_model_candidates, claude_role_model_label, claude_virtual_model_hex,
-    pick_claude_gateway_model_id, pick_claude_gateway_model_id_for, provider_display_name,
+    decode_claude_virtual_model, pick_claude_gateway_model_id, pick_claude_gateway_model_id_for,
+    provider_display_name,
 };
 pub use overlay::{
-    apply_connect_role_overlay, prepare_role_overlay, OverlayOutcome, SessionOverlay,
-    CODEX_GATEWAY_KEY_ENV,
+    apply_connect_role_overlay, overlay_support, prepare_role_overlay, OverlayOutcome,
+    SessionOverlay, CODEX_GATEWAY_KEY_ENV,
 };
 pub use role_home::{
     build_claude_role_home, claude_role_settings, claude_role_settings_with_plugins,
