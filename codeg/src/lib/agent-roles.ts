@@ -6,6 +6,7 @@
 // them. Storage lives in `commands/agent_roles.rs`.
 
 import { getTransport } from "./transport"
+import type { AgentType } from "./types"
 
 export interface AgentRole {
   /** Server-generated UUID. Empty until the role is first saved. */
@@ -28,6 +29,41 @@ export interface AgentRole {
 
 export function listAgentRoles(): Promise<AgentRole[]> {
   return getTransport().call("agent_roles_list")
+}
+
+/**
+ * [crewchat] One `(provider, model)` pair an engine can be pinned to, as the
+ * roster writes it.
+ */
+export interface RoleModelOption {
+  provider: string
+  provider_id: string
+  model: string
+}
+
+/**
+ * [crewchat] What an engine can actually be pinned to.
+ *
+ * `supported: false` means no model choice can be honoured for that engine yet
+ * (the launcher has no overlay for it), so the page must say so rather than
+ * offer a picker. `models: []` with `supported: true` means "could not
+ * determine" (CCR unreachable) — never "nothing is available".
+ */
+export interface BodyModelFace {
+  supported: boolean
+  reason: string | null
+  models: RoleModelOption[]
+}
+
+/**
+ * [crewchat] Ask the backend which models this engine's gateway face offers.
+ * The backend is the only place that knows (it reads CCR and decodes the
+ * claude-visible ids), so the page never has to guess.
+ */
+export function agentRoleModelFace(
+  agentType: AgentType
+): Promise<BodyModelFace> {
+  return getTransport().call("agent_role_model_face", { agentType })
 }
 
 /**
@@ -57,13 +93,17 @@ export function resetAgentRolesCache(): void {
 }
 
 export async function saveAgentRole(role: AgentRole): Promise<AgentRole> {
-  const saved = await getTransport().call<AgentRole>("agent_roles_save", { role })
+  const saved = await getTransport().call<AgentRole>("agent_roles_save", {
+    role,
+  })
   cachedRoles = null
   return saved
 }
 
 export async function deleteAgentRole(id: string): Promise<boolean> {
-  const deleted = await getTransport().call<boolean>("agent_roles_delete", { id })
+  const deleted = await getTransport().call<boolean>("agent_roles_delete", {
+    id,
+  })
   cachedRoles = null
   return deleted
 }

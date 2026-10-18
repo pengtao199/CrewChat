@@ -1,6 +1,6 @@
 // Pure helpers for the Agents settings page — no React, no transport.
 
-import type { AgentRole } from "@/lib/agent-roles"
+import type { AgentRole, BodyModelFace } from "@/lib/agent-roles"
 import {
   ccrAgentKindForBody,
   pickCcrProfileForKind,
@@ -134,4 +134,36 @@ export function profilesFromConfig(
 ): CcrProfileSummary[] {
   const profiles = config?.profile?.profiles
   return Array.isArray(profiles) ? profiles : []
+}
+
+/**
+ * [crewchat] Is the stored `(provider, model)` pair one the engine's face
+ * actually offers?
+ *
+ * The roster may hold the provider as an id or as a display name (the backend
+ * accepts both), so either form counts as a match. An EMPTY provider matches on
+ * the model alone — the backend resolves a provider-less model across CCR's
+ * providers, so the page must not call that unreachable just because the stored
+ * provider is empty.
+ *
+ * `false` for an unsupported engine (no overlay ⇒ nothing is reachable) and for
+ * an undetermined face (`models: []`, CCR unreachable) — in the second case the
+ * caller must use `supported` to tell "cannot know" from "not offered".
+ */
+export function faceIncludesModel(
+  face: BodyModelFace | null,
+  provider: string,
+  model: string
+): boolean {
+  if (!face?.supported) return false
+  const wantedModel = model.trim()
+  if (!wantedModel) return false
+  const wantedProvider = provider.trim()
+  return face.models.some(
+    (option) =>
+      option.model === wantedModel &&
+      (!wantedProvider ||
+        option.provider === wantedProvider ||
+        option.provider_id === wantedProvider)
+  )
 }

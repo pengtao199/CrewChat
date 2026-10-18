@@ -4,12 +4,14 @@ import {
   buildModelGroups,
   ccrStateForBody,
   createEmptyRole,
+  faceIncludesModel,
   profilesFromConfig,
   resolveModelProvider,
   summarizeMcpServer,
   toggleId,
 } from "./helpers"
 import type { CcrProfileSummary } from "@/lib/ccr"
+import type { BodyModelFace } from "@/lib/agent-roles"
 
 describe("createEmptyRole", () => {
   it("starts unsaved with an empty id", () => {
@@ -133,5 +135,60 @@ describe("ccrStateForBody", () => {
     expect(
       ccrStateForBody("codex", [profile({ agent: "claude-code" })], false)
     ).toBe("bindable")
+  })
+})
+
+// [crewchat] The reachability test behind the editor's warning line.
+describe("faceIncludesModel", () => {
+  const face = (over: Partial<BodyModelFace> = {}): BodyModelFace => ({
+    supported: true,
+    reason: null,
+    models: [
+      {
+        provider: "OpenCode Go",
+        provider_id: "opencode-go-chat-completions",
+        model: "mimo-v2.6-flash",
+      },
+    ],
+    ...over,
+  })
+
+  it("accepts either the provider display name or its id", () => {
+    expect(faceIncludesModel(face(), "OpenCode Go", "mimo-v2.6-flash")).toBe(
+      true
+    )
+    expect(
+      faceIncludesModel(
+        face(),
+        "opencode-go-chat-completions",
+        "mimo-v2.6-flash"
+      )
+    ).toBe(true)
+  })
+
+  it("matches on the model alone when the role stores no provider", () => {
+    expect(faceIncludesModel(face(), "", "mimo-v2.6-flash")).toBe(true)
+  })
+
+  it("rejects a model or provider the face does not carry", () => {
+    expect(faceIncludesModel(face(), "OpenCode Go", "deepseek-flash")).toBe(
+      false
+    )
+    expect(faceIncludesModel(face(), "Other Provider", "mimo-v2.6-flash")).toBe(
+      false
+    )
+    expect(faceIncludesModel(face(), "OpenCode Go", "")).toBe(false)
+  })
+
+  it("treats an unsupported engine as nothing-reachable", () => {
+    expect(
+      faceIncludesModel(face({ supported: false, models: [] }), "", "any")
+    ).toBe(false)
+    // …and an undetermined face likewise: `supported` is what tells "cannot
+    // know" from "not offered", and the editor shows no warning for the former.
+    expect(faceIncludesModel(face({ models: [] }), "", "any")).toBe(false)
+    expect(faceIncludesModel(null, "OpenCode Go", "mimo-v2.6-flash")).toBe(
+      false
+    )
   })
 })

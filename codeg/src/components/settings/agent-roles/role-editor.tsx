@@ -15,10 +15,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import type { AgentRole } from "@/lib/agent-roles"
+import type { AgentRole, BodyModelFace } from "@/lib/agent-roles"
 import type { AcpAgentInfo, LocalMcpServer } from "@/lib/types"
 
 import {
+  faceIncludesModel,
   resolveModelProvider,
   summarizeMcpServer,
   type ModelGroup,
@@ -42,6 +43,13 @@ interface RoleEditorProps {
    * picker and decides which hint (bind / unsupported / retry) shows below
    * it. */
   ccrState: RoleCcrState
+  /**
+   * [crewchat] What THIS engine's gateway face offers. `null` while it is being
+   * read. An unsupported engine (`supported: false`) cannot be pinned at all,
+   * so the picker locks and says why instead of offering a choice the launcher
+   * would ignore.
+   */
+  modelFace: BodyModelFace | null
   onRetryCcr: () => void
   onChange: (patch: Partial<AgentRole>) => void
   onSave: () => void
@@ -57,6 +65,7 @@ export function RoleEditor({
   busy,
   canDelete,
   ccrState,
+  modelFace,
   onRetryCcr,
   onChange,
   onSave,
@@ -119,6 +128,23 @@ export function RoleEditor({
     ccrState === "bindable" ||
     ccrState === "unsupported" ||
     ccrState === "unreachable"
+  // [crewchat] The second gate is about the ENGINE, not CCR's binding: a body
+  // with no overlay cannot be pinned to any model, so its picker is locked and
+  // explained. `supported: true` with an empty list means "could not determine"
+  // (CCR unreachable) — that case keeps the picker open and says nothing extra,
+  // because the CCR hint below already covers it.
+  const engineUnpinnable = modelFace != null && !modelFace.supported
+  const modelPickerDisabled =
+    modelGroups.length === 0 || modelGated || engineUnpinnable
+  // [crewchat] A stored pair the engine's face does not offer is what makes the
+  // roster page lie today: the value saves, and the launcher quietly runs the
+  // CLI's own model. Say so, without touching the pick (an old role must keep
+  // the model it has).
+  const modelUnreachable =
+    !engineUnpinnable &&
+    modelFace?.supported === true &&
+    Boolean(draft.model) &&
+    !faceIncludesModel(modelFace, providerValue, draft.model)
   const modelGateText =
     ccrState === "bindable"
       ? t("ccrGatedBindable")
@@ -182,7 +208,7 @@ export function RoleEditor({
                 onValueChange={(value) =>
                   onChange({ model_provider: value, model: "" })
                 }
-                disabled={modelGroups.length === 0 || modelGated}
+                disabled={modelPickerDisabled}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("providerPlaceholder")} />
@@ -201,7 +227,10 @@ export function RoleEditor({
                   onChange({ model: value, model_provider: providerValue })
                 }
                 disabled={
-                  modelGroups.length === 0 || !providerValue || modelGated
+                  modelGroups.length === 0 ||
+                  !providerValue ||
+                  modelGated ||
+                  engineUnpinnable
                 }
               >
                 <SelectTrigger className="w-full">
@@ -216,7 +245,21 @@ export function RoleEditor({
                 </SelectContent>
               </Select>
             </div>
-            {modelGated ? (
+            {engineUnpinnable ? (
+              // The engine itself is the blocker, so this hint outranks the CCR
+              // one: binding CCR would not help.
+              <p className="text-2xs text-muted-foreground">
+                {t("modelUnsupported")}
+                {modelFace?.reason ? (
+                  <span className="ml-1 opacity-70" title={modelFace.reason}>
+                    （{modelFace.reason}）
+                  </span>
+                ) : null}
+              </p>
+            ) : modelUnreachable ? (
+              <p className="text-2xs text-amber-500">{t("modelUnreachable")}</p>
+            ) : null}
+            {modelGated && !engineUnpinnable ? (
               <p className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
                 <span>{modelGateText}</span>
                 {ccrState === "bindable" && (

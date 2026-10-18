@@ -26,10 +26,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
+  agentRoleModelFace,
   deleteAgentRole,
   listAgentRoles,
   saveAgentRole,
   type AgentRole,
+  type BodyModelFace,
 } from "@/lib/agent-roles"
 import { acpListAgentSkills, acpListAgents, mcpScanLocal } from "@/lib/api"
 import { toErrorMessage } from "@/lib/app-error"
@@ -103,6 +105,10 @@ export function AgentRolesSettings() {
 
   const [bodies, setBodies] = useState<AcpAgentInfo[]>([])
   const [modelGroups, setModelGroups] = useState<ModelGroup[]>([])
+  // [crewchat] What the draft's ENGINE can actually be pinned to (per-body
+  // gateway face). `null` = not read yet; the editor treats an unsupported face
+  // as "no model choice can be honoured" and says so.
+  const [modelFace, setModelFace] = useState<BodyModelFace | null>(null)
   const [mcpServers, setMcpServers] = useState<LocalMcpServer[]>([])
   const [skills, setSkills] = useState<SkillsPanelState>({
     loading: false,
@@ -159,6 +165,27 @@ export function AgentRolesSettings() {
   }, [loadCcr])
 
   const agentType = draft?.agent_type ?? ""
+  // [crewchat] Read the draft engine's model face whenever the engine changes.
+  // A failed read degrades to `null` (the picker keeps its old behaviour) —
+  // this hint must never be the reason the page breaks.
+  useEffect(() => {
+    if (!agentType) {
+      setModelFace(null)
+      return
+    }
+    let cancelled = false
+    setModelFace(null)
+    agentRoleModelFace(agentType as AgentType)
+      .then((face) => {
+        if (!cancelled) setModelFace(face)
+      })
+      .catch(() => {
+        if (!cancelled) setModelFace(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [agentType])
   useEffect(() => {
     if (!agentType) {
       setSkills({ loading: false, result: null })
@@ -316,6 +343,7 @@ export function AgentRolesSettings() {
                     ccrProfiles,
                     ccrUnreachable
                   )}
+                  modelFace={modelFace}
                   onRetryCcr={() => void loadCcr()}
                   onChange={patchDraft}
                   onSave={() => {
