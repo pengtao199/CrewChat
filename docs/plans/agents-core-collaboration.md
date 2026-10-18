@@ -92,6 +92,17 @@ Next: 4.4 Agent 优先（`3c199f8`）✅、4.2 团队 @ 联动（`510d45a`）✅
   - **真机证据（2026-10-19）**：`opencode run "reply with exactly OK"` 在隔离配置下 → CCR 日志 `client=opencode provider=OpenCode Go model=mimo-v2.6-flash 200`（两次，其中一次配置里写的是 `{env:…}`）。
 - **注意**：`文档维护专家` 当前大脑是 `agnes/agnes-2.5-flash`，而 CCR 里**没有** `agnes` provider → 即便实现完成，该角色也会如实降级（`Unavailable` + 会话跑 CLI 自己的配置）直到你改掉它。
 
+### Phase 3.5 · open_code overlay（机制已实测，实现待做）
+
+- **3.5 open_code 按角色定模型** ⏸ 2026-10-19：**机制已验证、实现整批撤回**（我在编辑中把函数插重复、编译失败，按纪律撤回未提交改动，不让纠缠代码进历史）。`文档维护专家` 是 open_code 身体，3.4 之后界面已如实说"暂不支持"，但模型仍不生效。
+- **已验证的配方（照抄，别再考古）**：
+  - opencode 的配置是**分层**的：`$OPENCODE_CONFIG` 在用户全局配置**之后**合并（顺序见 `parsers/opencode_context_window.rs` 的 `config_files`）→ **不需要镜像 home**（比 codex 省一半），只需一个覆盖文件。
+  - 覆盖文件：`model = "crewchat/<模型名>"` + `provider.crewchat = { npm: "@ai-sdk/openai-compatible", name: "CCR (crewchat)", options: { baseURL: "<网关>/v1", apiKey: "{env:CODEG_CCR_GATEWAY_KEY}" }, models: { "<模型名>": { name } } }`。
+  - 环境：`OPENCODE_CONFIG=<覆盖文件>` + `CODEG_CCR_GATEWAY_KEY=<CCR profile key>`；`{env:…}` 由 opencode 加载时解析 → **密钥不落盘**（比 codex 的 `env_key` 更干净）。
+  - 复用 `gateway::codex_gateway_model`（非 claude 面通用，已按此考虑改名为 `provider_gateway_model`）+ 把 `OpenCode` 加进 `overlay_support` 与启动分派 + `faces.rs` 的 Codex 分支。
+  - **真机证据**：`opencode run "reply with exactly OK"` 在隔离配置下 → CCR 日志 `client=opencode provider=OpenCode Go model=mimo-v2.6-flash 200`（两次，其中一次配置里写的是 `{env:…}`）。
+- **注意**：`文档维护专家` 当前大脑是 `agnes/agnes-2.5-flash`，而 CCR 里没有 `agnes` provider → 实现完成后该角色也会如实降级（`Unavailable` + 跑 CLI 自己配置），除非先改掉它的模型。
+
 ### Phase 4 · 体验增强
 
 - **4.1 卡内内联展开成员流** 🟡 2026-10-17（复用 `LiveTranscriptView`；代码完成、测试绿，真机验收待用户）：委派卡新增内联流开关——`trailingAction` 槽位（标签块与「查看会话」之间）展开固定高度（`h-80`）的子会话实时流，默认收起（不进内联流的用户看到的仍是单行卡）；**内联与抽屉互斥**——`SessionViewerHostValue` 增可选 `close?()`，任一方式打开即让另一方退出（两者挂同一个实时桥，同一子会话两个桥会互相清空）。开关仅在 `childConversationId` 已知时出现。测试：新增 `delegated-sub-thread.inline.test.tsx` 8 例（默认单行 / 展开指向子会话与子连接 / 折叠 / 无子会话无开关 / 双向互斥 / 只挂一个桥 / 卡自身行不变），既有卡测试补 mock 与断言；prettier / eslint / tsc 零告警；全量 `vitest` 8942 例绿（含同批修掉的两处拆分裂缝，见下）。**同时收尾两处历史红**：① `hermes-providers.test.ts` / `tab-view-order.test.tsx` 的源码路径断言改指拆分后落点（`commands/acp/mod.rs`、`conversation-detail-panel/index.tsx`）；② `conversation-detail-header{,-tags}.test.tsx` 的 `app-workspace-store` fake 补 `subscribe`（1.4 的 `TeamMemberStrip` 把 `tab-store` 的模块级 `subscribe` 带进头部导入图，只带 `getState` 的 fake 令整个 suite 在收集期崩）。→ 做到：可选展开，不影响现有卡与抽屉。
