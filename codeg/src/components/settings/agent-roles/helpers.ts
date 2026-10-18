@@ -137,6 +137,35 @@ export function profilesFromConfig(
 }
 
 /**
+ * [crewchat] The roster ROW's verdict on a role's model pick — what used to be
+ * invisible until you opened the role.
+ *
+ * `unknown` is the honest default for everything we cannot judge: no face read
+ * yet, a body with no model configured, or an undetermined face (CCR
+ * unreachable, which the CCR badge on the same row already reports). Only
+ * `unsupported` and `unreachable` are worth a badge, and they are exactly the
+ * two cases where the Agents page would otherwise look like it works.
+ */
+export type RoleModelFaceState =
+  | "unknown"
+  | "unsupported"
+  | "unreachable"
+  | "ok"
+
+export function roleModelFaceState(
+  face: BodyModelFace | null | undefined,
+  provider: string,
+  model: string
+): RoleModelFaceState {
+  if (!face) return "unknown"
+  if (!face.supported) return "unsupported"
+  // No model configured is the role's own business (the CLI default applies),
+  // and an empty list means "could not determine" — neither is a lie to flag.
+  if (!model.trim() || face.models.length === 0) return "unknown"
+  return faceIncludesModel(face, provider, model) ? "ok" : "unreachable"
+}
+
+/**
  * [crewchat] Is the stored `(provider, model)` pair one the engine's face
  * actually offers?
  *

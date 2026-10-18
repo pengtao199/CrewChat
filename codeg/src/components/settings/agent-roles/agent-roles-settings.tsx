@@ -5,6 +5,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
+  CircleSlash,
   Loader2,
   Plus,
   Trash2,
@@ -44,8 +45,10 @@ import {
   ccrStateForBody,
   createEmptyRole,
   profilesFromConfig,
+  roleModelFaceState,
   type ModelGroup,
   type RoleCcrState,
+  type RoleModelFaceState,
   type SkillsPanelState,
 } from "./helpers"
 import { RoleEditor } from "./role-editor"
@@ -92,6 +95,45 @@ function CcrRowBadge({ state }: { state: RoleCcrState }) {
   )
 }
 
+/**
+ * [crewchat] The second badge on a roster row: can this engine be pinned to the
+ * role's model at all?
+ *
+ * The CCR badge next to it answers "is this CLI bound to CCR"; this one answers
+ * the question the roster page used to lie about — whether the pick will
+ * actually reach the CLI. `ok` and `unknown` render nothing: a role with no
+ * model, or a face we could not read, is not something to nag about.
+ */
+function RoleModelBadge({ state }: { state: RoleModelFaceState }) {
+  const t = useTranslations("AgentRoles")
+  const spec = {
+    unsupported: {
+      icon: CircleSlash,
+      text: t("modelFaceUnsupported"),
+      className: "text-muted-foreground",
+    },
+    unreachable: {
+      icon: AlertCircle,
+      text: t("modelFaceUnreachable"),
+      className: "text-amber-600 dark:text-amber-400",
+    },
+  }[state as "unsupported" | "unreachable"]
+  if (!spec) return null
+  const Icon = spec.icon
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-0.5 text-2xs",
+        spec.className
+      )}
+      title={spec.text}
+    >
+      <Icon className="h-3 w-3 shrink-0" />
+      <span className="truncate">{spec.text}</span>
+    </span>
+  )
+}
+
 /** The roster page: list on the left, the role editor on the right. */
 export function AgentRolesSettings() {
   const t = useTranslations("AgentRoles")
@@ -109,6 +151,14 @@ export function AgentRolesSettings() {
   // gateway face). `null` = not read yet; the editor treats an unsupported face
   // as "no model choice can be honoured" and says so.
   const [modelFace, setModelFace] = useState<BodyModelFace | null>(null)
+  // [crewchat] The model face of every engine this roster USES, keyed by body, so
+  // each list row can say whether its model pick would actually reach the CLI
+  // (the editor's `modelFace` above only covers the open draft). Best-effort: a
+  // failed read leaves the row without the extra badge rather than with a wrong
+  // one, and each body is asked once per roster change.
+  const [faceByBody, setFaceByBody] = useState<Map<string, BodyModelFace>>(
+    new Map()
+  )
   const [mcpServers, setMcpServers] = useState<LocalMcpServer[]>([])
   const [skills, setSkills] = useState<SkillsPanelState>({
     loading: false,
@@ -165,6 +215,39 @@ export function AgentRolesSettings() {
   }, [loadCcr])
 
   const agentType = draft?.agent_type ?? ""
+  // [crewchat] Fetch one face per body the roster uses (see `faceByBody`). The
+  // key is the joined body list so a rename/reorder doesn't refetch, and a body
+  // that disappears from the roster simply stops being asked for.
+  const rosterBodiesKey = useMemo(
+    () =>
+      Array.from(
+        new Set(roles.map((role) => role.agent_type).filter(Boolean))
+      ).join("|"),
+    [roles]
+  )
+  useEffect(() => {
+    if (!rosterBodiesKey) return
+    let cancelled = false
+    void Promise.all(
+      rosterBodiesKey.split("|").map((body) =>
+        agentRoleModelFace(body as AgentType)
+          .then((face) => [body, face] as const)
+          .catch(() => null)
+      )
+    ).then((entries) => {
+      if (cancelled) return
+      setFaceByBody((current) => {
+        const next = new Map(current)
+        for (const entry of entries) {
+          if (entry) next.set(entry[0], entry[1])
+        }
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [rosterBodiesKey])
   // [crewchat] Read the draft engine's model face whenever the engine changes.
   // A failed read degrades to `null` (the picker keeps its old behaviour) —
   // this hint must never be the reason the page breaks.
@@ -311,13 +394,22 @@ export function AgentRolesSettings() {
                       <span className="min-w-0 truncate text-2xs text-muted-foreground">
                         {bodyNames.get(role.agent_type) ?? role.agent_type}
                       </span>
-                      <CcrRowBadge
-                        state={ccrStateForBody(
-                          role.agent_type,
-                          ccrProfiles,
-                          ccrUnreachable
-                        )}
-                      />
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <RoleModelBadge
+                          state={roleModelFaceState(
+                            faceByBody.get(role.agent_type),
+                            role.model_provider,
+                            role.model
+                          )}
+                        />
+                        <CcrRowBadge
+                          state={ccrStateForBody(
+                            role.agent_type,
+                            ccrProfiles,
+                            ccrUnreachable
+                          )}
+                        />
+                      </span>
                     </span>
                   </button>
                 ))}

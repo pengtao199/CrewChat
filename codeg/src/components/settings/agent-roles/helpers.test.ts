@@ -7,6 +7,7 @@ import {
   faceIncludesModel,
   profilesFromConfig,
   resolveModelProvider,
+  roleModelFaceState,
   summarizeMcpServer,
   toggleId,
 } from "./helpers"
@@ -190,5 +191,62 @@ describe("faceIncludesModel", () => {
     expect(faceIncludesModel(null, "OpenCode Go", "mimo-v2.6-flash")).toBe(
       false
     )
+  })
+})
+
+// [crewchat] The roster ROW's badge: which of these deserves a marker at all?
+describe("roleModelFaceState", () => {
+  const face = (over: Partial<BodyModelFace> = {}): BodyModelFace => ({
+    supported: true,
+    reason: null,
+    models: [
+      {
+        provider: "OpenCode Go",
+        provider_id: "opencode-go-chat-completions",
+        model: "mimo-v2.6-flash",
+      },
+    ],
+    ...over,
+  })
+
+  it("is ok when the stored pair is on the face", () => {
+    expect(roleModelFaceState(face(), "OpenCode Go", "mimo-v2.6-flash")).toBe(
+      "ok"
+    )
+    // Provider stored as an id, or omitted entirely, still counts.
+    expect(
+      roleModelFaceState(
+        face(),
+        "opencode-go-chat-completions",
+        "mimo-v2.6-flash"
+      )
+    ).toBe("ok")
+    expect(roleModelFaceState(face(), "", "mimo-v2.6-flash")).toBe("ok")
+  })
+
+  it("flags an engine with no overlay as unsupported", () => {
+    expect(
+      roleModelFaceState(face({ supported: false, models: [] }), "", "any")
+    ).toBe("unsupported")
+  })
+
+  it("flags a model the face does not carry as unreachable", () => {
+    expect(roleModelFaceState(face(), "OpenCode Go", "deepseek-flash")).toBe(
+      "unreachable"
+    )
+    expect(
+      roleModelFaceState(face(), "Other Provider", "mimo-v2.6-flash")
+    ).toBe("unreachable")
+  })
+
+  it("stays silent about everything it cannot judge", () => {
+    // No read yet / read failed.
+    expect(roleModelFaceState(null, "OpenCode Go", "mimo-v2.6-flash")).toBe(
+      "unknown"
+    )
+    // A body with no model configured is the CLI-default case, not a lie.
+    expect(roleModelFaceState(face(), "OpenCode Go", "")).toBe("unknown")
+    // An undetermined face (CCR unreachable) is already the CCR badge's story.
+    expect(roleModelFaceState(face({ models: [] }), "", "any")).toBe("unknown")
   })
 })

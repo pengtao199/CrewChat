@@ -7204,6 +7204,8 @@
     "modelUnavailable": "CCR is unreachable or has no models",
     "modelUnsupported": "This engine can't be pinned to a roster model yet — the session runs on the CLI's own configuration.",
     "modelUnreachable": "This model isn't on this engine's list right now — the session would run on the CLI's own configuration instead.",
+    "modelFaceUnsupported": "No per-role model",
+    "modelFaceUnreachable": "Model unreachable",
     "skillSectionTitle": "Local skills",
     "skillHint": "Skills found on this machine for the chosen body.",
     "skillSelectPlaceholder": "Search or pick local skills",

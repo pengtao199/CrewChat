@@ -7204,6 +7204,8 @@
     "modelUnavailable": "CCR 不可用或暂无模型",
     "modelUnsupported": "该引擎暂不支持按角色指定模型——会话会跑 CLI 自己的配置。",
     "modelUnreachable": "该模型当前不在这个引擎的可用清单里——会话会改用 CLI 自己的配置。",
+    "modelFaceUnsupported": "不支持按角色定模型",
+    "modelFaceUnreachable": "模型不可达",
     "skillSectionTitle": "本地 Skill",
     "skillHint": "来自本机、所选身体对应的技能目录。",
     "skillSelectPlaceholder": "搜索或选择本地 Skill",
