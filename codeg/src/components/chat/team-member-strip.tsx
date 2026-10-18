@@ -23,12 +23,13 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
-import { Users } from "lucide-react"
+import { AlertTriangle, Users } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useShallow } from "zustand/react/shallow"
 
 import { useConnectionStore } from "@/contexts/acp-connections-context"
 import { useDelegation } from "@/contexts/delegation-context"
+import { useDelegationEnabled } from "@/hooks/use-delegation-enabled"
 import { listAgentRoles, type AgentRole } from "@/lib/agent-roles"
 import { listChildConversations } from "@/lib/api"
 import {
@@ -95,6 +96,11 @@ function TeamMemberStripBody({
 }) {
   const t = useTranslations("TeamMemberStrip")
   const { listBindings } = useDelegation()
+  // [crewchat] Members are only meaningful with delegation on (the team frame is
+  // injected only for delegation-enabled connections); with it off the chips sit
+  // on "待命" forever and the leader cannot see anyone. Say so here — this strip
+  // is where the user looks to check on the team.
+  const delegationEnabled = useDelegationEnabled()
   const [roles, setRoles] = useState<AgentRole[] | null>(null)
   const [children, setChildren] = useState<
     import("@/lib/types").DbConversationSummary[] | null
@@ -220,6 +226,28 @@ function TeamMemberStripBody({
           />
         ))}
       </div>
+      {/* [crewchat] Members without delegation are decoration: the leader gets no
+          team frame and no delegation tool, so nothing here will ever run. That
+          must be visible where the user checks on the team, with a way to fix it. */}
+      {delegationEnabled === false && (
+        <span
+          className="flex shrink-0 items-center gap-1 pl-1 text-2xs text-amber-600 dark:text-amber-400"
+          data-testid="team-delegation-off"
+        >
+          <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+          <span className="truncate">{t("delegationOff")}</span>
+          <button
+            type="button"
+            className="shrink-0 text-primary hover:underline"
+            onClick={() => {
+              if (typeof window === "undefined") return
+              window.location.assign("/settings/collaboration")
+            }}
+          >
+            {t("delegationOffAction")} →
+          </button>
+        </span>
+      )}
     </div>
   )
 }

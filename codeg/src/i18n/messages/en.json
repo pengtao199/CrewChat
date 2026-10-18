@@ -750,7 +750,9 @@
     "statusWaiting": "Waiting for permission",
     "statusDone": "Done",
     "statusFailed": "Failed",
-    "statusCancelled": "Cancelled"
+    "statusCancelled": "Cancelled",
+    "delegationOff": "Multi-agent delegation is off — the lead can't see or delegate to members",
+    "delegationOffAction": "Turn it on"
   },
   "AcpAgentSettings": {
     "readiness": {

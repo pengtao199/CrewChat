@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -13,10 +13,15 @@ const h = vi.hoisted(() => ({
   bindings: [] as unknown[],
   conversations: [] as unknown[],
   childConnection: undefined as unknown,
+  /** [crewchat] The delegation switch, as the strip reads it. */
+  delegationEnabled: null as boolean | null,
 }))
 
 vi.mock("@/lib/agent-roles", () => ({
   listAgentRoles: h.listAgentRoles,
+}))
+vi.mock("@/hooks/use-delegation-enabled", () => ({
+  useDelegationEnabled: () => h.delegationEnabled,
 }))
 vi.mock("@/lib/api", () => ({
   listChildConversations: h.listChildConversations,
@@ -169,5 +174,27 @@ describe("TeamMemberStrip", () => {
     // resolvable member there is no strip to show.
     await screen.findByTestId("team-member-strip").catch(() => null)
     expect(screen.queryByTestId("team-member-strip")).toBeNull()
+  })
+
+  // [crewchat] A team is decoration while delegation is off: the lead gets no
+  // team frame and no delegation tool. That has to be visible where the user
+  // checks on the team — this is the exact confusion the warning exists for.
+  it("warns that members are inert while delegation is off", async () => {
+    h.listAgentRoles.mockResolvedValue([role({})])
+    h.delegationEnabled = false
+    renderStrip()
+    const warning = await screen.findByTestId("team-delegation-off")
+    expect(warning).toHaveTextContent(/Multi-agent delegation is off/)
+    expect(
+      within(warning).getByRole("button", { name: /Turn it on/ })
+    ).toBeInTheDocument()
+  })
+
+  it("says nothing about delegation once it is on (or unknown)", async () => {
+    h.listAgentRoles.mockResolvedValue([role({})])
+    h.delegationEnabled = true
+    renderStrip()
+    await screen.findByTestId("team-member-strip")
+    expect(screen.queryByTestId("team-delegation-off")).toBeNull()
   })
 })

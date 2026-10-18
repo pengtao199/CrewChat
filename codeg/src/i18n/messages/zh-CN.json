@@ -750,7 +750,9 @@
     "statusWaiting": "等权限",
     "statusDone": "完成",
     "statusFailed": "失败",
-    "statusCancelled": "已取消"
+    "statusCancelled": "已取消",
+    "delegationOff": "「多智能体协同」未开启——组长看不到也无法委派成员",
+    "delegationOffAction": "去开启"
   },
   "AcpAgentSettings": {
     "readiness": {
