@@ -9447,6 +9447,10 @@ pub async fn acp_connect(
     session_id: Option<String>,
     preferred_mode_id: Option<String>,
     preferred_config_values: Option<BTreeMap<String, String>>,
+    // [crewchat] `role_id` is the roster role this session runs as (the
+    // conversation's team leader). Its brain model is pinned onto the CLI before
+    // launch; `None` leaves the session on the CLI's own model.
+    role_id: Option<String>,
     manager: State<'_, ConnectionManager>,
     db: State<'_, AppDatabase>,
     app_handle: tauri::AppHandle,
@@ -9462,8 +9466,21 @@ pub async fn acp_connect(
         .app_data_dir()
         .map(|p| crate::paths::resolve_effective_data_dir(&p))
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let runtime_env =
+    let mut runtime_env =
         build_session_runtime_env(&db, agent_type, session_id.as_deref(), &app_data_dir).await?;
+
+    // [crewchat] Pin this session's role model before the CLI starts — the only
+    // moment either body reads it. The frontend supplies the conversation's
+    // team leader; knowing the role HERE is what makes the Agents page's model
+    // the one the CLI actually calls.
+    crate::agent_host::apply_connect_role_overlay(
+        &db,
+        &app_data_dir,
+        agent_type,
+        role_id.as_deref(),
+        &mut runtime_env,
+    )
+    .await;
 
     // Guard: the session page must never trigger a download or install.
     // If the agent isn't ready, return SdkNotInstalled here so the frontend

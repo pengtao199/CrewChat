@@ -25,6 +25,13 @@ interface UseConnectionLifecycleOptions {
    */
   conversationId?: number
   /**
+   * [crewchat] Roster role this session runs as — the conversation's team
+   * leader. The backend pins that role's model onto the CLI at LAUNCH, so it
+   * must be known before connecting. Empty/omitted = no role: the session runs
+   * on the CLI's own configured model.
+   */
+  roleId?: string
+  /**
    * True while the CALLER is deliberately holding auto-connect back until it
    * has resolved something the connection needs — today a historical
    * conversation's `external_id`, which must be known before connecting or the
@@ -133,6 +140,7 @@ export function useConnectionLifecycle({
   workingDir,
   sessionId,
   conversationId,
+  roleId,
   preparing = false,
   isTransientUnmount,
 }: UseConnectionLifecycleOptions): UseConnectionLifecycleReturn {
@@ -215,6 +223,14 @@ export function useConnectionLifecycle({
   useEffect(() => {
     conversationIdRef.current = conversationId
   }, [conversationId])
+  // [crewchat] The role rides the same ref treatment: auto-connect fires once
+  // from an effect, so a role that resolves a tick later must still reach the
+  // connect call (and a role that CHANGES invalidates the recorded params —
+  // `sameConnectRequest` includes it).
+  const roleIdRef = useRef(roleId)
+  useEffect(() => {
+    roleIdRef.current = roleId
+  }, [roleId])
   const modeIdRef = useRef<string | null>(modes?.current_mode_id ?? null)
   useEffect(() => {
     modeIdRef.current = modes?.current_mode_id ?? null
@@ -244,7 +260,8 @@ export function useConnectionLifecycle({
         agentType,
         workingDir,
         sessionIdRef.current,
-        conversationIdRef.current
+        conversationIdRef.current,
+        roleIdRef.current
       )
       .then(() => {
         if (!cancelled) {
@@ -412,7 +429,7 @@ export function useConnectionLifecycle({
     touchActivity(contextKey)
     if (!status || status === "disconnected" || status === "error") {
       setLastAutoConnectError(null)
-      connConnect(agentType, workingDir, sessionId, conversationId).catch(
+      connConnect(agentType, workingDir, sessionId, conversationId, roleId).catch(
         (e: unknown) => {
           if (!isExpectedConnectError(e)) {
             console.error("[ConnLifecycle] connect:", e)
@@ -426,6 +443,7 @@ export function useConnectionLifecycle({
     workingDir,
     sessionId,
     conversationId,
+    roleId,
     status,
     connConnect,
     contextKey,

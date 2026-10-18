@@ -235,7 +235,9 @@ export async function acpConnect(
   workingDir?: string,
   sessionId?: string,
   preferredModeId?: string | null,
-  preferredConfigValues?: Record<string, string> | null
+  preferredConfigValues?: Record<string, string> | null,
+  /** [crewchat] Roster role this session runs as; the backend pins its model. */
+  roleId?: string | null
 ): Promise<string> {
   return getTransport().call("acp_connect", {
     agentType,
@@ -243,6 +245,7 @@ export async function acpConnect(
     sessionId: sessionId ?? null,
     preferredModeId: preferredModeId ?? null,
     preferredConfigValues: preferredConfigValues ?? null,
+    roleId: roleId ?? null,
   })
 }
 

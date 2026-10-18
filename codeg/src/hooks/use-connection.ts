@@ -111,7 +111,10 @@ export interface UseConnectionReturn {
     agentType: AgentType,
     workingDir?: string,
     sessionId?: string,
-    conversationId?: number
+    conversationId?: number,
+    /** [crewchat] Roster role this session runs as; the backend pins its model
+     *  onto the CLI before launch. See `use-connection-lifecycle`'s `roleId`. */
+    roleId?: string
   ) => Promise<void>
   disconnect: () => Promise<void>
   /** Restart the session (disconnect + resume same sessionId) so it picks up
@@ -278,14 +281,16 @@ export function useConnection(contextKey: string): UseConnectionReturn {
       agentType: AgentType,
       workingDir?: string,
       sessionId?: string,
-      conversationId?: number
+      conversationId?: number,
+      roleId?: string
     ) =>
       actions.connect(
         contextKey,
         agentType,
         workingDir,
         sessionId,
-        conversationId
+        conversationId,
+        roleId
       ),
     [actions, contextKey]
   )

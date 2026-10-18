@@ -470,13 +470,19 @@ type ConnectRequest = {
   // (sessionId already distinguishes), but carried so a re-fired pending
   // request still runs discovery.
   conversationId?: number
+  // [crewchat] Roster role this session runs as (the conversation's team
+  // leader). The backend pins that role's model onto the CLI at LAUNCH, so it
+  // is part of the request identity: reusing a connection opened under another
+  // role would silently keep the wrong model.
+  roleId?: string
 }
 
 function sameConnectRequest(a: ConnectRequest, b: ConnectRequest) {
   return (
     a.agentType === b.agentType &&
     (a.workingDir ?? null) === (b.workingDir ?? null) &&
-    (a.sessionId ?? null) === (b.sessionId ?? null)
+    (a.sessionId ?? null) === (b.sessionId ?? null) &&
+    (a.roleId ?? null) === (b.roleId ?? null)
   )
 }
 
@@ -3134,7 +3140,8 @@ export interface AcpActionsValue {
     agentType: AgentType,
     workingDir?: string,
     sessionId?: string,
-    conversationId?: number
+    conversationId?: number,
+    roleId?: string
   ): Promise<void>
   /**
    * Release the connection for `contextKey`. The LOCAL entry always goes away
@@ -6560,13 +6567,15 @@ export function AcpConnectionsProvider({ children }: { children: ReactNode }) {
       agentType: AgentType,
       workingDir?: string,
       sessionId?: string,
-      conversationId?: number
+      conversationId?: number,
+      roleId?: string
     ) => {
       const request: ConnectRequest = {
         agentType,
         workingDir,
         sessionId,
         conversationId,
+        roleId,
       }
       // Remember BEFORE the in-flight early return and before the preflight can
       // throw: a connect that never produced a store entry is precisely when
@@ -6912,7 +6921,8 @@ export function AcpConnectionsProvider({ children }: { children: ReactNode }) {
           workingDir,
           sessionId,
           savedPrefs.modeId,
-          savedPrefs.configValues
+          savedPrefs.configValues,
+          request.roleId
         )
 
         // If disconnect was requested while connect was in flight, tear down

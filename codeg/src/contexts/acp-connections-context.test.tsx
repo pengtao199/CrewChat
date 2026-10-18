@@ -1348,7 +1348,8 @@ describe("AcpConnectionsProvider reconnect (status-icon button)", () => {
       "/tmp/x",
       "sess-1",
       undefined,
-      {}
+      {},
+      undefined
     )
     expect(h.store!.getConnection(TAB)?.connectionId).toBe("respawned-conn")
   })
@@ -1372,9 +1373,27 @@ describe("AcpConnectionsProvider reconnect (status-icon button)", () => {
       "/tmp/x",
       "sess-1",
       undefined,
-      {}
+      {},
+      undefined
     )
     expect(h.store!.getConnection(TAB)?.connectionId).toBe("respawned-conn")
+  })
+
+  it("forwards the session's role id so the backend can pin its model", async () => {
+    // [crewchat] The roster role reaches `acp_connect` as its sixth argument;
+    // without it the backend cannot bind the role's brain model before the CLI
+    // starts, and the Agents page would be promising a model nothing applies.
+    await act(async () => {
+      await h.actions!.connect(TAB, "codex", "/tmp/x", "sess-1", 42, "crewchat-manager")
+    })
+    expect(h.acpConnect).toHaveBeenCalledWith(
+      "codex",
+      "/tmp/x",
+      "sess-1",
+      undefined,
+      {},
+      "crewchat-manager"
+    )
   })
 
   it("reconnects a tab whose connection is gone entirely", async () => {
@@ -1399,7 +1418,8 @@ describe("AcpConnectionsProvider reconnect (status-icon button)", () => {
       "/tmp/x",
       "sess-1",
       undefined,
-      {}
+      {},
+      undefined
     )
   })
 
@@ -1445,7 +1465,8 @@ describe("AcpConnectionsProvider reconnect (status-icon button)", () => {
       "/tmp/x",
       "sess-1",
       undefined,
-      {}
+      {},
+      undefined
     )
   })
 
@@ -1564,7 +1585,8 @@ describe("AcpConnectionsProvider reconnect (status-icon button)", () => {
       "/tmp/x",
       "sess-1",
       undefined,
-      {}
+      {},
+      undefined
     )
     expect(h.store!.getConnection(TAB)?.connectionId).toBe("respawned-conn")
   })
@@ -1653,7 +1675,8 @@ describe("AcpConnectionsProvider reconnect (status-icon button)", () => {
       "/tmp/x",
       "snapshot-session",
       undefined,
-      {}
+      {},
+      undefined
     )
   })
 
@@ -1693,7 +1716,8 @@ describe("AcpConnectionsProvider reconnect (status-icon button)", () => {
       "/tmp/x",
       "minted-1",
       undefined,
-      {}
+      {},
+      undefined
     )
   })
 })
@@ -1750,7 +1774,8 @@ describe("AcpConnectionsProvider disconnect teardown confirmation", () => {
       "/tmp/x",
       "sess-1",
       undefined,
-      {}
+      {},
+      undefined
     )
     // ...but the caller must not show an "applied" confirmation for a restart
     // that may have landed right back on the process it meant to replace.

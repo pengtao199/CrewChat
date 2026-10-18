@@ -320,6 +320,12 @@ export const ConversationTabView = memo(function ConversationTabView({
   const composerTeamMemberRoleIds =
     (dbConversationId != null ? persistedTeam : draftTeam)?.member_role_ids ??
     []
+  // [crewchat] The role this session RUNS AS — the team's leader. The backend
+  // pins that role's brain model onto the CLI before it launches, so it has to
+  // be known at connect time; null = no role, and the CLI's own model stands.
+  const composerLeaderRoleId =
+    (dbConversationId != null ? persistedTeam : draftTeam)?.leader_role_id ??
+    null
   // Seed from localStorage so the React state reflects the user's saved
   // mode for this agent immediately on mount. Without this seed, a reuse-
   // path connect (idle window after a refresh, before the agent is GC'd)
@@ -646,6 +652,11 @@ export const ConversationTabView = memo(function ConversationTabView({
     // Drives cross-client viewer discovery: when another client is already
     // live on this conversation, attach to its connection instead of spawning.
     conversationId: dbConversationId ?? undefined,
+    // [crewchat] The role this session runs as, so the backend can pin the
+    // roster's brain model onto the CLI at launch (claude: isolated config home;
+    // codex: isolated `CODEX_HOME`). Without it the session keeps the CLI's own
+    // model and the Agents page would be promising something it does not do.
+    roleId: composerLeaderRoleId ?? undefined,
     // The auto-connect gate above is a WAIT, not an idle state: report it so the
     // composer and the status bar can show the conversation is opening instead
     // of an empty, connection-less composer. Scoped to the active tab — the

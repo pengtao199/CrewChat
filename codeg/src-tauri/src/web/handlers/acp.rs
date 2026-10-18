@@ -12,6 +12,7 @@ use crate::acp::types::{
     AcpAgentInfo, AcpAgentStatus, AgentDiagnosticsReport, AgentSkillContent, AgentSkillLayout,
     AgentSkillScope, AgentSkillsListResult, ConnectionInfo, ForkResultInfo,
 };
+use crate::agent_host;
 use crate::app_error::{AppCommandError, AppErrorCode};
 use crate::app_state::AppState;
 use crate::commands::acp as acp_commands;
@@ -74,6 +75,11 @@ pub struct AcpConnectParams {
     pub preferred_mode_id: Option<String>,
     #[serde(default)]
     pub preferred_config_values: Option<BTreeMap<String, String>>,
+    /// [crewchat] Roster role this session runs as (the conversation's team
+    /// leader). Its brain model is pinned onto the CLI before launch; `None`
+    /// leaves the session on the CLI's own model.
+    #[serde(default)]
+    pub role_id: Option<String>,
 }
 
 pub async fn acp_connect(
@@ -83,7 +89,7 @@ pub async fn acp_connect(
     let db = &state.db;
     let manager = &state.connection_manager;
 
-    let runtime_env = acp_commands::build_session_runtime_env(
+    let mut runtime_env = acp_commands::build_session_runtime_env(
         db,
         params.agent_type,
         params.session_id.as_deref(),
@@ -91,6 +97,17 @@ pub async fn acp_connect(
     )
     .await
     .map_err(|e| AppCommandError::task_execution_failed(e.to_string()))?;
+
+    // [crewchat] Same one-line overlay as the desktop command — see
+    // `agent_host::apply_connect_role_overlay`.
+    agent_host::apply_connect_role_overlay(
+        db,
+        &state.data_dir,
+        params.agent_type,
+        params.role_id.as_deref(),
+        &mut runtime_env,
+    )
+    .await;
 
     // Guard: the session page must never trigger a download or install.
     // If the agent isn't ready, return SdkNotInstalled here so the frontend
