@@ -8,6 +8,12 @@ import { getTransport } from "./transport"
 export interface CcrHealth {
   url: string
   tokenConfigured: boolean
+  /**
+   * [crewchat] Where the management token came from: `"env"` (`CCR_WEB_AUTH_TOKEN`),
+   * `"service-file"` (discovered from CCR's own `~/.claude-code-router/service.json`,
+   * which is what makes a double-clicked desktop app work), or null when there is none.
+   */
+  tokenSource?: "env" | "service-file" | null
 }
 
 export function ccrHealth(): Promise<CcrHealth> {

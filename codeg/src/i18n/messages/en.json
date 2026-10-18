@@ -7077,6 +7077,8 @@
     "connectionLabel": "CCR endpoint",
     "tokenLabel": "Access token",
     "tokenConfigured": "Configured",
+    "tokenSourceEnv": "from CCR_WEB_AUTH_TOKEN",
+    "tokenSourceDiscovered": "discovered from CCR's service.json",
     "tokenMissing": "Not configured (set CCR_WEB_AUTH_TOKEN)",
     "gatewayLabel": "Gateway",
     "gatewayRunning": "Running",

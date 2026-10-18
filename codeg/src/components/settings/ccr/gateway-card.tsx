@@ -80,6 +80,18 @@ export function GatewayCard({
                   ? t("tokenConfigured")
                   : t("tokenMissing")}
               </span>
+              {/* [crewchat] Say WHERE the token came from: "discovered from CCR"
+                  is what makes a double-clicked desktop app work, and it is
+                  also the answer to "why does it work without env vars". */}
+              {health?.tokenSource ? (
+                <span className="ml-1.5 text-muted-foreground/70">
+                  （
+                  {health.tokenSource === "env"
+                    ? t("tokenSourceEnv")
+                    : t("tokenSourceDiscovered")}
+                  ）
+                </span>
+              ) : null}
             </span>
             <span className="text-muted-foreground">
               {t("pidLabel")}:

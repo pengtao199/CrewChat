@@ -7077,6 +7077,8 @@
     "connectionLabel": "CCR 地址",
     "tokenLabel": "访问 Token",
     "tokenConfigured": "已配置",
+    "tokenSourceEnv": "来自 CCR_WEB_AUTH_TOKEN",
+    "tokenSourceDiscovered": "已从 CCR 的 service.json 自动发现",
     "tokenMissing": "未配置（需设置 CCR_WEB_AUTH_TOKEN）",
     "gatewayLabel": "网关",
     "gatewayRunning": "运行中",
