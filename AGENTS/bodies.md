@@ -1,5 +1,14 @@
 # 身体（执行器）
 
+> **定位（2026-10-19）**：本文件描述 **Python 编排层（`src/crewchat/`）的执行器抽象**，该层已
+> **冻结为参考**，不再是产品运行时。**产品里「身体」= Codeg 的一个 ACP agent 类型**
+> （`claude_code` / `codex` / `open_code` / `gemini` / `hermes` / …），花名册的角色用
+> `body` 引用它。要**新增 / 调整一个身体**，改的是 Codeg 侧两处：
+> ① ACP agent 注册与设置页（`codeg/src-tauri/src/acp/`、`settings/acp-agent-settings*`）；
+> ② 按角色绑定模型（`codeg/src-tauri/src/agent_host/overlay.rs` + `faces.rs`，见
+> `AGENTS/agent-model.md`）——**不是在 Python 里加 `Executor` 子类**。
+> 下文保留 Python 时代的契约与取舍，仅作历史与设计参考。
+
 ## 适用范围
 
 新增或修改执行器（`codex` / `claude` / `opencode`），或处理 CLI 版本兼容、流式事件、会话记忆时。

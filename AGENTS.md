@@ -22,7 +22,7 @@
 | `AGENTS/architecture.md` | 新增目录或模块、调整分层、判断代码该放 Python 侧还是工作台侧、改动跨层调用时。 |
 | `AGENTS/agent-model.md` | 涉及 Agent、大脑（模型端点）、身体（CLI）、技能、MCP、记忆、规则，或会话与 Agent 的绑定关系时。 |
 | `AGENTS/truth-sources.md` | 新增或移动任何持久化数据、决定配置写到哪里、改动 `agents/`、`.data/`、`~/.agents/` 时。 |
-| `AGENTS/bodies.md` | 新增或修改执行器（codex / claude / opencode），或处理 CLI 版本兼容、流式事件、会话记忆时。 |
+| `AGENTS/bodies.md` | 新增或修改执行器时（**产品侧身体在 Codeg 的 ACP agent + `agent_host/overlay`**；本文件描述已冻结的 Python 执行器抽象），或处理 CLI 版本兼容、流式事件、会话记忆时。 |
 | `AGENTS/gateway.md` | 改动模型接入、上游端点、CCR profile / 配置，或遇到"某 CLI 不支持某端点"类问题时。 |
 | `AGENTS/api-contract.md` | 新增或修改 `/api/*` 路由、WebSocket 事件、消息流式帧，或前端报 404/501 时。 |
 | `AGENTS/ui.md` | 改动 `codeg/` 下的界面、交互或文案时。 |
