@@ -29,6 +29,8 @@
   并绑定身体（CLI）、模型、本地 Skill 与 MCP。v1 只做**定义与持久化**
   （`<data dir>/agent-roles.json`，ID 为服务端生成的 UUID）；按角色启动会话 / 委派时
   消费这些配置是下一步。
+  → **已被 Phase 2.1 取代**（见下方 `agent_role_service.rs` 一行）：存储迁到 `codeg.db` 的
+  `custom_agent`（`kind='role'`），`agent-roles.json` 只作遗留备份。
 - 本仓库 Python 侧（`src/crewchat/`）的编排与网关内核暂时保留；若后续成为 Codeg 的
   自定义 ACP agent 或旁路服务，另立计划。
 
