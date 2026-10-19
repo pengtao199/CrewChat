@@ -12,8 +12,12 @@ final class CoreModelsClient: CoreModels, @unchecked Sendable {
         return rows.map(\.domain)
     }
 
-    func createModelProvider(_ draft: ModelProviderDraft) async throws {
-        _ = try await provider.client().send("create_model_provider", body: CoreCreateModelProvider(draft)) as CoreModelProvider
+    func createModelProvider(_ draft: ModelProviderDraft) async throws -> ModelProvider {
+        let created: CoreModelProvider = try await provider.client().send(
+            "create_model_provider",
+            body: CoreCreateModelProvider(draft)
+        )
+        return created.domain
     }
 
     func updateModelProvider(id: Int, _ draft: ModelProviderDraft) async throws {

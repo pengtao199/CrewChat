@@ -32,9 +32,10 @@ final class AgentsSettingsViewModel {
         isLoading = false
     }
 
-    func save(_ role: AgentRole) async throws {
-        _ = try await roster.saveAgent(role)
+    func save(_ role: AgentRole) async throws -> AgentRole {
+        let saved = try await roster.saveAgent(role)
         await load()
+        return saved
     }
 
     func delete(_ id: String) async {

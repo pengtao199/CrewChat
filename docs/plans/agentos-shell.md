@@ -149,6 +149,9 @@ AgentOS/
   - 引擎：`acp_list_agents` + `acp_update_agent_preferences`；显示版本、可用状态、启用开关；切换时把该引擎当前 `env` 原样回传，避免清空配置。
   - 新增端口 `CoreModels` / `CoreRoster` / `CoreEngines`；`CoreClient` 抽出 `sendRaw` / `sendIgnoring`（`delete` 返回 `null` 也能处理）。
   - 设置侧栏扩到 6 项：通用 / 核心 / 模型 / Agents / 引擎 / 关于。
+  - 三页统一主从骨架（`MasterDetailLayout`：`HSplitView` 左窄右宽）：左列表选中即编辑，右侧详情底部统一「保存 / 删除」；`+` 在工具栏尾部。
+  - 显示修复：错误态与空态互斥（Agents 之前同时显示 501 与空态）；引擎状态收进详情，列表只留名字与版本。
+  - 开发期核心路径：scheme 的 `AGENTOS_CORE_BINARY` 改指 `codeg/src-tauri/target/debug/codeg-server`（已装二进制是旧构建，缺 `agent_roles_*`）。
 - Verify（已跑，源码新构建的核心 + 临时数据目录 + 临时端口）：
   - `list_model_providers` → `[]`；`create_model_provider`（open_code + 普通模型名）成功、`list` 可见、`update` 返回 `{provider, affectedRunningSessions}`、`delete` 返回 `null`。
   - `agent_roles_list` → 内置 8 个角色；`agent_roles_save` → 带 UUID 的角色；`agent_roles_delete` → `true`。

@@ -53,7 +53,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "AGENTOS_CORE_BINARY"
-            value = "$(SRCROOT)/../.data/codeg/bin/codeg-server"
+            value = "$(SRCROOT)/../codeg/src-tauri/target/debug/codeg-server"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

@@ -32,9 +32,10 @@ final class ModelsSettingsViewModel {
         isLoading = false
     }
 
-    func create(_ draft: ModelProviderDraft) async throws {
-        try await models.createModelProvider(draft)
+    func create(_ draft: ModelProviderDraft) async throws -> ModelProvider {
+        let created = try await models.createModelProvider(draft)
         await load()
+        return created
     }
 
     func update(id: Int, _ draft: ModelProviderDraft) async throws {
