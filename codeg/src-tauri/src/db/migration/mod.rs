@@ -50,6 +50,7 @@ mod m20260930_000001_agent_setting_drop_adapter_channel;
 mod m20261006_000001_conversation_tag;
 mod m20261012_000001_conversation_team;
 mod m20261012_000002_custom_agent_role_fields;
+mod m20261019_000001_custom_agent_role_permissions;
 pub struct Migrator;
 
 #[async_trait::async_trait]
@@ -106,6 +107,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261006_000001_conversation_tag::Migration),
             Box::new(m20261012_000001_conversation_team::Migration),
             Box::new(m20261012_000002_custom_agent_role_fields::Migration),
+            Box::new(m20261019_000001_custom_agent_role_permissions::Migration),
         ]
     }
 }

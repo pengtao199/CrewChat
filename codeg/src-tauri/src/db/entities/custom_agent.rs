@@ -58,6 +58,16 @@ pub struct Model {
     pub skills_json: String,
     /// [crewchat] Role rows only: JSON array of MCP server names.
     pub mcp_json: String,
+    /// [crewchat] Role rows only: the session-mode id the role's sessions start
+    /// in (a CLI approval/sandbox preset such as codex's `workspace-write`).
+    /// Empty = leave whatever the CLI / CCR default is. See
+    /// `m20261019_000001_custom_agent_role_permissions`.
+    pub permission_mode: String,
+    /// [crewchat] Role rows only: answer this role's permission requests
+    /// automatically instead of interrupting the conversation. OFF by default —
+    /// auto-approving is a trust decision the user makes per Agent, not a
+    /// default this app should assume.
+    pub auto_approve: bool,
     pub created_at: DateTimeUtc,
     pub updated_at: DateTimeUtc,
 }

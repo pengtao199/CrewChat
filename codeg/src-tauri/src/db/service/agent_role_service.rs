@@ -56,6 +56,8 @@ fn row_to_role(row: &custom_agent::Model) -> AgentRole {
         model_provider: row.brain_provider.clone(),
         skills: names(&row.skills_json),
         mcp: names(&row.mcp_json),
+        permission_mode: row.permission_mode.clone(),
+        auto_approve: row.auto_approve,
         created_at: Some(row.created_at.to_rfc3339()),
         updated_at: Some(row.updated_at.to_rfc3339()),
     }
@@ -74,10 +76,7 @@ pub async fn list_roles(conn: &DatabaseConnection) -> Result<Vec<AgentRole>, DbE
 
 /// One role by id, `None` when the id is unknown or belongs to a launchable
 /// ACP agent. Used by the persona frame's resolution (Phase 2.2).
-pub async fn get_role(
-    conn: &DatabaseConnection,
-    id: &str,
-) -> Result<Option<AgentRole>, DbError> {
+pub async fn get_role(conn: &DatabaseConnection, id: &str) -> Result<Option<AgentRole>, DbError> {
     if id.trim().is_empty() {
         return Ok(None);
     }
@@ -92,14 +91,19 @@ pub async fn get_role(
 /// Insert or update a role. An id that already belongs to a launchable ACP
 /// agent is refused — the two kinds share one id space on purpose, and a
 /// collision would make one of them unreachable.
-pub async fn save_role(conn: &DatabaseConnection, mut role: AgentRole) -> Result<AgentRole, DbError> {
+pub async fn save_role(
+    conn: &DatabaseConnection,
+    mut role: AgentRole,
+) -> Result<AgentRole, DbError> {
     role.name = role.name.trim().to_string();
     role.agent_type = role.agent_type.trim().to_string();
     if role.name.is_empty() {
         return Err(DbError::Migration("role name is required".into()));
     }
     if role.agent_type.is_empty() {
-        return Err(DbError::Migration("role body (agent_type) is required".into()));
+        return Err(DbError::Migration(
+            "role body (agent_type) is required".into(),
+        ));
     }
     role.id = role.id.trim().to_string();
     if role.id.is_empty() {
@@ -136,6 +140,8 @@ pub async fn save_role(conn: &DatabaseConnection, mut role: AgentRole) -> Result
             active.brain_provider = Set(role.model_provider.clone());
             active.skills_json = Set(skills_json);
             active.mcp_json = Set(mcp_json);
+            active.permission_mode = Set(role.permission_mode.clone());
+            active.auto_approve = Set(role.auto_approve);
             active.updated_at = Set(now);
             active.update(conn).await?;
             role.created_at = Some(created_at.to_rfc3339());
@@ -164,6 +170,8 @@ pub async fn save_role(conn: &DatabaseConnection, mut role: AgentRole) -> Result
                 brain_provider: Set(role.model_provider.clone()),
                 skills_json: Set(skills_json),
                 mcp_json: Set(mcp_json),
+                permission_mode: Set(role.permission_mode.clone()),
+                auto_approve: Set(role.auto_approve),
                 created_at: Set(now),
                 updated_at: Set(now),
             }
@@ -252,7 +260,8 @@ pub async fn migrate_once(
     }
     let report = migrate_legacy_rosters_from(conn, codeg_roster, python_agents_dir).await?;
     let summary = serde_json::to_string(&report).unwrap_or_else(|_| "{}".to_string());
-    crate::db::service::app_metadata_service::upsert_value(conn, MIGRATION_MARKER, &summary).await?;
+    crate::db::service::app_metadata_service::upsert_value(conn, MIGRATION_MARKER, &summary)
+        .await?;
     Ok(Some(report))
 }
 
@@ -294,12 +303,16 @@ pub async fn migrate_legacy_rosters_from(
                     match save_role(conn, role).await {
                         Ok(_) => report.imported_codeg += 1,
                         Err(error) => {
-                            report.failed_files.push(format!("{}: {error}", path.display()));
+                            report
+                                .failed_files
+                                .push(format!("{}: {error}", path.display()));
                         }
                     }
                 }
             }
-            Err(error) => report.failed_files.push(format!("{}: {error}", path.display())),
+            Err(error) => report
+                .failed_files
+                .push(format!("{}: {error}", path.display())),
         }
     }
 
@@ -323,12 +336,16 @@ pub async fn migrate_legacy_rosters_from(
                     match save_role(conn, role).await {
                         Ok(_) => report.imported_python += 1,
                         Err(error) => {
-                            report.failed_files.push(format!("{}: {error}", path.display()));
+                            report
+                                .failed_files
+                                .push(format!("{}: {error}", path.display()));
                         }
                     }
                 }
                 Ok(None) => {}
-                Err(error) => report.failed_files.push(format!("{}: {error}", path.display())),
+                Err(error) => report
+                    .failed_files
+                    .push(format!("{}: {error}", path.display())),
             }
         }
     }
@@ -438,6 +455,10 @@ fn read_python_roster(path: &Path) -> Result<Option<AgentRole>, String> {
         model_provider: provider,
         skills: agent.skills,
         mcp: agent.mcps,
+        // The legacy Python roster never carried permissions: the conversation
+        // asked instead. Imported roles therefore start with "no override".
+        permission_mode: String::new(),
+        auto_approve: false,
         created_at: None,
         updated_at: None,
     }))
@@ -518,6 +539,8 @@ mod tests {
             model_provider: "prov-1".into(),
             skills: vec!["frontend-design".into()],
             mcp: vec!["playwright".into()],
+            permission_mode: String::new(),
+            auto_approve: false,
             created_at: None,
             updated_at: None,
         }
@@ -571,6 +594,8 @@ mod tests {
             brain_provider: Set(String::new()),
             skills_json: Set("[]".into()),
             mcp_json: Set("[]".into()),
+            permission_mode: Set(String::new()),
+            auto_approve: Set(false),
             created_at: Set(Utc::now()),
             updated_at: Set(Utc::now()),
         }
@@ -587,10 +612,12 @@ mod tests {
     async fn launchable_defs_skip_role_rows() {
         let db = fresh_in_memory_db().await;
         save_role(&db.conn, role("role-1", "角色")).await.unwrap();
-        assert!(crate::db::service::custom_agent_service::list_launchable_defs(&db.conn)
-            .await
-            .unwrap()
-            .is_empty());
+        assert!(
+            crate::db::service::custom_agent_service::list_launchable_defs(&db.conn)
+                .await
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(list_roles(&db.conn).await.unwrap().len(), 1);
     }
 
@@ -701,7 +728,9 @@ mod tests {
         // Even after deleting the imported row, the marker stops a re-run —
         // the import is a one-shot, not a recurring sync.
         assert!(delete_role(&db.conn, "r-1").await.unwrap());
-        let second = migrate_once(&db.conn, Some(&codeg_path), None).await.unwrap();
+        let second = migrate_once(&db.conn, Some(&codeg_path), None)
+            .await
+            .unwrap();
         assert!(second.is_none());
         assert!(list_roles(&db.conn).await.unwrap().is_empty());
     }

@@ -21,9 +21,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::models::agent_role::AgentRole;
 use crate::models::conversation::ConversationTeam;
 use crate::models::AgentType;
-use crate::models::agent_role::AgentRole;
 
 use super::types::DelegationError;
 
@@ -134,7 +134,10 @@ impl TeamLookup for DbTeamLookup {
 }
 
 impl DbTeamLookup {
-    async fn conversation_role_inner(&self, conversation_id: i32) -> Result<Option<AgentRole>, String> {
+    async fn conversation_role_inner(
+        &self,
+        conversation_id: i32,
+    ) -> Result<Option<AgentRole>, String> {
         let Some(team) = self.team_of(conversation_id).await? else {
             return Ok(None);
         };
@@ -218,7 +221,9 @@ pub fn pick_member<'a>(
     agent_type: &str,
     task: &str,
 ) -> Option<&'a TeamMember> {
-    let mut candidates = members.iter().filter(|member| member.agent_type == agent_type);
+    let mut candidates = members
+        .iter()
+        .filter(|member| member.agent_type == agent_type);
     let first = candidates.next()?;
     let rest: Vec<&TeamMember> = candidates.collect();
     if rest.is_empty() {
@@ -263,10 +268,7 @@ pub fn scope_refusal(agent_type: AgentType, members: &[TeamMember]) -> Option<De
         return None;
     }
     let requested = agent_type.as_wire();
-    if members
-        .iter()
-        .any(|member| member.agent_type == requested)
-    {
+    if members.iter().any(|member| member.agent_type == requested) {
         return None;
     }
     let available = members
@@ -296,6 +298,8 @@ mod tests {
             model_provider: String::new(),
             skills: Vec::new(),
             mcp: Vec::new(),
+            permission_mode: String::new(),
+            auto_approve: false,
             created_at: None,
             updated_at: None,
         }
@@ -311,7 +315,12 @@ mod tests {
     #[test]
     fn members_resolve_in_team_order_and_skip_unknown_ids() {
         let roles = vec![
-            role("front", "前端工程师", "codex", "你是前端工程师，专注于界面与交互实现。\n第二行不进入职责"),
+            role(
+                "front",
+                "前端工程师",
+                "codex",
+                "你是前端工程师，专注于界面与交互实现。\n第二行不进入职责",
+            ),
             role("ops", "运维工程师", "claude_code", ""),
         ];
         let members = members_from_roles(&team("lead", &["ops", "ghost", "front"]), &roles);
@@ -380,7 +389,11 @@ mod tests {
         assert!(scope_refusal(AgentType::ClaudeCode, &members).is_none());
 
         let error = scope_refusal(AgentType::Gemini, &members).expect("gemini is out of team");
-        let DelegationError::NotInTeam { requested, available } = error else {
+        let DelegationError::NotInTeam {
+            requested,
+            available,
+        } = error
+        else {
             panic!("expected NotInTeam, got {error:?}");
         };
         assert_eq!(requested, "gemini");
@@ -419,16 +432,19 @@ mod tests {
         ];
         // The task names one member → that member's role facts win.
         assert_eq!(
-            pick_member(&members, "claude_code", "给「成员乙」回复 FLASH").map(|m| m.role_id.as_str()),
+            pick_member(&members, "claude_code", "给「成员乙」回复 FLASH")
+                .map(|m| m.role_id.as_str()),
             Some("r-b")
         );
         // Earliest mention wins when both are named.
         assert_eq!(
-            pick_member(&members, "claude_code", "先给成员乙，再给成员甲").map(|m| m.role_id.as_str()),
+            pick_member(&members, "claude_code", "先给成员乙，再给成员甲")
+                .map(|m| m.role_id.as_str()),
             Some("r-b")
         );
         assert_eq!(
-            pick_member(&members, "claude_code", "先给成员甲，再给成员乙").map(|m| m.role_id.as_str()),
+            pick_member(&members, "claude_code", "先给成员甲，再给成员乙")
+                .map(|m| m.role_id.as_str()),
             Some("r-a")
         );
         // No mention (or a single candidate) → the first member of that type.

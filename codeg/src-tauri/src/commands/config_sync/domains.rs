@@ -46,10 +46,8 @@ pub const DOMAIN_PREFERENCES: &str = "preferences";
 
 type CollectFn =
     for<'a> fn(&'a DatabaseConnection) -> BoxFuture<'a, Result<Value, AppCommandError>>;
-type ApplyFn = for<'a> fn(
-    &'a DatabaseTransaction,
-    &'a Value,
-) -> BoxFuture<'a, Result<usize, AppCommandError>>;
+type ApplyFn =
+    for<'a> fn(&'a DatabaseTransaction, &'a Value) -> BoxFuture<'a, Result<usize, AppCommandError>>;
 type ValidateFn = fn(&Value) -> Result<(), AppCommandError>;
 type CountFn = fn(&Value) -> usize;
 
@@ -199,7 +197,10 @@ fn encode<T: Serialize>(rows: Vec<T>) -> Result<Value, AppCommandError> {
     })
 }
 
-fn decode_rows<T: DeserializeOwned>(domain: &str, value: &Value) -> Result<Vec<T>, AppCommandError> {
+fn decode_rows<T: DeserializeOwned>(
+    domain: &str,
+    value: &Value,
+) -> Result<Vec<T>, AppCommandError> {
     // A domain missing from an older snapshot is not an error; it simply
     // carries nothing.
     if value.is_null() {
@@ -570,6 +571,8 @@ fn apply_custom_agents<'a>(
                         brain_provider: Set(String::new()),
                         skills_json: Set("[]".to_string()),
                         mcp_json: Set("[]".to_string()),
+                        permission_mode: NotSet,
+                        auto_approve: NotSet,
                         created_at: Set(now),
                         updated_at: Set(now),
                     }
@@ -900,7 +903,10 @@ mod tests {
         mixed.insert(portable.to_string(), Value::from("kept"));
         // Not on the allowlist: refused on the way in, so it must not be
         // counted on the way out.
-        mixed.insert("definitely_not_portable".to_string(), Value::from("dropped"));
+        mixed.insert(
+            "definitely_not_portable".to_string(),
+            Value::from("dropped"),
+        );
         // On the allowlist but not a string — preferences are stored as text,
         // and the applier skips anything else rather than stringifying it.
         mixed.insert("appearance_zoom_level".to_string(), Value::from(7));

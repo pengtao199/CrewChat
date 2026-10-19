@@ -775,6 +775,8 @@ mod tests {
             brain_provider: Set(String::new()),
             skills_json: Set("[]".to_string()),
             mcp_json: Set("[]".to_string()),
+            permission_mode: NotSet,
+            auto_approve: NotSet,
             created_at: Set(now),
             updated_at: Set(now),
         }
@@ -823,10 +825,7 @@ mod tests {
         let mut tampered = bytes.clone();
         tampered.extend_from_slice(b"\n");
         let err = validate_manifest(&manifest, &tampered).expect_err("must reject");
-        assert_eq!(
-            err.i18n_key.as_deref(),
-            Some(CONFIG_SYNC_I18N_KEY_CHECKSUM)
-        );
+        assert_eq!(err.i18n_key.as_deref(), Some(CONFIG_SYNC_I18N_KEY_CHECKSUM));
     }
 
     #[test]
@@ -911,7 +910,10 @@ mod tests {
         .expect("bytes");
 
         let err = parse_snapshot(&bytes).expect_err("must refuse");
-        assert_eq!(err.i18n_key.as_deref(), Some(CONFIG_SYNC_I18N_KEY_BAD_DOMAIN));
+        assert_eq!(
+            err.i18n_key.as_deref(),
+            Some(CONFIG_SYNC_I18N_KEY_BAD_DOMAIN)
+        );
         assert_eq!(
             err.i18n_params
                 .as_ref()
@@ -1006,7 +1008,8 @@ mod tests {
         // this machine" about a file sitting right there, because the resolver
         // holds ids to an alphabet with no room for a space or a bracket.
         std::fs::copy(
-            dir.path().join(format!("{}.json", list_rollback_infos(dir.path())[0].id)),
+            dir.path()
+                .join(format!("{}.json", list_rollback_infos(dir.path())[0].id)),
             dir.path().join("config-20240101T000000001 (1).json"),
         )
         .expect("copy");

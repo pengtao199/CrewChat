@@ -33,6 +33,18 @@ pub struct AgentRole {
     pub skills: Vec<String>,
     #[serde(default)]
     pub mcp: Vec<String>,
+    /// [crewchat] The session-mode id this role's sessions START in — a CLI
+    /// approval/sandbox preset (e.g. codex's `workspace-write`). Empty means
+    /// "leave the CLI / CCR default alone". Configured on the Agents page so the
+    /// conversation never has to ask. See
+    /// `m20261019_000001_custom_agent_role_permissions`.
+    #[serde(default)]
+    pub permission_mode: String,
+    /// [crewchat] Answer this role's permission requests automatically instead of
+    /// interrupting the chat. OFF by default: auto-approving is a trust decision
+    /// the user makes per Agent.
+    #[serde(default)]
+    pub auto_approve: bool,
     #[serde(default)]
     pub created_at: Option<String>,
     #[serde(default)]
