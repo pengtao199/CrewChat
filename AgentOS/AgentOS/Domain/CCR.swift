@@ -18,8 +18,13 @@ struct CCRProvider: Identifiable, Sendable, Equatable {
 struct CCRCredential: Identifiable, Sendable, Equatable {
     let id: String
     let name: String
-    let apiKeyMasked: String
+    let apiKey: String
     let enabled: Bool
+
+    var masked: String {
+        guard !apiKey.isEmpty else { return "—" }
+        return "\(apiKey.prefix(6))…"
+    }
 }
 
 struct CCRAccount: Identifiable, Sendable, Equatable {

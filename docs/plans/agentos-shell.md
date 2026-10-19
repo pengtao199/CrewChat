@@ -144,8 +144,11 @@ AgentOS/
 
 - Intent：把核心已有的 CRUD 做成原生表单，不重造逻辑。
 - 已落地：
-  - 模型：**走 CCR（`ccr_call`）**，不是 codeg 的旧 `model_provider` 表——左侧供应商，右侧显示类型 / 地址 / **模型逐行列出** + **每个账号的额度**（`getProviderAccountSnapshots` 的 meters：剩余 / 上限 / 窗口）；工具栏可刷新额度；CCR 不可达时给出启动入口。只读，编辑模型留到后续。
-  - Agents：`agent_roles_list/save/delete`；列表显示名字 / 引擎 / 模型；编辑器含身份（名字、引擎、供应商、模型）、人格（soul、rules）、能力（技能 / MCP，逗号分隔）、权限（权限模式、自动批准）。
+  - 模型：**走 CCR（`ccr_call`）**，不是 codeg 的旧 `model_provider` 表——右侧依次是基本信息（名字 / 类型 / 地址 / 每个账号的密钥，带眼睛显示与隐藏）、**账号与额度（可折叠）**、**模型逐行（可折叠）**、CCR 状态；工具栏刷新额度；CCR 不可达时给出启动入口。只读，编辑模型留到后续。
+  - Agents：`agent_roles_list/save/delete`；列表显示名字 / 引擎；编辑器含身份（名字、引擎、供应商、模型）、人格、能力、权限。
+    - 供应商 / 模型改成 Picker：数据来自 `agent_role_model_face`（按引擎给 provider → model），不再手写；不支持的引擎锁住并显示原因；旧值不在面上时保留为可选项，不静默替换。
+    - 人格与规则：Markdown 编辑 / 预览切换；预览走 `AttributedString(markdown:)`（行内样式 + 保留换行，块级标题/列表未做原生渲染）。
+    - 技能 / MCP：多选（DisclosureGroup + Toggle），来源 `acp_list_agent_skills` / `mcp_scan_local`；已选但当前清单里没有的条目会保留展示。
   - 引擎：`acp_list_agents` + `acp_update_agent_preferences`；显示版本、可用状态、启用开关；切换时把该引擎当前 `env` 原样回传，避免清空配置。
   - 新增端口 `CoreModels` / `CoreRoster` / `CoreEngines`；`CoreClient` 抽出 `sendRaw` / `sendIgnoring`（`delete` 返回 `null` 也能处理）。
   - 设置侧栏扩到 6 项：通用 / 核心 / 模型 / Agents / 引擎 / 关于。

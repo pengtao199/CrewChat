@@ -400,12 +400,11 @@
       }
     },
     "settings.agents.edit": {
-      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "编辑 Agent"
+            "value": "编辑"
           }
         }
       }
@@ -455,7 +454,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "MCP（逗号分隔）"
+            "value": "MCP"
           }
         }
       }
@@ -466,6 +465,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "模型"
+          }
+        }
+      }
+    },
+    "settings.agents.modelUnsupported": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个引擎不支持指定模型，会用 CLI 自己的配置。"
           }
         }
       }
@@ -510,6 +519,16 @@
         }
       }
     },
+    "settings.agents.preview": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预览"
+          }
+        }
+      }
+    },
     "settings.agents.provider": {
       "localizations": {
         "zh-Hans": {
@@ -535,7 +554,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "技能（逗号分隔）"
+            "value": "技能"
           }
         }
       }
@@ -973,12 +992,32 @@
         }
       }
     },
+    "settings.models.hideKey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏密钥"
+          }
+        }
+      }
+    },
     "settings.models.models": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "模型"
+          }
+        }
+      }
+    },
+    "settings.models.name": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名字"
           }
         }
       }
@@ -999,6 +1038,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "刷新额度"
+          }
+        }
+      }
+    },
+    "settings.models.showKey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示密钥"
           }
         }
       }

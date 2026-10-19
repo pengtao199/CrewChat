@@ -8,12 +8,20 @@ final class AgentsSettingsViewModel {
     private(set) var isLoading = false
     private(set) var errorMessage: String?
 
+    private(set) var face: ModelFace?
+    private(set) var skills: [CapabilityOption] = []
+    private(set) var mcpServers: [CapabilityOption] = []
+    private(set) var isLoadingFace = false
+    private(set) var isLoadingCapabilities = false
+
     private let roster: CoreRoster
     private let enginesClient: CoreEngines
+    private let capabilities: CoreCapabilities
 
-    init(roster: CoreRoster, engines: CoreEngines) {
+    init(roster: CoreRoster, engines: CoreEngines, capabilities: CoreCapabilities) {
         self.roster = roster
         self.enginesClient = engines
+        self.capabilities = capabilities
     }
 
     func load() async {
@@ -36,6 +44,29 @@ final class AgentsSettingsViewModel {
         let saved = try await roster.saveAgent(role)
         await load()
         return saved
+    }
+
+    func loadFace(agentType: String) async {
+        guard !agentType.isEmpty else {
+            face = nil
+            return
+        }
+        isLoadingFace = true
+        face = try? await roster.modelFace(agentType: agentType)
+        isLoadingFace = false
+    }
+
+    func loadCapabilities(agentType: String) async {
+        guard !agentType.isEmpty else {
+            skills = []
+            return
+        }
+        isLoadingCapabilities = true
+        async let skills = try? capabilities.skills(agentType: agentType)
+        async let mcp = try? capabilities.mcpServers()
+        self.skills = await skills ?? []
+        self.mcpServers = await mcp ?? []
+        isLoadingCapabilities = false
     }
 
     func delete(_ id: String) async {

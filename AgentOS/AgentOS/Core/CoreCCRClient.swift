@@ -55,16 +55,11 @@ private extension CoreCCRCredential {
         CCRCredential(
             id: id ?? name ?? label ?? UUID().uuidString,
             name: name ?? label ?? "Key",
-            apiKeyMasked: Self.mask(apiKey),
+            apiKey: apiKey ?? "",
             enabled: enabled ?? true
         )
     }
 
-    static func mask(_ key: String?) -> String {
-        guard let key, !key.isEmpty else { return "—" }
-        let prefix = key.prefix(6)
-        return "\(prefix)…"
-    }
 }
 
 private extension CoreCCRAccount {

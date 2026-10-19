@@ -27,6 +27,9 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `agent_roles_list` | 花名册列表 | `CoreRoster` | 无参数；首启由 `CREWCHAT_AGENTS_DIR` 从 `.data/agents` 一次性导入（实测 8 个），之后读写隔离库。**需要较新的核心二进制**：本机已装 `.data/codeg/bin/codeg-server` 缺这条路由（501），从源码构建立即正常；开发期指向 `codeg/src-tauri/target/debug/codeg-server`（scheme 已改） |
 | `agent_roles_save` | 新建 / 更新角色 | `CoreRoster` | body `{role:{id,name,soul,rules,agent_type,model,model_provider,skills,mcp,permission_mode,auto_approve}}`（snake_case）；`id` 为空=新建，返回带 id 的角色 |
 | `agent_roles_delete` | 删除角色 | `CoreRoster` | body `{id}`；返回 bool |
+| `agent_role_model_face` | 某引擎可绑定哪些模型 | `CoreRoster` | body `{agentType}`（camelCase）；返回 `{supported, reason?, models:[{provider, provider_id, model}]}`。`supported=false` 说明该引擎不能钉模型；`supported=true` 但为空说明查不到（CCR 不可达）。花名册的 `model_provider` 存 `provider`（显示名），兼容旧 id |
+| `acp_list_agent_skills` | 某引擎可见的技能 | `CoreCapabilities` | body `{agentType, workspacePath?}`（camelCase）；返回 `{supported, message?, skills:[{id,name,description?,read_only}]}`。实测 claude_code=0（它走插件/工作区）、open_code=82 |
+| `mcp_scan_local` | 本机 MCP 服务清单 | `CoreCapabilities` | 无参数；返回 `{servers:[{id,spec,apps}], warnings:[…]}`。花名册的 `mcp` 存 `server.id`（实测 6 个） |
 | `acp_list_agents` | 引擎清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/distribution_type/is_acp_adapter/env`（snake_case） |
 | `acp_update_agent_preferences` | 启用 / 禁用引擎（保留 env） | `CoreEngines` | body `{agentType, enabled, env}`（**camelCase**；漏写 agentType 会 400）。壳先取该引擎当前 `env` 原样回传，避免清空 |
 

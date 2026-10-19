@@ -18,6 +18,7 @@ final class AppEnvironment {
         )
         let enginesClient = CoreEnginesClient(provider: provider)
         let rosterClient = CoreRosterClient(provider: provider)
+        let capabilitiesClient = CoreCapabilitiesClient(provider: provider)
 
         self.supervisor = supervisor
         self.connection = ConnectionViewModel(lifecycle: supervisor)
@@ -26,7 +27,7 @@ final class AppEnvironment {
             lifecycle: supervisor
         )
         self.models = ModelsSettingsViewModel(ccr: CoreCCRClient(provider: provider))
-        self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient)
+        self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient, capabilities: capabilitiesClient)
         self.engines = EnginesSettingsViewModel(engines: enginesClient)
     }
 }

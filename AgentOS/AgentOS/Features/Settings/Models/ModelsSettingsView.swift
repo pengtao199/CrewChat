@@ -6,6 +6,9 @@ struct ModelsSettingsView: View {
     @State private var accounts: [CCRAccount] = []
     @State private var isLoadingAccounts = false
     @State private var accountsError: String?
+    @State private var revealed: Set<String> = []
+    @State private var modelsExpanded = true
+    @State private var accountsExpanded = true
 
     private var model: ModelsSettingsViewModel { environment.models }
 
@@ -78,21 +81,35 @@ struct ModelsSettingsView: View {
     private func providerDetail(_ provider: CCRProvider) -> some View {
         Form {
             Section("settings.models.basic") {
+                LabeledContent("settings.models.name", value: provider.name)
                 LabeledContent("settings.models.type", value: provider.type)
                 LabeledContent("settings.models.baseURL") {
                     Text(provider.baseURL)
                         .textSelection(.enabled)
                 }
-            }
-
-            Section("settings.models.models") {
-                ForEach(provider.models, id: \.self) { model in
-                    Text(model)
-                        .textSelection(.enabled)
+                ForEach(provider.credentials) { credential in
+                    LabeledContent(credential.name) {
+                        HStack(spacing: 8) {
+                            Text(revealed.contains(credential.id) ? credential.apiKey : credential.masked)
+                                .monospaced()
+                                .textSelection(.enabled)
+                            Button {
+                                if revealed.contains(credential.id) {
+                                    revealed.remove(credential.id)
+                                } else {
+                                    revealed.insert(credential.id)
+                                }
+                            } label: {
+                                Image(systemName: revealed.contains(credential.id) ? "eye.slash" : "eye")
+                            }
+                            .buttonStyle(.borderless)
+                            .help(revealed.contains(credential.id) ? "settings.models.hideKey" : "settings.models.showKey")
+                        }
+                    }
                 }
             }
 
-            Section("settings.models.accounts") {
+            Section("settings.models.accounts", isExpanded: $accountsExpanded) {
                 if isLoadingAccounts {
                     ProgressView().controlSize(.small)
                 } else if let accountsError {
@@ -104,6 +121,13 @@ struct ModelsSettingsView: View {
                     ForEach(accounts) { account in
                         accountRow(account)
                     }
+                }
+            }
+
+            Section("settings.models.models", isExpanded: $modelsExpanded) {
+                ForEach(provider.models, id: \.self) { model in
+                    Text(model)
+                        .textSelection(.enabled)
                 }
             }
 

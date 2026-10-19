@@ -5,10 +5,12 @@ struct AgentsSettingsView: View {
     @State private var selection: String?
     @State private var isCreating = false
     @State private var role = AgentRole.empty
-    @State private var skills = ""
-    @State private var mcp = ""
     @State private var isSaving = false
     @State private var saveError: String?
+    @State private var previewSoul = false
+    @State private var previewRules = false
+    @State private var skillsExpanded = false
+    @State private var mcpExpanded = false
 
     private var model: AgentsSettingsViewModel { environment.roster }
 
@@ -47,6 +49,10 @@ struct AgentsSettingsView: View {
         .task {
             await model.load()
             selectFirstIfNeeded()
+            await reloadForDraft()
+        }
+        .onChange(of: role.agentType) { _, _ in
+            Task { await reloadForDraft() }
         }
     }
 
@@ -76,19 +82,39 @@ struct AgentsSettingsView: View {
             Section("settings.agents.identity") {
                 TextField("settings.agents.name", text: $role.name)
                 engineField
-                TextField("settings.agents.provider", text: $role.modelProvider)
-                TextField("settings.agents.model", text: $role.model)
+                providerField
+                modelField
             }
 
             Section("settings.agents.persona") {
-                TextEditor(text: $role.soul)
-                    .frame(minHeight: 80)
-                TextField("settings.agents.rules", text: $role.rules)
+                markdownField(
+                    title: "settings.agents.soul",
+                    text: $role.soul,
+                    preview: $previewSoul
+                )
+                markdownField(
+                    title: "settings.agents.rules",
+                    text: $role.rules,
+                    preview: $previewRules
+                )
             }
 
             Section("settings.agents.capabilities") {
-                TextField("settings.agents.skills", text: $skills)
-                TextField("settings.agents.mcp", text: $mcp)
+                DisclosureGroup(isExpanded: $skillsExpanded) {
+                    ForEach(skillOptions) { option in
+                        Toggle(option.name, isOn: binding(for: option.id, in: $role.skills))
+                    }
+                } label: {
+                    LabeledContent("settings.agents.skills", value: "\(role.skills.count)")
+                }
+
+                DisclosureGroup(isExpanded: $mcpExpanded) {
+                    ForEach(mcpOptions) { option in
+                        Toggle(option.name, isOn: binding(for: option.id, in: $role.mcp))
+                    }
+                } label: {
+                    LabeledContent("settings.agents.mcp", value: "\(role.mcp.count)")
+                }
             }
 
             Section("settings.agents.permissions") {
@@ -131,40 +157,185 @@ struct AgentsSettingsView: View {
         }
     }
 
+    private var providerField: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Picker("settings.agents.provider", selection: $role.modelProvider) {
+                ForEach(providerOptions, id: \.self) { provider in
+                    Text(provider).tag(provider)
+                }
+            }
+            .disabled(providerOptions.isEmpty)
+
+            if let hint = faceHint {
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var modelField: some View {
+        Picker("settings.agents.model", selection: $role.model) {
+            ForEach(modelOptions, id: \.self) { name in
+                Text(name).tag(name)
+            }
+        }
+        .disabled(modelOptions.isEmpty)
+        .onChange(of: role.modelProvider) { _, _ in
+            let options = modelOptions
+            guard !options.isEmpty else { return }
+            if !options.contains(role.model) {
+                role.model = options.first ?? ""
+            }
+        }
+    }
+
+    private var providerOptions: [String] {
+        let face = model.face
+        var names = face?.models.map(\.provider) ?? []
+        names = names.reduce(into: []) { result, name in
+            if !result.contains(name) { result.append(name) }
+        }
+        if !role.modelProvider.isEmpty, !names.contains(role.modelProvider) {
+            names.insert(role.modelProvider, at: 0)
+        }
+        return names
+    }
+
+    private var modelOptions: [String] {
+        let face = model.face
+        var names = (face?.models ?? [])
+            .filter { $0.provider == role.modelProvider }
+            .map(\.model)
+        if !role.model.isEmpty, !names.contains(role.model) {
+            names.insert(role.model, at: 0)
+        }
+        return names
+    }
+
+    private var faceHint: String? {
+        guard let face = model.face else { return nil }
+        if !face.supported {
+            return face.reason ?? String(localized: "settings.agents.modelUnsupported")
+        }
+        if face.models.isEmpty {
+            return face.reason
+        }
+        return nil
+    }
+
+    private func markdownField(
+        title: LocalizedStringKey,
+        text: Binding<String>,
+        preview: Binding<Bool>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer()
+                Picker("", selection: preview) {
+                    Text("settings.agents.edit").tag(false)
+                    Text("settings.agents.preview").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 140)
+            }
+
+            if preview.wrappedValue {
+                ScrollView {
+                    Text(markdown(text.wrappedValue))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 80, maxHeight: 160)
+            } else {
+                TextEditor(text: text)
+                    .frame(minHeight: 80)
+            }
+        }
+    }
+
+    private func markdown(_ text: String) -> AttributedString {
+        var result = AttributedString()
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        for (index, line) in lines.enumerated() {
+            if index > 0 {
+                result += AttributedString("\n")
+            }
+            let parsed = (try? AttributedString(
+                markdown: String(line),
+                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+            )) ?? AttributedString(String(line))
+            result += parsed
+        }
+        return result
+    }
+
+    private var skillOptions: [CapabilityOption] {
+        union(model.skills, role.skills)
+    }
+
+    private var mcpOptions: [CapabilityOption] {
+        union(model.mcpServers, role.mcp)
+    }
+
+    private func union(_ options: [CapabilityOption], _ selected: [String]) -> [CapabilityOption] {
+        var all = options
+        for id in selected where !all.contains(where: { $0.id == id }) {
+            all.append(CapabilityOption(id: id, name: id, detail: nil))
+        }
+        return all
+    }
+
+    private func binding(for id: String, in values: Binding<[String]>) -> Binding<Bool> {
+        Binding(
+            get: { values.wrappedValue.contains(id) },
+            set: { isOn in
+                if isOn {
+                    if !values.wrappedValue.contains(id) {
+                        values.wrappedValue.append(id)
+                    }
+                } else {
+                    values.wrappedValue.removeAll { $0 == id }
+                }
+            }
+        )
+    }
+
+    private func reloadForDraft() async {
+        await model.loadFace(agentType: role.agentType)
+        await model.loadCapabilities(agentType: role.agentType)
+    }
+
     private func startCreating() {
         selection = nil
         isCreating = true
         role = .empty
         role.agentType = model.engines.first?.agentType ?? ""
-        skills = ""
-        mcp = ""
         saveError = nil
     }
 
     private func selectFirstIfNeeded() {
         if selection == nil, !model.agents.isEmpty {
             selection = model.agents.first?.id
+            loadSelection()
         }
     }
 
     private func loadSelection() {
         guard !isCreating, let selection, let agent = model.agents.first(where: { $0.id == selection }) else { return }
         role = agent
-        skills = agent.skills.joined(separator: ", ")
-        mcp = agent.mcp.joined(separator: ", ")
         saveError = nil
+        Task { await reloadForDraft() }
     }
 
     private func save() async {
         isSaving = true
         saveError = nil
 
-        var draft = role
-        draft.skills = split(skills)
-        draft.mcp = split(mcp)
-
         do {
-            let saved = try await model.save(draft)
+            let saved = try await model.save(role)
             isCreating = false
             selection = saved.id
             loadSelection()
@@ -181,12 +352,5 @@ struct AgentsSettingsView: View {
             selection = nil
             selectFirstIfNeeded()
         }
-    }
-
-    private func split(_ raw: String) -> [String] {
-        raw
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
     }
 }
