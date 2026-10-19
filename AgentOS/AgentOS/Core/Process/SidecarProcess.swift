@@ -34,6 +34,7 @@ final class SidecarProcess: @unchecked Sendable {
         environment["CODEG_PORT"] = String(endpoint.port)
         environment["CODEG_TOKEN"] = endpoint.token
         environment["CODEG_DATA_DIR"] = dataDirectory.path
+        environment["CODEG_HOME"] = dataDirectory.path
         process.environment = environment
 
         process.standardOutput = handle

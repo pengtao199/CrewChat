@@ -26,6 +26,14 @@ struct CoreSettingsView: View {
                         .textSelection(.enabled)
                 }
 
+                LabeledContent("settings.core.database") {
+                    Text(CoreBinaryLocator.dataDirectory().appending(path: "codeg.db").path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+
                 LabeledContent("settings.core.port", value: String(localized: "settings.core.port.auto"))
             } header: {
                 Text("settings.core.section")

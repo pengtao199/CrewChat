@@ -692,6 +692,16 @@
         }
       }
     },
+    "settings.core.database": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库"
+          }
+        }
+      }
+    },
     "settings.core.delegation": {
       "localizations": {
         "zh-Hans": {

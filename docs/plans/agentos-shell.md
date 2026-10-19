@@ -35,6 +35,7 @@ Status: In Progress（S0 ✅；S1 ✅；S2 ✅；S3 ✅）
 - 委派设置：`get_delegation_settings` / `set_delegation_settings { settings }`；核心默认 `enabled = false`。
 - **已装的 `.data/codeg/bin/codeg-server` 是旧构建**：`agent_roles_*` / `agent_role_model_face` 在它上面返回 501；仓库源码构建的二进制才有这些路由（2026-10-19 实测）。开发期应指向 `codeg/src-tauri/target/debug/codeg-server`。
 - 设置 CRUD 齐备：模型供应商 `list/create/update/delete_model_provider`；花名册 `agent_roles_list/save/delete` + `agent_role_model_face`；MCP `mcp_*`；技能 `acp_*_agent_skill` / `custom_*_skill`；快捷短语 `quick_messages_*`；语言 `get/update_system_language_settings`。
+- **数据隔离（2026-10-20 实测）**：`CODEG_DATA_DIR` 与 `CODEG_HOME` 都固定指向 `~/Library/Application Support/AgentOS/core`；工作区（`folder`）、会话（`conversation`）、花名册（`custom_agent`）都在同一个 `codeg.db`。用临时库验证：`open_folder` + `create_conversation` 后临时库 folder=1 / conversation=1，应用库仍为 0。
 
 **AgentOS 侧**
 
@@ -134,6 +135,7 @@ AgentOS/
 - 新增端口 `CoreWorkspaces` / `CoreConversations`（同文件 `CoreWorkbench.swift`）。
 - Verify（已跑，用 `.data/codeg` 的**备份库**起核心）：`list_open_folder_details` 1 个工作区；`list_all_conversations` 3 条（codex/claude_code）；`get_folder_conversation` 4 个 turn，`role=user/system`、`blocks.type=text/turn_error` 与解码一致；应用自拉核心后工作区为空（隔离库），xcodebuild 通过。
 - 已知：隔离库没有他们的历史会话，所以首屏是「添加工作区」；要看到历史会话需要一次性导入 `.data/codeg`（未做，待定）。
+- 数据落点：所有业务数据（工作区 / 会话 / 消息 / 花名册）都在固定隔离库；设置 → 核心显示数据库完整路径；`CODEG_HOME` 也钉在同一目录，上传/宠物不会跑偏。
 - Files：`Domain/{Workspace,Conversation,ConversationKind,ConversationStatus}.swift`、`Domain/Ports/{CoreWorkspaces,CoreConversations}.swift`、`Core/Wire/{CoreFolderDetail,CoreConversationSummary}.swift`、`Core/HTTP/CoreClient+Workspaces.swift`、`Core/HTTP/CoreClient+Conversations.swift`、`Features/Workbench/{WorkbenchView,WorkbenchViewModel,WorkspaceSidebar,ConversationDetailView}.swift`。
 - Steps：
   - 侧栏：`List(selection:)` + 每个工作区一个 `Section(isExpanded:)`（`@SceneStorage` 记住折叠，初始折叠）；工具栏「添加工作区」→ `NSOpenPanel` → `open_folder`；右键「在 Finder 中显示」「从工作区移除」（`confirmationDialog` 写明只移出列表）。
@@ -179,6 +181,7 @@ AgentOS/
 - Intent：核心体验跑通。
 - Files：`Domain/Ports/CoreEvents.swift`、`Core/WS/CoreEventStream.swift`、`Domain/RuntimeTimeline.swift`、`Core/HTTP/CoreClient+Acp.swift`、`Features/Conversation/{Composer,MessageList,ToolCallRow}.swift`。
 - Steps：WS attach（token 协议头、`subscription_id`、`seq` 去重、`snapshot` 覆盖、`detached` 重 attach、1s→32s 退避）；`acp_connect` → `acp_prompt`；工具 / 用量 / 状态事件渲染；`acp_cancel`；409 `turn_in_progress` 当状态处理。
+- 已知形状：`create_conversation` body 是 camelCase `{folderId, agentType, title}`（实测 snake_case 会 400 `missing field folderId`）。
 - Verify：真实跑一轮（最小提示）；见流式与至少一个工具卡；取消后以核心状态为准；杀核心再拉起能自愈。
 - Checkpoint：`seq` 去重与重连有可复现的手动验证记录。
 
