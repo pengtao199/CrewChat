@@ -221,17 +221,37 @@ pnpm server:dev
   这类"只是 mod 清单"的文件跑 rustfmt，会把几十个无关迁移文件一起重排。**只格式化叶子文件**，
   或加 `--skip-children`；发现无关文件被改动就撤回去，别把重排混进功能提交。
 
-**热更新怎么跑（一条命令）**：
+**两条命令，别搞混**：
 
 ```bash
-cd codeg && bash scripts/dev-mac.sh      # 前端 HMR + Rust 自动增量重编重启窗口
+cd codeg && bash scripts/dev-mac.sh          # 热更新（默认）：窗口＝你的真库，前端秒级、Rust 自动增量重编重启窗口
+cd codeg && bash scripts/dev-mac.sh install  # 独立正式 app：完整构建 → 覆盖安装 /Applications/codeg.app（不启动，几分钟）
 ```
 
-它替掉了 `pnpm tauri dev`，因为系统 pnpm 9 跑不动 `beforeDevCommand`（`pnpm tauri:before-dev`
-会报 `packages field missing or empty`）：脚本自己起 `next dev --turbopack`（:3000，改 TSX/CSS
-秒级生效、不丢状态），再用 `--config '{"build":{"beforeDevCommand":""}}'` 让 Tauri 跳过钩子，
-窗口加载 :3000 并监听 Rust——**改 Rust 由 Tauri 自动重编 + 重启窗口，不需要你构建**。
-开发期间永远不跑 `next build` / `tauri build`，那是发版动作（`scripts/package-mac.sh`）。
+**默认是热更新回路**（2026-10-19 按用户要求定的）：`next dev --turbopack`（:3000，改 TSX/CSS
+秒级生效、不丢状态）+ `tauri dev`（Rust 改动自动增量重编并重启窗口；debug 比 release 快得多）。
+它**读你的真库**：debug 桌面版默认是 `codeg-dev.db`（另一个库，所以以前看起来像"另一个 app"），
+脚本用 `CODEG_DB_FILE=codeg.db` 把它指到真库——窗口里的花名册 / 会话 / 设置就是你本机那份。
+代价：dev 会跑迁移改真库（这正是你要的：它就是你的 app 的最新代码），且**别同时开 dev 窗口和
+`/Applications` 的 app**（同一个库两个进程）。脚本还会在 PATH 上找到 `ccr` 时把它放进 `CCR_BIN`
+（只影响 Codeg **能否自启 CCR**；网关 URL / token 从 CCR 自己的 `service.json` 自动发现，它已经在跑
+时模型路由不受影响）。
+
+**`install` 是发版动作**：Tauri 把前端**嵌进二进制**，所以任何改动都要重新链接一次，整条路几分钟
+（`next build` + sidecar + `tauri build` release + `ditto` 覆盖安装，**不启动**）。脚本 `exec` 到
+`scripts/package-mac.sh`，打包步骤只有一份。
+
+**`CODEG_DB_FILE`**（`db/mod.rs`）：只覆盖 SQLite **文件名**（目录仍是 `CODEG_DATA_DIR`），空 /
+空白＝不覆盖；默认仍是 release→`codeg.db`、debug→`codeg-dev.db`（上游的保护，别改默认值）。
+
+**构建产物别再撑爆磁盘**（2026-10-19 实测踩到）：`target/debug` 曾长到 **115G**（`libcodeg_lib.a`
+1.5G/份 × 各 feature 集 + 1G 级 incremental dep-graph），磁盘一度只剩 81G。两条护栏：
+
+1. `Cargo.toml` 的 `[profile.dev.package.codeg] debug = "line-tables-only"`——只降**本 crate** 的
+   调试信息（依赖不动，不触发依赖重编），panic backtrace 仍有文件名/行号。
+2. `scripts/dev-mac.sh` 每次跑先自检：`target` > 30G 就 `cargo clean -p codeg`（**依赖保留**，
+   本 crate 重编 1-3 分钟）。手工清理同一条命令；**别**用 `cargo clean`（会连依赖一起清掉，
+   下次全量重编十几分钟）。
 
 **release 打包的两个坑**（本机验证过）：
 

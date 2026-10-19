@@ -7,6 +7,7 @@ pub mod service;
 pub mod test_helpers;
 
 use std::path::Path;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use sea_orm::{
@@ -21,11 +22,32 @@ pub struct AppDatabase {
     pub conn: DatabaseConnection,
 }
 
+/// Which SQLite file this process opens.
+///
+/// Upstream defaults a debug desktop build to `codeg-dev.db` so a dev window can
+/// never touch the real database. That default stays — but the hot-reload loop
+/// exists to look at YOUR roster and YOUR conversations, so it sets
+/// `CODEG_DB_FILE` to point the dev process at the real `codeg.db` instead. The
+/// override names a FILE (the directory is `CODEG_DATA_DIR`); blank means "no
+/// override".
 pub(crate) fn database_file_name() -> &'static str {
-    if cfg!(all(debug_assertions, feature = "tauri-runtime")) {
-        "codeg-dev.db"
-    } else {
-        "codeg.db"
+    static NAME: OnceLock<&'static str> = OnceLock::new();
+    NAME.get_or_init(|| {
+        resolve_database_file_name(
+            std::env::var("CODEG_DB_FILE").ok().as_deref(),
+            cfg!(all(debug_assertions, feature = "tauri-runtime")),
+        )
+    })
+}
+
+/// The decision above, as a pure function — reading the env is the only impure
+/// part. An override is leaked: it is resolved once per process, and callers want
+/// a `&'static str` to hand to `Path::join` / `format!`.
+fn resolve_database_file_name(override_name: Option<&str>, is_dev: bool) -> &'static str {
+    match override_name.map(str::trim).filter(|name| !name.is_empty()) {
+        Some(name) => Box::leak(name.to_string().into_boxed_str()),
+        None if is_dev => "codeg-dev.db",
+        None => "codeg.db",
     }
 }
 
@@ -154,4 +176,23 @@ async fn apply_sqlite_pragmas(conn: &DatabaseConnection) -> Result<(), DbError> 
             .await?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_database_file_name;
+
+    /// [crewchat] The dev/release split stays the default; `CODEG_DB_FILE` is the
+    /// one way the hot-reload loop points a debug build at the REAL database.
+    #[test]
+    fn database_file_name_defaults_and_honours_the_override() {
+        assert_eq!(resolve_database_file_name(None, false), "codeg.db");
+        assert_eq!(resolve_database_file_name(None, true), "codeg-dev.db");
+        assert_eq!(
+            resolve_database_file_name(Some("codeg.db"), true),
+            "codeg.db"
+        );
+        // Blank is "no override", not a file named "".
+        assert_eq!(resolve_database_file_name(Some("   "), true), "codeg-dev.db");
+    }
 }

@@ -61,6 +61,15 @@ ditto "$APP" /Applications/codeg.app
 xattr -dr com.apple.quarantine /Applications/codeg.app 2>/dev/null || true
 echo "   installed: /Applications/codeg.app ($(defaults read /Applications/codeg.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null))"
 
+# A failed .dmg step leaves its scratch image MOUNTED (hfs, nobrowse) — it never
+# unmounts itself, and stray volumes accumulate run after run. Eject them here.
+for vol in /Volumes/dmg.*; do
+  if [ -d "$vol" ]; then
+    diskutil eject "$vol" >/dev/null 2>&1 || true
+    echo "   ejected stray dmg volume: $vol"
+  fi
+done
+
 echo "== 产物 =="
 ls -la src-tauri/target/release/bundle/macos 2>/dev/null || true
 ls -la src-tauri/target/release/bundle/dmg 2>/dev/null || true

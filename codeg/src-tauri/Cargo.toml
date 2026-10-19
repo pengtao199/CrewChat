@@ -309,3 +309,10 @@ tokio = { version = "1", features = ["test-util", "macros", "rt", "sync", "time"
 insta = { version = "1", features = ["json", "redactions"] }
 axum-test = { version = "17", features = ["ws"] }
 
+
+# [crewchat] 本 crate 的 debug 产物在默认 profile 下会膨胀到 1.5G/份（full DWARF），
+# 而 feature 集切换（默认 / test-utils / server-bin / mcp-bin）各留一份，实测把
+# target/debug 顶到 115G。只降本 crate 的调试信息（依赖不动，不会触发依赖重编）：
+# `line-tables-only` 仍保留 panic backtrace 里的文件名与行号，够定位问题。
+[profile.dev.package.codeg]
+debug = "line-tables-only"
