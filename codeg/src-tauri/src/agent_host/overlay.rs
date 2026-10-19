@@ -425,10 +425,8 @@ pub async fn apply_connect_role_overlay(
     agent_type: AgentType,
     role_id: Option<&str>,
     runtime_env: &mut BTreeMap<String, String>,
-) {
-    let Some(role_id) = role_id.map(str::trim).filter(|id| !id.is_empty()) else {
-        return;
-    };
+) -> Option<RoleSessionPolicy> {
+    let role_id = role_id.map(str::trim).filter(|id| !id.is_empty())?;
     let role = match crate::db::service::agent_role_service::get_role(&db.conn, role_id).await {
         Ok(Some(role)) => role,
         Ok(None) => {
@@ -436,15 +434,22 @@ pub async fn apply_connect_role_overlay(
                 "[agent-host] connect asked for unknown role {role_id}; \
                  the session runs on the CLI's own model"
             );
-            return;
+            return None;
         }
         Err(error) => {
             tracing::warn!(
                 "[agent-host] role {role_id} not read ({error}); \
                  the session runs on the CLI's own model"
             );
-            return;
+            return None;
         }
+    };
+    // [crewchat] Phase 4.6 — the permission decision is INDEPENDENT of the model
+    // overlay: a body whose model cannot be pinned still honours the Agent's
+    // permission choice, so this is returned whatever the overlay outcome is.
+    let policy = RoleSessionPolicy {
+        permission_mode: role.permission_mode.trim().to_string(),
+        auto_approve: role.auto_approve,
     };
     match prepare_role_overlay(
         &data_dir.join("role-sessions"),
@@ -475,6 +480,18 @@ pub async fn apply_connect_role_overlay(
             role.id
         ),
     }
+    Some(policy)
+}
+
+/// [crewchat] The permission half of a role's session policy (Phase 4.6): the
+/// mode the session starts in, and whether its permission requests may be
+/// answered without asking the user. Both come from the Agent's roster row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoleSessionPolicy {
+    /// The session-mode id the role's sessions start in; empty = leave the
+    /// CLI / CCR default alone.
+    pub permission_mode: String,
+    pub auto_approve: bool,
 }
 
 /// A FRESH directory per session, under `home_root`. A home cannot be reused:

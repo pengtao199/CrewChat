@@ -2665,6 +2665,30 @@ impl PermissionReply {
             PermissionReply::CodexElicitation { responder, .. } => responder.cancellation(),
         }
     }
+
+    /// Answer the blocked request with a chosen option id.
+    ///
+    /// Lives here (not only on [`PendingPermission`]) because the Phase 4.6
+    /// auto-approve path answers a request BEFORE it ever becomes a parked
+    /// responder: both paths must encode the answer identically, or a
+    /// codex-elicitation approval would go out in the wrong shape.
+    fn respond_selected(self, option_id: String) {
+        match self {
+            PermissionReply::Acp(responder) => {
+                let outcome =
+                    RequestPermissionOutcome::Selected(SelectedPermissionOutcome::new(option_id));
+                let _ = responder.respond(RequestPermissionResponse::new(outcome));
+            }
+            PermissionReply::CodexElicitation {
+                responder,
+                approval,
+            } => {
+                let response =
+                    crate::acp::question::build_elicitation_approval_response(&approval, &option_id);
+                let _ = responder.respond(serde_json::to_value(response).unwrap_or_default());
+            }
+        }
+    }
 }
 
 /// A parked permission-card responder, as [`PermissionQueue`] holds it.
@@ -2696,22 +2720,7 @@ trait PermissionResponder {
 
 impl PermissionResponder for PendingPermission {
     fn respond_selected(self, option_id: String) {
-        match self.reply {
-            PermissionReply::Acp(responder) => {
-                let outcome =
-                    RequestPermissionOutcome::Selected(SelectedPermissionOutcome::new(option_id));
-                let _ = responder.respond(RequestPermissionResponse::new(outcome));
-            }
-            PermissionReply::CodexElicitation {
-                responder,
-                approval,
-            } => {
-                let response = crate::acp::question::build_elicitation_approval_response(
-                    &approval, &option_id,
-                );
-                let _ = responder.respond(serde_json::to_value(response).unwrap_or_default());
-            }
-        }
+        self.reply.respond_selected(option_id);
     }
 
     fn respond_cancelled(self) {
@@ -3013,6 +3022,37 @@ async fn admit_permission(
     reply: PermissionReply,
     card: QueuedPermission,
 ) {
+    // [crewchat] Phase 4.6 — the Agent's roster row decided that this session
+    // never asks: answer with the allow option (else the first offered) and
+    // publish no card. This is the ONE interception point — `admit_permission`
+    // is where a request would otherwise become a card — so an auto-approving
+    // role can never leave a parked responder behind, and the queue/withdrawal
+    // machinery below stays untouched for every other session.
+    //
+    // Same option preference as the chat-channel auto-approve (which has run
+    // this way since before the roster existed): `allow` / `allowForSession`,
+    // else whatever the agent listed first.
+    if state.read().await.role_auto_approve {
+        let option_id = card
+            .options
+            .iter()
+            .find(|option| option.kind == "allow" || option.kind == "allowForSession")
+            .or_else(|| card.options.first())
+            .map(|option| option.option_id.clone());
+        if let Some(option_id) = option_id {
+            tracing::info!(
+                "[crewchat][role] auto-approving permission {} ({option_id})",
+                card.request_id
+            );
+            reply.respond_selected(option_id);
+            return;
+        }
+        tracing::warn!(
+            "[crewchat][role] auto-approve is on but permission {} offered no option; \
+             asking the user instead",
+            card.request_id
+        );
+    }
     let cancellation = reply.cancellation();
     let (settled_tx, settled_rx) = oneshot::channel();
     let request_id = card.request_id.clone();

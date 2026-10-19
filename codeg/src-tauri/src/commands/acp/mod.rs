@@ -9473,7 +9473,12 @@ pub async fn acp_connect(
     // moment either body reads it. The frontend supplies the conversation's
     // team leader; knowing the role HERE is what makes the Agents page's model
     // the one the CLI actually calls.
-    crate::agent_host::apply_connect_role_overlay(
+    //
+    // Phase 4.6: the same resolution carries the Agent's PERMISSION decision —
+    // the mode this session starts in and whether it may ask at all. The role's
+    // mode wins over the composer's saved preference, because the Agents page is
+    // where the user configured it.
+    let role_policy = crate::agent_host::apply_connect_role_overlay(
         &db,
         &app_data_dir,
         agent_type,
@@ -9481,6 +9486,13 @@ pub async fn acp_connect(
         &mut runtime_env,
     )
     .await;
+    let preferred_mode_id = role_policy
+        .as_ref()
+        .map(|policy| policy.permission_mode.trim())
+        .filter(|mode| !mode.is_empty())
+        .map(str::to_string)
+        .or(preferred_mode_id);
+    let role_auto_approve = role_policy.as_ref().is_some_and(|policy| policy.auto_approve);
 
     // Guard: the session page must never trigger a download or install.
     // If the agent isn't ready, return SdkNotInstalled here so the frontend
@@ -9488,7 +9500,7 @@ pub async fn acp_connect(
     verify_agent_installed(agent_type).await?;
 
     let emitter = EventEmitter::Tauri(app_handle);
-    manager
+    let connection_id = manager
         .spawn_agent(
             agent_type,
             working_dir,
@@ -9498,9 +9510,16 @@ pub async fn acp_connect(
             emitter,
             preferred_mode_id,
             preferred_config_values.unwrap_or_default(),
-        
-            None,)
-        .await
+            None,
+        )
+        .await?;
+
+    // [crewchat] Phase 4.6 — the Agent's permission decision must land before
+    // the caller can send its first prompt.
+    manager
+        .set_role_auto_approve(&connection_id, role_auto_approve)
+        .await;
+    Ok(connection_id)
 }
 
 #[cfg(feature = "tauri-runtime")]

@@ -1883,6 +1883,21 @@ impl ConnectionManager {
         Ok(())
     }
 
+    /// [crewchat] Phase 4.6 — record the role's permission decision on a live
+    /// connection: answer its permission requests without asking the user.
+    ///
+    /// Set right after `spawn_agent` and BEFORE the first prompt, which is the
+    /// only window where it matters: a request can only arrive once the agent
+    /// has been asked to do something. Unknown connections are ignored (a
+    /// teardown raced us), never an error — this is a hint, not a command.
+    pub async fn set_role_auto_approve(&self, conn_id: &str, auto_approve: bool) {
+        let connections = self.connections.lock().await;
+        let Some(conn) = connections.get(conn_id) else {
+            return;
+        };
+        conn.state.write().await.role_auto_approve = auto_approve;
+    }
+
     pub async fn respond_permission(
         &self,
         conn_id: &str,
@@ -3959,7 +3974,36 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
             }
         }
 
-        self.manager
+        // [crewchat] Phase 4.6 — the member's Agent page decides its permission
+        // preset and whether it may be asked at all. Read straight from the
+        // roster row rather than carried on `RoleSpawnContext`: that keeps the
+        // permission fact in ONE place (the Agent) and needs no new plumbing
+        // through the delegation types. The role wins over whatever the broker
+        // suggested, because that IS the user's decision; an empty role mode
+        // leaves the broker's value (today: none) in place.
+        let role_permissions = match role.as_ref() {
+            Some(context) => crate::db::service::agent_role_service::get_role(
+                &self.db.conn,
+                &context.role_id,
+            )
+            .await
+            .ok()
+            .flatten()
+            .map(|row| (row.permission_mode.trim().to_string(), row.auto_approve)),
+            None => None,
+        };
+        let preferred_mode_id = role_permissions
+            .as_ref()
+            .map(|(mode, _)| mode.as_str())
+            .filter(|mode| !mode.is_empty())
+            .map(str::to_string)
+            .or(preferred_mode_id);
+        let role_auto_approve = role_permissions
+            .as_ref()
+            .is_some_and(|(_, auto_approve)| *auto_approve);
+
+        let connection_id = self
+            .manager
             .spawn_agent(
                 agent_type,
                 effective_working_dir,
@@ -3972,7 +4016,14 @@ impl crate::acp::delegation::spawner::ConnectionSpawner for ConnectionManagerSpa
                 role,
             )
             .await
-            .map_err(|e| SpawnerError::Spawn(e.to_string()))
+            .map_err(|e| SpawnerError::Spawn(e.to_string()))?;
+        // Record the decision on the fresh connection: it must land before the
+        // prompt this caller sends next, which is the whole point — the member
+        // must never ask the user.
+        self.manager
+            .set_role_auto_approve(&connection_id, role_auto_approve)
+            .await;
+        Ok(connection_id)
     }
 
     async fn send_prompt_linked_for_delegation(

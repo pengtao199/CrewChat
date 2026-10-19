@@ -99,8 +99,10 @@ pub async fn acp_connect(
     .map_err(|e| AppCommandError::task_execution_failed(e.to_string()))?;
 
     // [crewchat] Same one-line overlay as the desktop command — see
-    // `agent_host::apply_connect_role_overlay`.
-    agent_host::apply_connect_role_overlay(
+    // `agent_host::apply_connect_role_overlay`. Phase 4.6: the same call carries
+    // the Agent's permission decision (starting mode + may it ask at all), and
+    // the role's mode wins over the client's saved preference.
+    let role_policy = agent_host::apply_connect_role_overlay(
         db,
         &state.data_dir,
         params.agent_type,
@@ -108,6 +110,13 @@ pub async fn acp_connect(
         &mut runtime_env,
     )
     .await;
+    let preferred_mode_id = role_policy
+        .as_ref()
+        .map(|policy| policy.permission_mode.trim())
+        .filter(|mode| !mode.is_empty())
+        .map(str::to_string)
+        .or(params.preferred_mode_id);
+    let role_auto_approve = role_policy.as_ref().is_some_and(|policy| policy.auto_approve);
 
     // Guard: the session page must never trigger a download or install.
     // If the agent isn't ready, return SdkNotInstalled here so the frontend
@@ -125,13 +134,18 @@ pub async fn acp_connect(
             runtime_env,
             "web".to_string(),
             emitter,
-            params.preferred_mode_id,
+            preferred_mode_id,
             params.preferred_config_values.unwrap_or_default(),
-        
-            None,)
+            None,
+        )
         .await
         .map_err(|e| AppCommandError::task_execution_failed(e.to_string()))?;
 
+    // [crewchat] Phase 4.6 — the Agent's permission decision lands before the
+    // client can send its first prompt.
+    manager
+        .set_role_auto_approve(&connection_id, role_auto_approve)
+        .await;
     Ok(Json(connection_id))
 }
 

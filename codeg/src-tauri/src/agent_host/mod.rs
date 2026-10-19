@@ -45,7 +45,7 @@ pub use gateway::{
 };
 pub use overlay::{
     apply_connect_role_overlay, overlay_support, prepare_role_overlay, OverlayOutcome,
-    SessionOverlay, CODEX_GATEWAY_KEY_ENV,
+    RoleSessionPolicy, SessionOverlay, CODEX_GATEWAY_KEY_ENV,
 };
 pub use role_home::{
     build_claude_role_home, claude_role_settings, claude_role_settings_with_plugins,

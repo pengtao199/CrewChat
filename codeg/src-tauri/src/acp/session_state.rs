@@ -265,6 +265,11 @@ pub struct SessionState {
     /// configured set is mounted). Set at spawn by the delegation path;
     /// backend-internal, it shapes `session/new` and is not snapshotted.
     pub role_mcp: Option<Vec<String>>,
+    /// [crewchat] The role's permission decision for this session: answer
+    /// permission requests automatically instead of interrupting the user.
+    /// Set at spawn from the Agent's roster row (Agents page), so the
+    /// conversation never has to ask. Backend-internal, not snapshotted.
+    pub role_auto_approve: bool,
 
     // 状态
     pub status: ConnectionStatus,
@@ -723,6 +728,7 @@ impl SessionState {
             owner_window_label,
             folder_id,
             role_mcp: None,
+            role_auto_approve: false,
             status: ConnectionStatus::Connecting,
             live_message: None,
             active_tool_calls: BTreeMap::new(),
