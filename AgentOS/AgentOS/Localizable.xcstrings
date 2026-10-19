@@ -1,6 +1,12 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
+    "127.0.0.1:%lld" : {
+
+    },
+    "Apache-2.0" : {
+
+    },
     "app.name" : {
       "localizations" : {
         "zh-Hans" : {
@@ -201,6 +207,12 @@
         }
       }
     },
+    "MIT" : {
+
+    },
+    "settings.about" : {
+
+    },
     "settings.about.app" : {
       "localizations" : {
         "zh-Hans" : {
@@ -242,6 +254,7 @@
       }
     },
     "settings.about.core.none" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -312,6 +325,7 @@
       }
     },
     "settings.core.binary.auto" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -487,6 +501,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "主题"
+          }
+        }
+      }
+    },
+    "settings.open" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置"
           }
         }
       }

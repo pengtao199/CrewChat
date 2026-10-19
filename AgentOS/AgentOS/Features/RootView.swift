@@ -19,6 +19,13 @@ struct RootView: View {
         } detail: {
             ConnectionView(model: environment.connection)
         }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                SettingsLink {
+                    Label("settings.open", systemImage: "gearshape")
+                }
+            }
+        }
         .task(id: environment.connection.isConnected) {
             guard environment.connection.isConnected else { return }
             await environment.coreSettings.applyDefaultsIfNeeded()

@@ -38,8 +38,8 @@ Status: In Progress（S0 ✅；S1 ✅；S2 待开工）
 **AgentOS 侧**
 
 - S0 已完成：工程、分层骨架、sidecar 生命周期、token、`health`。
-- `AgentOS/engine-api.md` 目前登记 `health`。
-- 规则：`AGENTS/agentos-boundary.md`、`agentos-layout.md`、`agentos-transport.md`、`AGENTS/ui.md`、`AGENTS/verification.md`。
+- S1 已完成：设置三页（通用 / 核心 / 关于）、外观、自动拉起、核心控制、委派开关（默认开启）、设置入口（菜单 ⌘, + 工具栏齿轮）。
+- `AgentOS/engine-api.md` 已登记 `health` / `get_delegation_settings` / `set_delegation_settings`。
 
 ## 开工拍板（默认值；无异议按默认执行）
 
@@ -56,6 +56,8 @@ Status: In Progress（S0 ✅；S1 ✅；S2 待开工）
 | 9 | 主界面布局 | **两栏**：左侧可折叠工作区（`Section(isExpanded:)`，初始全折叠）+ 右侧主对话区；`.inspector` 默认隐藏、记住上次开合（⌘⌥I） | 三栏固定（否决） |
 | 10 | 委派开关 | 放「核心」页；**默认开启**（首次运行一次性写入核心，落「已初始化」标记，之后以核心为准） | 跟随核心默认（false） |
 | 11 | 设置页 | 6 个 tab：通用 / 核心 / 模型 / Agents / 能力 / 关于；每项对应已登记的核心命令 | 只做壳自身设置（否决） |
+| 12 | 设置入口 | 菜单栏「AgentOS → 设置…」（⌘,）+ 窗口工具栏尾部齿轮；不做第三个入口 | 侧栏底部（否决） |
+| 13 | 侧栏折叠 | 工作区初始全折叠，折叠状态持久化 | 全展开（否决） |
 
 ## 设置与主界面（S1–S3 的落点）
 
@@ -102,44 +104,37 @@ AgentOS/
 ### S0（✅ 2026-10-19）：工程骨架 + 拉起并连上核心
 
 - Intent：能启动、找到/拉起核心、完成 `health`，界面显示真实连接态。
-- 已落地：Xcode 工程（objectVersion 77，文件系统同步组）；非沙盒 + hardened runtime；`Domain/CoreLifecycle` 端口；token（Keychain）+ 端口探测 + sidecar 生命周期 + 60s 轮询 `health`；`Features/Connection`；退出清理。
+- 已落地：Xcode 工程（objectVersion 77，文件系统同步组）；非沙盒 + hardened runtime；`CoreLifecycle` 端口；token（Keychain）+ 端口探测 + sidecar 生命周期 + 60s 轮询 `health`；`Features/Connection`；退出清理。
 - Verify（已跑）：`xcodebuild` 通过；`lsof` 只见 `127.0.0.1:3080`；`/api/health` 200；核心库无 `web_service_token`（token 来自壳）；quit 后子进程退出。
 - Checkpoint：`Features` 里只有 `CorePhase` / `CoreEndpoint` 两个领域类型。
 
-### S1（✅ 2026-10-19）（✅ 2026-10-19）（✅ 2026-10-19）：设置基建（通用 / 核心 / 关于）
+### S1（✅ 2026-10-19）：设置基建（通用 / 核心 / 关于）
 
 - Intent：⌘, 能改外观与核心配置；委派开关落到核心；关于页说真话。
-- 已落地
-  - 委派开关：`get/set_delegation_set，改动后提示（启gs` 走 `CoreSettings` 端口； → 重新读设置首次连接时由，三页与主窗口同时生效）；启动时自动拉起核心（`@AppStorage("core.autoStart")`，默认开） `applyDefaultsIfNeeded()` 一次性写入 `enabled=true` 并落 `UserDefaults("core.delegationInitialized")`；之后只写核心。断核时开关禁用并显示原因。
-  - 关于页：壳版本 //set build、核心版本（来自 ，改动后提示需重启alth走志。CorStg` 端口；首次连接时由 → 重新读设置 `applyDfaulIfNeeded()`一次性写入`=UseDfaults断核时开关禁用并显示原因。
-  - `engine //set biidd记 `get来自 /egaleh走CorStg` 端口；首次连接时由 `applyDfaulIfNeeded()`一次性写入`=UseDfaults断核时开关禁用并显示原因。
-  - TERM 转为 / b出iDd记 patc来自 /ocal`h `NSA链接。
-  -pTERM.转为优雅退出（tDi 登记 p），c/sethS掉urciS`g al下孤儿核心NAp。
-  -pSIGTERMt转为优雅退出（rDimp掉 chSkurc后S孤g儿al的问题NApp.trminae`），修掉 `kll 后留下孤儿核心的问题
-- Verify（已跑）（
+- 已落地：
+  - `Settings` scene + `TabView` 三页；外观（`@AppStorage` + `.preferredColorScheme`，主窗口与设置页同时生效）；启动自动拉起核心（`@AppStorage("core.autoStart")`，默认开）。
+  - 设置入口两处：菜单栏「AgentOS → 设置…」（⌘,，`Settings` scene 自带）+ 窗口工具栏尾部齿轮（`SettingsLink`）。
+  - 核心页：二进制路径与数据目录（`NSOpenPanel`，改动后提示需重启）、端口策略只读、重启（stop → start → 重新读设置）、打开日志 / 数据目录（`NSWorkspace`）。
+  - 委派开关：`get/set_delegation_settings` 走 `CoreSettings` 端口；首次连接时 `applyDefaultsIfNeeded()` 一次性写入 `enabled=true` 并落 `UserDefaults("core.delegationInitialized")`；之后一律以核心为准。断核时开关禁用并显示原因。
+  - 关于页：壳版本 / build、核心版本（来自 `health`）、许可链接、打开日志。
+  - SIGTERM 转优雅退出（`DispatchSourceSignal` → `NSApp.terminate`），修掉 `kill` 后留下孤儿核心。
+  - `ENABLE_DEBUG_DYLIB = NO`：单二进制，便于 ad-hoc 签名与复制测试。
+- Verify（已跑）：
   - `xcodebuild` 通过。
-  - 用独立 bundle id）的副本启动（避与原实例的冲突）：3080 被占 → 自动选 **62499** 并拉起第二个核心`/tmp/agentos-s1-core/codeg.db` 的 `app_metadata` 出现 `delegation.enabled=true`（首次默认开启）`depth_limit=1` / completed_cace_max_agent_dfus` 原样保留。
-  - `kill -TERM后测试实例的立即退出，另一个心受影响
-    未做i` 窗口的视觉走查（没有屏幕录制许可，无法截图）；三页的表单布局按系统 `Form` 默认样式。
-- 已知行为：macOS 不会给**同 bundle id 的第二实例**创建窗口（进程存在但无场景，`.task` 不触发）。开发时不要让 Xcode 里的实例与行实例同时跑；测试用独立 bundle id 副
-  - 用独立 bundle id）的副本启动（避与原实例的冲突）：3080 被占 → 自动选 **62499** 并拉起第二个核心`/tmp/agentos-s1-core/codeg.db` 的 `app_metadata` 出现 `delegation.enabled=true`（首次默认开启）`depth_limit=1` / completed_cace_max_agent_dfus` 原样保留。
-  - `kill -TERM后测试实例的立即退出，另一个心受影响
-    未做i` 窗口的视觉走查（没有屏幕录制许可，无法截图）；三页的表单布局按系统 `Form` 默认样式。
-- 已知行为：macOS 不会给**同 bundle id 的第二实例**创建窗口（进程存在但无场景，`.task` 不触发）。开发时不要让 Xcode 里的实例与行实例同时跑；测试用独立 bundle id 副
-  - 用独立 bundle id 的副本启动（避开与原实例的冲突）：3080 被占 → 自动选 **62499** 并拉起第二个核心；`/tmp/agentos-s1-core/codeg.db` 的 `app_metadata` 出现 `delegation.enabled=true`（首次默认开启生效），`depth_limit=1` / `completed_cache_max_mb` 原样保留。
-  - `kill -TERM` 后测试实例的核心立即退出，另一个核心不受影响。
-  - 未做：设置窗口的视觉走查（没有屏幕录制许可，无法截图）；三页的表单布局按系统 `Form` 默认样式。
-- 已知行为：macOS 不会给**同一 bundle id 的第二个实例**创建窗口（进程存在但无场景，`.task` 不触发）。开发时不要让 Xcode 里的实例与命令行实例同时跑；测试用独立 bundle id 的副本。
+  - 用独立 bundle id 的副本启动：3080 被占 → 自动选 **62499** 并拉起第二个核心；新数据目录的 `app_metadata` 出现 `delegation.enabled=true`（首次默认开启生效），`depth_limit=1` / `completed_cache_max_mb` 原样保留。
+  - `kill -TERM` 后该实例的核心退出，另一个核心不受影响。
+  - 未做：设置窗口的视觉走查（没有屏幕录制许可，无法截图）；三页布局按系统 `Form` 默认样式。
+- 已知行为：macOS 不会给**同一 bundle id 的第二个实例**创建窗口（进程存在但无场景，`.task` 不触发）。开发时不要让 Xcode 实例与命令行实例同时跑；测试用独立 bundle id 的副本。
 
 ### S2：两栏壳（工作区折叠侧栏 + 会话 + 只读主栏）
 
 - Intent：真实以文件夹为工作区；工作区内可见会话；点开能读。
-- Files：`Domain/{Workspace,Conversation,ConversationKind,ConversationStatus}.swift`、`Domain/Ports/{CoreWorkspaces,CoreConversations}.swift`、`Core/Wire/{CoreFolderDetail,CoreConversationSummary}.swift`、`Core/HTTP/CoreClient+Workspaces.swift`、`Core/HTTP/CoreClient+Conversations.swift`、`Features/Workbench/{WorkbenchView,WorkbenchViewModel,WorkspaceSidebar,ConversationList,ConversationDetailView}.swift`。
+- Files：`Domain/{Workspace,Conversation,ConversationKind,ConversationStatus}.swift`、`Domain/Ports/{CoreWorkspaces,CoreConversations}.swift`、`Core/Wire/{CoreFolderDetail,CoreConversationSummary}.swift`、`Core/HTTP/CoreClient+Workspaces.swift`、`Core/HTTP/CoreClient+Conversations.swift`、`Features/Workbench/{WorkbenchView,WorkbenchViewModel,WorkspaceSidebar,ConversationDetailView}.swift`。
 - Steps：
-  - 侧栏：`List(selection:)` + 每个工作区一个 `Section(isExpanded:)`（`@SceneStorage` 记住折叠）；工具栏「添加工作区」→ `NSOpenPanel` → `open_folder`；右键「在 Finder 中显示」「从工作区移除」（`confirmationDialog` 写明只移出列表）。
+  - 侧栏：`List(selection:)` + 每个工作区一个 `Section(isExpanded:)`（`@SceneStorage` 记住折叠，初始折叠）；工具栏「添加工作区」→ `NSOpenPanel` → `open_folder`；右键「在 Finder 中显示」「从工作区移除」（`confirmationDialog` 写明只移出列表）。
   - 会话：一次 `list_all_conversations` 拉全量，按 `folderId` 分组；`.searchable` 本地过滤；空态 `ContentUnavailableView`。
   - 主栏：`get_folder_conversation` → 只读渲染 turns（用户 / Agent 文本 + 工具名）；没选会话时的空态。
-  - inspector 骨架：`.inspector` + 工具栏切换 + `@AppStorage` 记住开合；先放会话信息与项目路径，用量等 S4 有 `sessionStats` 后接。
+  - inspector 骨架：`.inspector` + 工具栏切换 + `@AppStorage` 记住开合；先放会话信息与项目路径。
   - 登记 `engine-api.md`：`list_open_folder_details` / `open_folder` / `remove_folder_from_workspace` / `list_all_conversations` / `get_folder_conversation`。
 - Verify：选真实文件夹 → 看到该文件夹会话；折叠状态重启后保留；移除后列表消失但目录仍在；空工作区、无工作区、加载失败三种态都有可操作提示。
 - Checkpoint：`Features` 里没有 `snake_case`；枚举未知值走 `unknown` 分支。
@@ -187,6 +182,7 @@ AgentOS/
 - **attach 协议细节**：帧的精确形状以 `web/ws_attach.rs` 的 `ClientMsg` / `ServerMsg` 为准。
 - **sidecar 生命周期**：壳退出/崩溃要带走 sidecar，否则留下占端口的孤儿进程。
 - **一次性默认值**：委派「默认开启」只在首次运行写一次；必须用标记保护，否则会把用户显式关闭的设置又打开。
+- **同 bundle id 不能并行两个实例**：第二个进程无窗口、不触发场景任务；开发与测试都要用独立 bundle id 的副本。
 - **链接器加速是可选项**：`lld` / `sccache` 未安装；收益不确定，不阻塞本计划。
 - **删除 Next 前端需要顺序**：P1（退掉 Tauri + Next）必须等 AgentOS 覆盖到 S6 之后，否则丢能力。
 
