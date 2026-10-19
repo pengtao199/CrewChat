@@ -16,6 +16,7 @@ v1 的 Python 编排层已冻结归档在 `archive/`，不参与运行时。
 6. 声称"已验证"之前必须读 `AGENTS/verification.md` 并实跑对应检查。
 7. 改动 `AgentOS/`（macOS Swift 壳）前，必须读 `AGENTS/agentos-boundary.md`，再按下方索引读对应条目；壳只做渲染，真相与执行归 Rust 核心。
 8. 新增专项规则放入 `AGENTS/`，使用表达约束主题的英文小写文件名，并在本索引登记唯一适用边界。**规则只有一个系统**：本文件（项目规则 + 索引）+ `AGENTS/` 下的细分规则；不在任何子目录里另开规则目录。
+9. 探索代码结构（符号、调用路径、影响面）先用 CodeGraph：本仓库已建索引（`.codegraph/`，`codegraph status` 查看），改动用 `codegraph sync` 增量更新；不要重复 `init`。
 
 ## 子规则索引
 
