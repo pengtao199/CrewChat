@@ -13,32 +13,25 @@ struct WorkbenchSidebar: View {
             ForEach(model.workspaces) { workspace in
                 DisclosureGroup(isExpanded: expansion(workspace.id)) {
                     let rows = model.conversations(in: workspace.id)
+
                     if rows.isEmpty {
                         Text("workbench.noConversations")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(rows) { conversation in
-                            row(conversation)
+                            conversationRow(conversation)
                                 .tag(conversation.id)
                         }
                     }
+
+                    newConversationMenu(workspace)
                 } label: {
-                    Label(workspace.displayName, systemImage: "folder")
-                        .contextMenu {
-                            Button("workbench.revealInFinder") {
-                                NSWorkspace.shared.activateFileViewerSelecting([
-                                    URL(fileURLWithPath: workspace.path)
-                                ])
-                            }
-                            Divider()
-                            Button("workbench.removeWorkspace", role: .destructive) {
-                                Task { await model.removeWorkspace(workspace.id) }
-                            }
-                        }
+                    workspaceLabel(workspace)
                 }
             }
         }
+        .listStyle(.sidebar)
         .overlay {
             if model.workspaces.isEmpty, !model.isLoading {
                 ContentUnavailableView(
@@ -48,13 +41,66 @@ struct WorkbenchSidebar: View {
                 )
             }
         }
-        .navigationTitle("workbench.title")
+        .safeAreaInset(edge: .top, spacing: 0) { header }
+        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         .task {
             await model.load()
+            await model.loadEngines()
         }
     }
 
-    private func row(_ conversation: Conversation) -> some View {
+    private var header: some View {
+        HStack {
+            Text("workbench.title")
+                .font(.headline)
+            Spacer()
+            Button {
+                addWorkspace()
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.borderless)
+            .help("workbench.addWorkspace")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.bar)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                environment.mode = .settings
+            } label: {
+                Label("settings.title", systemImage: "gearshape")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+        .background(.bar)
+    }
+
+    private func workspaceLabel(_ workspace: Workspace) -> some View {
+        Label(workspace.displayName, systemImage: "folder")
+            .lineLimit(1)
+            .contextMenu {
+                Button("workbench.revealInFinder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([
+                        URL(fileURLWithPath: workspace.path)
+                    ])
+                }
+                Divider()
+                Button("workbench.removeWorkspace", role: .destructive) {
+                    Task { await model.removeWorkspace(workspace.id) }
+                }
+            }
+    }
+
+    private func conversationRow(_ conversation: Conversation) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(conversation.displayTitle)
                 .lineLimit(1)
@@ -65,6 +111,26 @@ struct WorkbenchSidebar: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
+    }
+
+    private func newConversationMenu(_ workspace: Workspace) -> some View {
+        Menu {
+            let enabled = model.engines.filter(\.enabled)
+            if enabled.isEmpty {
+                Text("workbench.noEngines")
+            } else {
+                ForEach(enabled) { engine in
+                    Button(engine.name) {
+                        Task { await createConversation(in: workspace, agentType: engine.agentType) }
+                    }
+                }
+            }
+        } label: {
+            Label("workbench.newConversation", systemImage: "plus")
+                .font(.callout)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
     }
 
     private func expansion(_ id: Int) -> Binding<Bool> {
@@ -78,5 +144,25 @@ struct WorkbenchSidebar: View {
                 }
             }
         )
+    }
+
+    private func addWorkspace() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = String(localized: "workbench.addWorkspace")
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { await model.addWorkspace(path: url.path) }
+    }
+
+    private func createConversation(in workspace: Workspace, agentType: String) async {
+        guard let id = await model.createConversation(in: workspace.id, agentType: agentType) else {
+            return
+        }
+        expanded.insert(workspace.id)
+        selection = id
     }
 }

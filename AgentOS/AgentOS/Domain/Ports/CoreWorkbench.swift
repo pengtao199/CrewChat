@@ -9,4 +9,5 @@ protocol CoreWorkspaces: Sendable {
 protocol CoreConversations: Sendable {
     func conversations(in folderIDs: [Int]) async throws -> [Conversation]
     func detail(conversationID: Int, tailTurns: Int) async throws -> ConversationDetail
+    func createConversation(folderID: Int, agentType: String, title: String?) async throws -> Int
 }

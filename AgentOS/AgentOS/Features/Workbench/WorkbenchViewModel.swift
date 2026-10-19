@@ -10,12 +10,36 @@ final class WorkbenchViewModel {
     private(set) var isLoadingDetail = false
     private(set) var errorMessage: String?
 
+    private(set) var engines: [Engine] = []
+
     private let workspacesClient: CoreWorkspaces
     private let conversationsClient: CoreConversations
+    private let enginesClient: CoreEngines
 
-    init(workspaces: CoreWorkspaces, conversations: CoreConversations) {
+    init(workspaces: CoreWorkspaces, conversations: CoreConversations, engines: CoreEngines) {
         self.workspacesClient = workspaces
         self.conversationsClient = conversations
+        self.enginesClient = engines
+    }
+
+    func loadEngines() async {
+        engines = (try? await enginesClient.engines()) ?? []
+    }
+
+    func createConversation(in folderID: Int, agentType: String) async -> Int? {
+        do {
+            let title = String(localized: "conversation.new")
+            let id = try await conversationsClient.createConversation(
+                folderID: folderID,
+                agentType: agentType,
+                title: title
+            )
+            await load()
+            return id
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
     }
 
     func conversations(in workspaceID: Int) -> [Conversation] {

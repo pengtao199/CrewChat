@@ -127,6 +127,18 @@ struct CoreListConversationsBody: Encodable {
     }
 }
 
+struct CoreCreateConversationBody: Encodable {
+    let folderID: Int
+    let agentType: String
+    let title: String?
+
+    enum CodingKeys: String, CodingKey {
+        case folderID = "folderId"
+        case agentType
+        case title
+    }
+}
+
 struct CoreFolderConversationBody: Encodable {
     let conversationID: Int
     let tailTurns: Int

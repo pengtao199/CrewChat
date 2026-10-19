@@ -34,7 +34,8 @@ final class AppEnvironment {
         self.engines = EnginesSettingsViewModel(engines: enginesClient)
         self.workbench = WorkbenchViewModel(
             workspaces: workspacesClient,
-            conversations: conversationsClient
+            conversations: conversationsClient,
+            engines: enginesClient
         )
     }
 }

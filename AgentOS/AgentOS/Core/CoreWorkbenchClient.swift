@@ -53,4 +53,11 @@ final class CoreConversationsClient: CoreConversations, @unchecked Sendable {
         )
         return detail.domain
     }
+
+    func createConversation(folderID: Int, agentType: String, title: String?) async throws -> Int {
+        try await provider.client().send(
+            "create_conversation",
+            body: CoreCreateConversationBody(folderID: folderID, agentType: agentType, title: title)
+        )
+    }
 }

@@ -12,6 +12,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private var continuations: [UUID: AsyncStream<CorePhase>.Continuation] = [:]
     private var phase: CorePhase = .idle
     private var starting = false
+    private var ownsCore = false
     private let signalSource: DispatchSourceSignal
 
     init() {
@@ -56,6 +57,12 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     func start() async {
         guard beginStarting() else { return }
 
+        if let adopted = await adoptExistingCore() {
+            emit(adopted)
+            finishStarting()
+            return
+        }
+
         do {
             let binary = try resolveBinary()
             let token = try resolveToken()
@@ -66,6 +73,8 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
 
             emit(.connecting)
             try sidecar.start(binary: binary, endpoint: endpoint, dataDirectory: dataDirectory, logFile: logFile)
+            ownsCore = true
+            CoreRuntimeState.save(port: port, directory: dataDirectory)
 
             let client = CoreClient(endpoint: endpoint)
             let deadline = Date().addingTimeInterval(60)
@@ -96,14 +105,35 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     }
 
     func stop() async {
-        sidecar.stop()
-        emit(.idle)
+        stopNow()
         finishStarting()
     }
 
     func stopNow() {
-        sidecar.stop()
+        if ownsCore {
+            sidecar.stop()
+            CoreRuntimeState.clear(directory: CoreBinaryLocator.dataDirectory())
+            ownsCore = false
+        }
         emit(.idle)
+    }
+
+    private func adoptExistingCore() async -> CorePhase? {
+        let directory = CoreBinaryLocator.dataDirectory()
+        guard let state = CoreRuntimeState.load(directory: directory),
+              let token = tokenStore.load() else {
+            return nil
+        }
+
+        let endpoint = CoreEndpoint(host: "127.0.0.1", port: state.port, token: token)
+        do {
+            let health = try await CoreClient(endpoint: endpoint).health()
+            ownsCore = false
+            return .connected(endpoint, version: health.version)
+        } catch {
+            CoreRuntimeState.clear(directory: directory)
+            return nil
+        }
     }
 
     private func beginStarting() -> Bool {

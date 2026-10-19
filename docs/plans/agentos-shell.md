@@ -131,10 +131,12 @@ AgentOS/
 ### S2（✅ 2026-10-20）：两栏壳（工作区折叠侧栏 + 会话 + 只读主栏）
 
 - Intent：真实以文件夹为工作区；工作区内可见会话；点开能读。
-- 已落地：`WorkbenchViewModel` + `WorkbenchSidebar` + `ConversationPane` / `ConversationView`；左侧 `List` + 每个工作区一个 `DisclosureGroup`（初始折叠），右侧只读渲染 turns（文本 / 思考 / 工具调用 / 工具结果 / turn_error，未知块降级为类型名不报错）；未连接时仍显示连接页；工具栏 `+` 用 `NSOpenPanel` 添加工作区，右键「在 Finder 中显示 / 从工作区移除」。
+- 已落地：`WorkbenchViewModel` + `WorkbenchSidebar` + `ConversationPane` / `ConversationView`；左侧 `List` + 每个工作区一个 `DisclosureGroup`（初始折叠），右侧只读渲染 turns（文本 / 思考 / 工具调用 / 工具结果 / turn_error，未知块降级为类型名不报错）；未连接时仍显示连接页。
+- 侧栏布局（2026-10-20 优化）：顶部「工作区 +」添加文件夹；每个展开的工作区末尾一行「＋ 新建会话」（Menu 选引擎 → `create_conversation`，创建后自动展开并选中）；工作区右键「在 Finder 中显示 / 从工作区移除」；**底部固定「设置」入口**，窗口工具栏不再放 + 与齿轮。
 - 新增端口 `CoreWorkspaces` / `CoreConversations`（同文件 `CoreWorkbench.swift`）。
 - Verify（已跑，用 `.data/codeg` 的**备份库**起核心）：`list_open_folder_details` 1 个工作区；`list_all_conversations` 3 条（codex/claude_code）；`get_folder_conversation` 4 个 turn，`role=user/system`、`blocks.type=text/turn_error` 与解码一致；应用自拉核心后工作区为空（隔离库），xcodebuild 通过。
 - 已知：隔离库没有他们的历史会话，所以首屏是「添加工作区」；要看到历史会话需要一次性导入 `.data/codeg`（未做，待定）。
+- 单核心保护（2026-10-20）：启动时先读 `core.json` 探测已有核心，健康则**采用**（不新起），否则清理后自拉；退出只终止自己拥有的核心。实测：已有核心时启动第二个壳，核心进程数不变。
 - 数据落点：所有业务数据（工作区 / 会话 / 消息 / 花名册）都在固定隔离库；设置 → 核心显示数据库完整路径；`CODEG_HOME` 也钉在同一目录，上传/宠物不会跑偏。
 - Files：`Domain/{Workspace,Conversation,ConversationKind,ConversationStatus}.swift`、`Domain/Ports/{CoreWorkspaces,CoreConversations}.swift`、`Core/Wire/{CoreFolderDetail,CoreConversationSummary}.swift`、`Core/HTTP/CoreClient+Workspaces.swift`、`Core/HTTP/CoreClient+Conversations.swift`、`Features/Workbench/{WorkbenchView,WorkbenchViewModel,WorkspaceSidebar,ConversationDetailView}.swift`。
 - Steps：

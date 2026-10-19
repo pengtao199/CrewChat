@@ -46,14 +46,24 @@ struct ConversationView: View {
     let detail: ConversationDetail
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                ForEach(detail.turns) { turn in
-                    TurnView(turn: turn)
-                    Divider()
+        Group {
+            if detail.turns.isEmpty {
+                ContentUnavailableView(
+                    "conversation.empty.title",
+                    systemImage: "bubble.left",
+                    description: Text("conversation.empty.description")
+                )
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        ForEach(detail.turns) { turn in
+                            TurnView(turn: turn)
+                            Divider()
+                        }
+                    }
+                    .padding(20)
                 }
             }
-            .padding(20)
         }
         .navigationTitle(detail.conversation.displayTitle)
     }

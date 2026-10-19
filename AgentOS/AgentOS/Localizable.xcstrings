@@ -287,6 +287,36 @@
         }
       }
     },
+    "conversation.empty.description": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发消息功能在下一步接入。"
+          }
+        }
+      }
+    },
+    "conversation.empty.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有消息"
+          }
+        }
+      }
+    },
+    "conversation.new": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新会话"
+          }
+        }
+      }
+    },
     "conversation.role.assistant": {
       "localizations": {
         "zh-Hans": {
@@ -1205,6 +1235,7 @@
       }
     },
     "sidebar.empty.description": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -1215,6 +1246,7 @@
       }
     },
     "sidebar.empty.title": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -1225,6 +1257,7 @@
       }
     },
     "sidebar.sessions": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -1264,6 +1297,16 @@
         }
       }
     },
+    "workbench.newConversation": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建会话"
+          }
+        }
+      }
+    },
     "workbench.noConversation.description": {
       "localizations": {
         "zh-Hans": {
@@ -1290,6 +1333,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "这个工作区还没有会话"
+          }
+        }
+      }
+    },
+    "workbench.noEngines": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有启用的引擎"
           }
         }
       }
