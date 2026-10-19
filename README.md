@@ -7,7 +7,7 @@
 
 ### 是什么
 
-一个运行在本机的桌面应用。产品运行时是 **Codeg 工作台**（`codeg/`：界面 + 内置 Rust 后端，承载 ACP 会话、委派、权限、持久化）；模型统一管理是 **CCR**（`ccr/`）。Python 编排层（`src/crewchat/`）已**冻结为参考**，不参与运行时。
+一个运行在本机的桌面应用。产品运行时是 **Codeg 工作台**（`codeg/`：界面 + 内置 Rust 后端，承载 ACP 会话、委派、权限、持久化）；模型统一管理是 **CCR**（`ccr/`）；macOS 原生壳是 **AgentOS**（`AgentOS/`）。Python 编排层（现归档在 `archive/python-orchestrator/`）已**冻结为参考**，不参与运行时。
 
 一个会话里可以有多名 Agent：
 
@@ -63,26 +63,27 @@
 - CAO 只有终端级状态（`idle` / `processing` / `completed`），拿不到 per-token delta、工具入参出参、
   token 与成本；且自带第二套 DB 与 session 模型。所以只借它的调度语义。
 - Python 侧曾按同一判断自建 `executors/`（模型级事件），Phase 2.1 后整体**冻结为参考**，
-  运行时不参与（见 `docs/plans/agents-core-collaboration.md` 拍板 #6）。
+  运行时不参与（见 `docs/plans/agents-core-collaboration.md` 拍板 #6），现已归档到 `archive/python-orchestrator/`。
 
-## 分层
+## 结构
 
-| 层 | 路径 | 职责 |
+| 腿 | 路径 | 职责 |
 | --- | --- | --- |
-| 工作台 + 后端 | `codeg/` | 产品运行时：界面、ACP 会话、委派、权限、持久化（Codeg 二次开发基座，Apache-2.0） |
+| 核心（运行时） | `codeg/` | 界面 + 内置 Rust 后端：ACP 会话、委派、权限、持久化、用量（Codeg 二次开发基座，Apache-2.0） |
 | 模型层 | `ccr/` | 统一模型管理（CCR 基座，MIT）：本地网关、路由、日志 |
-| 编排（冻结参考） | `src/crewchat/` | v1 的 Python 领域模型 / 执行器 / HTTP 契约，保留可读，不参与运行时 |
+| 壳（macOS） | `AgentOS/` | Swift 原生客户端，只做渲染与交互；规则见 `AGENTS/agentos-boundary.md` |
+| 归档 | `archive/` | 冻结的 Python 编排层与历史，只读，不参与构建 |
+| 参考 | `Reference/` | 第三方只读资料（不入库，本机保留） |
 
-Python 侧原为 `core`（L0/L1）→ `executors`（L2）→ `orchestration`（L3）→ `api`（L4），依赖只向下；
-该分层契约仍在 `scripts/check_layers.py` 里守着，处置见 `AGENTS/architecture.md`。
+边界与改动去向见 `AGENTS/architecture.md`；归档层的 L0–L4 契约见 `archive/python-orchestrator/CONTRACT.md`。
 
 ## 明确不做（非目标）
 
 - **不把编排托管给第三方**：不跑 CAO 的 `cao-server`，不用 crewai 的执行引擎。
-- **不在 Codeg 之外再养一套编排**：Python 编排（`src/crewchat/`）冻结为参考，不接回运行时。
+- **不在 `codeg/` 之外再养一套编排**：Python 编排已归档，不接回运行时。
 - **不用终端抓屏**（tmux / PTY）驱动 Agent —— 那会丢掉模型级事件。
 - **不重复实现**已有成熟件：工作台与模型管理都不自研（见各基座的 `NOTICE.md`）。
-- **不做登录与联网暴露**：本应用仅本机（`127.0.0.1`）、无认证、单用户。
+- **不做登录与联网暴露**：核心与壳都仅本机（`127.0.0.1`）、无认证、单用户。
 
 ## 快速开始
 
@@ -101,13 +102,6 @@ cd ccr && npm ci              # 桌面构建：npm run build:app:mac
 # 或直接用：npm install -g @musistudio/claude-code-router && ccr ui
 ```
 
-Python 编排（冻结参考，仅看代码 / 跑旧测试时用）：
-
-```bash
-uv sync                       # 安装依赖
-uv run crewchat --no-browser  # 旧后端（默认 http://127.0.0.1:8000）
-```
-
 各基座的构建、取舍与升级方式见 `codeg/NOTICE.md`、`ccr/NOTICE.md`。
 
 ## 自检
@@ -115,10 +109,11 @@ uv run crewchat --no-browser  # 旧后端（默认 http://127.0.0.1:8000）
 ```bash
 cd codeg && node scripts/verify.mjs changed   # 按改动派生最小验证（推荐）
 cd codeg && pnpm test                          # 工作台全量（里程碑收口）
-uv run python scripts/check_layers.py          # Python 分层契约（冻结层仍须守）
-uv run python scripts/check_imports.py         # 相对导入可解析
-uv run pytest -q                               # 旧后端测试
+cd archive/python-orchestrator && python3 scripts/check_layers.py   # 归档层分层契约
+cd archive/python-orchestrator && python3 scripts/check_imports.py  # 归档层导入可解析
 ```
+
+macOS 壳的验证见 `AgentOO/rulesS/rules/verification.md`。
 
 ## 数据与规则
 

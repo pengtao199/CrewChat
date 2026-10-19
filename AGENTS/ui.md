@@ -1,27 +1,65 @@
-# 界面（Codeg 基座）
+# 界面与文案
 
 ## 适用范围
 
-改动 `codeg/` 下的界面（Next.js + React + Tailwind + shadcn/ui）或其交互、文案、样式时。
+改动 `codeg/` 下的界面（Next.js + React + Tailwind + shadcn/ui），或 `AgentOS/` 下的界面（SwiftUI）及其交互、文案、样式时。
 
 ## 背景
 
-AionUi fork（原 `ui/`）已移除；协作界面改为 Codeg 的二次开发（`codeg/`）。
-Codeg 自带开发规范：`codeg/AGENTS.md` 与 `codeg/CLAUDE.md`（构建、检查、测试命令以它们为准），
-本文件只约束「我们的改动方式」。
+协作界面的两个面：`codeg/` 的 Next.js 工作台（现有产品界面，Codeg 二次开发）与 `AgentOS/` 的 macOS 原生壳（SwiftUI）。
+两边的共同边界是同一条：**界面只做展示与交互，判断归核心**。
 
-## 我们的规则
+## Codeg 界面（`codeg/`）
 
-- **上游优先**：能用上游已有能力或配置解决的不改代码；必要改动带 `[crewchat]` 标记，
-  并登记到 `codeg/NOTICE.md` 的改动表。
-- **国际化**：新增文案走它已有的 next-intl（`codeg/src/i18n/messages/*.json`）；
-  改动时同步 zh-CN（默认中文界面）。
-- **业务不出界**：模型与路由归 `ccr/`，编排归 Python 侧或 Codeg 自身；界面只做展示与交互。
+Codeg 自带开发规范：`codeg/AGENTS.md` 与 `codeg/CLAUDE.md`（构建、检查、测试命令以它们为准），下面只约束「我们的改动方式」。
+
+- **上游优先**：能用上游已有能力或配置解决的不改代码；必要改动带 `[crewchat]` 标记，并登记到 `codeg/NOTICE.md` 的改动表。
+- **国际化**：新增文案走它已有的 next-intl（`codeg/src/i18n/messages/*.json`）；改动时同步 zh-CN（默认中文界面）。
+- **业务不出界**：模型与路由归 `ccr/`，会话与编排归 Codeg 自身的 Rust 后端；界面只做展示与交互。
 - **密钥零容忍**：不把密钥、端点写死进前端。
 - **可升级**：不整体重排上游目录与样式体系；不为单页另起一套视觉语言。
 
-## 检查
+检查：改动是否带 `[crewchat]` 标记、`codeg/NOTICE.md` 是否同步；`cd codeg && npx -y pnpm@11.9.0 lint && npx -y pnpm@11.9.0 test` 是否通过；界面改动是否实际渲染看过；中文文案是否和 en 一起更新。
 
-- 改动是否带 `[crewchat]` 标记？`codeg/NOTICE.md` 是否同步？
-- `cd codeg && npx -y pnpm@11.9.0 lint && npx -y pnpm@11.9.0 test` 过了吗？界面改动是否实际渲染看过？
-- 中文文案是否和 en 一起更新？
+## AgentOS 界面（`AgentOS/`）
+
+目标：像一个平静的 macOS 团队工作台——谁在干活、干了什么、要不要批准，一眼可见。
+
+**状态归属**
+
+- 视图渲染状态、发送意图；不发请求、不读文件、不解码 JSON。
+- 屏级状态归 `@Observable` 视图模型；连接与运行时状态归 `Domain` 端口背后的 `Core` 实现，视图只观察。
+- 同一个真相只有一个持有者；不允许多个视图模型各自缓存同一份数据。
+
+**布局**
+
+- 侧栏：项目 / 工作区、会话列表。
+- 中间：会话流（消息、流式内容、工具调用、委派卡片）。
+- 右侧检查器：选中对象详情、用量、事件、审批。
+- 工具栏：核心连接状态、运行 / 取消、当前会话归属。
+
+**规则**
+
+- 原生控件优先：`NavigationSplitView` / `NavigationStack` / `List(selection:)` / `.sheet(item:)` / alert / confirmationDialog。不手搓导航与选中态视觉。
+- 状态可见：每个参与协作的 Agent 的状态（排队 / 思考 / 流式 / 等待工具 / 阻塞 / 完成 / 失败）在会话里直接可见，不用打开日志。
+- 审批就近：权限请求出现在对应会话与工具调用旁，不弹全局模态。
+- 错误就近：错误挂在出错的会话 / Agent / 工具调用上。
+- 取消随时可用；长任务有进行中指示。
+- 不做营销式落地页；首屏就是工作台。
+- 视图保持小；重复出现两次以上再抽公共组件。
+- 不写解释性长注释与同义注释；不把服务调用写进 `body`；不在视图里做状态判定。
+
+**文案**
+
+- 用户可见文案走 String Catalog（`Localizable.xcstrings`），不写死在视图里。
+- 先只登记 `zh-Hans`；补齐当前界面后再说第二种语言。
+- 键名表达产品含义（`session.toolCall.approved`），不表达当前中文措辞。
+- 提供商名、模型 id、URL、文件路径是数据不是文案，不进 String Catalog。
+- 核心返回的 `i18n_key` 优先于核心的英文 `message`（见 `agentos-transport.md`）。
+
+检查：每个显示出来的状态，唯一真相源清楚吗？用户能看到「谁在工作、为什么」吗？能取消、能批准吗？新增文案登记进 String Catalog 了吗？
+
+## 通用
+
+- 不为「以后可能需要」新增依赖或视觉体系（见 `AGENTS/dependencies.md`）。
+- 用户可见的错误必须是可操作的：说清哪一层出的问题与下一步。

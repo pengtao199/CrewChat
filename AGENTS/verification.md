@@ -14,10 +14,13 @@
 
 | 改动类型 | 必须跑的最小验证 |
 | --- | --- |
-| Python 后端 | `uv run python -c "import crewchat.<模块>"` 并实调该能力（curl 或脚本） |
+| Python 归档层 | 不参与运行时，无需验证；改动归档时跑 `archive/python-orchestrator/scripts/check_layers.py` 与 `check_imports.py` |
+| AgentOS（Swift 壳） | `xcodebuild -project AgentOS/AgentOS.xcodeproj -scheme AgentOS build` 通过；壳改动实际启动渲染确认 |
+| AgentOS 对核心的调用（新增/改形状） | 起核心，`curl` 带 token 实调该命令，确认状态码与 JSON 形状 |
+| AgentOS 事件 / 流式 | 真实跑一轮：连接 → 发一句 → 观察流式与工具事件 → 取消 |
 | `/api/*` 或 `/ws` | 起服务后 curl 该路径，确认状态码与形状 |
 | Codeg 界面 | `cd codeg && npx -y pnpm@11.9.0 lint` / `npx -y pnpm@11.9.0 test` 通过；界面改动实际渲染确认 |
-| 后端结构调整（移动/重命名/删模块） | `scripts/check_layers.py`（依赖方向）与 `scripts/check_imports.py`（导入可解析）均通过 + 重启后真实跑一轮对话 |
+| 后端结构调整（移动/重命名/删模块） | `archive/python-orchestrator/scripts/check_layers.py`（依赖方向）与 `check_imports.py`（导入可解析）均通过 + 重启后真实跑一轮对话 |
 | 界面交互 | Playwright 脚本走一遍真实流程（登录 → 操作 → 断言），输出文本证据 |
 | 执行器 | 真实跑一次该身体，确认 `text` 非空且 `error` 为空 |
 | 模型配置（CCR） | 直连该模型别名确认 200，并确认目标 CLI 能经 CCR 完成一轮 |
@@ -32,8 +35,9 @@
 
 ## 具体规则
 
-- 后端改动后必须重启服务再验证（`pkill -f "crewchat --no-browser"` 后重起），避免验证到旧进程。
+- 后端改动后必须重启服务再验证（避免验证到旧进程）；AgentOS 改动前确认核心是刚重建的二进制。
 - Codeg 改动后按它 `AGENTS.md` 的命令检查；桌面端用 `pnpm tauri dev` 实际跑一遍。
+- 不在壳侧改动后声称「核心行为已验证」——核心行为要单独实跑。
 - 涉及真实模型调用时，用最小提示（例如"用一句话回答"）控制成本与耗时。
 - 涉及外部端点时，验证失败先区分「网络」「凭证」「协议」三类，不要盲目重试。
 - 长耗时验证（构建、安装）放后台并轮询日志，不要阻塞对话。

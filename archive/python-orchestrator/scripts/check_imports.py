@@ -1,19 +1,26 @@
 """导入可解析性检查：所有相对导入必须指向真实模块。
 
-目录重构或文件移动后运行，避免只在启动时才暴露 ModuleNotFoundError。
+`archive/` 下的文件是历史存档，不参与运行，跳过检查。
 
 用法:
-    uv run python scripts/check_imports.py
+    python3 scripts/check_imports.py
 """
 
 import ast
 import pathlib
 import sys
 
+DEFERRED = {"archive"}
+
+
+def deferred(p: pathlib.Path) -> bool:
+    return bool(DEFERRED.intersection(p.parts)) or "__pycache__" in p.parts
+
+
 root = pathlib.Path("src/crewchat")
 mods = set()
 for p in root.rglob("*.py"):
-    if "__pycache__" in p.parts: continue
+    if deferred(p): continue
     rel = p.relative_to(root).with_suffix("")
     parts = list(rel.parts)
     if parts[-1] == "__init__": parts = parts[:-1]
@@ -21,7 +28,7 @@ for p in root.rglob("*.py"):
 
 bad = []
 for p in root.rglob("*.py"):
-    if "__pycache__" in p.parts: continue
+    if deferred(p): continue
     rel = p.relative_to(root).with_suffix("")
     parts = list(rel.parts)
     pkg = parts[:-1]

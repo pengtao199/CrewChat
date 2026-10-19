@@ -14,7 +14,7 @@ Next: 4.4 Agent 优先（`3c199f8`）✅、4.2 团队 @ 联动（`510d45a`）✅
 - 全过程由 Codeg 原生机制承载：流式 / 思考 / 工具 / 权限 / 取消 / 恢复 / 嵌套子会话沿用现成实现。
 - 每个成员用自己的模型（经 CCR）、技能与 MCP。
 
-路线：**Codeg 原生委派增强**（`codeg/src-tauri/src/acp/delegation/` 的 broker 已有异步任务、长轮询、取消级联、断点恢复、权限透传、用量回传）。不桥接 Python 编排；`src/crewchat` 冻结为参考（产品语义沿用：管理员先计划、串行执行防同工作区互写、成员创建后固定）。
+路线：**Codeg 原生委派增强**（`codeg/src-tauri/src/acp/delegation/` 的 broker 已有异步任务、长轮询、取消级联、断点恢复、权限透传、用量回传）。不桥接 Python 编排；`archive/python-orchestrator/src/crewchat` 冻结为参考（产品语义沿用：管理员先计划、串行执行防同工作区互写、成员创建后固定）。
 
 ## Current Facts（2026-10-12）
 

@@ -1,6 +1,6 @@
 # 身体（执行器）
 
-> **定位（2026-10-19）**：本文件描述 **Python 编排层（`src/crewchat/`）的执行器抽象**，该层已
+> **定位（2026-10-19）**：本文件描述 **Python 编排层（现归档在 `archive/python-orchestrator/src/crewchat/`）的执行器抽象**，该层已
 > **冻结为参考**，不再是产品运行时。**产品里「身体」= Codeg 的一个 ACP agent 类型**
 > （`claude_code` / `codex` / `open_code` / `gemini` / `hermes` / …），花名册的角色用
 > `body` 引用它。要**新增 / 调整一个身体**，改的是 Codeg 侧两处：

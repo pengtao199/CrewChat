@@ -26,6 +26,12 @@ node_modules/
 # 第三方参考资料（只读，不属于本仓库代码）
 Reference/
 
+# AgentOS（macOS 壳）：Xcode 的本机产物与用户设置（`build/` 已被上面的规则覆盖）
+AgentOS/DerivedData/
+xcuserdata/
+*.xcuserstate
+.swiftpm/
+
 
 # 固化进仓库的 Codeg：构建产物由它自带的 .gitignore 忽略（node_modules/、.next/、
 # src-tauri/target/ 等）；测试夹具数据库是源码的一部分，放行上面的 *.db 规则。

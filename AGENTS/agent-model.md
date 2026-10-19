@@ -1,6 +1,6 @@
 # 领域模型
 
-> **定位（2026-10-18）**：本文件描述的是 **Python 编排层（`src/crewchat/`）的领域模型**，
+> **定位（2026-10-18）**：本文件描述的是 **Python 编排层（现归档在 `archive/python-orchestrator/src/crewchat/`）的领域模型**，
 > 该层已**冻结为参考**（见 `docs/plans/agents-core-collaboration.md` 拍板 #6），不再是产品运行时。
 > 产品当前的花名册与协作由 Codeg 承载：**Agent 定义存 Codeg 数据目录 `codeg.db` 的
 > `custom_agent`（`kind='role'`），唯一可写入口是 Agents 页**（见 `AGENTS/truth-sources.md`）。
