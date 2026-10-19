@@ -113,6 +113,16 @@ Next: 4.4 Agent 优先（`3c199f8`）✅、4.2 团队 @ 联动（`510d45a`）✅
 
 - **4.3 异步回流**：长任务完成有明确提示与「让管理员汇总」入口。→ 做到：后台任务不丢、有回来路。
 
+### Phase 4.6 · 权限归属到每个 Agent（1/4 已落地）
+
+**用户决定**：权限不再由对话决定——不在 composer 暴露会话模式、权限请求也不再打断对话；**每个 Agent 在 Agents 页一次配好**。
+
+- **4.6.1 花名册字段** ✅ 2026-10-19（`e53a300`）：`custom_agent` 增 `permission_mode`（角色会话的**起始**模式 id＝CLI 审批/沙箱 preset；空＝保持 CLI/CCR 默认＝今天的行为）与 `auto_approve`（该角色的权限请求自动批准；**默认关**）。只读这两列的是 `kind='role'` 行；`kind='acp'` 行逐字不变。迁移 `m20261019_000001`。测试：agent_role 服务 8 例绿。
+- **4.6.2 会话启动时套用**（待做）：`acp_connect` 已经在解析角色（`agent_host::apply_connect_role_overlay`）——扩展它：① 角色的 `permission_mode` 作为 `preferred_mode_id` **覆盖**前端传的 `getSavedPrefsForConnect`（`src/lib/selector-prefs-storage.ts`）；② `auto_approve` 记到该连接上（`SessionState` 加字段）。委派子会话同源：`RoleSpawnContext` → `spawner` 的 `preferred_mode_id`。
+- **4.6.3 权限请求自动应答**（待做）：在权限请求浮到 UI 的那条路径上，若该连接的角色的 `auto_approve` 为真 → 选 `allow` / `allowForSession`，否则第一个 option，直接 `respond_permission` 并**不再打断**。**照抄现成逻辑**：`src-tauri/src/chat_channel/session_event_subscriber.rs`（约 528 行，chat channel 已经在这么做）。
+- **4.6.4 composer 不再暴露权限选择**（待做）：角色绑定的会话隐藏模式选择器与权限类 config option（`message-input.tsx` 的 `switchableConfigOptions` / `showModeSelector`）。
+- **4.6.5 编辑器 UI**（待做，4.6.2 之前做不了验收）：`role-editor.tsx` 加一个"权限"区——模式下拉（候选＝该身体广告的 modes，取自 `describeAgentOptions`）+「不再询问（自动批准权限请求）」开关。**默认必须是关**，并且文案要写清"自动批准＝不再询问就执行"。
+
 ### Phase 5 · 平台收尾
 
 - **5.1 CCR 托管** ✅ 2026-10-17（真机复测通过；待用户过目状态卡）：**探活 / 接管 / 拉起 / 守护 / 状态卡**——用户不再手动起 CCR，崩溃自动恢复。**刻意不重造进程管理**：CCR 自带 `ccr start`（daemon 化、写 `~/.claude-code-router/service.json`、幂等复用已验证实例）。Codeg 只做四件事：① **探活**——对管理地址做 **TCP connect**（故意不走 RPC：可达性才是「接管 or 拉起」的判据，且不依赖 token 正确，token 不对也不会误启第二个实例抢端口）；② **接管**——可达即采纳，不问是谁起的，也**不停**用户的实例；③ **拉起**——仅当不可达，且 **回环地址 + `CCR_WEB_AUTH_TOKEN` 已固定 + 能解析出 `ccr` CLI**（`CCR_BIN` → `PATH`）三者同时满足，否则只报 `blocked_reason`（与 `last_error` 分开）；④ **守护**——20→40→80→160→300s 退避封顶，**只起不停**（停是用户决定），总开关 `CODEG_CCR_SUPERVISE=0`。结构：新模块 `src-tauri/src/ccr/`（`client.rs` 收拢管理面传输——URL/token 契约与 RPC 转发从 `commands/ccr.rs` 移出，命令层只剩适配；`supervisor.rs` 托管，判据与退避是纯函数，13 用例）；`AppState.ccr_supervisor` 两模式同一实例，桌面 `lib.rs` setup 与 `bin/codeg_server.rs` 各起一次守护（`guard_loop` 由调用方选运行时：`setup` 无 tokio reactor，用 `tauri::async_runtime::spawn`）；路由 `POST /api/ccr_supervisor_state` / `/api/ccr_supervisor_start` + 同名 Tauri 命令；模型页顶部新增「CCR 服务」卡（状态 / 由 Codeg 启动·Codeg 之外启动 / pid / CLI / 无法自启原因 / 上次错误 / 启动·重试·重新探活），与既有 `GatewayCard` 相邻：**卡管宿主，网关卡管代理**；10 语言文案 + 5 个组件用例。**真机复测**：前台实例在跑时 `state=running, managed=false` 且不启第二个实例（3458 仅一个监听者）；杀掉 CCR（7733+7878）后 5s 探到 `stopped`、15s 变 `running, managed=true, pid=67852`，此后 45s 稳定；`service.json` 的 `ccr_web_token` 仍是固定的那个，经薄代理 `getConfig` 返回 **200** 并读出供应商 `OpenCode Go`。**未验证**：桌面端只做编译验证（运行期未实测）；经网关的模型调用需 CLI 自身凭证，未跑。规则同步：`AGENTS/gateway.md`（托管契约 + 三个环境变量）、`codeg/NOTICE.md`。
