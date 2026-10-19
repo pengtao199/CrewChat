@@ -2,9 +2,44 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppEnvironment.self) private var environment
+    @State private var settingsPage: SettingsPage? = .general
 
     var body: some View {
         NavigationSplitView {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+        } detail: {
+            detail
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                switch environment.mode {
+                case .workbench:
+                    Button {
+                        environment.mode = .settings
+                    } label: {
+                        Label("settings.open", systemImage: "gearshape")
+                    }
+                case .settings:
+                    Button {
+                        environment.mode = .workbench
+                    } label: {
+                        Label("settings.back", systemImage: "chevron.left")
+                    }
+                }
+            }
+        }
+        .task(id: environment.connection.isConnected) {
+            guard environment.connection.isConnected else { return }
+            await environment.coreSettings.applyDefaultsIfNeeded()
+            await environment.coreSettings.load()
+        }
+    }
+
+    @ViewBuilder
+    private var sidebar: some View {
+        switch environment.mode {
+        case .workbench:
             List {
             }
             .overlay {
@@ -15,21 +50,28 @@ struct RootView: View {
                 )
             }
             .navigationTitle("sidebar.sessions")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-        } detail: {
-            ConnectionView(model: environment.connection)
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                SettingsLink {
-                    Label("settings.open", systemImage: "gearshape")
+
+        case .settings:
+            List(SettingsPage.allCases, id: \.self, selection: $settingsPage) { page in
+                Label(page.titleKey, systemImage: page.symbol)
+                    .tag(page)
+            }
+            .navigationTitle("settings.title")
+            .onAppear {
+                if settingsPage == nil {
+                    settingsPage = .general
                 }
             }
         }
-        .task(id: environment.connection.isConnected) {
-            guard environment.connection.isConnected else { return }
-            await environment.coreSettings.applyDefaultsIfNeeded()
-            await environment.coreSettings.load()
+    }
+
+    @ViewBuilder
+    private var detail: some View {
+        switch environment.mode {
+        case .workbench:
+            ConnectionView(model: environment.connection)
+        case .settings:
+            SettingsDetail(page: settingsPage)
         }
     }
 }

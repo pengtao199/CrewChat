@@ -6,6 +6,7 @@ final class AppEnvironment {
     let supervisor: CoreSupervisor
     let connection: ConnectionViewModel
     let coreSettings: CoreSettingsViewModel
+    var mode: AppMode = .workbench
 
     init() {
         let supervisor = CoreSupervisor()

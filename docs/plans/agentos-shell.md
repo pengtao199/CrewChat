@@ -56,7 +56,7 @@ Status: In Progress（S0 ✅；S1 ✅；S2 待开工）
 | 9 | 主界面布局 | **两栏**：左侧可折叠工作区（`Section(isExpanded:)`，初始全折叠）+ 右侧主对话区；`.inspector` 默认隐藏、记住上次开合（⌘⌥I） | 三栏固定（否决） |
 | 10 | 委派开关 | 放「核心」页；**默认开启**（首次运行一次性写入核心，落「已初始化」标记，之后以核心为准） | 跟随核心默认（false） |
 | 11 | 设置页 | 6 个 tab：通用 / 核心 / 模型 / Agents / 能力 / 关于；每项对应已登记的核心命令 | 只做壳自身设置（否决） |
-| 12 | 设置入口 | 菜单栏「AgentOS → 设置…」（⌘,）+ 窗口工具栏尾部齿轮；不做第三个入口 | 侧栏底部（否决） |
+| 12 | 设置入口 | **窗口内整页切换**：左栏 = 设置项列表，右栏 = 详情；齿轮 / ⌘, 进入，工具栏「返回工作区」退出 | 独立设置窗口 / Settings scene（否决） |
 | 13 | 侧栏折叠 | 工作区初始全折叠，折叠状态持久化 | 全展开（否决） |
 
 ## 设置与主界面（S1–S3 的落点）
@@ -112,8 +112,8 @@ AgentOS/
 
 - Intent：⌘, 能改外观与核心配置；委派开关落到核心；关于页说真话。
 - 已落地：
-  - `Settings` scene + `TabView` 三页；外观（`@AppStorage` + `.preferredColorScheme`，主窗口与设置页同时生效）；启动自动拉起核心（`@AppStorage("core.autoStart")`，默认开）。
-  - 设置入口两处：菜单栏「AgentOS → 设置…」（⌘,，`Settings` scene 自带）+ 窗口工具栏尾部齿轮（`SettingsLink`）。
+  - 三页设置（通用 / 核心 / 关于）作为窗口内的详情视图；外观（`@AppStorage` + `.preferredColorScheme`，主窗口与设置页同时生效）；启动自动拉起核心（`@AppStorage("core.autoStart")`，默认开）。
+  - 设置入口：窗口内整页切换——齿轮或 ⌘, 把左栏换成设置项列表（`List(selection:)`）、右栏换成详情（`SettingsDetail`），工具栏尾部变成「返回工作区」；不使用 `Settings` scene。
   - 核心页：二进制路径与数据目录（`NSOpenPanel`，改动后提示需重启）、端口策略只读、重启（stop → start → 重新读设置）、打开日志 / 数据目录（`NSWorkspace`）。
   - 委派开关：`get/set_delegation_settings` 走 `CoreSettings` 端口；首次连接时 `applyDefaultsIfNeeded()` 一次性写入 `enabled=true` 并落 `UserDefaults("core.delegationInitialized")`；之后一律以核心为准。断核时开关禁用并显示原因。
   - 关于页：壳版本 / build、核心版本（来自 `health`）、许可链接、打开日志。

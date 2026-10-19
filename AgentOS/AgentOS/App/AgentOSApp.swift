@@ -12,11 +12,13 @@ struct AgentOSApp: App {
                 .preferredColorScheme(appearance.colorScheme)
         }
         .defaultSize(width: 1080, height: 720)
-
-        Settings {
-            SettingsView()
-                .environment(environment)
-                .preferredColorScheme(appearance.colorScheme)
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("settings.open") {
+                    environment.mode = .settings
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }
