@@ -61,6 +61,11 @@
             value = "$(SRCROOT)/../.data/ccr/node_modules/.bin/ccr"
             isEnabled = "YES">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "CREWCHAT_AGENTS_DIR"
+            value = "$(SRCROOT)/../.data/agents"
+            isEnabled = "YES">
+         </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction

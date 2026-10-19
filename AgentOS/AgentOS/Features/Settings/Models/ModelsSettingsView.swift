@@ -83,9 +83,11 @@ struct ModelsSettingsView: View {
                     Text(provider.baseURL)
                         .textSelection(.enabled)
                 }
-                LabeledContent("settings.models.models") {
-                    Text(provider.models.joined(separator: ", "))
-                        .foregroundStyle(.secondary)
+            }
+
+            Section("settings.models.models") {
+                ForEach(provider.models, id: \.self) { model in
+                    Text(model)
                         .textSelection(.enabled)
                 }
             }

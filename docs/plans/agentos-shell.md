@@ -49,7 +49,7 @@ Status: In Progress（S0 ✅；S1 ✅；S3 ✅；S2 待开工）
 | 1 | sidecar 来源 | 开发期用路径配置（默认探测 `.data/codeg/bin/codeg-server`，其次自己 `cargo build` 的产物）；发布期随包进 `Contents/MacOS/` | 只认随包一份 |
 | 2 | 端口 | **总是自选空闲端口并自拉核心**（3080 空闲就用，否则取临时端口）。不复用已起的核心：它的 token 只在它自己的库里 | 让用户粘贴别人的 token |
 | 3 | token | 壳生成（`SecRandomCopyBytes`）→ 存 Keychain → 传 `CODEG_TOKEN` | 读核心持久化的 token（否决） |
-| 4 | 数据目录 | 默认 `~/Library/Application Support/AgentOS/core`（隔离）；设置里可指到现有 `.data/codeg` 复用真库 | 一律独立目录 |
+| 4 | 数据目录 | **固定** `~/Library/Application Support/AgentOS/core`（隔离，设置里只读）；开发期用 `CREWCHAT_AGENTS_DIR` 从 `.data/agents` 一次性导入花名册（暂不考虑发布形态） | 可配置目录（否决） |
 | 5 | 错误展示 | 先用核心的 `message` | 解析 `i18n_key` 自己翻（后置） |
 | 6 | 界面语言 | 只 `zh-Hans`，String Catalog 登记 | 双语 |
 | 7 | 首屏 | 直接工作台（工作区侧栏 + 主对话区） | 欢迎页（否决） |
@@ -144,7 +144,7 @@ AgentOS/
 
 - Intent：把核心已有的 CRUD 做成原生表单，不重造逻辑。
 - 已落地：
-  - 模型：**走 CCR（`ccr_call`）**，不是 codeg 的旧 `model_provider` 表——左侧供应商，右侧显示类型 / 地址 / 模型 + **每个账号的额度**（`getProviderAccountSnapshots` 的 meters：剩余 / 上限 / 窗口）；工具栏可刷新额度；CCR 不可达时给出启动入口。
+  - 模型：**走 CCR（`ccr_call`）**，不是 codeg 的旧 `model_provider` 表——左侧供应商，右侧显示类型 / 地址 / **模型逐行列出** + **每个账号的额度**（`getProviderAccountSnapshots` 的 meters：剩余 / 上限 / 窗口）；工具栏可刷新额度；CCR 不可达时给出启动入口。只读，编辑模型留到后续。
   - Agents：`agent_roles_list/save/delete`；列表显示名字 / 引擎 / 模型；编辑器含身份（名字、引擎、供应商、模型）、人格（soul、rules）、能力（技能 / MCP，逗号分隔）、权限（权限模式、自动批准）。
   - 引擎：`acp_list_agents` + `acp_update_agent_preferences`；显示版本、可用状态、启用开关；切换时把该引擎当前 `env` 原样回传，避免清空配置。
   - 新增端口 `CoreModels` / `CoreRoster` / `CoreEngines`；`CoreClient` 抽出 `sendRaw` / `sendIgnoring`（`delete` 返回 `null` 也能处理）。
@@ -152,6 +152,8 @@ AgentOS/
   - 三页统一主从骨架（`MasterDetailLayout`：`HSplitView` 左窄右宽）：左列表选中即编辑，右侧详情底部统一「保存 / 删除」；`+` 在工具栏尾部。
   - 显示修复：错误态与空态互斥（Agents 之前同时显示 501 与空态）；引擎状态收进详情，列表只留名字与版本。
   - 开发期核心路径：scheme 的 `AGENTOS_CORE_BINARY` 改指 `codeg/src-tauri/target/debug/codeg-server`（已装二进制是旧构建，缺 `agent_roles_*`）。
+  - 数据目录固定为 `~/Library/Application Support/AgentOS/core`（设置里只读，不再提供选择）；开发期 scheme 注入 `CREWCHAT_AGENTS_DIR=$(SRCROOT)/../.data/agents`，核心首次启动把 8 个角色导入隔离库（`app_metadata` marker 已写）。
+  - Agents 的编辑保存走 `agent_roles_save`：实测改名后重新 list 已落库，恢复原名后无测试残留。
 - Verify（已跑，源码新构建的核心 + 临时数据目录 + 临时端口）：
   - `list_model_providers` → `[]`；`create_model_provider`（open_code + 普通模型名）成功、`list` 可见、`update` 返回 `{provider, affectedRunningSessions}`、`delete` 返回 `null`。
   - `agent_roles_list` → 内置 8 个角色；`agent_roles_save` → 带 UUID 的角色；`agent_roles_delete` → `true`。

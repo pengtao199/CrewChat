@@ -23,9 +23,6 @@ enum CoreBinaryLocator {
     }
 
     static func dataDirectory() -> URL {
-        if let saved = Preferences.coreDataDirectory, !saved.isEmpty {
-            return URL(fileURLWithPath: saved, isDirectory: true)
-        }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return support.appending(path: "AgentOS/core", directoryHint: .isDirectory)
     }

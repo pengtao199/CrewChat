@@ -19,13 +19,11 @@ struct CoreSettingsView: View {
                 }
 
                 LabeledContent("settings.core.data") {
-                    HStack(spacing: 8) {
-                        Text(CoreBinaryLocator.dataDirectory().path)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(.secondary)
-                        Button("settings.core.choose") { chooseDataDirectory() }
-                    }
+                    Text(CoreBinaryLocator.dataDirectory().path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                 }
 
                 LabeledContent("settings.core.port", value: String(localized: "settings.core.port.auto"))
@@ -101,17 +99,6 @@ struct CoreSettingsView: View {
         panel.treatsFilePackagesAsDirectories = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Preferences.coreBinaryPath = url.path
-        needsRestart = true
-    }
-
-    private func chooseDataDirectory() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        Preferences.coreDataDirectory = url.path
         needsRestart = true
     }
 }

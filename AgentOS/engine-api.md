@@ -24,7 +24,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `ccr_call`（`getConfig`） | 供应商与凭据 | `CoreCCR` | body `{method:"getConfig", args:[]}`；返回 `{Providers:[{id,name,type,api_base_url,models,credentials:[{name,api_key,enabled}]}]}`。**这才是模型页的真相源**（`list_model_providers` 是 codeg 的旧表，页面已不用） |
 | `ccr_call`（`getProviderAccountSnapshots`） | 每个账号的额度 | `CoreCCR` | args `["<provider name>", {}]`（或 `{"forceRefresh":true}`）；返回 `[{credentialLabel,status,meters:[{label,remaining,limit,used,unit,window,resetAt}]}]` |
 | `ccr_supervisor_start` | 拉起 / 接管 CCR | `CoreCCR` | 无参数；已运行时 adopt，不新起进程（实测 before/after 进程数不变）。核心需要 `CCR_BIN` 才能自启；scheme 已注入 `.data/ccr/node_modules/.bin/ccr` |
-| `agent_roles_list` | 花名册列表 | `CoreRoster` | 无参数；首启会带出内置角色（实测 8 个）。**需要较新的核心二进制**：本机已装 `.data/codeg/bin/codeg-server` 缺这条路由（501），从源码构建立即正常；开发期指向 `codeg/src-tauri/target/debug/codeg-server`（scheme 已改） |
+| `agent_roles_list` | 花名册列表 | `CoreRoster` | 无参数；首启由 `CREWCHAT_AGENTS_DIR` 从 `.data/agents` 一次性导入（实测 8 个），之后读写隔离库。**需要较新的核心二进制**：本机已装 `.data/codeg/bin/codeg-server` 缺这条路由（501），从源码构建立即正常；开发期指向 `codeg/src-tauri/target/debug/codeg-server`（scheme 已改） |
 | `agent_roles_save` | 新建 / 更新角色 | `CoreRoster` | body `{role:{id,name,soul,rules,agent_type,model,model_provider,skills,mcp,permission_mode,auto_approve}}`（snake_case）；`id` 为空=新建，返回带 id 的角色 |
 | `agent_roles_delete` | 删除角色 | `CoreRoster` | body `{id}`；返回 bool |
 | `acp_list_agents` | 引擎清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/distribution_type/is_acp_adapter/env`（snake_case） |
