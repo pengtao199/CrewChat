@@ -7,7 +7,7 @@ import {
   type CcrConfig,
   type CcrProfileSummary,
 } from "@/lib/ccr"
-import type { AgentSkillsListResult } from "@/lib/types"
+import type { AgentOptionsSnapshot, AgentSkillsListResult } from "@/lib/types"
 
 /** A brand-new, unsaved role. `id` stays empty until the server assigns one. */
 export function createEmptyRole(): AgentRole {
@@ -21,6 +21,8 @@ export function createEmptyRole(): AgentRole {
     model_provider: "",
     skills: [],
     mcp: [],
+    permission_mode: "",
+    auto_approve: false,
     created_at: null,
     updated_at: null,
   }
@@ -134,6 +136,19 @@ export function profilesFromConfig(
 ): CcrProfileSummary[] {
   const profiles = config?.profile?.profiles
   return Array.isArray(profiles) ? profiles : []
+}
+
+/**
+ * [crewchat] The permission presets a body advertises, as select options
+ * (Phase 4.6). Empty when the body published none — the editor then offers only
+ * "follow the CLI's own default", which is the honest choice: an Agent that
+ * says nothing about permissions must not silently change what the CLI does.
+ */
+export function permissionModeOptions(
+  snapshot: AgentOptionsSnapshot | null
+): Array<{ id: string; label: string }> {
+  const modes = snapshot?.modes?.available_modes ?? []
+  return modes.map((mode) => ({ id: mode.id, label: mode.name }))
 }
 
 /**

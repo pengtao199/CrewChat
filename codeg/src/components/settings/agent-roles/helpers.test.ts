@@ -5,6 +5,7 @@ import {
   ccrStateForBody,
   createEmptyRole,
   faceIncludesModel,
+  permissionModeOptions,
   profilesFromConfig,
   resolveModelProvider,
   roleModelFaceState,
@@ -13,6 +14,7 @@ import {
 } from "./helpers"
 import type { CcrProfileSummary } from "@/lib/ccr"
 import type { BodyModelFace } from "@/lib/agent-roles"
+import type { AgentOptionsSnapshot } from "@/lib/types"
 
 describe("createEmptyRole", () => {
   it("starts unsaved with an empty id", () => {
@@ -191,6 +193,30 @@ describe("faceIncludesModel", () => {
     expect(faceIncludesModel(null, "OpenCode Go", "mimo-v2.6-flash")).toBe(
       false
     )
+  })
+})
+
+// [crewchat] Phase 4.6 — the permission section's options come from the body's
+// own advertised modes, and a body that publishes none must yield none (the
+// editor then offers only "follow the CLI's own default").
+describe("permissionModeOptions", () => {
+  it("lists the body's presets, and nothing when it published none", () => {
+    expect(permissionModeOptions(null)).toEqual([])
+    const snapshot = {
+      modes: {
+        current_mode_id: "auto",
+        available_modes: [
+          { id: "auto", name: "Auto review" },
+          { id: "full", name: "Full access" },
+        ],
+      },
+      config_options: [],
+      available_commands: [],
+    } as unknown as AgentOptionsSnapshot
+    expect(permissionModeOptions(snapshot)).toEqual([
+      { id: "auto", label: "Auto review" },
+      { id: "full", label: "Full access" },
+    ])
   })
 })
 

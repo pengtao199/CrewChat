@@ -23,6 +23,19 @@ export interface AgentRole {
   model_provider: string
   skills: string[]
   mcp: string[]
+  /**
+   * [crewchat] The session-mode id this role's sessions START in — a CLI
+   * approval/sandbox preset (e.g. codex's `workspace-write`). Empty means
+   * "leave the CLI / CCR default alone", which is what every role did before
+   * Phase 4.6.
+   */
+  permission_mode: string
+  /**
+   * [crewchat] Answer this role's permission requests automatically instead of
+   * interrupting the chat. Configured here (Agents page) so the conversation
+   * never has to ask; OFF unless the user turns it on.
+   */
+  auto_approve: boolean
   created_at: string | null
   updated_at: string | null
 }

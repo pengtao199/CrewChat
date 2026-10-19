@@ -15,11 +15,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { useAgentOptions } from "@/components/automations/use-agent-options"
 import type { AgentRole, BodyModelFace } from "@/lib/agent-roles"
-import type { AcpAgentInfo, LocalMcpServer } from "@/lib/types"
+import type { AcpAgentInfo, AgentType, LocalMcpServer } from "@/lib/types"
 
 import {
   faceIncludesModel,
+  permissionModeOptions,
   resolveModelProvider,
   summarizeMcpServer,
   type ModelGroup,
@@ -30,6 +33,11 @@ import {
   SearchMultiSelect,
   type SearchMultiSelectOption,
 } from "./search-multi-select"
+
+/** Radix reserves the empty string for "nothing selected", so the row meaning
+ *  "follow the CLI's own default" needs a sentinel; it maps back to `""` (the
+ *  roster's "no override") on save. */
+const PERMISSION_MODE_DEFAULT = "__cli_default__"
 
 interface RoleEditorProps {
   draft: AgentRole
@@ -72,6 +80,20 @@ export function RoleEditor({
   onDelete,
 }: RoleEditorProps) {
   const t = useTranslations("AgentRoles")
+
+  // [crewchat] Phase 4.6 — the body's advertised permission presets. A probe is
+  // a transient CLI spawn, so it waits for a body to be chosen; a body that
+  // publishes none leaves the user with "follow the CLI's own default", which
+  // is the honest option (it changes nothing).
+  const { snapshot: agentOptions, loading: optionsLoading } = useAgentOptions(
+    (draft.agent_type || "") as AgentType,
+    null,
+    Boolean(draft.agent_type)
+  )
+  const modeOptions = useMemo(
+    () => permissionModeOptions(agentOptions),
+    [agentOptions]
+  )
 
   // Provider row of the model picker: the stored pair when it still exists in
   // CCR, else derived from the model, else empty. Never written back on open —
@@ -286,6 +308,68 @@ export function RoleEditor({
                 {t("modelUnavailable")}
               </p>
             ) : null}
+          </div>
+        </div>
+      </section>
+
+      {/* [crewchat] Phase 4.6 — permissions belong to the AGENT, not the
+          conversation: the preset its sessions start in, and whether they may
+          ask at all. Both were previously decided in the chat (a composer mode
+          picker plus a permission card per request), which interrupted work and
+          made the same Agent behave differently from one conversation to the
+          next. */}
+      <section className="space-y-3">
+        <div className="space-y-1">
+          <h3 className="text-sm font-semibold">
+            {t("permissionSectionTitle")}
+          </h3>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {t("permissionSectionHint")}
+          </p>
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t("permissionModeLabel")}</Label>
+          <Select
+            value={draft.permission_mode || PERMISSION_MODE_DEFAULT}
+            onValueChange={(value) =>
+              onChange({
+                permission_mode: value === PERMISSION_MODE_DEFAULT ? "" : value,
+              })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={t("permissionModeDefault")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={PERMISSION_MODE_DEFAULT}>
+                {t("permissionModeDefault")}
+              </SelectItem>
+              {modeOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-2xs text-muted-foreground">
+            {optionsLoading
+              ? t("permissionModeLoading")
+              : t("permissionModeHint")}
+          </p>
+        </div>
+        <div className="flex items-start gap-2">
+          <Switch
+            id="agent-role-auto-approve"
+            checked={draft.auto_approve}
+            onCheckedChange={(checked) => onChange({ auto_approve: checked })}
+          />
+          <div className="space-y-0.5">
+            <Label htmlFor="agent-role-auto-approve">
+              {t("autoApproveLabel")}
+            </Label>
+            <p className="text-2xs text-muted-foreground">
+              {t("autoApproveHint")}
+            </p>
           </div>
         </div>
       </section>

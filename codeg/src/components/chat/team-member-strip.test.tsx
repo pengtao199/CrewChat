@@ -56,6 +56,8 @@ function role(overrides: Partial<AgentRole> = {}): AgentRole {
     model: "",
     model_provider: "",
     skills: [],
+    permission_mode: "",
+    auto_approve: false,
     mcp: [],
     created_at: null,
     updated_at: null,
