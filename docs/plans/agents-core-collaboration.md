@@ -1,7 +1,7 @@
 # Agents 核心协作（Codeg 原生委派增强）
 
-Updated: 2026-10-18 (Asia/Shanghai)
-Status: In Progress（Phase 5 平台收尾）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.1.1 / 3.1.2 / 3.1.3 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；Phase 4.1 卡内内联成员流 🟡（代码完成、测试绿，真机验收待用户）；4.1.1 卡显示成员名 ✅（含一处 `DelegationLink` 成员身份修正）。0.3 路由注入完成；**模型注入通道已删**（3.1.2：claude 运行期切模型不可用，按角色定模型只留 3.1 的隔离 home）。**5.1 CCR 托管 ✅ + 5.1.1 验证脚本按改动拆 ✅**（真机复测：`探活 → 接管 → 拉起 → 守护` 全链路待用户验收）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
+Updated: 2026-10-19 (Asia/Shanghai)
+Status: In Progress（Phase 5 平台收尾）。Phase 1 协作 v1 已收口；Phase 2 角色化（2.1 / 2.2 / 2.3）✅；Phase 3 成员模型与用量（3.1 / 3.1.1 / 3.1.2 / 3.1.3 / 3.2）✅（3.1 有 v1 边界：仅 claude 注入角色模型）；Phase 4.1 卡内内联成员流 🟡（代码完成、测试绿，真机验收待用户）；4.1.1 卡显示成员名 ✅（含一处 `DelegationLink` 成员身份修正）。**4.6 权限归属到每个 Agent ✅（5/5 代码完成：`e53a300` / `0e31a36` / `c1f1546` / `07b0059`，真机验收待用户）**。0.3 路由注入完成；**模型注入通道已删**（3.1.2：claude 运行期切模型不可用，按角色定模型只留 3.1 的隔离 home）。**5.1 CCR 托管 ✅ + 5.1.1 验证脚本按改动拆 ✅**（真机复测：`探活 → 接管 → 拉起 → 守护` 全链路待用户验收）。基线（CLI 页就绪卡、CCR 模型页 v2、花名册 v1、`ccr.ts` profile 读出/构造层）已在仓库。`codeg-ccr-integration.md` 的未完成续作并入本计划（见 0.0）。
 Next: 4.4 Agent 优先（`3c199f8`）✅、4.2 团队 @ 联动（`510d45a`）✅。接下来 4.3 异步回流（补 Goal 第 3 条的「汇总」）→ Phase 5 平台收尾；4.1 卡内内联流与 5.1 CCR 托管真机复测仍待用户验收。2026-10-18 已同步真相源文档（`AGENTS/truth-sources.md`、`agent-model.md`、`architecture.md`、README）。
 
 ## Goal（终态）
@@ -113,15 +113,15 @@ Next: 4.4 Agent 优先（`3c199f8`）✅、4.2 团队 @ 联动（`510d45a`）✅
 
 - **4.3 异步回流**：长任务完成有明确提示与「让管理员汇总」入口。→ 做到：后台任务不丢、有回来路。
 
-### Phase 4.6 · 权限归属到每个 Agent（1/4 已落地）
+### Phase 4.6 · 权限归属到每个 Agent（5/5 已落地，待真机验收）
 
 **用户决定**：权限不再由对话决定——不在 composer 暴露会话模式、权限请求也不再打断对话；**每个 Agent 在 Agents 页一次配好**。
 
 - **4.6.1 花名册字段** ✅ 2026-10-19（`e53a300`）：`custom_agent` 增 `permission_mode`（角色会话的**起始**模式 id＝CLI 审批/沙箱 preset；空＝保持 CLI/CCR 默认＝今天的行为）与 `auto_approve`（该角色的权限请求自动批准；**默认关**）。只读这两列的是 `kind='role'` 行；`kind='acp'` 行逐字不变。迁移 `m20261019_000001`。测试：agent_role 服务 8 例绿。
-- **4.6.2 会话启动时套用**（待做）：`acp_connect` 已经在解析角色（`agent_host::apply_connect_role_overlay`）——扩展它：① 角色的 `permission_mode` 作为 `preferred_mode_id` **覆盖**前端传的 `getSavedPrefsForConnect`（`src/lib/selector-prefs-storage.ts`）；② `auto_approve` 记到该连接上（`SessionState` 加字段）。委派子会话同源：`RoleSpawnContext` → `spawner` 的 `preferred_mode_id`。
-- **4.6.3 权限请求自动应答**（待做）：在权限请求浮到 UI 的那条路径上，若该连接的角色的 `auto_approve` 为真 → 选 `allow` / `allowForSession`，否则第一个 option，直接 `respond_permission` 并**不再打断**。**照抄现成逻辑**：`src-tauri/src/chat_channel/session_event_subscriber.rs`（约 528 行，chat channel 已经在这么做）。
-- **4.6.4 composer 不再暴露权限选择**（待做）：角色绑定的会话隐藏模式选择器与权限类 config option（`message-input.tsx` 的 `switchableConfigOptions` / `showModeSelector`）。
-- **4.6.5 编辑器 UI**（待做，4.6.2 之前做不了验收）：`role-editor.tsx` 加一个"权限"区——模式下拉（候选＝该身体广告的 modes，取自 `describeAgentOptions`）+「不再询问（自动批准权限请求）」开关。**默认必须是关**，并且文案要写清"自动批准＝不再询问就执行"。
+- **4.6.2 会话启动时套用 + 4.6.3 权限请求自动应答** ✅ 2026-10-19（`0e31a36`）：`apply_connect_role_overlay` 现在顺带返回 `RoleSessionPolicy`；主会话（tauri 命令 + web handler）用角色的 `permission_mode` **覆盖** composer 的偏好（Agents 页才是配它的地方）。委派成员**按 `role_id` 直接查一次花名册行**取同一份事实——刻意**不往 `RoleSpawnContext` / `TeamMember` 加字段**：权限事实只留在 Agent 一处。自动批准拦在 `admit_permission`（「请求本会变成卡片」的唯一入口）：`SessionState.role_auto_approve` 为真就选 `allow` / `allowForSession`（否则第一个 option）直接应答、**不发布卡片**——所以不会留下没人能答的 parked responder，其它会话的队列/撤回机制完全不受影响。标记在 spawn 之后、**第一条 prompt 之前**落到连接（`set_role_auto_approve`），这正是它唯一有意义的窗口。`PermissionReply::respond_selected` 上提一层：队列与自动批准两条路共用同一份编码（否则 codex 的 elicitation 批准会发错形状）。
+- **4.6.4 composer 不再暴露权限选择** ✅ 2026-10-19（`07b0059`）：角色绑定的会话（tab 视图按 `composerLeaderRoleId` 给出 `permissionsManagedByAgent`，经 `ConversationShell` → `ChatInput` → `MessageInput` 透传）**不渲染模式选择器**（`showModeSelector` 的末位条件）；非角色会话逐字不变。顺带修 `f7eedbb` 的回归：`connect()` 新增的第 5 参 `roleId` 漏同步到 `tab-first-show-auto-connect.test.tsx`（已 stash 到 HEAD 复现确认与本次改动无关）。**未做**：权限类 config option 的隐藏（现在只收模式选择器）。
+- **4.6.5 编辑器 UI** ✅ 2026-10-19（`c1f1546`）：`role-editor.tsx` 新增「权限」区——**审批预设**下拉（候选＝**该身体自己广告的** modes，`useAgentOptions` 活体探针，与委派默认值页同源；首项「跟随 CLI 自己的默认」＝保存回 `""`，因 Radix 把空串留给「未选择」故用哨兵值）＋「不再询问——自动批准」开关（绑定 `auto_approve`，**默认关**，文案写明代价与「下次会话启动时生效」）。测试：helpers 26 例（新增 `permissionModeOptions`）、message-input 92 例（新增「Agent 管权限时不给模式选择器」）、team-selector 6 + 成员条 9 + i18n 键位 3 全绿；`tsc` / `prettier` / `eslint` 零告警。
+- **待真机验收**：Agents 页给某角色设 `auto_approve` → 开一轮会话，看 `~/.claude-code-router/app-data/request-logs.sqlite` 与 `codeg-server` 的 `[agent-host]` 行，确认权限请求不再中断、模型仍是所选。**未验证**：真机端到端（后端只有 `cargo check` + 单测，运行期未实测）。
 
 ### Phase 5 · 平台收尾
 
