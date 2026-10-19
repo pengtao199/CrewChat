@@ -249,6 +249,9 @@ cd codeg && bash scripts/dev-mac.sh install  # 独立正式 app：完整构建 �
 
 1. `Cargo.toml` 的 `[profile.dev.package.codeg] debug = "line-tables-only"`——只降**本 crate** 的
    调试信息（依赖不动，不触发依赖重编），panic backtrace 仍有文件名/行号。
+   **别顺手关依赖的 debug**：2026-10-19 实测 `[profile.dev.package."*"] debug = false`
+   一次性重编 438 个依赖单元 +87s，之后改一行重编 25.8s vs 24.1s（无改善），二进制只小 6%。
+   基线数字（server-bin，清空本 crate 后）：完整构建 **143.8s**、改一行重编 **24.1s**。
 2. `scripts/dev-mac.sh` 每次跑先自检：`target` > 30G 就 `cargo clean -p codeg`（**依赖保留**，
    本 crate 重编 1-3 分钟）。手工清理同一条命令；**别**用 `cargo clean`（会连依赖一起清掉，
    下次全量重编十几分钟）。

@@ -314,5 +314,9 @@ axum-test = { version = "17", features = ["ws"] }
 # 而 feature 集切换（默认 / test-utils / server-bin / mcp-bin）各留一份，实测把
 # target/debug 顶到 115G。只降本 crate 的调试信息（依赖不动，不会触发依赖重编）：
 # `line-tables-only` 仍保留 panic backtrace 里的文件名与行号，够定位问题。
+#
+# 不要顺手把依赖的 debug 也关掉（`[profile.dev.package."*"] debug = false`）：
+# 2026-10-19 实测（server-bin）——一次性重编 438 个依赖单元 +87s，之后改一行重编
+# 25.8s vs 24.1s（无改善），debug 二进制 192MB → 181MB（−6%）。不值一条要永久重放的补丁。
 [profile.dev.package.codeg]
 debug = "line-tables-only"
