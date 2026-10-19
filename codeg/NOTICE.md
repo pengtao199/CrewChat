@@ -218,6 +218,18 @@ pnpm server:dev
 - **别来回切换 feature 集**：`tauri dev`（默认 features）与 `server-bin` 是两套编译产物，
   来回切会让整份 crate 全量重编（约 3 分钟），增量缓存白丢。哪个回路就用到底。
 
+**热更新怎么跑（一条命令）**：
+
+```bash
+cd codeg && bash scripts/dev-mac.sh      # 前端 HMR + Rust 自动增量重编重启窗口
+```
+
+它替掉了 `pnpm tauri dev`，因为系统 pnpm 9 跑不动 `beforeDevCommand`（`pnpm tauri:before-dev`
+会报 `packages field missing or empty`）：脚本自己起 `next dev --turbopack`（:3000，改 TSX/CSS
+秒级生效、不丢状态），再用 `--config '{"build":{"beforeDevCommand":""}}'` 让 Tauri 跳过钩子，
+窗口加载 :3000 并监听 Rust——**改 Rust 由 Tauri 自动重编 + 重启窗口，不需要你构建**。
+开发期间永远不跑 `next build` / `tauri build`，那是发版动作（`scripts/package-mac.sh`）。
+
 **release 打包的两个坑**（本机验证过）：
 
 1. `bundle.createUpdaterArtifacts: true` 需要更新签名私钥，本机没有 → 直接 `tauri build`
