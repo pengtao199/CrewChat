@@ -23,6 +23,33 @@ Codeg 工作台的模型页经薄代理操作 CCR：后端 `ccr_call` / `ccr_hea
 
 托管只在回环地址 + token 已固定 + 能解析出 `ccr` CLI 时生效，否则只在状态卡上报「无法自启」的原因。
 
+### 本机常驻（launchd，2026-10-19）
+
+本机 `ccr` **不在 PATH**、`CCR_BIN` 也没设，所以 Codeg 只能"接管"不能"自启"；而手工 `ccr start` 起的实例
+会随终端/会话结束被清理——**这就是"CCR 一直不稳定"的真因**（CCR 死时 `service.json` 也没了，Codeg 连发现
+都无从谈起）。改为 **launchd 常驻**，Codeg 只负责接管：
+
+- 文件 `~/Library/LaunchAgents/com.crewchat.ccr.plist`：`node …/@musistudio/claude-code-router/dist/main/cli.js
+  start --daemon --no-open`，固定 `CCR_WEB_AUTH_TOKEN`（落进 `service.json`，Codeg 据此发现；**token 只存在
+  plist 里，不进仓库**），`RunAtLoad` + `StartInterval=120`。
+- **必须直接调 node**：`ccr` 是 `#!/usr/bin/env node` 脚本，launchd 的 PATH 里没有 node（`exit 127`）。
+- **不用 `KeepAlive`**：`ccr start` 会 daemon 化后立刻退出，KeepAlive 会无限重启；`StartInterval` 才是对的
+  ——`ccr start` 幂等（已在跑就打印 `already running` 并以 0 退出），120s 一次正好当 watchdog。
+- **一条命令装 / 重载 / 自检**：`bash codeg/scripts/ccr-agent-mac.sh`（生成 plist → `launchctl bootstrap`
+  → 打印 3458/3456 与 `service.json`）。token 从 `~/.config/crewchat/ccr-token` 读，首次自动生成，
+  **仓库外、不进 git**。手工等价命令：
+  ```bash
+  launchctl bootout gui/$UID ~/Library/LaunchAgents/com.crewchat.ccr.plist 2>/dev/null
+  launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.crewchat.ccr.plist
+  launchctl print gui/$UID/com.crewchat.ccr | head
+  tail -f ~/Library/Logs/crewchat-ccr.log
+  ```
+- 校验（管理面 3458 / 网关 3456 / 发现文件）：
+  ```bash
+  lsof -nP -iTCP -sTCP:LISTEN | grep -E "3456|3458"
+  cat ~/.claude-code-router/service.json      # url 里带 ?ccr_web_token=…
+  ```
+
 **Python 侧不再有网关。** 旧的 cc-switch 代理核心（`gateway/cc-switch/`、`ccsw-proxy`）已移除：Python 身体不再注入模型，改为使用各自 CLI 的登录与用户配置（见 `AGENTS/bodies.md`）。模型统一管理只走 CCR。
 
 ## 原则
