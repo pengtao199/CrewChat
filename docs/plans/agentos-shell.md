@@ -1,7 +1,7 @@
 # AgentOS 壳（macOS 前端）
 
 Updated: 2026-10-19 (Asia/Shanghai)
-Status: Ready
+Status: In Progress（Slice 0 ✅ 2026-10-19；Slice 1 待开工）
 
 ## Goal（终态）
 
@@ -46,7 +46,7 @@ Status: Ready
 | # | 决策点 | 默认 | 备选 |
 | --- | --- | --- | --- |
 | 1 | sidecar 来源 | 开发期用路径配置（默认探测 `.data/codeg/bin/codeg-server`，其次自己 `cargo build` 的产物）；发布期随包进 `Contents/MacOS/` | 只认随包一份 |
-| 2 | 端口 | 先探 3080：有活的核心就直接连（复用用户已起的）；没有则选空闲端口并自己拉起 | 一律自己选端口 |
+| 2 | 端口 | **总是自选空闲端口并自拉核心**（3080 空闲就用，否则取临时端口）。不复用已起的核心：它的 token 只存在它自己的库里，壳拿不到（2026-10-19 纠正） | 让用户在设置里粘贴别人的 token |
 | 3 | token | 壳生成（`SecRandomCopyBytes`）→ 存 Keychain → 传 `CODEG_TOKEN` | 读核心持久化的 token（要读 DB，否决） |
 | 4 | 数据目录 | 开发期指向现有 `.data/codeg`（复用真库真花名册）；发布期用 `~/Library/Application Support/AgentOS/core` | 一律独立目录 |
 | 5 | 错误展示 | 先用核心的 `message`（英文） | 解析 `i18n_key` 自己翻（后置） |
@@ -78,22 +78,19 @@ AgentOS/
 
 ## 步骤计划
 
-### Slice 0：工程骨架 + 拉起并连上核心
+### Slice 0心
 
 - Intent：AgentOS 能启动、找到/拉起核心、完成 `health`，界面显示真实连接态。
-- Files：`AgentOS.xcodeproj`、`App/`、`Domain/Ports/CoreLifecycle.swift`、`Core/Process/SidecarProcess.swift`、`Core/HTTP/CoreClient.swift`、`Infrastructure/KeychainStore.swift`、`Features/Settings/`（地址与 token 展示）。
-- Steps：
-  - 建 macOS App 工程（**非沙盒**，hardened runtime）；Info.plist 只加必要项。
-  - `KeychainStore`：读/写/删 `core.token`；首次运行生成随机 token。
-  - `SidecarProcess`：探 3080 → 活则连；否则选空闲端口，以 `CODEG_HOST=127.0.0.1`、`CODEG_PORT`、`CODEG_TOKEN`、`CODEG_DATA_DIR` 拉起，stdout/stderr 落日志；进程退出时清理。
-  - `CoreClient.health()`：`POST /api/health`，60s 超时，错误解成壳内错误类型。
-  - 界面：连接态（未启动 / 连接中 / 已连接 / 失败+可操作原因）。
-  - 登记 `AgentOS/engine-api.md`：`health` → 端口 `CoreLifecycle`。
-- Verify：`xcodebuild` 通过；启动壳，核心未跑时显示可操作错误，点「启动」后 `health` 返回并显示已连接；`lsof -i :<port>` 确认只监听 `127.0.0.1`。
-- Checkpoint：确认没有把任何核心字段形状带进 `Features/`。
-
-### Slice 1：会话列表与进入
-
+- Files：`AgentOS.xcodeproj`、`App/`、`Domain/Ports/CoreLifecycle.swift`、`Core/Process/SidecarProcess.swift`、`Core/HTTP/CoreClient.swift`、`Infrastructure/KeychainStore.swift`、`Features/Sigts`gs（地（地址与 token 展示）址与 token 展示）。
+- Stepsps：
+  - 建i加a。OApp （****，）；f.plit 只加必要项
+  - y：读写删 `r.k`；首次运行生成随机 k
+  - ocides`rPr c则连s；：探否3080选OD活则连；否则选空闲端口，以G_HOST=1EG_PORT`、`CODEG、`CODEG_PORT`、`CODEG_TOKEN`、`CODEG_DTTA_DIR` 拉起，s d起dsts d退 落日志；进程`C时or0动 / 连接中 / 已连接 / 失败+可操作原因）。
+  - 登C`rgCltmd`hCealyh()`：`PclTe/ap/heath，60s超时，错误解成壳内错误类型
+- Ve界面：连接态（未ri / 连接中 / 已连接 / 失败+可操作原因）。
+ y-`登记ebAgendOS 启n动核心示操api`mdi：:127.0.0 →.端口。CrLfecycle
+CpVerify：oxint：buil没把任通过；启动壳，核心未跑时显示可操作错误，点「启动」后核心h进elahu返回并显示已连接；lf:<r>`确认只监听127...1`
+确认把任何带进Featu
 - Intent：看见真实会话并可进入。
 - Files：`Core/Wire/CoreConversationSummary.swift`、`Core/HTTP/CoreClient+Conversations.swift`、`Domain/Conversation.swift`、`Features/SessionList/`。
 - Steps：`list_all_conversations` / `get_conversation` → 映射成 `Domain/Conversation`；侧栏渲染列表（标题、引擎、时间、状态）；选中进入详情。
