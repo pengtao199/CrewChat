@@ -5,6 +5,8 @@ struct CoreHealth: Decodable {
     let version: String
 }
 
+struct EmptyBody: Encodable {}
+
 actor CoreClient {
     private let endpoint: CoreEndpoint
     private let session: URLSession
@@ -18,11 +20,15 @@ actor CoreClient {
     }
 
     func health() async throws -> CoreHealth {
-        var request = URLRequest(url: endpoint.url("health"))
+        try await send("health", body: EmptyBody())
+    }
+
+    func send<Body: Encodable, Response: Decodable>(_ command: String, body: Body) async throws -> Response {
+        var request = URLRequest(url: endpoint.url(command))
         request.httpMethod = "POST"
         request.setValue("Bearer \(endpoint.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Data("{}".utf8)
+        request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -31,6 +37,6 @@ actor CoreClient {
         guard (200..<300).contains(http.statusCode) else {
             throw CoreError.decode(data, status: http.statusCode)
         }
-        return try JSONDecoder().decode(CoreHealth.self, from: data)
+        return try JSONDecoder().decode(Response.self, from: data)
     }
 }

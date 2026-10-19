@@ -16,6 +16,7 @@
 | --- | --- |
 | Python 归档层 | 不参与运行时，无需验证；改动归档时跑 `archive/python-orchestrator/scripts/check_layers.py` 与 `check_imports.py` |
 | AgentOS（Swift 壳） | `xcodebuild -project AgentOS/AgentOS.xcodeproj -scheme AgentOS build` 通过；壳改动实际启动渲染确认 |
+| AgentOS 界面 | 每个新增界面至少覆盖空态 / 正常态 / 错误态；新增文案与 `Localizable.xcstrings` 在**同一次改动**里登记 |
 | AgentOS 对核心的调用（新增/改形状） | 起核心，`curl` 带 token 实调该命令，确认状态码与 JSON 形状 |
 | AgentOS 事件 / 流式 | 真实跑一轮：连接 → 发一句 → 观察流式与工具事件 → 取消 |
 | `/api/*` 或 `/ws` | 起服务后 curl 该路径，确认状态码与形状 |

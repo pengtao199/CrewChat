@@ -11,6 +11,36 @@
         }
       }
     },
+    "appearance.dark" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "深色"
+          }
+        }
+      }
+    },
+    "appearance.light" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "浅色"
+          }
+        }
+      }
+    },
+    "appearance.system" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随系统"
+          }
+        }
+      }
+    },
     "connection.address" : {
       "localizations" : {
         "zh-Hans" : {
@@ -167,6 +197,296 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "版本"
+          }
+        }
+      }
+    },
+    "settings.about.app" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AgentOS"
+          }
+        }
+      }
+    },
+    "settings.about.ccr" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CCR（模型层）"
+          }
+        }
+      }
+    },
+    "settings.about.codeg" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codeg（核心）"
+          }
+        }
+      }
+    },
+    "settings.about.core" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核心版本"
+          }
+        }
+      }
+    },
+    "settings.about.core.none" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未连接"
+          }
+        }
+      }
+    },
+    "settings.about.licenses" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "许可"
+          }
+        }
+      }
+    },
+    "settings.about.openLog" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开核心日志"
+          }
+        }
+      }
+    },
+    "settings.core" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核心"
+          }
+        }
+      }
+    },
+    "settings.core.actions" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作"
+          }
+        }
+      }
+    },
+    "settings.core.behavior" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行为"
+          }
+        }
+      }
+    },
+    "settings.core.binary" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核心二进制"
+          }
+        }
+      }
+    },
+    "settings.core.binary.auto" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动（随包 / 环境变量）"
+          }
+        }
+      }
+    },
+    "settings.core.choose" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择…"
+          }
+        }
+      }
+    },
+    "settings.core.data" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据目录"
+          }
+        }
+      }
+    },
+    "settings.core.delegation" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启用 Agent 委派"
+          }
+        }
+      }
+    },
+    "settings.core.delegation.help" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许会话里的管理员把任务委派给其他 Agent。"
+          }
+        }
+      }
+    },
+    "settings.core.openData" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开数据目录"
+          }
+        }
+      }
+    },
+    "settings.core.openLog" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开日志"
+          }
+        }
+      }
+    },
+    "settings.core.port" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端口"
+          }
+        }
+      }
+    },
+    "settings.core.port.auto" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动（优先 3080，占用时取空闲端口）"
+          }
+        }
+      }
+    },
+    "settings.core.restart" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重启核心"
+          }
+        }
+      }
+    },
+    "settings.core.restartHint" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改动在重启核心后生效。"
+          }
+        }
+      }
+    },
+    "settings.core.section" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "进程"
+          }
+        }
+      }
+    },
+    "settings.general" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通用"
+          }
+        }
+      }
+    },
+    "settings.general.appearance" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外观"
+          }
+        }
+      }
+    },
+    "settings.general.autostart" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动 AgentOS 时自动拉起核心"
+          }
+        }
+      }
+    },
+    "settings.general.autostart.help" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭后需要手动在连接页启动核心。"
+          }
+        }
+      }
+    },
+    "settings.general.launch" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动"
+          }
+        }
+      }
+    },
+    "settings.general.theme" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主题"
           }
         }
       }

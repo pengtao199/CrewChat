@@ -62,7 +62,7 @@ struct ConnectionView: View {
         .formStyle(.grouped)
         .navigationTitle("app.name")
         .task {
-            if model.phase == .idle {
+            if model.phase == .idle && Preferences.autoStartCore {
                 await model.start()
             }
         }

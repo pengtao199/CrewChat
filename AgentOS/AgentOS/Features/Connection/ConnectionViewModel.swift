@@ -77,6 +77,11 @@ final class ConnectionViewModel {
         return false
     }
 
+    var coreVersion: String? {
+        if case let .connected(_, version) = phase { return version }
+        return nil
+    }
+
     var canStart: Bool {
         if case .idle = phase { return true }
         if case .failed = phase { return true }

@@ -19,5 +19,10 @@ struct RootView: View {
         } detail: {
             ConnectionView(model: environment.connection)
         }
+        .task(id: environment.connection.isConnected) {
+            guard environment.connection.isConnected else { return }
+            await environment.coreSettings.applyDefaultsIfNeeded()
+            await environment.coreSettings.load()
+        }
     }
 }

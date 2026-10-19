@@ -1,18 +1,19 @@
 # AgentOS 壳（macOS 前端）
 
 Updated: 2026-10-19 (Asia/Shanghai)
-Status: In Progress（Slice 0 ✅ 2026-10-19；Slice 1 待开工）
+Status: In Progress（S0 ✅；S1 ✅；S2 待开工）
 
 ## Goal（终态）
 
-一个可日常使用的 macOS 原生客户端：用户在 AgentOS 里选项目与 Agent，发起任务，看见多个 Agent 谁在说、调了什么工具、花了多少，能随时取消与审批。**所有真相与执行都在核心（`codeg-server`）**，AgentOS 只渲染与交互。
+一个可日常使用的 macOS 原生客户端：用户在 AgentOS 里选工作区与 Agent，发起任务，看见多个 Agent 谁在说、调了什么工具、花了多少，能随时取消与审批。**所有真相与执行都在核心（`codeg-server`）**，AgentOS 只渲染与交互。
 
-判定达标：把核心当黑盒，Action 里不出现任何核心字段形状（`AGENTS/agentos-layout.md` 的硬约束）；杀掉核心再拉起，界面靠 `snapshot` / `replay` 自愈。
+判定达标：把核心当黑盒，`Features` 里不出现任何核心字段形状（`AGENTS/agentos-layout.md` 的硬约束）；杀掉核心再拉起，界面靠 `snapshot` / `replay` 自愈。
 
 ## Non-Goals
 
 - 不做第二套 ACP / 不 spawn CLI（那是核心的事，见 `AGENTS/agentos-boundary.md`）。
-- v1 不出花名册编辑、模型与密钥配置界面、内嵌终端 / 浏览器 / computer-use、forge / canvas / pets / office / automation、多语言界面。
+- 不在壳里实现设置逻辑：存储、校验、副作用都在核心，壳只做展示与编辑。
+- v1 不做内嵌终端 / 浏览器 / computer-use、forge / canvas / pets / office / automation、多语言界面。
 - 不改核心的 Rust 行为（本计划只消费它的既有 HTTP/WS 契约）。
 - 不做 iOS（本机跑不了 CLI 子进程；将来是另一条产品线）。
 
@@ -22,130 +23,177 @@ Status: In Progress（Slice 0 ✅ 2026-10-19；Slice 1 待开工）
 
 - 二进制 `codeg-server` 由 `--no-default-features --features server-bin` 构建；本机已装一份在 `.data/codeg/bin/codeg-server`（67M），同目录 `web/`（93M）是 Next 静态导出。
 - 环境变量：`CODEG_HOST`（**默认 `0.0.0.0`**）、`CODEG_PORT`（默认 3080）、`CODEG_TOKEN`、`CODEG_DATA_DIR`、`CODEG_HOME`、`CODEG_STATIC_DIR`。
-- token：`CODEG_TOKEN` 非空即采用（不落库）；否则复用/生成并持久化到 DB。→ 壳自己生成即无需读核心数据库。
+- token：`CODEG_TOKEN` 非空即采用（不落库）；否则复用/生成并持久化到 DB。
 - 不传 `CODEG_STATIC_DIR` 也能起（`find_static_dir_standalone` 只打 warn）。
 - HTTP：`POST /api/<command>`，命令名同 Tauri command（snake_case）；鉴权 `Authorization: Bearer <token>`。
 - 错误体：`{ code(snake_case), message, detail?, i18n_key?, i18n_params? }`（`app_error.rs`）。
-- WS：`GET /ws/events`，协议头 `Sec-WebSocket-Protocol: codeg-events, codeg-token.<base64url_nopad(token)>`；attach 协议帧 `snapshot` / `replay` / `event` / `detached` / `pong`，带 `subscription_id`，`event` 带 `envelope.seq`（`web/ws_attach.rs`、`web/ws.rs`）。
-- ACP 探测上限 60s → 壳的 HTTP 超时基线 60s（TS 侧 `WEB_CALL_TIMEOUT_MS = 60_000`）。
-- 参考实现（可读不可依赖）：`codeg/src/lib/transport/*.ts`、`codeg/src/lib/app-error.ts`。
+- WS：`GET /ws/events`，协议头 `Sec-WebSocket-Protocol: codeg-events, codeg-token.<base64url_nopad(token)>`；attach 帧 `snapshot` / `replay` / `event` / `detached` / `pong`，带 `subscription_id`，`event` 带 `envelope.seq`。
+- ACP 探测上限 60s → 壳的 HTTP 超时基线 60s。
+- 工作区：`list_open_folder_details`（`is_open=true` 且 `kind=regular`，已按 `sort_order` / `last_opened_at` 排序）；添加用 `open_folder {path}`；移除用 `remove_folder_from_workspace {folderId}`（只把 `is_open` 置 false，不删库、不删磁盘）。
+- 会话列表：`list_all_conversations {folderIds, …}` → `DbConversationSummary`（`folderId` / `title` / `kind` / `status` / `agentType` / `model` / `messageCount` / `childCount` / `pinnedAt` / 时间戳 / `team?`）。
+- 会话详情：用 `get_folder_conversation {conversationId, tailTurns?}`（DB 背书 + live core 合并），不是旧的 `get_conversation`（transcript 解析路径）。
+- 委派设置：`get_delegation_settings` / `set_delegation_settings { settings }`；核心默认 `enabled = false`。
+- 设置 CRUD 齐备：模型供应商 `list/create/update/delete_model_provider`；花名册 `agent_roles_list/save/delete` + `agent_role_model_face`；MCP `mcp_*`；技能 `acp_*_agent_skill` / `custom_*_skill`；快捷短语 `quick_messages_*`；语言 `get/update_system_language_settings`。
 
-**AgentOS 侧（当前只有规则，没有代码）**
+**AgentOS 侧**
 
-- `AgentOS/` 下只有 `engine-api.md`（调用登记表，目前只登记 `health`）。
-- 规则：`AGENTS/agentos-boundary.md`（边界与范围）、`agentos-layout.md`（分层契约）、`agentos-transport.md`（调用与事件）、`AGENTS/ui.md`（界面与文案）、`AGENTS/verification.md`（自检）。
-- 参考骨架：`Reference/upstream/agentos-upstream/AgentOS/`（WorkbenchView / AgentRosterView / TeamRoomView / RunInspectorView / ModelServicesView），但它的状态全是 `return false` 的桩，只借布局形状，不借状态模型。
-
-**构建环境**
-
-- macOS / Apple Silicon，rustc 1.96.1；`lld`、`sccache` 均未安装（P0 的链接器加速是可选项，见「风险」）。
-- 覆盖规则：`xcodebuild -project AgentOS/AgentOS.xcodeproj -scheme AgentOS build`。
+- S0 已完成：工程、分层骨架、sidecar 生命周期、token、`health`。
+- `AgentOS/engine-api.md` 目前登记 `health`。
+- 规则：`AGENTS/agentos-boundary.md`、`agentos-layout.md`、`agentos-transport.md`、`AGENTS/ui.md`、`AGENTS/verification.md`。
 
 ## 开工拍板（默认值；无异议按默认执行）
 
 | # | 决策点 | 默认 | 备选 |
 | --- | --- | --- | --- |
 | 1 | sidecar 来源 | 开发期用路径配置（默认探测 `.data/codeg/bin/codeg-server`，其次自己 `cargo build` 的产物）；发布期随包进 `Contents/MacOS/` | 只认随包一份 |
-| 2 | 端口 | **总是自选空闲端口并自拉核心**（3080 空闲就用，否则取临时端口）。不复用已起的核心：它的 token 只存在它自己的库里，壳拿不到（2026-10-19 纠正） | 让用户在设置里粘贴别人的 token |
-| 3 | token | 壳生成（`SecRandomCopyBytes`）→ 存 Keychain → 传 `CODEG_TOKEN` | 读核心持久化的 token（要读 DB，否决） |
-| 4 | 数据目录 | 开发期指向现有 `.data/codeg`（复用真库真花名册）；发布期用 `~/Library/Application Support/AgentOS/core` | 一律独立目录 |
-| 5 | 错误展示 | 先用核心的 `message`（英文） | 解析 `i18n_key` 自己翻（后置） |
+| 2 | 端口 | **总是自选空闲端口并自拉核心**（3080 空闲就用，否则取临时端口）。不复用已起的核心：它的 token 只在它自己的库里 | 让用户粘贴别人的 token |
+| 3 | token | 壳生成（`SecRandomCopyBytes`）→ 存 Keychain → 传 `CODEG_TOKEN` | 读核心持久化的 token（否决） |
+| 4 | 数据目录 | 默认 `~/Library/Application Support/AgentOS/core`（隔离）；设置里可指到现有 `.data/codeg` 复用真库 | 一律独立目录 |
+| 5 | 错误展示 | 先用核心的 `message` | 解析 `i18n_key` 自己翻（后置） |
 | 6 | 界面语言 | 只 `zh-Hans`，String Catalog 登记 | 双语 |
-| 7 | 首屏 | 直接工作台（项目 + 会话列表 + 会话流） | 欢迎页（否决） |
+| 7 | 首屏 | 直接工作台（工作区侧栏 + 主对话区） | 欢迎页（否决） |
 | 8 | 与 Next 工作台并行 | 不并行；AgentOS 是替代品，核心的 `CODEG_STATIC_DIR` 指向空目录 | 内嵌 WebView 做对照（否决） |
+| 9 | 主界面布局 | **两栏**：左侧可折叠工作区（`Section(isExpanded:)`，初始全折叠）+ 右侧主对话区；`.inspector` 默认隐藏、记住上次开合（⌘⌥I） | 三栏固定（否决） |
+| 10 | 委派开关 | 放「核心」页；**默认开启**（首次运行一次性写入核心，落「已初始化」标记，之后以核心为准） | 跟随核心默认（false） |
+| 11 | 设置页 | 6 个 tab：通用 / 核心 / 模型 / Agents / 能力 / 关于；每项对应已登记的核心命令 | 只做壳自身设置（否决） |
 
-## 分层与命名（本计划新增代码的落点）
+## 设置与主界面（S1–S3 的落点）
 
-按 `AGENTS/agentos-layout.md`，本轮只落这四个位置：
+**设置 6 个 tab**（展示与编辑在壳，逻辑在核心）：
+
+| Tab | 内容 | 核心命令 |
+| --- | --- | --- |
+| 通用 | 外观、启动行为（自动拉起 / 恢复上次工作区） | 壳本地 |
+| 核心 | 二进制路径、数据目录、端口策略、重启、打开日志 / 目录、**委派开关（默认开启）** | 壳本地 + `CoreLifecycle` + `get/set_delegation_settings` |
+| 模型 | 供应商增删改、密钥、默认模型 | `list/create/update/delete_model_provider` |
+| Agents | 花名册增删改：角色 / 引擎 / 模型 / 技能 / MCP / 权限 | `agent_roles_list/save/delete` + `agent_role_model_face` |
+| 能力 | MCP 服务、技能包、快捷短语 | `mcp_*` / `*_skill` / `quick_messages_*` |
+| 关于 | 壳版本、核心版本、许可、诊断 | `Bundle` + `health` |
+
+**主界面**：两栏 + `.inspector`。
+
+- 侧栏：每个工作区一个 `Section(isExpanded:)`（初始折叠）；会话行显示标题 + 引擎 + 相对时间；`childCount > 0` 给 chevron；置顶进 Pinned 组；顶部 `.searchable` 本地过滤。
+- 主栏：会话标题、消息 / 工具调用、输入框；工具栏放运行 / 取消 / inspector。
+- inspector（默认隐藏、记住开合）：最多 3 个 `Section`——会话信息、用量（`sessionStats`）、项目（路径 / 分支）。不放主操作，不重复主栏，跨会话用量趋势不放这里。
+
+## 分层与命名（新增代码的落点）
+
+按 `AGENTS/agentos-layout.md`：
 
 ```text
 AgentOS/
 ├── AgentOS.xcodeproj
 └── AgentOS/
-    ├── App/                 场景、依赖装配、sidecar 生命周期接线
-    ├── Domain/              领域类型 + Ports/（三个端口协议）
-    │   └── Ports/           CoreCommands / CoreEvents / CoreLifecycle
+    ├── App/                 场景、依赖装配、sidecar 接线
+    ├── Domain/              领域类型 + Ports/（CoreLifecycle / CoreWorkspaces / CoreConversations / CoreSettings / CoreEvents）
     ├── Core/                端口实现 + Wire/（Core 前缀 DTO）
     │   ├── HTTP/            CoreClient（命令调用、错误解码）
     │   ├── WS/              CoreEventStream（attach、seq、重连）
     │   ├── Process/         SidecarProcess（拉起、探活、退出清理）
     │   └── Wire/            Core* DTO
-    ├── Infrastructure/      KeychainStore、PreferencesStore、Log
-    └── Features/            SessionList / SessionView / Inspector / Settings
+    ├── Infrastructure/      KeychainStore、Preferences
+    └── Features/            Workbench（侧栏 + 主栏）/ Settings / Inspector
 ```
 
 `Features` 不得 `import Core`（编译期可查）。
 
 ## 步骤计划
 
-### Slice 0心
+### S0（✅ 2026-10-19）：工程骨架 + 拉起并连上核心
 
-- Intent：AgentOS 能启动、找到/拉起核心、完成 `health`，界面显示真实连接态。
-- Files：`AgentOS.xcodeproj`、`App/`、`Domain/Ports/CoreLifecycle.swift`、`Core/Process/SidecarProcess.swift`、`Core/HTTP/CoreClient.swift`、`Infrastructure/KeychainStore.swift`、`Features/Sigts`gs（地（地址与 token 展示）址与 token 展示）。
-- Stepsps：
-  - 建i加a。OApp （****，）；f.plit 只加必要项
-  - y：读写删 `r.k`；首次运行生成随机 k
-  - ocides`rPr c则连s；：探否3080选OD活则连；否则选空闲端口，以G_HOST=1EG_PORT`、`CODEG、`CODEG_PORT`、`CODEG_TOKEN`、`CODEG_DTTA_DIR` 拉起，s d起dsts d退 落日志；进程`C时or0动 / 连接中 / 已连接 / 失败+可操作原因）。
-  - 登C`rgCltmd`hCealyh()`：`PclTe/ap/heath，60s超时，错误解成壳内错误类型
-- Ve界面：连接态（未ri / 连接中 / 已连接 / 失败+可操作原因）。
- y-`登记ebAgendOS 启n动核心示操api`mdi：:127.0.0 →.端口。CrLfecycle
-CpVerify：oxint：buil没把任通过；启动壳，核心未跑时显示可操作错误，点「启动」后核心h进elahu返回并显示已连接；lf:<r>`确认只监听127...1`
-确认把任何带进Featu
-- Intent：看见真实会话并可进入。
-- Files：`Core/Wire/CoreConversationSummary.swift`、`Core/HTTP/CoreClient+Conversations.swift`、`Domain/Conversation.swift`、`Features/SessionList/`。
-- Steps：`list_all_conversations` / `get_conversation` → 映射成 `Domain/Conversation`；侧栏渲染列表（标题、引擎、时间、状态）；选中进入详情。
-- Verify：起核心（开发期指向 `.data/codeg` 真库），列表条数与核心返回一致；选中的会话详情字段对得上；空库不崩。
-- Checkpoint：`Features` 里没有 `snake_case` 字段名。
+- Intent：能启动、找到/拉起核心、完成 `health`，界面显示真实连接态。
+- 已落地：Xcode 工程（objectVersion 77，文件系统同步组）；非沙盒 + hardened runtime；`Domain/CoreLifecycle` 端口；token（Keychain）+ 端口探测 + sidecar 生命周期 + 60s 轮询 `health`；`Features/Connection`；退出清理。
+- Verify（已跑）：`xcodebuild` 通过；`lsof` 只见 `127.0.0.1:3080`；`/api/health` 200；核心库无 `web_service_token`（token 来自壳）；quit 后子进程退出。
+- Checkpoint：`Features` 里只有 `CorePhase` / `CoreEndpoint` 两个领域类型。
 
-### Slice 2：连接与一轮对话（流式 + 工具 + 取消）
+### S1（✅ 2026-10-19）（✅ 2026-10-19）（✅ 2026-10-19）：设置基建（通用 / 核心 / 关于）
 
-- Intent：核心体验跑通——发一句，看见流式、工具调用、用量，并能取消。
-- Files：`Domain/Ports/CoreCommands.swift`、`Core/HTTP/CoreClient+Acp.swift`、`Domain/Ports/CoreEvents.swift`、`Core/WS/CoreEventStream.swift`、`Domain/RuntimeEnvelope.swift`、`Features/SessionView/`。
+- Intent：⌘, 能改外观与核心配置；委派开关落到核心；关于页说真话。
+- 已落地
+  - 委派开关：`get/set_delegation_set，改动后提示（启gs` 走 `CoreSettings` 端口； → 重新读设置首次连接时由，三页与主窗口同时生效）；启动时自动拉起核心（`@AppStorage("core.autoStart")`，默认开） `applyDefaultsIfNeeded()` 一次性写入 `enabled=true` 并落 `UserDefaults("core.delegationInitialized")`；之后只写核心。断核时开关禁用并显示原因。
+  - 关于页：壳版本 //set build、核心版本（来自 ，改动后提示需重启alth走志。CorStg` 端口；首次连接时由 → 重新读设置 `applyDfaulIfNeeded()`一次性写入`=UseDfaults断核时开关禁用并显示原因。
+  - `engine //set biidd记 `get来自 /egaleh走CorStg` 端口；首次连接时由 `applyDfaulIfNeeded()`一次性写入`=UseDfaults断核时开关禁用并显示原因。
+  - TERM 转为 / b出iDd记 patc来自 /ocal`h `NSA链接。
+  -pTERM.转为优雅退出（tDi 登记 p），c/sethS掉urciS`g al下孤儿核心NAp。
+  -pSIGTERMt转为优雅退出（rDimp掉 chSkurc后S孤g儿al的问题NApp.trminae`），修掉 `kll 后留下孤儿核心的问题
+- Verify（已跑）（
+  - `xcodebuild` 通过。
+  - 用独立 bundle id）的副本启动（避与原实例的冲突）：3080 被占 → 自动选 **62499** 并拉起第二个核心`/tmp/agentos-s1-core/codeg.db` 的 `app_metadata` 出现 `delegation.enabled=true`（首次默认开启）`depth_limit=1` / completed_cace_max_agent_dfus` 原样保留。
+  - `kill -TERM后测试实例的立即退出，另一个心受影响
+    未做i` 窗口的视觉走查（没有屏幕录制许可，无法截图）；三页的表单布局按系统 `Form` 默认样式。
+- 已知行为：macOS 不会给**同 bundle id 的第二实例**创建窗口（进程存在但无场景，`.task` 不触发）。开发时不要让 Xcode 里的实例与行实例同时跑；测试用独立 bundle id 副
+  - 用独立 bundle id）的副本启动（避与原实例的冲突）：3080 被占 → 自动选 **62499** 并拉起第二个核心`/tmp/agentos-s1-core/codeg.db` 的 `app_metadata` 出现 `delegation.enabled=true`（首次默认开启）`depth_limit=1` / completed_cace_max_agent_dfus` 原样保留。
+  - `kill -TERM后测试实例的立即退出，另一个心受影响
+    未做i` 窗口的视觉走查（没有屏幕录制许可，无法截图）；三页的表单布局按系统 `Form` 默认样式。
+- 已知行为：macOS 不会给**同 bundle id 的第二实例**创建窗口（进程存在但无场景，`.task` 不触发）。开发时不要让 Xcode 里的实例与行实例同时跑；测试用独立 bundle id 副
+  - 用独立 bundle id 的副本启动（避开与原实例的冲突）：3080 被占 → 自动选 **62499** 并拉起第二个核心；`/tmp/agentos-s1-core/codeg.db` 的 `app_metadata` 出现 `delegation.enabled=true`（首次默认开启生效），`depth_limit=1` / `completed_cache_max_mb` 原样保留。
+  - `kill -TERM` 后测试实例的核心立即退出，另一个核心不受影响。
+  - 未做：设置窗口的视觉走查（没有屏幕录制许可，无法截图）；三页的表单布局按系统 `Form` 默认样式。
+- 已知行为：macOS 不会给**同一 bundle id 的第二个实例**创建窗口（进程存在但无场景，`.task` 不触发）。开发时不要让 Xcode 里的实例与命令行实例同时跑；测试用独立 bundle id 的副本。
+
+### S2：两栏壳（工作区折叠侧栏 + 会话 + 只读主栏）
+
+- Intent：真实以文件夹为工作区；工作区内可见会话；点开能读。
+- Files：`Domain/{Workspace,Conversation,ConversationKind,ConversationStatus}.swift`、`Domain/Ports/{CoreWorkspaces,CoreConversations}.swift`、`Core/Wire/{CoreFolderDetail,CoreConversationSummary}.swift`、`Core/HTTP/CoreClient+Workspaces.swift`、`Core/HTTP/CoreClient+Conversations.swift`、`Features/Workbench/{WorkbenchView,WorkbenchViewModel,WorkspaceSidebar,ConversationList,ConversationDetailView}.swift`。
 - Steps：
-  - `CoreEventStream`：WS 连接（带 token 协议头）、`attach`/`detach`、按 `subscription_id` 分派、按 `seq` 去重、`snapshot` 覆盖本地、`detached` 重 attach、指数退避重连（1s→32s）。
-  - `acp_connect` → `acp_prompt`；工具调用 / 用量 / 状态事件渲染成卡片。
-  - `acp_cancel` 接线；`turn_in_progress`（409）当状态处理，不弹错误。
-  - 登记 `engine-api.md`：`acp_connect` / `acp_prompt` / `acp_cancel` + `/ws/events`。
-- Verify：真实跑一轮（最小提示"用一句话回答"）；见流式增量与至少一个工具卡；取消后状态由核心回传为准；拔网/杀核心再拉起，界面自愈。
-- Checkpoint：`seq` 去重与 reconnect 逻辑有可复现的手动验证记录。
+  - 侧栏：`List(selection:)` + 每个工作区一个 `Section(isExpanded:)`（`@SceneStorage` 记住折叠）；工具栏「添加工作区」→ `NSOpenPanel` → `open_folder`；右键「在 Finder 中显示」「从工作区移除」（`confirmationDialog` 写明只移出列表）。
+  - 会话：一次 `list_all_conversations` 拉全量，按 `folderId` 分组；`.searchable` 本地过滤；空态 `ContentUnavailableView`。
+  - 主栏：`get_folder_conversation` → 只读渲染 turns（用户 / Agent 文本 + 工具名）；没选会话时的空态。
+  - inspector 骨架：`.inspector` + 工具栏切换 + `@AppStorage` 记住开合；先放会话信息与项目路径，用量等 S4 有 `sessionStats` 后接。
+  - 登记 `engine-api.md`：`list_open_folder_details` / `open_folder` / `remove_folder_from_workspace` / `list_all_conversations` / `get_folder_conversation`。
+- Verify：选真实文件夹 → 看到该文件夹会话；折叠状态重启后保留；移除后列表消失但目录仍在；空工作区、无工作区、加载失败三种态都有可操作提示。
+- Checkpoint：`Features` 里没有 `snake_case`；枚举未知值走 `unknown` 分支。
 
-### Slice 3：状态恢复与会话快照
+### S3：设置扩展（模型 / Agents / 能力）
 
-- Intent：任何时刻进会话都能拿到完整状态，不靠界面猜。
+- Intent：把核心已有的 CRUD 做成原生表单，不重造逻辑。
+- Files：`Domain/Ports/CoreSettings.swift`（扩）、`Core/HTTP/CoreClient+Settings.swift`（扩）、`Features/Settings/{Models,Agents,Capabilities}/`。
+- Steps：模型供应商列表 / 编辑 / 删除 + 密钥；花名册列表 / 编辑（角色、引擎、模型、技能、MCP、权限）；MCP 本地扫描与增删；技能列表 / 编辑；快捷短语 CRUD。每项保存后以核心回传值刷新。
+- Verify：每个 CRUD 走一遍真实写入并重开设置确认持久；密钥不出现在壳的日志里；删除有 `confirmationDialog`。
+- Checkpoint：设置页没有一条校验规则是壳自己发明的。
+
+### S4：对话（发消息 + 流式 + 工具 + 取消）
+
+- Intent：核心体验跑通。
+- Files：`Domain/Ports/CoreEvents.swift`、`Core/WS/CoreEventStream.swift`、`Domain/RuntimeTimeline.swift`、`Core/HTTP/CoreClient+Acp.swift`、`Features/Conversation/{Composer,MessageList,ToolCallRow}.swift`。
+- Steps：WS attach（token 协议头、`subscription_id`、`seq` 去重、`snapshot` 覆盖、`detached` 重 attach、1s→32s 退避）；`acp_connect` → `acp_prompt`；工具 / 用量 / 状态事件渲染；`acp_cancel`；409 `turn_in_progress` 当状态处理。
+- Verify：真实跑一轮（最小提示）；见流式与至少一个工具卡；取消后以核心状态为准；杀核心再拉起能自愈。
+- Checkpoint：`seq` 去重与重连有可复现的手动验证记录。
+
+### S5：状态恢复与会话快照
+
+- Intent：任何时刻进会话都能拿到完整状态。
 - Files：`Core/HTTP/CoreClient+Snapshot.swift`、`Domain/SessionSnapshot.swift`。
-- Steps：`acp_get_session_snapshot_by_conversation` 作为进入会话的权威状态；与 attach 的 `snapshot` / `replay` 对齐（同一映射函数）。
-- Verify：会话进行中切走再切回，内容一致；重启壳后重进同一会话，内容一致。
-- Checkpoint：快照与事件走同一个 `Domain` 映射，不存在两套解析。
+- Steps：`acp_get_session_snapshot_by_conversation` 作为进入会话的权威状态；与 attach 的 `snapshot` / `replay` 走同一个 `Domain` 映射。
+- Verify：进行中切走再切回一致；重启壳后重进一致。
 
-### Slice 4：多 Agent 可见性与审批
+### S6：多 Agent 可见性与审批
 
 - Intent：团队会话里看得见谁在说、谁被委派、卡在哪，能批准/拒绝。
-- Files：`Domain/TeamMember.swift`、`Domain/ApprovalRequest.swift`、`Core/HTTP/CoreClient+Permission.swift`、`Features/SessionView/DelegationCard.swift`、`Features/Inspector/`。
-- Steps：委派事件渲染成卡片（成员名 / 任务 / 状态）；阻塞原因与修复路径就近显示；`acp_respond_permission` 接线（就近弹，不做全局模态）。
-- Verify：真机跑一个含 2 个成员的团队会话，能看到委派与成员身份；发一次权限请求并批准，观察后续事件；拒绝路径也走一遍。
-- Checkpoint：审批与错误都挂在对应会话/工具调用上（`AGENTS/ui.md`）。
+- Files：`Domain/{TeamMember,ApprovalRequest}.swift`、`Core/HTTP/CoreClient+Permission.swift`、`Features/Conversation/DelegationCard.swift`、`Features/Inspector/`。
+- Steps：委派卡片（成员 / 任务 / 状态）；阻塞原因就近显示；`acp_respond_permission` 就近弹。
+- Verify：2 人团队会话跑一遍；批准与拒绝两条路径都过。
 
-### Slice 5：花名册只读呈现 + 壳设置 + 打包
+### S7：打包
 
-- Intent：只读看清 Agent 是谁；壳能自己配置；能出一个可分发的 app。
-- Files：`Core/HTTP/CoreClient+Agents.swift`、`Features/Roster/`、`Features/Settings/`、`App/Packaging.md`（打包与签名步骤）。
-- Steps：`acp_list_agents` → 花名册（名字、角色、引擎、模型、就绪态）；设置页：核心地址、token 重生成、数据目录、外观；sidecar 进 `Contents/MacOS/`，Developer ID 签名 + hardened runtime + 公证。
-- Verify：`codesign -dv --verbose=4` 与 `spctl -a -vv` 通过；在一台干净机器（或新用户）上首次启动能拉起 sidecar 并跑通一轮对话。
-- Checkpoint：花名册页只读，没有编辑入口（v1 边界）。
+- Intent：可分发。
+- Files：`App/Packaging.md`、sidecar 进 `Contents/MacOS/` 的脚本。
+- Verify：`codesign -dv --verbose=4` 与 `spctl -a -vv` 通过；干净环境首次启动能拉起核心并跑通一轮。
 
 ## Risks
 
-- **非沙盒是硬约束**：核心要 spawn CLI 并读 `~/.claude` 等，App Sandbox 直接断链 → 只能 Developer ID + 公证，上不了 App Store。Slice 5 的打包必须在真机验证，不能只看构建成功。
-- **60s 首连**：有的引擎握手 8–10s，核心探测上限 60s。壳的超时必须 ≥60s，否则表现为"没反应"。
-- **attach 协议细节**：帧的精确形状要以 `web/ws_attach.rs` 的 `ClientMsg` / `ServerMsg` 为准（本计划的形状来自阅读，落地时逐字段对齐）。
-- **sidecar 生命周期**：壳退出/崩溃要带走 sidecar，否则留下占用端口的孤儿进程；端口探测要能识别"已有活的核心"而不是盲目再拉一个。
-- **链接器加速是可选项**：`lld` / `sccache` 本机未安装；装它们要动网络与工具链，且 macOS 上 `-fuse-ld=lld` 有兼容风险。收益不确定，**不阻塞本计划**；要做就单独做并在 `codeg/NOTICE.md` 记录。
-- **删除 Next 前端需要顺序**：P1（退掉 Tauri + Next）必须等 AgentOS 覆盖到 Slice 4 之后，否则丢能力。
+- **非沙盒是硬约束**：核心要 spawn CLI 并读 `~/.claude` 等，App Sandbox 直接断链 → 只能 Developer ID + 公证，上不了 App Store。S7 必须在真机验证，不能只看构建成功。
+- **60s 首连**：有的引擎握手 8–10s，核心探测上限 60s。壳的超时必须 ≥60s。
+- **attach 协议细节**：帧的精确形状以 `web/ws_attach.rs` 的 `ClientMsg` / `ServerMsg` 为准。
+- **sidecar 生命周期**：壳退出/崩溃要带走 sidecar，否则留下占端口的孤儿进程。
+- **一次性默认值**：委派「默认开启」只在首次运行写一次；必须用标记保护，否则会把用户显式关闭的设置又打开。
+- **链接器加速是可选项**：`lld` / `sccache` 未安装；收益不确定，不阻塞本计划。
+- **删除 Next 前端需要顺序**：P1（退掉 Tauri + Next）必须等 AgentOS 覆盖到 S6 之后，否则丢能力。
 
 ## Done Criteria
 
-- `AgentOS/` 有可构建的工程，`Features` 里不出现核心字段形状。
-- 真实跑通：选项目 → 选 Agent（或团队）→ 发任务 → 看见流式 / 工具 / 用量 / 委派 → 能取消 → 能审批。
+- `AgentOS/` 可构建；`Features` 里不出现核心字段形状。
+- 真实跑通：选工作区 → 选 Agent（或团队）→ 发任务 → 看见流式 / 工具 / 用量 / 委派 → 能取消 → 能审批。
 - 杀掉核心再拉起，界面靠 `snapshot` / `replay` 自愈；重启壳后状态一致。
 - 每次新增调用都在 `AgentOS/engine-api.md` 登记；`AGENTS/verification.md` 的对应项都跑过。
 - 出一个签名并公证的非沙盒 app，能在干净环境首次启动。

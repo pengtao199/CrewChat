@@ -12,8 +12,16 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private var continuations: [UUID: AsyncStream<CorePhase>.Continuation] = [:]
     private var phase: CorePhase = .idle
     private var starting = false
+    private let signalSource: DispatchSourceSignal
 
     init() {
+        signal(SIGTERM, SIG_IGN)
+        signalSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        signalSource.setEventHandler {
+            NSApplication.shared.terminate(nil)
+        }
+        signalSource.resume()
+
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
             object: nil,
@@ -37,6 +45,12 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
             self?.removeContinuation(id)
         }
         return stream
+    }
+
+    func currentEndpoint() -> CoreEndpoint? {
+        lock.lock()
+        defer { lock.unlock() }
+        return phase.endpoint
     }
 
     func start() async {

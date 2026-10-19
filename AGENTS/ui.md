@@ -40,14 +40,18 @@ Codeg 自带开发规范：`codeg/AGENTS.md` 与 `codeg/CLAUDE.md`（构建、�
 
 **规则**
 
-- 原生控件优先：`NavigationSplitView` / `NavigationStack` / `List(selection:)` / `.sheet(item:)` / alert / confirmationDialog。不手搓导航与选中态视觉。
+- **只用系统控件，不造组件**：不建自有设计系统（不定义品牌色、字体、圆角、间距令牌）。允许 `NavigationSplitView` / `NavigationStack` / `List` / `Table` / `Form` / `Section` / `LabeledContent` / `ContentUnavailableView` / `.searchable` / `.toolbar` / `.inspector` / `.sheet` / `.alert` / `.confirmationDialog` / `.popover` / `ProgressView` / `Gauge` / `Menu` / `Picker` / `Toggle` / `TextField` / `Table`；需要而清单里没有的，先用最接近的系统控件，别自绘。
+- **禁止**：自绘控件、用 `onTapGesture` 冒充按钮、自造 Tab / 侧栏视觉、拼自定义图标集、自定义配色。
+- **颜色用语义色**（`.primary` / `.secondary` / `.green` / `.orange` / `.red` / `.tint`），不定义品牌色。
+- **空态统一 `ContentUnavailableView`**；危险操作走 `confirmationDialog` 并写清后果。
+- **侧栏折叠**：每个工作区一个 `Section(isExpanded:)`（macOS 14+），初始全折叠；折叠状态进 `@SceneStorage`。不用自绘 disclosure。
+- **inspector 边界**：最多 3 个 `Section`；只放次要信息；不放主操作（发送 / 取消 / 审批）；不重复主栏已在显示的信息；默认隐藏、记住上次开合；快捷键 ⌘⌥I。
+- **工具栏只放当前栏的动作**：侧栏放「添加工作区」，主栏放「运行 / 取消 / inspector」，不把全局动作堆到窗口工具栏。
 - 状态可见：每个参与协作的 Agent 的状态（排队 / 思考 / 流式 / 等待工具 / 阻塞 / 完成 / 失败）在会话里直接可见，不用打开日志。
 - 审批就近：权限请求出现在对应会话与工具调用旁，不弹全局模态。
 - 错误就近：错误挂在出错的会话 / Agent / 工具调用上。
-- 取消随时可用；长任务有进行中指示。
 - 不做营销式落地页；首屏就是工作台。
-- 视图保持小；重复出现两次以上再抽公共组件。
-- 不写解释性长注释与同义注释；不把服务调用写进 `body`；不在视图里做状态判定。
+- 视图保持小；不写解释性长注释与同义注释；不把服务调用写进 `body`；不在视图里做状态判定。
 
 **文案**
 
