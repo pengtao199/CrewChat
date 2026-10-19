@@ -27,7 +27,7 @@ AgentOS 是 CrewChat 的 macOS 原生客户端，只做壳：
 | 接口 | `POST /api/<command>`（命令名同 Tauri command，snake_case）；事件走 `GET /ws/events` |
 | 错误 | `{ code(snake_case), message, detail?, i18n_key?, i18n_params? }` |
 
-- **token 由壳生成**：启动核心时传 `CODEG_TOKEN`，壳把同一值存 Keychain。核心只在没收到时才自己生成并落库——壳永不读核心数据库。
+- **token 由壳生成**：启动核心时传 `CODEG_TOKEN`，壳把同一值写进 `~/Library/Application Support/AgentOS/core/token`（0600）。核心只在没收到时才自己生成并落库——壳永不读核心数据库。
 - 不传 `CODEG_STATIC_DIR` 也可运行（核心只警告），所以 AgentOS 不需要 Next.js 前端产物。
 - 参考实现可读不可依赖：`codeg/src/lib/transport/`（TS）。
 
@@ -35,7 +35,7 @@ AgentOS 是 CrewChat 的 macOS 原生客户端，只做壳：
 codeg-server
   CODEG_HOST=127.0.0.1
   CODEG_PORT=<壳选的空闲端口>
-  CODEG_TOKEN=<壳生成，存 Keychain>
+  CODEG_TOKEN=<壳生成，0600 文件>
   CODEG_DATA_DIR=~/Library/Application Support/<App>/core
 ```
 
@@ -43,7 +43,7 @@ codeg-server
 
 - 渲染核心返回的数据；把用户操作翻译成核心命令。
 - 维护纯展示态：选中项、输入框草稿、面板开合、滚动位置。
-- 维护 AgentOS 自身设置：窗口状态、核心地址与 token、上次打开的会话 id（UserDefaults / Keychain）。
+- 维护 AgentOS 自身设置：窗口状态、核心地址与 token、上次打开的会话 id（UserDefaults / 受保护文件）。
 - 对核心事件按 `seq` 去重、按 `subscription_id` 分派、按命令结果合并（见 `agentos-transport.md`）。
 
 ## 壳禁止做的
@@ -77,7 +77,9 @@ codeg-server
 | 位置 | 只允许放 |
 | --- | --- |
 | UserDefaults | 外观、启动时自动拉起、侧栏折叠状态、inspector 开合、上次选中的工作区 / 会话 id |
-| Keychain | 本机核心的访问 token |
+| `~/Library/Application Support/AgentOS/core/token`（0600） | 本机核心的访问 token |
+
+不把 token 放 Keychain：壳在开发期是 ad-hoc 签名，每次重建哈希都变，钥匙串 ACL 会反复弹登录密码；这个 token 只是本机回环口的访问口令，0600 文件足够。发布形态再评估。
 
 禁止在壳里持久化：会话、消息、工作区、Agent、模型、MCP、技能等业务数据。
 

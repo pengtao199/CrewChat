@@ -6,7 +6,7 @@ import Security
 final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private let lock = NSLock()
     private let sidecar = SidecarProcess()
-    private let keychain = KeychainStore(service: "com.crewchat.AgentOS")
+    private let tokenStore = TokenStore(directory: CoreBinaryLocator.dataDirectory())
     private let logger = Logger(subsystem: "com.crewchat.AgentOS", category: "supervisor")
 
     private var continuations: [UUID: AsyncStream<CorePhase>.Continuation] = [:]
@@ -132,9 +132,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     }
 
     private func resolveToken() throws -> String {
-        if let data = keychain.data(for: "core.token"),
-           let token = String(data: data, encoding: .utf8),
-           !token.isEmpty {
+        if let token = tokenStore.load() {
             return token
         }
 
@@ -145,7 +143,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
         }
 
         let token = bytes.map { String(format: "%02x", $0) }.joined()
-        try keychain.set(Data(token.utf8), for: "core.token")
+        try tokenStore.save(token)
         return token
     }
 

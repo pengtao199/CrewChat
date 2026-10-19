@@ -16,9 +16,9 @@ AgentOS 能独立构建、独立测试、独立演进；核心只通过一层薄
 | --- | --- | --- | --- |
 | 组装 | `App/` | 场景、依赖装配、生命周期 | 业务规则、界面细节 |
 | 表现 | `Features/<Feature>/` | 屏幕、状态、动作（视图 + 视图模型 + 功能内小组件） | 发请求、解码 JSON、import `Core` |
-| 领域 | `Domain/` | 壳自己的类型与状态机；**端口协议** | SwiftUI、URLSession、Keychain、文件路径 |
+| 领域 | `Domain/` | 壳自己的类型与状态机；**端口协议** | SwiftUI、URLSession、文件路径 |
 | 适配 | `Core/` | 端口的实现：命令客户端、事件流、sidecar 进程、wire DTO、错误 | 界面逻辑、产品判定 |
-| 基础 | `Infrastructure/` | Keychain、UserDefaults、日志 | 领域概念、界面 |
+| 基础 | `Infrastructure/` | UserDefaults、token 文件、日志 | 领域概念、界面 |
 
 ```text
 App ──▶ Features ──▶ Domain ◀── Core ──▶ Infrastructure
@@ -47,7 +47,7 @@ App ──▶ Features ──▶ Domain ◀── Core ──▶ Infrastructure
 ## 开发习惯
 
 - 小切片推进，不做大重写；改前 `git status --short`，不覆盖别人的改动。
-- 原生优先：先用 SwiftUI / Foundation / URLSession / Keychain，再加依赖。
+- 原生优先：先用 SwiftUI / Foundation / URLSession，再加依赖。
 - **代码里不写解释性长注释与同义注释**；命名与类型负责表达意图。
 - 密钥不落 AgentOS：模型密钥归核心（CCR），壳只持有本机核心的 token。
 - 每个多 Agent 运行都必须可取消、可观察、有上限；上限由核心执行，壳只负责显示与触发。

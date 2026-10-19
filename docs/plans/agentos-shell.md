@@ -48,7 +48,7 @@ Status: In Progress（S0 ✅；S1 ✅；S3 ✅；S2 待开工）
 | --- | --- | --- | --- |
 | 1 | sidecar 来源 | 开发期用路径配置（默认探测 `.data/codeg/bin/codeg-server`，其次自己 `cargo build` 的产物）；发布期随包进 `Contents/MacOS/` | 只认随包一份 |
 | 2 | 端口 | **总是自选空闲端口并自拉核心**（3080 空闲就用，否则取临时端口）。不复用已起的核心：它的 token 只在它自己的库里 | 让用户粘贴别人的 token |
-| 3 | token | 壳生成（`SecRandomCopyBytes`）→ 存 Keychain → 传 `CODEG_TOKEN` | 读核心持久化的 token（否决） |
+| 3 | token | 壳生成（`SecRandomCopyBytes`）→ 写 0600 文件（`AgentOS/core/token`）→ 传 `CODEG_TOKEN` | Keychain（ad-hoc 签名会反复弹窗，否决） |
 | 4 | 数据目录 | **固定** `~/Library/Application Support/AgentOS/core`（隔离，设置里只读）；开发期用 `CREWCHAT_AGENTS_DIR` 从 `.data/agents` 一次性导入花名册（暂不考虑发布形态） | 可配置目录（否决） |
 | 5 | 错误展示 | 先用核心的 `message` | 解析 `i18n_key` 自己翻（后置） |
 | 6 | 界面语言 | 只 `zh-Hans`，String Catalog 登记 | 双语 |
@@ -94,7 +94,7 @@ AgentOS/
     │   ├── WS/              CoreEventStream（attach、seq、重连）
     │   ├── Process/         SidecarProcess（拉起、探活、退出清理）
     │   └── Wire/            Core* DTO
-    ├── Infrastructure/      KeychainStore、Preferences
+    ├── Infrastructure/      TokenStore、Preferences
     └── Features/            Workbench（侧栏 + 主栏）/ Settings / Inspector
 ```
 
@@ -105,7 +105,7 @@ AgentOS/
 ### S0（✅ 2026-10-19）：工程骨架 + 拉起并连上核心
 
 - Intent：能启动、找到/拉起核心、完成 `health`，界面显示真实连接态。
-- 已落地：Xcode 工程（objectVersion 77，文件系统同步组）；非沙盒 + hardened runtime；`CoreLifecycle` 端口；token（Keychain）+ 端口探测 + sidecar 生命周期 + 60s 轮询 `health`；`Features/Connection`；退出清理。
+- 已落地：Xcode 工程（objectVersion 77，文件系统同步组）；非沙盒 + hardened runtime；`CoreLifecycle` 端口；token（0600 文件）+ 端口探测 + sidecar 生命周期 + 60s 轮询 `health`；`Features/Connection`；退出清理。
 - Verify（已跑）：`xcodebuild` 通过；`lsof` 只见 `127.0.0.1:3080`；`/api/health` 200；核心库无 `web_service_token`（token 来自壳）；quit 后子进程退出。
 - Checkpoint：`Features` 里只有 `CorePhase` / `CoreEndpoint` 两个领域类型。
 
