@@ -217,6 +217,9 @@ pnpm server:dev
   `service.json` 自动发现，双击启动可用；`CCR_BIN` 仍只认 env 或 PATH。）**
 - **别来回切换 feature 集**：`tauri dev`（默认 features）与 `server-bin` 是两套编译产物，
   来回切会让整份 crate 全量重编（约 3 分钟），增量缓存白丢。哪个回路就用到底。
+- **`rustfmt <mod.rs>` 会顺带格式化整个子树**（它跟随 `mod` 声明）：对 `db/migration/mod.rs`
+  这类"只是 mod 清单"的文件跑 rustfmt，会把几十个无关迁移文件一起重排。**只格式化叶子文件**，
+  或加 `--skip-children`；发现无关文件被改动就撤回去，别把重排混进功能提交。
 
 **热更新怎么跑（一条命令）**：
 
