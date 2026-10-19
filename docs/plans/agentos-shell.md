@@ -1,7 +1,7 @@
 # AgentOS 壳（macOS 前端）
 
 Updated: 2026-10-19 (Asia/Shanghai)
-Status: In Progress（S0 ✅；S1 ✅；S2 待开工）
+Status: In Progress（S0 ✅；S1 ✅；S3 ✅；S2 待开工）
 
 ## Goal（终态）
 
@@ -33,6 +33,7 @@ Status: In Progress（S0 ✅；S1 ✅；S2 待开工）
 - 会话列表：`list_all_conversations {folderIds, …}` → `DbConversationSummary`（`folderId` / `title` / `kind` / `status` / `agentType` / `model` / `messageCount` / `childCount` / `pinnedAt` / 时间戳 / `team?`）。
 - 会话详情：用 `get_folder_conversation {conversationId, tailTurns?}`（DB 背书 + live core 合并），不是旧的 `get_conversation`（transcript 解析路径）。
 - 委派设置：`get_delegation_settings` / `set_delegation_settings { settings }`；核心默认 `enabled = false`。
+- **已装的 `.data/codeg/bin/codeg-server` 是旧构建**：`agent_roles_*` / `agent_role_model_face` 在它上面返回 501；仓库源码构建的二进制才有这些路由（2026-10-19 实测）。开发期应指向 `codeg/src-tauri/target/debug/codeg-server`。
 - 设置 CRUD 齐备：模型供应商 `list/create/update/delete_model_provider`；花名册 `agent_roles_list/save/delete` + `agent_role_model_face`；MCP `mcp_*`；技能 `acp_*_agent_skill` / `custom_*_skill`；快捷短语 `quick_messages_*`；语言 `get/update_system_language_settings`。
 
 **AgentOS 侧**
@@ -139,13 +140,27 @@ AgentOS/
 - Verify：选真实文件夹 → 看到该文件夹会话；折叠状态重启后保留；移除后列表消失但目录仍在；空工作区、无工作区、加载失败三种态都有可操作提示。
 - Checkpoint：`Features` 里没有 `snake_case`；枚举未知值走 `unknown` 分支。
 
-### S3：设置扩展（模型 / Agents / 能力）
+### S3（✅ 2026-10-19）：设置页——模型 / Agents / 引擎
 
 - Intent：把核心已有的 CRUD 做成原生表单，不重造逻辑。
-- Files：`Domain/Ports/CoreSettings.swift`（扩）、`Core/HTTP/CoreClient+Settings.swift`（扩）、`Features/Settings/{Models,Agents,Capabilities}/`。
-- Steps：模型供应商列表 / 编辑 / 删除 + 密钥；花名册列表 / 编辑（角色、引擎、模型、技能、MCP、权限）；MCP 本地扫描与增删；技能列表 / 编辑；快捷短语 CRUD。每项保存后以核心回传值刷新。
-- Verify：每个 CRUD 走一遍真实写入并重开设置确认持久；密钥不出现在壳的日志里；删除有 `confirmationDialog`。
-- Checkpoint：设置页没有一条校验规则是壳自己发明的。
+- 已落地：
+  - 模型：`list/create/update/delete_model_provider`；列表只显示 masked key，编辑时 key 留空=不变；`model` 语义随引擎（claude_code 需 JSON 对象），提示写清、校验仍由核心返回并就近显示。
+  - Agents：`agent_roles_list/save/delete`；列表显示名字 / 引擎 / 模型；编辑器含身份（名字、引擎、供应商、模型）、人格（soul、rules）、能力（技能 / MCP，逗号分隔）、权限（权限模式、自动批准）。
+  - 引擎：`acp_list_agents` + `acp_update_agent_preferences`；显示版本、可用状态、启用开关；切换时把该引擎当前 `env` 原样回传，避免清空配置。
+  - 新增端口 `CoreModels` / `CoreRoster` / `CoreEngines`；`CoreClient` 抽出 `sendRaw` / `sendIgnoring`（`delete` 返回 `null` 也能处理）。
+  - 设置侧栏扩到 6 项：通用 / 核心 / 模型 / Agents / 引擎 / 关于。
+- Verify（已跑，源码新构建的核心 + 临时数据目录 + 临时端口）：
+  - `list_model_providers` → `[]`；`create_model_provider`（open_code + 普通模型名）成功、`list` 可见、`update` 返回 `{provider, affectedRunningSessions}`、`delete` 返回 `null`。
+  - `agent_roles_list` → 内置 8 个角色；`agent_roles_save` → 带 UUID 的角色；`agent_roles_delete` → `true`。
+  - `acp_list_agents` → 完整引擎清单；`acp_update_agent_preferences` → `0`（camelCase；先按 snake_case 写时 400 `missing field agentType`，已修）。
+  - 未做：三页的视觉走查（无屏幕录制许可）；模型面 picker 未接，模型 / 供应商仍是文本输入。
+- Checkpoint：设置页没有一条校验规则是壳自己发明的（`model` 的引擎差异也由核心报错）。
+
+### S3b：模型面 picker 与引擎安装
+
+- `agent_role_model_face {agentType}` → `{supported, reason, models:[{provider, provider_id, model}]}`，Agent 编辑器按它做级联 Picker（引擎 → 供应商 → 模型）；`supported=false` 时锁住并显示原因（核心已提供，实测 claude_code 返回可用清单）。
+- 引擎页的安装 / 升级 / 卸载 / CCR 绑定（`acp_download_agent_binary` / `acp_uninstall_agent` / `acp_fetch_agent_latest_release` / `ccr_*`）与就绪卡。
+- 能力页（MCP / 技能 / 快捷短语）的 CRUD。
 
 ### S4：对话（发消息 + 流式 + 工具 + 取消）
 

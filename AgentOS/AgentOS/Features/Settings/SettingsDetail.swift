@@ -9,6 +9,12 @@ struct SettingsDetail: View {
             GeneralSettingsView()
         case .core:
             CoreSettingsView()
+        case .models:
+            ModelsSettingsView()
+        case .agents:
+            AgentsSettingsView()
+        case .engines:
+            EnginesSettingsView()
         case .about:
             AboutSettingsView()
         }

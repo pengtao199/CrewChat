@@ -12,19 +12,21 @@ struct RootView: View {
             detail
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                switch environment.mode {
-                case .workbench:
-                    Button {
-                        environment.mode = .settings
-                    } label: {
-                        Label("settings.open", systemImage: "gearshape")
-                    }
-                case .settings:
+            ToolbarItem(placement: .navigation) {
+                if environment.mode == .settings {
                     Button {
                         environment.mode = .workbench
                     } label: {
                         Label("settings.back", systemImage: "chevron.left")
+                    }
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                if environment.mode == .workbench {
+                    Button {
+                        environment.mode = .settings
+                    } label: {
+                        Label("settings.open", systemImage: "gearshape")
                     }
                 }
             }

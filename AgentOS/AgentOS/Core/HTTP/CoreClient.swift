@@ -24,6 +24,15 @@ actor CoreClient {
     }
 
     func send<Body: Encodable, Response: Decodable>(_ command: String, body: Body) async throws -> Response {
+        let data = try await sendRaw(command, body: body)
+        return try JSONDecoder().decode(Response.self, from: data)
+    }
+
+    func sendIgnoring<Body: Encodable>(_ command: String, body: Body) async throws {
+        _ = try await sendRaw(command, body: body)
+    }
+
+    private func sendRaw<Body: Encodable>(_ command: String, body: Body) async throws -> Data {
         var request = URLRequest(url: endpoint.url(command))
         request.httpMethod = "POST"
         request.setValue("Bearer \(endpoint.token)", forHTTPHeaderField: "Authorization")
@@ -37,6 +46,6 @@ actor CoreClient {
         guard (200..<300).contains(http.statusCode) else {
             throw CoreError.decode(data, status: http.statusCode)
         }
-        return try JSONDecoder().decode(Response.self, from: data)
+        return data
     }
 }
