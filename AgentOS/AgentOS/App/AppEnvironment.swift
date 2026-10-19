@@ -9,6 +9,7 @@ final class AppEnvironment {
     let models: ModelsSettingsViewModel
     let roster: AgentsSettingsViewModel
     let engines: EnginesSettingsViewModel
+    let workbench: WorkbenchViewModel
     var mode: AppMode = .workbench
 
     init() {
@@ -19,6 +20,8 @@ final class AppEnvironment {
         let enginesClient = CoreEnginesClient(provider: provider)
         let rosterClient = CoreRosterClient(provider: provider)
         let capabilitiesClient = CoreCapabilitiesClient(provider: provider)
+        let workspacesClient = CoreWorkspacesClient(provider: provider)
+        let conversationsClient = CoreConversationsClient(provider: provider)
 
         self.supervisor = supervisor
         self.connection = ConnectionViewModel(lifecycle: supervisor)
@@ -29,5 +32,9 @@ final class AppEnvironment {
         self.models = ModelsSettingsViewModel(ccr: CoreCCRClient(provider: provider))
         self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient, capabilities: capabilitiesClient)
         self.engines = EnginesSettingsViewModel(engines: enginesClient)
+        self.workbench = WorkbenchViewModel(
+            workspaces: workspacesClient,
+            conversations: conversationsClient
+        )
     }
 }

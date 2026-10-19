@@ -1,6 +1,7 @@
 {
   "sourceLanguage": "zh-Hans",
   "strings": {
+    "": {},
     "127.0.0.1:%lld": {},
     "Apache-2.0": {},
     "MIT": {},
@@ -286,6 +287,56 @@
         }
       }
     },
+    "conversation.role.assistant": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent"
+          }
+        }
+      }
+    },
+    "conversation.role.system": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "系统"
+          }
+        }
+      }
+    },
+    "conversation.role.unknown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
+          }
+        }
+      }
+    },
+    "conversation.role.user": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你"
+          }
+        }
+      }
+    },
+    "conversation.untitled": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未命名会话"
+          }
+        }
+      }
+    },
     "settings.about": {},
     "settings.about.app": {
       "localizations": {
@@ -559,6 +610,7 @@
         }
       }
     },
+    "settings.agents.soul": {},
     "settings.back": {
       "localizations": {
         "zh-Hans": {
@@ -1168,6 +1220,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "会话"
+          }
+        }
+      }
+    },
+    "workbench.addWorkspace": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加工作区"
+          }
+        }
+      }
+    },
+    "workbench.empty.description": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点右上角的 + 添加一个文件夹作为工作区。"
+          }
+        }
+      }
+    },
+    "workbench.empty.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有工作区"
+          }
+        }
+      }
+    },
+    "workbench.noConversation.description": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在左侧展开工作区，选一个会话。"
+          }
+        }
+      }
+    },
+    "workbench.noConversation.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未选择会话"
+          }
+        }
+      }
+    },
+    "workbench.noConversations": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个工作区还没有会话"
+          }
+        }
+      }
+    },
+    "workbench.noWorkspace.description": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先添加一个文件夹作为工作区。"
+          }
+        }
+      }
+    },
+    "workbench.noWorkspace.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有工作区"
+          }
+        }
+      }
+    },
+    "workbench.removeWorkspace": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "从工作区移除"
+          }
+        }
+      }
+    },
+    "workbench.revealInFinder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Finder 中显示"
+          }
+        }
+      }
+    },
+    "workbench.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "工作区"
           }
         }
       }
