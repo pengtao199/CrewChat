@@ -2,33 +2,29 @@ import SwiftUI
 
 struct ModelsSettingsView: View {
     @Environment(AppEnvironment.self) private var environment
-    @State private var selection: Int?
-    @State private var isCreating = false
-    @State private var name = ""
-    @State private var apiURL = ""
-    @State private var apiKey = ""
-    @State private var agentType = ""
-    @State private var modelName = ""
-    @State private var isSaving = false
-    @State private var saveError: String?
+    @State private var selection: String?
+    @State private var accounts: [CCRAccount] = []
+    @State private var isLoadingAccounts = false
+    @State private var accountsError: String?
 
     private var model: ModelsSettingsViewModel { environment.models }
+
+    private var selected: CCRProvider? {
+        guard let selection else { return nil }
+        return model.providers.first { $0.id == selection }
+    }
 
     var body: some View {
         MasterDetailLayout {
             List(model.providers, selection: $selection) { provider in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(provider.name)
-                    Text(provider.apiKeyMasked)
+                    Text(provider.baseURL)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 .tag(provider.id)
-                .contextMenu {
-                    Button("common.delete", role: .destructive) {
-                        Task { await delete(provider.id) }
-                    }
-                }
             }
         } right: {
             detail
@@ -37,14 +33,15 @@ struct ModelsSettingsView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    startCreating()
+                    Task { await loadAccounts(forceRefresh: true) }
                 } label: {
-                    Label("common.add", systemImage: "plus")
+                    Label("settings.models.refresh", systemImage: "arrow.clockwise")
                 }
+                .disabled(selected == nil || isLoadingAccounts)
             }
         }
         .onChange(of: selection) { _, _ in
-            loadSelection()
+            Task { await loadAccounts(forceRefresh: false) }
         }
         .task {
             await model.load()
@@ -55,13 +52,18 @@ struct ModelsSettingsView: View {
     @ViewBuilder
     private var detail: some View {
         if let message = model.errorMessage {
-            ContentUnavailableView(
-                "common.error",
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
-        } else if isCreating || selection != nil {
-            editor
+            ContentUnavailableView {
+                Label("settings.models.ccrDown", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            } actions: {
+                Button("settings.models.startCCR") {
+                    Task { await model.startCCR() }
+                }
+                .disabled(model.isStarting)
+            }
+        } else if let provider = selected {
+            providerDetail(provider)
         } else if model.providers.isEmpty {
             ContentUnavailableView(
                 "settings.models.empty.title",
@@ -73,128 +75,103 @@ struct ModelsSettingsView: View {
         }
     }
 
-    private var editor: some View {
+    private func providerDetail(_ provider: CCRProvider) -> some View {
         Form {
             Section("settings.models.basic") {
-                TextField("settings.models.name", text: $name)
-                TextField("settings.models.url", text: $apiURL)
-                SecureField(
-                    isCreating ? "settings.models.key" : "settings.models.key.keep",
-                    text: $apiKey
-                )
-                engineField
-            }
-
-            Section {
-                TextField("settings.models.model", text: $modelName)
-            } footer: {
-                Text("settings.models.model.hint")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                if let saveError {
-                    Text(saveError).foregroundStyle(.red)
+                LabeledContent("settings.models.type", value: provider.type)
+                LabeledContent("settings.models.baseURL") {
+                    Text(provider.baseURL)
+                        .textSelection(.enabled)
                 }
-                HStack {
-                    if !isCreating, let selection {
-                        Button("common.delete", role: .destructive) {
-                            Task { await delete(selection) }
-                        }
+                LabeledContent("settings.models.models") {
+                    Text(provider.models.joined(separator: ", "))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+
+            Section("settings.models.accounts") {
+                if isLoadingAccounts {
+                    ProgressView().controlSize(.small)
+                } else if let accountsError {
+                    Text(accountsError).foregroundStyle(.red)
+                } else if accounts.isEmpty {
+                    Text("settings.models.noAccounts")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(accounts) { account in
+                        accountRow(account)
                     }
-                    Spacer()
-                    Button("common.save") {
-                        Task { await save() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canSave || isSaving)
+                }
+            }
+
+            Section("settings.models.ccr") {
+                LabeledContent("settings.models.ccrURL", value: model.health?.url ?? "—")
+                LabeledContent("settings.models.token") {
+                    Text(model.health?.tokenConfigured == true ? "settings.models.token.ok" : "settings.models.token.missing")
+                        .foregroundStyle(model.health?.tokenConfigured == true ? .green : .orange)
                 }
             }
         }
         .formStyle(.grouped)
     }
 
-    @ViewBuilder
-    private var engineField: some View {
-        if model.engines.isEmpty {
-            TextField("settings.models.engine", text: $agentType)
-        } else {
-            Picker("settings.models.engine", selection: $agentType) {
-                ForEach(model.engines) { engine in
-                    Text(engine.name).tag(engine.agentType)
+    private func accountRow(_ account: CCRAccount) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(account.label)
+                Spacer()
+                Text(account.status)
+                    .foregroundStyle(account.status == "ok" ? .green : .orange)
+            }
+
+            ForEach(account.meters) { meter in
+                LabeledContent(meter.label) {
+                    Text(meterText(meter))
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                 }
             }
         }
+        .padding(.vertical, 2)
     }
 
-    private var canSave: Bool {
-        !name.isEmpty
-            && !apiURL.isEmpty
-            && !agentType.isEmpty
-            && (isCreating ? !apiKey.isEmpty : true)
-    }
-
-    private func startCreating() {
-        selection = nil
-        isCreating = true
-        name = ""
-        apiURL = ""
-        apiKey = ""
-        agentType = model.engines.first?.agentType ?? ""
-        modelName = ""
-        saveError = nil
+    private func meterText(_ meter: CCRMeter) -> String {
+        let remaining = meter.remaining.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—"
+        let limit = meter.limit.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—"
+        var text = "\(remaining) / \(limit) \(meter.unit)"
+        if let window = meter.window, !window.isEmpty {
+            text += " · \(window)"
+        }
+        return text
     }
 
     private func selectFirstIfNeeded() {
-        if selection == nil, !model.providers.isEmpty {
-            selection = model.providers.first?.id
+        guard let selection, model.providers.contains(where: { $0.id == selection }) else {
+            self.selection = model.providers.first?.id
+            Task { await loadAccounts(forceRefresh: false) }
+            return
         }
     }
 
-    private func loadSelection() {
-        guard !isCreating, let selection, let provider = model.providers.first(where: { $0.id == selection }) else { return }
-        name = provider.name
-        apiURL = provider.apiURL
-        apiKey = ""
-        agentType = provider.agentType
-        modelName = provider.model ?? ""
-        saveError = nil
-    }
-
-    private func save() async {
-        isSaving = true
-        saveError = nil
-
-        let draft = ModelProviderDraft(
-            name: name,
-            apiURL: apiURL,
-            apiKey: apiKey,
-            agentType: agentType,
-            model: modelName
-        )
-
-        do {
-            if isCreating {
-                let created = try await model.create(draft)
-                isCreating = false
-                selection = created.id
-                loadSelection()
-            } else if let selection {
-                try await model.update(id: selection, draft)
-                loadSelection()
-            }
-        } catch {
-            saveError = error.localizedDescription
+    private func loadAccounts(forceRefresh: Bool) async {
+        guard let provider = selected else {
+            accounts = []
+            accountsError = nil
+            return
         }
 
-        isSaving = false
-    }
+        isLoadingAccounts = true
+        accountsError = nil
 
-    private func delete(_ id: Int) async {
-        await model.delete(id)
-        if selection == id {
-            selection = nil
-            selectFirstIfNeeded()
+        switch await model.accounts(for: provider.name, forceRefresh: forceRefresh) {
+        case let .success(rows):
+            accounts = rows
+        case let .failure(error):
+            accounts = []
+            accountsError = error.localizedDescription
         }
+
+        isLoadingAccounts = false
     }
 }

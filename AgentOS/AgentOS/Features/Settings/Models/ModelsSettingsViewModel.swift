@@ -3,17 +3,16 @@ import SwiftUI
 @MainActor
 @Observable
 final class ModelsSettingsViewModel {
-    private(set) var providers: [ModelProvider] = []
-    private(set) var engines: [Engine] = []
+    private(set) var providers: [CCRProvider] = []
+    private(set) var health: CCRHealth?
     private(set) var isLoading = false
+    private(set) var isStarting = false
     private(set) var errorMessage: String?
 
-    private let models: CoreModels
-    private let enginesClient: CoreEngines
+    private let ccr: CoreCCR
 
-    init(models: CoreModels, engines: CoreEngines) {
-        self.models = models
-        self.enginesClient = engines
+    init(ccr: CoreCCR) {
+        self.ccr = ccr
     }
 
     func load() async {
@@ -21,34 +20,36 @@ final class ModelsSettingsViewModel {
         errorMessage = nil
 
         do {
-            async let providers = models.modelProviders()
-            async let engines = enginesClient.engines()
-            self.providers = try await providers
-            self.engines = try await engines
+            health = try await ccr.health()
+            providers = try await ccr.providers()
         } catch {
+            health = nil
+            providers = []
             errorMessage = error.localizedDescription
         }
 
         isLoading = false
     }
 
-    func create(_ draft: ModelProviderDraft) async throws -> ModelProvider {
-        let created = try await models.createModelProvider(draft)
-        await load()
-        return created
-    }
+    func startCCR() async {
+        isStarting = true
+        errorMessage = nil
 
-    func update(id: Int, _ draft: ModelProviderDraft) async throws {
-        try await models.updateModelProvider(id: id, draft)
-        await load()
-    }
-
-    func delete(_ id: Int) async {
         do {
-            try await models.deleteModelProvider(id: id)
+            try await ccr.start()
             await load()
         } catch {
             errorMessage = error.localizedDescription
+        }
+
+        isStarting = false
+    }
+
+    func accounts(for provider: String, forceRefresh: Bool) async -> Result<[CCRAccount], Error> {
+        do {
+            return .success(try await ccr.accounts(provider: provider, forceRefresh: forceRefresh))
+        } catch {
+            return .failure(error)
         }
     }
 }

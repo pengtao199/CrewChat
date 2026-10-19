@@ -56,6 +56,11 @@
             value = "$(SRCROOT)/../codeg/src-tauri/target/debug/codeg-server"
             isEnabled = "YES">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "CCR_BIN"
+            value = "$(SRCROOT)/../.data/ccr/node_modules/.bin/ccr"
+            isEnabled = "YES">
+         </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction

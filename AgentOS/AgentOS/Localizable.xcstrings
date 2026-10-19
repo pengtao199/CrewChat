@@ -55,6 +55,7 @@
       }
     },
     "common.cancel": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -75,6 +76,7 @@
       }
     },
     "common.edit": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -367,6 +369,7 @@
       }
     },
     "settings.agents.add": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -397,6 +400,7 @@
       }
     },
     "settings.agents.edit": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -808,6 +812,7 @@
       }
     },
     "settings.engines.missing": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -817,6 +822,7 @@
         }
       }
     },
+    "settings.engines.version": {},
     "settings.general": {
       "localizations": {
         "zh-Hans": {
@@ -887,12 +893,22 @@
         }
       }
     },
-    "settings.models.add": {
+    "settings.models.accounts": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加供应商"
+            "value": "账号与额度"
+          }
+        }
+      }
+    },
+    "settings.models.baseURL": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基础地址"
           }
         }
       }
@@ -907,12 +923,32 @@
         }
       }
     },
-    "settings.models.edit": {
+    "settings.models.ccr": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "编辑供应商"
+            "value": "CCR"
+          }
+        }
+      }
+    },
+    "settings.models.ccrDown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CCR 未运行"
+          }
+        }
+      }
+    },
+    "settings.models.ccrURL": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "管理地址"
           }
         }
       }
@@ -922,7 +958,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加一个供应商后，Agent 才能绑定模型。"
+            "value": "在 CCR 里配置供应商后，这里会显示账号与额度。"
           }
         }
       }
@@ -937,72 +973,82 @@
         }
       }
     },
-    "settings.models.engine": {
+    "settings.models.models": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "适用引擎"
+            "value": "模型"
           }
         }
       }
     },
-    "settings.models.key": {
+    "settings.models.noAccounts": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "API 密钥"
+            "value": "这个供应商没有账号数据。"
           }
         }
       }
     },
-    "settings.models.key.keep": {
+    "settings.models.refresh": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "API 密钥（留空=不变）"
+            "value": "刷新额度"
           }
         }
       }
     },
-    "settings.models.model": {
+    "settings.models.startCCR": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "默认模型"
+            "value": "启动 CCR"
           }
         }
       }
     },
-    "settings.models.model.hint": {
+    "settings.models.token": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "claude_code 需填 JSON 对象；codex 可填模型名或 JSON；其他引擎填模型名。留空=用引擎默认。"
+            "value": "访问令牌"
           }
         }
       }
     },
-    "settings.models.name": {
+    "settings.models.token.missing": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "名称"
+            "value": "未配置"
           }
         }
       }
     },
-    "settings.models.url": {
+    "settings.models.token.ok": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "API 地址"
+            "value": "已配置"
+          }
+        }
+      }
+    },
+    "settings.models.type": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "类型"
           }
         }
       }

@@ -144,7 +144,7 @@ AgentOS/
 
 - Intent：把核心已有的 CRUD 做成原生表单，不重造逻辑。
 - 已落地：
-  - 模型：`list/create/update/delete_model_provider`；列表只显示 masked key，编辑时 key 留空=不变；`model` 语义随引擎（claude_code 需 JSON 对象），提示写清、校验仍由核心返回并就近显示。
+  - 模型：**走 CCR（`ccr_call`）**，不是 codeg 的旧 `model_provider` 表——左侧供应商，右侧显示类型 / 地址 / 模型 + **每个账号的额度**（`getProviderAccountSnapshots` 的 meters：剩余 / 上限 / 窗口）；工具栏可刷新额度；CCR 不可达时给出启动入口。
   - Agents：`agent_roles_list/save/delete`；列表显示名字 / 引擎 / 模型；编辑器含身份（名字、引擎、供应商、模型）、人格（soul、rules）、能力（技能 / MCP，逗号分隔）、权限（权限模式、自动批准）。
   - 引擎：`acp_list_agents` + `acp_update_agent_preferences`；显示版本、可用状态、启用开关；切换时把该引擎当前 `env` 原样回传，避免清空配置。
   - 新增端口 `CoreModels` / `CoreRoster` / `CoreEngines`；`CoreClient` 抽出 `sendRaw` / `sendIgnoring`（`delete` 返回 `null` 也能处理）。

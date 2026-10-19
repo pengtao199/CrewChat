@@ -17,7 +17,6 @@ final class AppEnvironment {
             endpoint: { [weak supervisor] in supervisor?.currentEndpoint() }
         )
         let enginesClient = CoreEnginesClient(provider: provider)
-        let modelsClient = CoreModelsClient(provider: provider)
         let rosterClient = CoreRosterClient(provider: provider)
 
         self.supervisor = supervisor
@@ -26,7 +25,7 @@ final class AppEnvironment {
             settings: CoreSettingsClient(provider: provider),
             lifecycle: supervisor
         )
-        self.models = ModelsSettingsViewModel(models: modelsClient, engines: enginesClient)
+        self.models = ModelsSettingsViewModel(ccr: CoreCCRClient(provider: provider))
         self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient)
         self.engines = EnginesSettingsViewModel(engines: enginesClient)
     }
