@@ -1288,6 +1288,27 @@ describe("MessageInput collapsed selectors popover", () => {
       expect(screen.queryByRole("dialog", { name: settingsLabel })).toBeNull()
     )
   })
+
+  // [crewchat] Phase 4.6 — a role-bound session's approval preset comes from the
+  // Agents page (and is applied at connect), so the composer must not offer a
+  // second, competing control for it.
+  it("offers no mode picker when the Agent owns the permissions", async () => {
+    const { container } = renderInput({
+      modes: [
+        { id: "plan", name: "Plan", description: "Plan first" },
+        { id: "act", name: "Act", description: "Act now" },
+      ],
+      selectedModeId: "plan",
+      permissionsManagedByAgent: true,
+    })
+    await waitFor(() =>
+      expect(container.querySelector('[role="textbox"]')).not.toBeNull()
+    )
+    const settingsLabel = enMessages.Folder.chat.messageInput.agentSettings
+    expect(
+      screen.queryByRole("button", { name: settingsLabel })
+    ).toBeNull()
+  })
 })
 
 // [crewchat] The Agent's brain — the model it thinks with and the effort it

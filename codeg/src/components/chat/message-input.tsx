@@ -218,6 +218,12 @@ interface MessageInputProps {
    * member hints out of it entirely.
    */
   teamMemberRoleIds?: readonly string[]
+  /**
+   * [crewchat] Phase 4.6 — this session runs AS a roster role, whose permission
+   * preset and auto-approve come from the Agents page. The composer hides the
+   * mode picker rather than offering a second, competing control for it.
+   */
+  permissionsManagedByAgent?: boolean
   /** Identity + switching for a composer that isn't in a tab (a canvas card).
    *  Passed straight to the folder picker below the composer; without it that
    *  picker falls back to the workspace's active tab. */
@@ -396,6 +402,7 @@ export function MessageInput({
   promptCapabilities,
   attachmentTabId,
   teamMemberRoleIds,
+  permissionsManagedByAgent = false,
   folderPickerOverride,
   draftStorageKey,
   isActive = false,
@@ -964,7 +971,13 @@ export function MessageInput({
     return availableModes[0]?.id ?? null
   }, [hasModes, selectedModeId, availableModes])
   const showModeSelector =
-    hasModes && Boolean(effectiveModeId) && !hasConfigOptions
+    hasModes &&
+    Boolean(effectiveModeId) &&
+    !hasConfigOptions &&
+    // [crewchat] Phase 4.6 — a role-bound session's approval preset comes from
+    // the Agent (Agents page) and is applied at connect, so the composer must
+    // not offer a second, competing control for it.
+    !permissionsManagedByAgent
   const showModeLoading = modeLoading && !hasConfigOptions && !showModeSelector
   const showConfigLoading = configOptionsLoading && !hasConfigOptions
   const showSelectorsLoading = showConfigLoading || showModeLoading

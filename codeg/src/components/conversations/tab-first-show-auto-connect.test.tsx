@@ -178,7 +178,11 @@ describe("a hidden tab's first show", () => {
       "claude_code",
       "/repo",
       STORED_SESSION,
-      CID
+      CID,
+      // No role on this tab. The lifecycle hook always forwards `roleId`, so a
+      // role-less auto-connect carries an explicit `undefined` (the 5th arg)
+      // rather than a shorter argument list.
+      undefined
     )
   })
 
@@ -210,7 +214,11 @@ describe("a hidden tab's first show", () => {
       "claude_code",
       "/repo",
       STORED_SESSION,
-      CID
+      CID,
+      // No role on this tab. The lifecycle hook always forwards `roleId`, so a
+      // role-less auto-connect carries an explicit `undefined` (the 5th arg)
+      // rather than a shorter argument list.
+      undefined
     )
   })
 })

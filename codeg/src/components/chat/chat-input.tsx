@@ -42,6 +42,8 @@ interface ChatInputProps {
   attachmentTabId?: string | null
   /** Pass-through: see `MessageInput` (Phase 4.2 team mentions). */
   teamMemberRoleIds?: readonly string[]
+  /** Pass-through: see `MessageInput` (Phase 4.6 role-managed permissions). */
+  permissionsManagedByAgent?: boolean
   /** Pass-through: see `MessageInput`. */
   folderPickerOverride?: ConversationFolderPickerOverride
   draftStorageKey?: string | null
@@ -122,6 +124,7 @@ export const ChatInput = memo(function ChatInput({
   availableCommands,
   attachmentTabId,
   teamMemberRoleIds,
+  permissionsManagedByAgent,
   folderPickerOverride,
   draftStorageKey,
   getSentHistory,
@@ -227,6 +230,7 @@ export const ChatInput = memo(function ChatInput({
         commandsLoading={commandsLoading}
         attachmentTabId={attachmentTabId}
         teamMemberRoleIds={teamMemberRoleIds}
+        permissionsManagedByAgent={permissionsManagedByAgent}
         folderPickerOverride={folderPickerOverride}
         draftStorageKey={draftStorageKey}
         getSentHistory={getSentHistory}

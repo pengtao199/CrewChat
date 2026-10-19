@@ -91,6 +91,10 @@ interface ConversationShellProps {
   /** [crewchat] Roster role ids of this conversation's team members (Phase 4.2);
    *  forwarded to the composer's `@` panel. See `MessageInput`. */
   teamMemberRoleIds?: readonly string[]
+  /** [crewchat] Phase 4.6 — the session runs as a roster role, so its
+   *  permission preset comes from the Agent page and the composer hides the mode
+   *  picker. See `MessageInput`. */
+  permissionsManagedByAgent?: boolean
   /** Pass-through: see `MessageInput`. */
   folderPickerOverride?: ConversationFolderPickerOverride
   draftStorageKey?: string | null
@@ -193,6 +197,7 @@ export function ConversationShell({
   availableCommands,
   attachmentTabId,
   teamMemberRoleIds,
+  permissionsManagedByAgent,
   folderPickerOverride,
   draftStorageKey,
   getSentHistory,
@@ -312,6 +317,7 @@ export function ConversationShell({
               availableCommands={availableCommands}
               attachmentTabId={attachmentTabId}
               teamMemberRoleIds={teamMemberRoleIds}
+              permissionsManagedByAgent={permissionsManagedByAgent}
               folderPickerOverride={folderPickerOverride}
               draftStorageKey={draftStorageKey}
               getSentHistory={getSentHistory}
