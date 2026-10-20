@@ -3,16 +3,31 @@ import SwiftUI
 struct RootView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var settingsPage: SettingsPage? = .general
-    @State private var selectedConversation: Int?
 
     var body: some View {
-        NavigationSplitView {
-            sidebar
+        @Bindable var workbench = environment.workbench
+
+        return NavigationSplitView {
+            sidebar(selection: $workbench.selectedConversationID)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             detail
         }
+        .onChange(of: workbench.selectedConversationID) { _, value in
+            if value != nil {
+                workbench.cancelDraft()
+            }
+        }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if environment.mode == .workbench, environment.workbench.isRunning {
+                    Button {
+                        Task { await environment.workbench.cancelRun() }
+                    } label: {
+                        Label("workbench.stop", systemImage: "stop.circle")
+                    }
+                }
+            }
             ToolbarItem(placement: .navigation) {
                 if environment.mode == .settings {
                     Button {
@@ -31,10 +46,10 @@ struct RootView: View {
     }
 
     @ViewBuilder
-    private var sidebar: some View {
+    private func sidebar(selection: Binding<Int?>) -> some View {
         switch environment.mode {
         case .workbench:
-            WorkbenchSidebar(selection: $selectedConversation)
+            WorkbenchSidebar(selection: selection)
 
         case .settings:
             List(SettingsPage.allCases, id: \.self, selection: $settingsPage) { page in
@@ -54,10 +69,12 @@ struct RootView: View {
     private var detail: some View {
         switch environment.mode {
         case .workbench:
-            if environment.connection.isConnected {
-                ConversationPane(conversationID: selectedConversation)
-            } else {
+            if !environment.connection.isConnected {
                 ConnectionView(model: environment.connection)
+            } else if let workspace = environment.workbench.draftFolder {
+                DraftView(workspace: workspace)
+            } else {
+                ConversationPane(conversationID: environment.workbench.selectedConversationID)
             }
 
         case .settings:

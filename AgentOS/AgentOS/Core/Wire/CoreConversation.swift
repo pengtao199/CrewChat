@@ -131,11 +131,13 @@ struct CoreCreateConversationBody: Encodable {
     let folderID: Int
     let agentType: String
     let title: String?
+    let team: ConversationTeamRef?
 
     enum CodingKeys: String, CodingKey {
         case folderID = "folderId"
         case agentType
         case title
+        case team
     }
 }
 

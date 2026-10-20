@@ -41,7 +41,17 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `create_conversation` | 在项目内新建会话 | `CoreConversations` | body `{folderId, agentType, title?}`（**camelCase**；snake_case 会 400 `missing field folderId`）；返回新会话 id |
 | `get_folder_conversation` | 会话详情 | `CoreConversations` | body `{conversationId, tailTurns}`（camelCase）；返回 `{summary, turns:[{id,role,timestamp,blocks:[{type,…}]}]}`。`role`=user/assistant/system；`blocks.type` 见代码（text/thinking/tool_use/tool_result/turn_error，其余走 `other` 不报错） |
 
+| `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?}`（camelCase；其余可选字段省略即默认）。返回 `connection_id`（字符串）。首次 initialize 可能 8–10s，超时按 60s |
+| `acp_prompt` | 发送一轮消息 | `CoreSession` | body `{connectionId, blocks:[{type:"text",text}], folderId, conversationId}`（camelCase）。立即返回，流式结果走 `/ws/events` |
+| `acp_cancel` | 取消当前轮次 | `CoreSession` | body `{connectionId}`（camelCase） |
+
 ## 已登记事件
+
+| 事件 / 帧 | 用途 | 端口 | 注意点 |
+| --- | --- | --- | --- |
+| `/ws/events` attach | 订阅某连接的流式事件 | `CoreSession` | 握手用 `Authorization: Bearer <token>` 即可（实测；同时带 `Sec-WebSocket-Protocol: codeg-events`）。客户端帧 `{action:"attach", subscription_id, connection_id, since_seq?}`；服务端先发 `{"channel":"__ready__"}`（忽略），随后 `snapshot` / `replay` / `event` / `detached` / `pong` |
+| `event.envelope` | 单条事件（flatten 后 `type` 就在 envelope 顶层） | `CoreSession` | 壳处理 `content_delta`（增量文本）、`thinking`、`tool_call` / `tool_call_update`、`turn_complete`、`status_changed`、`detached`；其余忽略。`turn_complete` 后重新拉会话详情并清空 live 缓冲 |
+
 
 | 事件 / 帧 | 用途 | 端口 | 注意点 |
 | --- | --- | --- | --- |

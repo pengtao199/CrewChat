@@ -40,7 +40,6 @@ struct WorkbenchSidebar: View {
             Divider()
             settingsRow
         }
-        .background(Color(nsColor: .windowBackgroundColor))
         .confirmationDialog(
             "workbench.archiveChats.confirm",
             isPresented: Binding(
@@ -155,14 +154,12 @@ struct WorkbenchSidebar: View {
                 .menuIndicator(.hidden)
                 .fixedSize()
 
-                Menu {
-                    engineMenu(workspace)
+                Button {
+                    model.startDraft(in: workspace)
                 } label: {
                     Image(systemName: "square.and.pencil")
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
+                .buttonStyle(.borderless)
                 .help("workbench.newConversation")
             }
         }
@@ -267,20 +264,6 @@ struct WorkbenchSidebar: View {
         }
     }
 
-    @ViewBuilder
-    private func engineMenu(_ workspace: Workspace) -> some View {
-        let enabled = model.engines.filter(\.enabled)
-        if enabled.isEmpty {
-            Text("workbench.noEngines")
-        } else {
-            ForEach(enabled) { engine in
-                Button(engine.name) {
-                    Task { await createConversation(in: workspace, agentType: engine.agentType) }
-                }
-            }
-        }
-    }
-
     private func rowBackground(selected: Bool, hovered: Bool) -> some View {
         RoundedRectangle(cornerRadius: 6)
             .fill(selected ? Color.gray.opacity(0.22) : hovered ? Color.gray.opacity(0.12) : Color.clear)
@@ -298,11 +281,5 @@ struct WorkbenchSidebar: View {
         Task { await model.addWorkspace(path: url.path) }
     }
 
-    private func createConversation(in workspace: Workspace, agentType: String) async {
-        guard let id = await model.createConversation(in: workspace.id, agentType: agentType) else {
-            return
-        }
-        expanded.insert(workspace.id)
-        selection = id
-    }
+
 }

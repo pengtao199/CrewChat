@@ -12,4 +12,8 @@ struct CoreEndpoint: Sendable, Equatable {
     func url(_ command: String) -> URL {
         baseURL.appending(path: "api").appending(path: command)
     }
+
+    var eventsURL: URL {
+        URL(string: "ws://\(host):\(port)/ws/events")!
+    }
 }

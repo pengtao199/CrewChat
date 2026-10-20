@@ -1,7 +1,7 @@
 # AgentOS 壳（macOS 前端）
 
 Updated: 2026-10-19 (Asia/Shanghai)
-Status: In Progress（S0 ✅；S1 ✅；S2 ✅；S3 ✅）
+Status: In Progress（S0 ✅；S1 ✅；S2 ✅；S3 ✅；S4 ✅（权限审批归 S6））
 
 ## Goal（终态）
 
@@ -183,9 +183,16 @@ AgentOS/
 - 引擎页的安装 / 升级 / 卸载 / CCR 绑定（`acp_download_agent_binary` / `acp_uninstall_agent` / `acp_fetch_agent_latest_release` / `ccr_*`）与就绪卡。
 - 能力页（MCP / 技能 / 快捷短语）的 CRUD。
 
-### S4：对话（发消息 + 流式 + 工具 + 取消）
+### S4（✅ 2026-10-20）：对话（草稿页 + 发消息 + 流式 + 工具 + 取消）
 
 - Intent：核心体验跑通。
+- 已落地：
+  - 「新建会话」不再直接选 CLI，而是进入**草稿页**：`你想让 <项目> 构建什么？` + 四张建议卡（点击填入提示词）+ Agent 多选（第一个为 leader）+ 底部输入框与发送。
+  - 发送流程：`create_conversation`（多选时带 `team {leader_role_id, member_role_ids}`）→ `acp_connect`（`workingDir` = 项目路径，`roleId` = leader）→ `acp_prompt` → `/ws/events` attach。
+  - 流式：`content_delta` 累加文本、`thinking` 累加思考、`tool_call`/`tool_call_update` 维护工具卡；`turn_complete` 后重拉会话详情并清空 live 缓冲；工具栏出现「停止」→ `acp_cancel`。
+  - 侧栏去掉自定义底色（系统原生观感）；补上 `settings.about` 文案。
+- Verify（已跑，真实 CLI）：临时库 `open_folder` → `create_conversation` → `acp_connect`（claude_code）→ WS attach → `acp_prompt("只回答一个字：好")`；收到 `snapshot`、`user_prompt_sent`、`user_message`、8×`thinking`、`content_delta:"好"`、`usage_update`、`turn_complete`、`conversation_status_changed`。xcodebuild 通过。
+- 未做：权限审批（归 S6）、快照恢复（S5）、多客户端同会话。
 - Files：`Domain/Ports/CoreEvents.swift`、`Core/WS/CoreEventStream.swift`、`Domain/RuntimeTimeline.swift`、`Core/HTTP/CoreClient+Acp.swift`、`Features/Conversation/{Composer,MessageList,ToolCallRow}.swift`。
 - Steps：WS attach（token 协议头、`subscription_id`、`seq` 去重、`snapshot` 覆盖、`detached` 重 attach、1s→32s 退避）；`acp_connect` → `acp_prompt`；工具 / 用量 / 状态事件渲染；`acp_cancel`；409 `turn_in_progress` 当状态处理。
 - 已知形状：`create_conversation` body 是 camelCase `{folderId, agentType, title}`（实测 snake_case 会 400 `missing field folderId`）。

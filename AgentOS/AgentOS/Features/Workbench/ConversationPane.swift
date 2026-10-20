@@ -10,7 +10,7 @@ struct ConversationPane: View {
         Group {
             if let conversationID {
                 if let detail = model.detail, detail.conversation.id == conversationID {
-                    ConversationView(detail: detail)
+                    ConversationView(detail: detail, live: model.liveTurn(for: detail.conversation.id))
                 } else if let message = model.errorMessage {
                     ContentUnavailableView(
                         "common.error",
@@ -44,6 +44,7 @@ struct ConversationPane: View {
 
 struct ConversationView: View {
     let detail: ConversationDetail
+    let live: LiveTurn?
 
     var body: some View {
         Group {
@@ -59,6 +60,9 @@ struct ConversationView: View {
                         ForEach(detail.turns) { turn in
                             TurnView(turn: turn)
                             Divider()
+                        }
+                        if let live {
+                            LiveTurnView(live: live)
                         }
                     }
                     .padding(20)
@@ -148,6 +152,60 @@ private struct TurnView: View {
             Text(text)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
+        }
+    }
+}
+
+
+private struct LiveTurnView: View {
+    let live: LiveTurn
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("conversation.role.assistant")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if live.isRunning {
+                    ProgressView().controlSize(.small)
+                }
+            }
+
+            if !live.thinking.isEmpty {
+                Text(live.thinking)
+                    .italic()
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            ForEach(live.tools) { tool in
+                VStack(alignment: .leading, spacing: 2) {
+                    Label(tool.title, systemImage: "wrench.and.screwdriver")
+                        .font(.callout)
+                    if !tool.status.isEmpty {
+                        Text(tool.status)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    if let output = tool.output, !output.isEmpty {
+                        Text(output)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(6)
+                            .textSelection(.enabled)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if !live.text.isEmpty {
+                Text(live.text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 }

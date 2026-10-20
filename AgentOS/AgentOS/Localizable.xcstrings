@@ -2,6 +2,16 @@
   "sourceLanguage": "zh-Hans",
   "strings": {
     "": {},
+    "%@ · %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "127.0.0.1:%lld": {},
     "Apache-2.0": {},
     "MIT": {},
@@ -56,7 +66,6 @@
       }
     },
     "common.cancel": {
-      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -367,7 +376,146 @@
         }
       }
     },
-    "settings.about": {},
+    "draft.agents": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择 Agents"
+          }
+        }
+      }
+    },
+    "draft.noRoles": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有 Agent，先在设置里创建。"
+          }
+        }
+      }
+    },
+    "draft.placeholder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "随意输入"
+          }
+        }
+      }
+    },
+    "draft.prompt.build": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "帮我构建一个新功能："
+          }
+        }
+      }
+    },
+    "draft.prompt.explore": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探索并理解这个项目的代码结构，告诉我关键模块和入口。"
+          }
+        }
+      }
+    },
+    "draft.prompt.fix": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个项目里有报错，帮我定位并修复。"
+          }
+        }
+      }
+    },
+    "draft.prompt.review": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审查最近的改动，指出问题并给出修改建议。"
+          }
+        }
+      }
+    },
+    "draft.send": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送"
+          }
+        }
+      }
+    },
+    "draft.suggestion.build": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "构建新功能、应用或工具"
+          }
+        }
+      }
+    },
+    "draft.suggestion.explore": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探索并理解代码"
+          }
+        }
+      }
+    },
+    "draft.suggestion.fix": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修复问题和失败"
+          }
+        }
+      }
+    },
+    "draft.suggestion.review": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "审查代码并提出修改建议"
+          }
+        }
+      }
+    },
+    "draft.title %@": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你想让 %@ 构建什么？"
+          }
+        }
+      }
+    },
+    "settings.about": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于"
+          }
+        }
+      }
+    },
     "settings.about.app": {
       "localizations": {
         "zh-Hans": {
@@ -1418,6 +1566,7 @@
       }
     },
     "workbench.noConversations": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -1533,6 +1682,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "最近更新"
+          }
+        }
+      }
+    },
+    "workbench.stop": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止"
           }
         }
       }
