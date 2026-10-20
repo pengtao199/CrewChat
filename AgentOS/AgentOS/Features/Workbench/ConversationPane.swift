@@ -81,17 +81,8 @@ struct ConversationView: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 18) {
-                        ForEach(detail.turns) { turn in
-                            TurnRow(
-                                turn: turn,
-                                agentName: agentName,
-                                onEdit: turn.role == .user
-                                    ? {
-                                        draft = turn.plainText
-                                        focusRequested = true
-                                    }
-                                    : nil
-                            )
+                        ForEach(groups) { group in
+                            groupView(group)
                         }
 
                         if let pendingUserText {
@@ -135,54 +126,82 @@ struct ConversationView: View {
         }
         .navigationTitle(detail.conversation.displayTitle)
     }
-}
 
-private struct TurnRow: View {
-    let turn: ConversationTurn
-    let agentName: String
-    let onEdit: (() -> Void)?
+    private var groups: [TurnGroup] {
+        var result: [TurnGroup] = []
 
-    var body: some View {
-        Group {
-            switch turn.role {
-            case .user:
-                UserBubble(
-                    text: turn.plainText,
-                    onCopy: { copy(turn.plainText) },
-                    onEdit: onEdit
-                )
-            case .system:
-                SystemRows(blocks: turn.blocks)
-            default:
-                AssistantBubble(
-                    agentName: agentName,
-                    blocks: contentBlocks,
-                    thinking: thinkingText,
-                    isRunning: false,
-                    onCopy: { copy(turn.plainText) }
-                )
+        for turn in detail.turns {
+            if turn.role == .assistant, var last = result.last, last.role == .assistant {
+                last.turns.append(turn)
+                result[result.count - 1] = last
+            } else {
+                result.append(TurnGroup(id: turn.id, role: turn.role, turns: [turn]))
             }
         }
+
+        return result
     }
 
-    private var contentBlocks: [ConversationBlock] {
-        turn.blocks.filter { block in
-            if case .thinking = block { return false }
-            return true
+    @ViewBuilder
+    private func groupView(_ group: TurnGroup) -> some View {
+        switch group.role {
+        case .user:
+            UserBubble(
+                text: group.plainText,
+                onCopy: { copy(group.plainText) },
+                onEdit: {
+                    draft = group.plainText
+                    focusRequested = true
+                }
+            )
+        case .system:
+            SystemRows(blocks: group.blocks)
+        default:
+            AssistantBubble(
+                agentName: agentName,
+                blocks: group.blocks,
+                thinking: group.thinking,
+                isRunning: false,
+                onCopy: { copy(group.plainText) }
+            )
         }
-    }
-
-    private var thinkingText: String {
-        turn.blocks.compactMap { block in
-            if case let .thinking(text) = block { return text }
-            return nil
-        }
-        .joined(separator: "\n")
     }
 
     private func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+}
+
+private struct TurnGroup: Identifiable {
+    let id: String
+    let role: TurnRole
+    var turns: [ConversationTurn]
+
+    var thinking: String {
+        turns
+            .flatMap(\.blocks)
+            .compactMap { block in
+                if case let .thinking(text) = block { return text }
+                return nil
+            }
+            .joined(separator: "\n")
+    }
+
+    var blocks: [ConversationBlock] {
+        turns
+            .flatMap(\.blocks)
+            .filter { block in
+                if case .thinking = block { return false }
+                return true
+            }
+    }
+
+    var plainText: String {
+        turns
+            .map(\.plainText)
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
     }
 }
 
@@ -211,7 +230,7 @@ private struct UserBubble: View {
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color(nsColor: .controlBackgroundColor))
+                                .fill(Color.primary.opacity(0.07))
                         )
                 }
             }
@@ -297,7 +316,7 @@ private struct AssistantBubble: View {
                     .frame(maxWidth: 680, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(nsColor: .controlBackgroundColor))
+                            .fill(Color.primary.opacity(0.07))
                     )
 
                     if let onCopy {
