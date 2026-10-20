@@ -9,18 +9,21 @@ struct Composer: View {
     let onSend: () -> Void
     let onStop: () -> Void
 
+    @State private var isFocused = false
+
     var body: some View {
         VStack(spacing: 6) {
             ZStack(alignment: .topLeading) {
-                if text.isEmpty {
+                if text.isEmpty, !isFocused {
                     Text(placeholder)
                         .foregroundStyle(.tertiary)
-                        .padding(.top, 5)
+                        .padding(.top, 4)
                         .allowsHitTesting(false)
                 }
 
                 ChatTextEditor(
                     text: $text,
+                    isFocused: $isFocused,
                     focusRequested: focusRequested,
                     onFocusHandled: { focusRequested = false },
                     onSubmit: {
@@ -29,7 +32,7 @@ struct Composer: View {
                         }
                     }
                 )
-                .frame(minHeight: 40, maxHeight: 120)
+                .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 140)
             }
 
             HStack(spacing: 8) {

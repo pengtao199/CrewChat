@@ -100,7 +100,10 @@ struct ConversationView: View {
                             )
                         }
                     }
-                    .padding(20)
+                    .frame(maxWidth: 860, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+                    .padding(.horizontal, 20)
                 }
             }
 
@@ -122,7 +125,9 @@ struct ConversationView: View {
                 },
                 onStop: onStop
             )
-            .padding(12)
+            .frame(maxWidth: 860)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
         }
         .navigationTitle(detail.conversation.displayTitle)
     }
@@ -219,7 +224,7 @@ private struct UserBubble: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                HStack(alignment: .center, spacing: 6) {
+                HStack(alignment: .bottom, spacing: 6) {
                     if let onCopy {
                         BubbleActions(onCopy: onCopy, onEdit: onEdit)
                     }
@@ -260,16 +265,22 @@ private struct AssistantBubble: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                HStack(alignment: .center, spacing: 6) {
+                HStack(alignment: .bottom, spacing: 6) {
                     VStack(alignment: .leading, spacing: 8) {
                         if !thinking.isEmpty {
                             DisclosureGroup(isExpanded: $thinkingExpanded) {
                                 Text(thinking)
+                                    .font(.callout)
                                     .italic()
                                     .foregroundStyle(.secondary)
+                                    .lineSpacing(2)
                                     .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.top, 4)
+                                    .padding(8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(Color.primary.opacity(0.04))
+                                    )
                             } label: {
                                 Text("conversation.thinking")
                                     .font(.callout)

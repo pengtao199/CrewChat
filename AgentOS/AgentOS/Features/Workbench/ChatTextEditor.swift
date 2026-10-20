@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ChatTextEditor: NSViewRepresentable {
     @Binding var text: String
+    @Binding var isFocused: Bool
     let focusRequested: Bool
     let onFocusHandled: () -> Void
     let onSubmit: () -> Void
@@ -16,16 +17,19 @@ struct ChatTextEditor: NSViewRepresentable {
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
+        scroll.hasHorizontalScroller = false
 
         guard let textView = scroll.documentView as? NSTextView else { return scroll }
         textView.delegate = context.coordinator
         textView.isRichText = false
         textView.drawsBackground = false
         textView.font = .systemFont(ofSize: NSFont.systemFontSize)
-        textView.textContainerInset = NSSize(width: 0, height: 3)
+        textView.textContainerInset = NSSize(width: 0, height: 4)
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.widthTracksTextView = true
+        textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
-        textView.textContainer?.widthTracksTextView = true
         textView.string = text
         return scroll
     }
@@ -54,6 +58,14 @@ struct ChatTextEditor: NSViewRepresentable {
 
         init(_ parent: ChatTextEditor) {
             self.parent = parent
+        }
+
+        func textDidBeginEditing(_ notification: Notification) {
+            parent.isFocused = true
+        }
+
+        func textDidEndEditing(_ notification: Notification) {
+            parent.isFocused = false
         }
 
         func textDidChange(_ notification: Notification) {
