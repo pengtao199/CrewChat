@@ -1277,6 +1277,66 @@
         }
       }
     },
+    "workbench.archive": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "归档"
+          }
+        }
+      }
+    },
+    "workbench.archiveChats": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "归档聊天"
+          }
+        }
+      }
+    },
+    "workbench.archiveChats.confirm": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "归档这个项目里的聊天？"
+          }
+        }
+      }
+    },
+    "workbench.archiveChats.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会话会从列表里移除，数据库仍保留。"
+          }
+        }
+      }
+    },
+    "workbench.arrange": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "整理侧边栏"
+          }
+        }
+      }
+    },
+    "workbench.editProject": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑项目"
+          }
+        }
+      }
+    },
     "workbench.empty.description": {
       "localizations": {
         "zh-Hans": {
@@ -1293,6 +1353,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "还没有工作区"
+          }
+        }
+      }
+    },
+    "workbench.group.list": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在一个列表中"
+          }
+        }
+      }
+    },
+    "workbench.group.project": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按项目"
+          }
+        }
+      }
+    },
+    "workbench.more": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更多"
           }
         }
       }
@@ -1367,6 +1457,26 @@
         }
       }
     },
+    "workbench.pin": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置顶"
+          }
+        }
+      }
+    },
+    "workbench.pinProject": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "置顶项目"
+          }
+        }
+      }
+    },
     "workbench.removeWorkspace": {
       "localizations": {
         "zh-Hans": {
@@ -1387,12 +1497,62 @@
         }
       }
     },
+    "workbench.sort": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聊天排序方式"
+          }
+        }
+      }
+    },
+    "workbench.sort.manual": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动排序"
+          }
+        }
+      }
+    },
+    "workbench.sort.priority": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "优先级"
+          }
+        }
+      }
+    },
+    "workbench.sort.recent": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近更新"
+          }
+        }
+      }
+    },
     "workbench.title": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作区"
+            "value": "项目"
+          }
+        }
+      }
+    },
+    "workbench.worktree": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建永久工作树"
           }
         }
       }

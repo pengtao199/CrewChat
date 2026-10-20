@@ -83,6 +83,26 @@ final class WorkbenchViewModel {
         }
     }
 
+    func archive(_ conversationID: Int) async {
+        do {
+            try await conversationsClient.deleteConversation(id: conversationID)
+            if detail?.conversation.id == conversationID {
+                detail = nil
+            }
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func archiveAll(in folderID: Int) async {
+        for conversation in conversations(in: folderID) {
+            try? await conversationsClient.deleteConversation(id: conversation.id)
+        }
+        detail = nil
+        await load()
+    }
+
     func open(_ conversationID: Int) async {
         isLoadingDetail = true
         errorMessage = nil

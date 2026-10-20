@@ -37,6 +37,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `open_folder` | 添加工作区 | `CoreWorkspaces` | body `{path}`；返回 `FolderDetail`；只落库+标记打开，不动磁盘 |
 | `remove_folder_from_workspace` | 移出工作区 | `CoreWorkspaces` | body `{folder_id}`（**snake_case**）；只把 `is_open` 置 false，不删库不删磁盘；返回 `null` |
 | `list_all_conversations` | 工作区内的会话 | `CoreConversations` | body `{folderIds, includeChildren}`（camelCase）；返回 `DbConversationSummary[]`（snake_case：`folder_id/title/agent_type/status/kind/message_count/child_count/updated_at/...`） |
+| `delete_conversation` | 归档（软删除）会话 | `CoreConversations` | body `{conversationId}`（camelCase）；只置 `deleted_at`，列表不再返回，数据仍保留（实测 1 → 0，`deleted_at` 非空） |
 | `create_conversation` | 在项目内新建会话 | `CoreConversations` | body `{folderId, agentType, title?}`（**camelCase**；snake_case 会 400 `missing field folderId`）；返回新会话 id |
 | `get_folder_conversation` | 会话详情 | `CoreConversations` | body `{conversationId, tailTurns}`（camelCase）；返回 `{summary, turns:[{id,role,timestamp,blocks:[{type,…}]}]}`。`role`=user/assistant/system；`blocks.type` 见代码（text/thinking/tool_use/tool_result/turn_error，其余走 `other` 不报错） |
 

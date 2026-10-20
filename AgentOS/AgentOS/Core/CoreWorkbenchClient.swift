@@ -60,4 +60,11 @@ final class CoreConversationsClient: CoreConversations, @unchecked Sendable {
             body: CoreCreateConversationBody(folderID: folderID, agentType: agentType, title: title)
         )
     }
+
+    func deleteConversation(id: Int) async throws {
+        try await provider.client().sendIgnoring(
+            "delete_conversation",
+            body: CoreConversationIDBody(conversationID: id)
+        )
+    }
 }

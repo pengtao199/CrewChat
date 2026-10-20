@@ -5,44 +5,62 @@ struct WorkbenchSidebar: View {
     @Environment(AppEnvironment.self) private var environment
     @Binding var selection: Int?
     @State private var expanded: Set<Int> = []
+    @State private var hoveredWorkspace: Int?
+    @State private var hoveredConversation: Int?
+    @State private var archiveTarget: Workspace?
 
     private var model: WorkbenchViewModel { environment.workbench }
 
     var body: some View {
-        List(selection: $selection) {
-            ForEach(model.workspaces) { workspace in
-                DisclosureGroup(isExpanded: expansion(workspace.id)) {
-                    let rows = model.conversations(in: workspace.id)
-
-                    if rows.isEmpty {
-                        Text("workbench.noConversations")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(rows) { conversation in
-                            conversationRow(conversation)
-                                .tag(conversation.id)
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(model.workspaces) { workspace in
+                        workspaceRow(workspace)
+                        if expanded.contains(workspace.id) {
+                            ForEach(model.conversations(in: workspace.id)) { conversation in
+                                conversationRow(conversation)
+                            }
                         }
                     }
-
-                    newConversationMenu(workspace)
-                } label: {
-                    workspaceLabel(workspace)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+            }
+            .overlay {
+                if model.workspaces.isEmpty, !model.isLoading {
+                    ContentUnavailableView(
+                        "workbench.empty.title",
+                        systemImage: "folder.badge.plus",
+                        description: Text("workbench.empty.description")
+                    )
                 }
             }
+            Divider()
+            settingsRow
         }
-        .listStyle(.sidebar)
-        .overlay {
-            if model.workspaces.isEmpty, !model.isLoading {
-                ContentUnavailableView(
-                    "workbench.empty.title",
-                    systemImage: "folder.badge.plus",
-                    description: Text("workbench.empty.description")
-                )
+        .background(Color(nsColor: .windowBackgroundColor))
+        .confirmationDialog(
+            "workbench.archiveChats.confirm",
+            isPresented: Binding(
+                get: { archiveTarget != nil },
+                set: { if !$0 { archiveTarget = nil } }
+            ),
+            presenting: archiveTarget
+        ) { workspace in
+            Button("workbench.archiveChats") {
+                Task {
+                    await model.archiveAll(in: workspace.id)
+                    archiveTarget = nil
+                }
             }
+            Button("common.cancel", role: .cancel) {
+                archiveTarget = nil
+            }
+        } message: { _ in
+            Text("workbench.archiveChats.message")
         }
-        .safeAreaInset(edge: .top, spacing: 0) { header }
-        .safeAreaInset(edge: .bottom, spacing: 0) { footer }
         .task {
             await model.load()
             await model.loadEngines()
@@ -50,10 +68,38 @@ struct WorkbenchSidebar: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 6) {
             Text("workbench.title")
                 .font(.headline)
             Spacer()
+            Menu {
+                Section {
+                    Button("workbench.group.project") {}
+                        .disabled(true)
+                    Button("workbench.group.list") {}
+                        .disabled(true)
+                } header: {
+                    Text("workbench.arrange")
+                }
+
+                Section {
+                    Button("workbench.sort.priority") {}
+                        .disabled(true)
+                    Button("workbench.sort.recent") {}
+                        .disabled(true)
+                    Button("workbench.sort.manual") {}
+                        .disabled(true)
+                } header: {
+                    Text("workbench.sort")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("workbench.more")
+
             Button {
                 addWorkspace()
             } label: {
@@ -63,87 +109,181 @@ struct WorkbenchSidebar: View {
             .help("workbench.addWorkspace")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.bar)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
     }
 
-    private var footer: some View {
-        VStack(spacing: 0) {
-            Divider()
-            Button {
-                environment.mode = .settings
-            } label: {
-                Label("settings.title", systemImage: "gearshape")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+    private var settingsRow: some View {
+        Button {
+            environment.mode = .settings
+        } label: {
+            Label("settings.title", systemImage: "gearshape")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
-        .background(.bar)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
-    private func workspaceLabel(_ workspace: Workspace) -> some View {
-        Label(workspace.displayName, systemImage: "folder")
-            .lineLimit(1)
-            .contextMenu {
-                Button("workbench.revealInFinder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([
-                        URL(fileURLWithPath: workspace.path)
-                    ])
+    private func workspaceRow(_ workspace: Workspace) -> some View {
+        let isExpanded = expanded.contains(workspace.id)
+        let isHovered = hoveredWorkspace == workspace.id
+
+        return HStack(spacing: 6) {
+            Image(systemName: "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                .frame(width: 10)
+
+            Image(systemName: "folder")
+                .foregroundStyle(.tint)
+
+            Text(workspace.displayName)
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            if isHovered {
+                Menu {
+                    projectMenu(workspace)
+                } label: {
+                    Image(systemName: "ellipsis")
                 }
-                Divider()
-                Button("workbench.removeWorkspace", role: .destructive) {
-                    Task { await model.removeWorkspace(workspace.id) }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+
+                Menu {
+                    engineMenu(workspace)
+                } label: {
+                    Image(systemName: "square.and.pencil")
                 }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("workbench.newConversation")
             }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(rowBackground(selected: false, hovered: isHovered))
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            hoveredWorkspace = hovering ? workspace.id : nil
+        }
+        .onTapGesture {
+            if isExpanded {
+                expanded.remove(workspace.id)
+            } else {
+                expanded.insert(workspace.id)
+            }
+        }
+        .contextMenu {
+            projectMenu(workspace)
+        }
     }
 
     private func conversationRow(_ conversation: Conversation) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        let isSelected = selection == conversation.id
+        let isHovered = hoveredConversation == conversation.id
+
+        return HStack(spacing: 6) {
             Text(conversation.displayTitle)
                 .lineLimit(1)
-            HStack(spacing: 6) {
-                Text(conversation.agentType)
-                Text(conversation.updatedLabel)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-    }
+                .foregroundStyle(isSelected ? .primary : .secondary)
 
-    private func newConversationMenu(_ workspace: Workspace) -> some View {
-        Menu {
-            let enabled = model.engines.filter(\.enabled)
-            if enabled.isEmpty {
-                Text("workbench.noEngines")
-            } else {
-                ForEach(enabled) { engine in
-                    Button(engine.name) {
-                        Task { await createConversation(in: workspace, agentType: engine.agentType) }
+            Spacer(minLength: 4)
+
+            if isHovered || isSelected {
+                Button {
+                } label: {
+                    Image(systemName: "pin")
+                }
+                .buttonStyle(.borderless)
+                .disabled(true)
+                .help("workbench.pin")
+
+                Button {
+                    Task {
+                        await model.archive(conversation.id)
+                        if selection == conversation.id {
+                            selection = nil
+                        }
+                    }
+                } label: {
+                    Image(systemName: "archivebox")
+                }
+                .buttonStyle(.borderless)
+                .help("workbench.archive")
+            }
+        }
+        .padding(.leading, 34)
+        .padding(.trailing, 8)
+        .padding(.vertical, 5)
+        .background(rowBackground(selected: isSelected, hovered: isHovered))
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            hoveredConversation = hovering ? conversation.id : nil
+        }
+        .onTapGesture {
+            selection = conversation.id
+        }
+        .contextMenu {
+            Button("workbench.pin") {}
+                .disabled(true)
+            Button("workbench.archive") {
+                Task {
+                    await model.archive(conversation.id)
+                    if selection == conversation.id {
+                        selection = nil
                     }
                 }
             }
-        } label: {
-            Label("workbench.newConversation", systemImage: "plus")
-                .font(.callout)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
+        .help("\(conversation.agentType) · \(conversation.updatedLabel)")
     }
 
-    private func expansion(_ id: Int) -> Binding<Bool> {
-        Binding(
-            get: { expanded.contains(id) },
-            set: { isOn in
-                if isOn {
-                    expanded.insert(id)
-                } else {
-                    expanded.remove(id)
+    @ViewBuilder
+    private func projectMenu(_ workspace: Workspace) -> some View {
+        Button("workbench.pinProject") {}
+            .disabled(true)
+        Button("workbench.revealInFinder") {
+            NSWorkspace.shared.activateFileViewerSelecting([
+                URL(fileURLWithPath: workspace.path)
+            ])
+        }
+        Button("workbench.worktree") {}
+            .disabled(true)
+        Button("workbench.editProject") {}
+            .disabled(true)
+        Divider()
+        Button("workbench.archiveChats") {
+            archiveTarget = workspace
+        }
+        Button("workbench.removeWorkspace", role: .destructive) {
+            Task { await model.removeWorkspace(workspace.id) }
+        }
+    }
+
+    @ViewBuilder
+    private func engineMenu(_ workspace: Workspace) -> some View {
+        let enabled = model.engines.filter(\.enabled)
+        if enabled.isEmpty {
+            Text("workbench.noEngines")
+        } else {
+            ForEach(enabled) { engine in
+                Button(engine.name) {
+                    Task { await createConversation(in: workspace, agentType: engine.agentType) }
                 }
             }
-        )
+        }
+    }
+
+    private func rowBackground(selected: Bool, hovered: Bool) -> some View {
+        RoundedRectangle(cornerRadius: 6)
+            .fill(selected ? Color.gray.opacity(0.22) : hovered ? Color.gray.opacity(0.12) : Color.clear)
     }
 
     private func addWorkspace() {

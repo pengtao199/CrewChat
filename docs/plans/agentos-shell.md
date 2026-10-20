@@ -132,7 +132,12 @@ AgentOS/
 
 - Intent：真实以文件夹为工作区；工作区内可见会话；点开能读。
 - 已落地：`WorkbenchViewModel` + `WorkbenchSidebar` + `ConversationPane` / `ConversationView`；左侧 `List` + 每个工作区一个 `DisclosureGroup`（初始折叠），右侧只读渲染 turns（文本 / 思考 / 工具调用 / 工具结果 / turn_error，未知块降级为类型名不报错）；未连接时仍显示连接页。
-- 侧栏布局（2026-10-20 优化）：顶部「工作区 +」添加文件夹；每个展开的工作区末尾一行「＋ 新建会话」（Menu 选引擎 → `create_conversation`，创建后自动展开并选中）；工作区右键「在 Finder 中显示 / 从工作区移除」；**底部固定「设置」入口**，窗口工具栏不再放 + 与齿轮。
+- 侧栏布局（2026-10-20 优化，参考 Codeg 左栏）：
+  - 顶部「项目」+ `...` + `+`；`...` 菜单展示「整理侧边栏（按项目 / 在一个列表中）」与「聊天排序方式（优先级 / 最近更新 / 手动排序）」——**只展示，未接能力**。
+  - 项目行：折叠箭头 + 文件夹 + 名称；悬停出现 `...` 与「新建会话」（Menu 选引擎 → `create_conversation`，创建后展开并选中）。
+  - 项目 `...` 菜单：置顶项目 / 在 Finder 中显示 / 创建永久工作树 / 编辑项目 / 归档聊天 / 移除本地项目；**只有「在 Finder 中显示」「归档聊天」「移除本地项目」接通**，其余置灰。
+  - 会话行：悬停/选中出现「置顶」（置灰）与「归档」（`delete_conversation` 软删除）；右键同菜单。
+  - 所有行用灰色圆角背景（悬停 12%、选中 22%），侧栏底 `windowBackgroundColor`，保证一致性；底部固定「设置」入口；窗口工具栏不再放 + 与齿轮。
 - 新增端口 `CoreWorkspaces` / `CoreConversations`（同文件 `CoreWorkbench.swift`）。
 - Verify（已跑，用 `.data/codeg` 的**备份库**起核心）：`list_open_folder_details` 1 个工作区；`list_all_conversations` 3 条（codex/claude_code）；`get_folder_conversation` 4 个 turn，`role=user/system`、`blocks.type=text/turn_error` 与解码一致；应用自拉核心后工作区为空（隔离库），xcodebuild 通过。
 - 已知：隔离库没有他们的历史会话，所以首屏是「添加工作区」；要看到历史会话需要一次性导入 `.data/codeg`（未做，待定）。

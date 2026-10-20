@@ -139,6 +139,14 @@ struct CoreCreateConversationBody: Encodable {
     }
 }
 
+struct CoreConversationIDBody: Encodable {
+    let conversationID: Int
+
+    enum CodingKeys: String, CodingKey {
+        case conversationID = "conversationId"
+    }
+}
+
 struct CoreFolderConversationBody: Encodable {
     let conversationID: Int
     let tailTurns: Int
