@@ -95,12 +95,7 @@ struct ConversationView: View {
                         }
 
                         if let pendingUserText {
-                            UserBubble(
-                                text: pendingUserText,
-                                hovered: false,
-                                onCopy: nil,
-                                onEdit: nil
-                            )
+                            UserBubble(text: pendingUserText, onCopy: nil, onEdit: nil)
                         }
 
                         if let live {
@@ -147,15 +142,12 @@ private struct TurnRow: View {
     let agentName: String
     let onEdit: (() -> Void)?
 
-    @State private var hovered = false
-
     var body: some View {
         Group {
             switch turn.role {
             case .user:
                 UserBubble(
                     text: turn.plainText,
-                    hovered: hovered,
                     onCopy: { copy(turn.plainText) },
                     onEdit: onEdit
                 )
@@ -164,16 +156,20 @@ private struct TurnRow: View {
             default:
                 AssistantBubble(
                     agentName: agentName,
-                    blocks: turn.blocks,
+                    blocks: contentBlocks,
                     thinking: thinkingText,
-                    tools: [],
-                    text: "",
                     isRunning: false,
                     onCopy: { copy(turn.plainText) }
                 )
             }
         }
-        .onHover { hovered = $0 }
+    }
+
+    private var contentBlocks: [ConversationBlock] {
+        turn.blocks.filter { block in
+            if case .thinking = block { return false }
+            return true
+        }
     }
 
     private var thinkingText: String {
@@ -192,7 +188,6 @@ private struct TurnRow: View {
 
 private struct UserBubble: View {
     let text: String
-    let hovered: Bool
     let onCopy: (() -> Void)?
     let onEdit: (() -> Void)?
 
@@ -205,22 +200,19 @@ private struct UserBubble: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(text)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                    )
-
-                if let onCopy, hovered {
-                    HStack(spacing: 2) {
-                        IconAction(symbol: "doc.on.doc", help: "conversation.copy", action: onCopy)
-                        if let onEdit {
-                            IconAction(symbol: "pencil", help: "conversation.editResend", action: onEdit)
-                        }
+                HStack(alignment: .center, spacing: 6) {
+                    if let onCopy {
+                        BubbleActions(onCopy: onCopy, onEdit: onEdit)
                     }
+
+                    Text(text)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(nsColor: .controlBackgroundColor))
+                        )
                 }
             }
 
@@ -232,14 +224,13 @@ private struct UserBubble: View {
 private struct AssistantBubble: View {
     let agentName: String
     var blocks: [ConversationBlock] = []
-    let thinking: String
+    var thinking: String = ""
     var tools: [LiveTool] = []
     var text: String = ""
     let isRunning: Bool
     let onCopy: (() -> Void)?
 
     @State private var thinkingExpanded = false
-    @State private var hovered = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -250,74 +241,73 @@ private struct AssistantBubble: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    if !thinking.isEmpty {
-                        DisclosureGroup(isExpanded: $thinkingExpanded) {
-                            Text(thinking)
-                                .italic()
-                                .foregroundStyle(.secondary)
+                HStack(alignment: .center, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !thinking.isEmpty {
+                            DisclosureGroup(isExpanded: $thinkingExpanded) {
+                                Text(thinking)
+                                    .italic()
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.top, 4)
+                            } label: {
+                                Text("conversation.thinking")
+                                    .font(.callout)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                            blockView(block)
+                        }
+
+                        ForEach(tools) { tool in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label(tool.title, systemImage: "wrench.and.screwdriver")
+                                    .font(.callout)
+                                if !tool.status.isEmpty {
+                                    Text(tool.status)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if let output = tool.output, !output.isEmpty {
+                                    Text(output)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(6)
+                                        .textSelection(.enabled)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        if !text.isEmpty {
+                            Text(text)
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.top, 4)
-                        } label: {
-                            Text("conversation.thinking")
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
+                        }
+
+                        if isRunning {
+                            ProgressView()
+                                .controlSize(.small)
                         }
                     }
+                    .padding(12)
+                    .frame(maxWidth: 680, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color(nsColor: .controlBackgroundColor))
+                    )
 
-                    ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                        blockView(block)
-                    }
-
-                    ForEach(tools) { tool in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Label(tool.title, systemImage: "wrench.and.screwdriver")
-                                .font(.callout)
-                            if !tool.status.isEmpty {
-                                Text(tool.status)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            if let output = tool.output, !output.isEmpty {
-                                Text(output)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(6)
-                                    .textSelection(.enabled)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    if !text.isEmpty {
-                        Text(text)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    if isRunning {
-                        ProgressView()
-                            .controlSize(.small)
-                    }
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                )
-
-                if let onCopy, hovered {
-                    HStack(spacing: 2) {
-                        IconAction(symbol: "doc.on.doc", help: "conversation.copy", action: onCopy)
+                    if let onCopy {
+                        BubbleActions(onCopy: onCopy, onEdit: nil)
                     }
                 }
             }
 
             Spacer(minLength: 40)
         }
-        .onHover { hovered = $0 }
         .onAppear {
             thinkingExpanded = isRunning
         }
@@ -391,19 +381,29 @@ private struct SystemRows: View {
     }
 }
 
-private struct IconAction: View {
-    let symbol: String
-    let help: LocalizedStringKey
-    let action: () -> Void
+private struct BubbleActions: View {
+    let onCopy: () -> Void
+    let onEdit: (() -> Void)?
 
     var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.caption)
+        HStack(spacing: 2) {
+            Button(action: onCopy) {
+                Image(systemName: "doc.on.doc")
+                    .font(.caption)
+            }
+            .buttonStyle(.borderless)
+            .help("conversation.copy")
+
+            if let onEdit {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("conversation.editResend")
+            }
         }
-        .buttonStyle(.borderless)
         .foregroundStyle(.secondary)
-        .help(help)
     }
 }
 
