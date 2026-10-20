@@ -35,15 +35,18 @@ struct DraftView: View {
                 text: $prompt,
                 focusRequested: $focusRequested,
                 placeholder: "draft.placeholder",
-                isSending: model.isSending
-            ) {
-                let text = prompt
-                Task {
-                    if await model.send(prompt: text) {
-                        prompt = ""
+                isRunning: false,
+                canSend: !prompt.isEmpty && !model.isSending,
+                onSend: {
+                    let text = prompt
+                    Task {
+                        if await model.send(prompt: text) {
+                            prompt = ""
+                        }
                     }
-                }
-            }
+                },
+                onStop: {}
+            )
             .frame(maxWidth: 760)
         }
         .padding(24)

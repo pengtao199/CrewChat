@@ -4,17 +4,33 @@ struct Composer: View {
     @Binding var text: String
     @Binding var focusRequested: Bool
     let placeholder: LocalizedStringKey
-    let isSending: Bool
+    let isRunning: Bool
+    let canSend: Bool
     let onSend: () -> Void
-
-    @FocusState private var focused: Bool
+    let onStop: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
-            TextField(placeholder, text: $text, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...6)
-                .focused($focused)
+        VStack(spacing: 6) {
+            ZStack(alignment: .topLeading) {
+                if text.isEmpty {
+                    Text(placeholder)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 5)
+                        .allowsHitTesting(false)
+                }
+
+                ChatTextEditor(
+                    text: $text,
+                    focusRequested: focusRequested,
+                    onFocusHandled: { focusRequested = false },
+                    onSubmit: {
+                        if canSend {
+                            onSend()
+                        }
+                    }
+                )
+                .frame(minHeight: 40, maxHeight: 120)
+            }
 
             HStack(spacing: 8) {
                 Button {
@@ -27,14 +43,26 @@ struct Composer: View {
 
                 Spacer()
 
-                Button(action: onSend) {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 13, weight: .semibold))
-                        .frame(width: 22, height: 22)
+                if isRunning {
+                    Button(action: onStop) {
+                        Image(systemName: "stop.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .tint(.red)
+                    .help("composer.stop")
+                } else {
+                    Button(action: onSend) {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.circle)
+                    .disabled(!canSend)
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.circle)
-                .disabled(!canSend)
             }
         }
         .padding(12)
@@ -46,15 +74,5 @@ struct Composer: View {
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(Color(nsColor: .separatorColor))
         )
-        .onChange(of: focusRequested) { _, requested in
-            if requested {
-                focused = true
-                focusRequested = false
-            }
-        }
-    }
-
-    private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
     }
 }

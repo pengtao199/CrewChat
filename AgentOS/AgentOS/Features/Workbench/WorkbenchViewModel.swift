@@ -28,6 +28,7 @@ final class WorkbenchViewModel {
     private(set) var isSending = false
     private(set) var isRunning = false
     private(set) var liveConversationID: Int?
+    private(set) var pendingUserText: String?
 
     var draftFolder: Workspace?
     var selectedRoleIDs: [String] = []
@@ -72,6 +73,9 @@ final class WorkbenchViewModel {
         do {
             workspaces = try await workspacesClient.workspaces()
             conversations = try await conversationsClient.conversations(in: workspaces.map(\.id))
+            if roles.isEmpty {
+                await loadRoles()
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -177,6 +181,11 @@ final class WorkbenchViewModel {
 
         do {
             detail = try await conversationsClient.detail(conversationID: conversationID, tailTurns: 40)
+            if let pending = pendingUserText,
+               let last = detail?.turns.last(where: { $0.role == .user }),
+               last.plainText.trimmingCharacters(in: .whitespacesAndNewlines) == pending {
+                pendingUserText = nil
+            }
         } catch {
             detail = nil
             errorMessage = error.localizedDescription
@@ -197,9 +206,7 @@ final class WorkbenchViewModel {
 
         do {
             let members = Array(selectedRoleIDs.dropFirst())
-            let team = members.isEmpty
-                ? nil
-                : ConversationTeamRef(leaderRoleID: leaderID, memberRoleIDs: members)
+            let team = ConversationTeamRef(leaderRoleID: leaderID, memberRoleIDs: members)
 
             let conversationID = try await conversationsClient.createConversation(
                 folderID: folder.id,
@@ -225,6 +232,7 @@ final class WorkbenchViewModel {
             connectionID = connection
             liveConversationID = conversationID
             selectedConversationID = conversationID
+            pendingUserText = prompt
             isRunning = true
             liveText = ""
             liveThinking = ""
@@ -276,6 +284,7 @@ final class WorkbenchViewModel {
 
             liveConversationID = conversation.id
             selectedConversationID = conversation.id
+            pendingUserText = text
             isRunning = true
             liveText = ""
             liveThinking = ""
@@ -294,6 +303,14 @@ final class WorkbenchViewModel {
 
     func engineName(for agentType: String) -> String {
         engines.first(where: { $0.agentType == agentType })?.name ?? agentType
+    }
+
+    func agentDisplayName(for conversation: Conversation) -> String {
+        if let roleID = conversation.teamLeaderRoleID,
+           let role = roles.first(where: { $0.id == roleID }) {
+            return role.name
+        }
+        return engineName(for: conversation.agentType)
     }
 
     func cancelRun() async {

@@ -12,6 +12,16 @@ struct ConversationTurn: Identifiable, Sendable, Equatable {
     let blocks: [ConversationBlock]
 }
 
+extension ConversationTurn {
+    var plainText: String {
+        blocks.compactMap { block in
+            if case let .text(text) = block { return text }
+            return nil
+        }
+        .joined(separator: "\n\n")
+    }
+}
+
 enum TurnRole: String, Decodable, Sendable {
     case user
     case assistant

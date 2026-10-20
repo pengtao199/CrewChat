@@ -146,6 +146,16 @@
         }
       }
     },
+    "composer.stop": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止"
+          }
+        }
+      }
+    },
     "connection.address": {
       "localizations": {
         "zh-Hans": {
@@ -367,6 +377,7 @@
       }
     },
     "conversation.role.assistant": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -377,6 +388,7 @@
       }
     },
     "conversation.role.system": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -387,6 +399,7 @@
       }
     },
     "conversation.role.unknown": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -457,6 +470,7 @@
       }
     },
     "draft.send": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
