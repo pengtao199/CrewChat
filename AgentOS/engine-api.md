@@ -41,7 +41,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `create_conversation` | 在项目内新建会话 | `CoreConversations` | body `{folderId, agentType, title?}`（**camelCase**；snake_case 会 400 `missing field folderId`）；返回新会话 id |
 | `get_folder_conversation` | 会话详情 | `CoreConversations` | body `{conversationId, tailTurns}`（camelCase）；返回 `{summary, turns:[{id,role,timestamp,blocks:[{type,…}]}]}`。`role`=user/assistant/system；`blocks.type` 见代码（text/thinking/tool_use/tool_result/turn_error，其余走 `other` 不报错） |
 
-| `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?}`（camelCase；其余可选字段省略即默认）。返回 `connection_id`（字符串）。首次 initialize 可能 8–10s，超时按 60s |
+| `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?, sessionId?}`（camelCase）。`sessionId` 传会话的 `external_id` 以续接历史；返回 `connection_id`。首次 initialize 可能 8–10s，超时按 60s |
 | `acp_prompt` | 发送一轮消息 | `CoreSession` | body `{connectionId, blocks:[{type:"text",text}], folderId, conversationId}`（camelCase）。立即返回，流式结果走 `/ws/events` |
 | `acp_cancel` | 取消当前轮次 | `CoreSession` | body `{connectionId}`（camelCase） |
 

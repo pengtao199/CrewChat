@@ -12,6 +12,8 @@ struct Conversation: Identifiable, Sendable, Equatable {
     let childCount: Int
     let pinnedAt: String?
     let updatedAt: String
+    let externalId: String?
+    let teamLeaderRoleID: String?
 
     var displayTitle: String {
         title.isEmpty ? String(localized: "conversation.untitled") : title

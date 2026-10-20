@@ -187,10 +187,10 @@ AgentOS/
 
 - Intent：核心体验跑通。
 - 已落地：
-  - 「新建会话」不再直接选 CLI，而是进入**草稿页**：`你想让 <项目> 构建什么？` + 四张建议卡（点击填入提示词）+ Agent 多选（第一个为 leader）+ 底部输入框与发送。
-  - 发送流程：`create_conversation`（多选时带 `team {leader_role_id, member_role_ids}`）→ `acp_connect`（`workingDir` = 项目路径，`roleId` = leader）→ `acp_prompt` → `/ws/events` attach。
-  - 流式：`content_delta` 累加文本、`thinking` 累加思考、`tool_call`/`tool_call_update` 维护工具卡；`turn_complete` 后重拉会话详情并清空 live 缓冲；工具栏出现「停止」→ `acp_cancel`。
-  - 侧栏去掉自定义底色（系统原生观感）；补上 `settings.about` 文案。
+  - 草稿页：`你想让 <项目> 构建什么？` + Agent 多选（第一个为 leader，选中态用 `borderedProminent`）+ 底部统一输入容器（左下 `+` 占位、右下圆形发送箭头；不展示模型/供应商/思考程度）。
+  - 会话页：**常显输入容器**（与草稿同一个 `Composer`）；消息按群聊排布——用户在右（头像 + 昵称 + 灰色气泡），Agent 在左（头像 + 引擎名 + 正文），思考折叠、工具调用小卡、错误红字；悬停出现 `...` 菜单：复制 / 编辑重发（编辑=回填输入框，不改历史，因为核心没有单条消息删除）。
+  - 发送流程：`create_conversation`（多选带 `team`）→ `acp_connect`（`workingDir` = 项目路径，`roleId` = leader）→ `acp_prompt` → `/ws/events` attach；已有会话跟进时复用连接，换会话则 `acp_connect` 并带 `sessionId = external_id` 续接。
+  - 流式：`content_delta` / `thinking` / `tool_call(_update)` / `turn_complete` / `status_changed` / `detached`；`turn_complete` 后重拉详情并清空 live 缓冲；运行中「停止」→ `acp_cancel`，且输入框禁用避免 409。
 - Verify（已跑，真实 CLI）：临时库 `open_folder` → `create_conversation` → `acp_connect`（claude_code）→ WS attach → `acp_prompt("只回答一个字：好")`；收到 `snapshot`、`user_prompt_sent`、`user_message`、8×`thinking`、`content_delta:"好"`、`usage_update`、`turn_complete`、`conversation_status_changed`。xcodebuild 通过。
 - 未做：权限审批（归 S6）、快照恢复（S5）、多客户端同会话。
 - Files：`Domain/Ports/CoreEvents.swift`、`Core/WS/CoreEventStream.swift`、`Domain/RuntimeTimeline.swift`、`Core/HTTP/CoreClient+Acp.swift`、`Features/Conversation/{Composer,MessageList,ToolCallRow}.swift`。

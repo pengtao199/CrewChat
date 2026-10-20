@@ -12,6 +12,8 @@ struct CoreConversationSummary: Decodable, Sendable {
     let childCount: Int
     let pinnedAt: String?
     let updatedAt: String
+    let externalId: String?
+    let team: CoreConversationTeam?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -25,6 +27,8 @@ struct CoreConversationSummary: Decodable, Sendable {
         case childCount = "child_count"
         case pinnedAt = "pinned_at"
         case updatedAt = "updated_at"
+        case externalId = "external_id"
+        case team
     }
 
     var domain: Conversation {
@@ -39,8 +43,18 @@ struct CoreConversationSummary: Decodable, Sendable {
             messageCount: messageCount,
             childCount: childCount,
             pinnedAt: pinnedAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            externalId: externalId,
+            teamLeaderRoleID: team?.leaderRoleID
         )
+    }
+}
+
+struct CoreConversationTeam: Decodable, Sendable {
+    let leaderRoleID: String
+
+    enum CodingKeys: String, CodingKey {
+        case leaderRoleID = "leader_role_id"
     }
 }
 

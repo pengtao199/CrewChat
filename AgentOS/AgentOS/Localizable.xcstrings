@@ -136,6 +136,16 @@
         }
       }
     },
+    "composer.attach": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "附件（暂未接入）"
+          }
+        }
+      }
+    },
     "connection.address": {
       "localizations": {
         "zh-Hans": {
@@ -296,6 +306,26 @@
         }
       }
     },
+    "conversation.copy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制"
+          }
+        }
+      }
+    },
+    "conversation.editResend": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑重发"
+          }
+        }
+      }
+    },
     "conversation.empty.description": {
       "localizations": {
         "zh-Hans": {
@@ -322,6 +352,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "新会话"
+          }
+        }
+      }
+    },
+    "conversation.placeholder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "随意输入"
           }
         }
       }
@@ -366,6 +406,16 @@
         }
       }
     },
+    "conversation.thinking": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "思考"
+          }
+        }
+      }
+    },
     "conversation.untitled": {
       "localizations": {
         "zh-Hans": {
@@ -406,92 +456,12 @@
         }
       }
     },
-    "draft.prompt.build": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "帮我构建一个新功能："
-          }
-        }
-      }
-    },
-    "draft.prompt.explore": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "探索并理解这个项目的代码结构，告诉我关键模块和入口。"
-          }
-        }
-      }
-    },
-    "draft.prompt.fix": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这个项目里有报错，帮我定位并修复。"
-          }
-        }
-      }
-    },
-    "draft.prompt.review": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审查最近的改动，指出问题并给出修改建议。"
-          }
-        }
-      }
-    },
     "draft.send": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "发送"
-          }
-        }
-      }
-    },
-    "draft.suggestion.build": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "构建新功能、应用或工具"
-          }
-        }
-      }
-    },
-    "draft.suggestion.explore": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "探索并理解代码"
-          }
-        }
-      }
-    },
-    "draft.suggestion.fix": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "修复问题和失败"
-          }
-        }
-      }
-    },
-    "draft.suggestion.review": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "审查代码并提出修改建议"
           }
         }
       }
@@ -1577,6 +1547,7 @@
       }
     },
     "workbench.noEngines": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {

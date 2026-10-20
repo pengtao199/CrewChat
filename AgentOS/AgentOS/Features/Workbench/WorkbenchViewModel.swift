@@ -211,7 +211,8 @@ final class WorkbenchViewModel {
             let connection = try await sessionClient.connect(
                 agentType: leader.agentType,
                 workingDir: folder.path,
-                roleID: leader.id
+                roleID: leader.id,
+                sessionID: nil
             )
 
             try await sessionClient.prompt(
@@ -240,6 +241,59 @@ final class WorkbenchViewModel {
             isSending = false
             return false
         }
+    }
+
+    func sendMessage(prompt: String, conversation: Conversation) async -> Bool {
+        let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, !isSending else { return false }
+        guard let folder = workspaces.first(where: { $0.id == conversation.folderID }) else {
+            return false
+        }
+
+        isSending = true
+        errorMessage = nil
+
+        do {
+            let connection: String
+            if let existing = connectionID, liveConversationID == conversation.id {
+                connection = existing
+            } else {
+                connection = try await sessionClient.connect(
+                    agentType: conversation.agentType,
+                    workingDir: folder.path,
+                    roleID: conversation.teamLeaderRoleID,
+                    sessionID: conversation.externalId
+                )
+                connectionID = connection
+            }
+
+            try await sessionClient.prompt(
+                connectionID: connection,
+                text: text,
+                folderID: folder.id,
+                conversationID: conversation.id
+            )
+
+            liveConversationID = conversation.id
+            selectedConversationID = conversation.id
+            isRunning = true
+            liveText = ""
+            liveThinking = ""
+            liveTools = []
+
+            await open(conversation.id)
+            subscribe(connection: connection)
+            isSending = false
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            isSending = false
+            return false
+        }
+    }
+
+    func engineName(for agentType: String) -> String {
+        engines.first(where: { $0.agentType == agentType })?.name ?? agentType
     }
 
     func cancelRun() async {
