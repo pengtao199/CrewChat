@@ -3,7 +3,6 @@ import SwiftUI
 
 struct WorkbenchSidebar: View {
     @Environment(AppEnvironment.self) private var environment
-    @Binding var selection: Int?
     @State private var expanded: Set<Int> = []
     @State private var hoveredWorkspace: Int?
     @State private var hoveredConversation: Int?
@@ -60,7 +59,8 @@ struct WorkbenchSidebar: View {
         } message: { _ in
             Text("workbench.archiveChats.message")
         }
-        .task {
+        .task(id: environment.connection.isConnected) {
+            guard environment.connection.isConnected else { return }
             await model.load()
             await model.loadEngines()
         }
@@ -183,7 +183,7 @@ struct WorkbenchSidebar: View {
     }
 
     private func conversationRow(_ conversation: Conversation) -> some View {
-        let isSelected = selection == conversation.id
+        let isSelected = model.selectedConversationID == conversation.id
         let isHovered = hoveredConversation == conversation.id
 
         return HStack(spacing: 6) {
@@ -205,9 +205,6 @@ struct WorkbenchSidebar: View {
                 Button {
                     Task {
                         await model.archive(conversation.id)
-                        if selection == conversation.id {
-                            selection = nil
-                        }
                     }
                 } label: {
                     Image(systemName: "archivebox")
@@ -225,7 +222,7 @@ struct WorkbenchSidebar: View {
             hoveredConversation = hovering ? conversation.id : nil
         }
         .onTapGesture {
-            selection = conversation.id
+            model.selectedConversationID = conversation.id
         }
         .contextMenu {
             Button("workbench.pin") {}
@@ -233,9 +230,6 @@ struct WorkbenchSidebar: View {
             Button("workbench.archive") {
                 Task {
                     await model.archive(conversation.id)
-                    if selection == conversation.id {
-                        selection = nil
-                    }
                 }
             }
         }

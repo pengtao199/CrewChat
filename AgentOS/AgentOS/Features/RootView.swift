@@ -5,17 +5,15 @@ struct RootView: View {
     @State private var settingsPage: SettingsPage? = .general
 
     var body: some View {
-        @Bindable var workbench = environment.workbench
-
-        return NavigationSplitView {
-            sidebar(selection: $workbench.selectedConversationID)
+        NavigationSplitView {
+            sidebar
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
             detail
         }
-        .onChange(of: workbench.selectedConversationID) { _, value in
+        .onChange(of: environment.workbench.selectedConversationID) { _, value in
             if value != nil {
-                workbench.cancelDraft()
+                environment.workbench.cancelDraft()
             }
         }
         .toolbar {
@@ -46,10 +44,10 @@ struct RootView: View {
     }
 
     @ViewBuilder
-    private func sidebar(selection: Binding<Int?>) -> some View {
+    private var sidebar: some View {
         switch environment.mode {
         case .workbench:
-            WorkbenchSidebar(selection: selection)
+            WorkbenchSidebar()
 
         case .settings:
             List(SettingsPage.allCases, id: \.self, selection: $settingsPage) { page in
