@@ -32,7 +32,7 @@ final class AppEnvironment {
         )
         self.models = ModelsSettingsViewModel(ccr: CoreCCRClient(provider: provider))
         self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient, capabilities: capabilitiesClient)
-        self.engines = EnginesSettingsViewModel(engines: enginesClient)
+        self.engines = EnginesSettingsViewModel(engines: enginesClient, roster: rosterClient)
         self.workbench = WorkbenchViewModel(
             workspaces: workspacesClient,
             conversations: conversationsClient,

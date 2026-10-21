@@ -8,6 +8,7 @@ struct EnginesSettingsView: View {
     @State private var newKey = ""
     @State private var newValue = ""
     @State private var actionError: String?
+    @State private var pendingDisable: DisableRequest?
 
     private var model: EnginesSettingsViewModel { environment.engines }
 
@@ -117,6 +118,20 @@ struct EnginesSettingsView: View {
                 LabeledContent("settings.engines.adapter") {
                     Text(engine.isAdapter ? String(localized: "common.yes") : String(localized: "common.no"))
                 }
+                LabeledContent("settings.engines.usedBy", value: "\(model.agentsUsing(engine.agentType).count)")
+            }
+
+            if !usingAgents.isEmpty {
+                Section {
+                    Text(
+                        String(
+                            format: String(localized: "settings.engines.usedByList"),
+                            usingAgents.map(\.name).joined(separator: "、")
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
             }
 
             if !engine.available {
@@ -133,6 +148,14 @@ struct EnginesSettingsView: View {
                     isOn: Binding(
                         get: { engine.enabled },
                         set: { value in
+                            let using = model.agentsUsing(engine.agentType)
+                            if !value, !using.isEmpty {
+                                pendingDisable = DisableRequest(
+                                    engine: engine,
+                                    roleNames: using.map(\.name)
+                                )
+                                return
+                            }
                             Task { await setEnabled(engine, value) }
                         }
                     )
@@ -212,6 +235,34 @@ struct EnginesSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .alert(
+            "settings.engines.disable.title",
+            isPresented: Binding(
+                get: { pendingDisable != nil },
+                set: { if !$0 { pendingDisable = nil } }
+            ),
+            presenting: pendingDisable
+        ) { request in
+            Button("settings.engines.disable.confirm", role: .destructive) {
+                pendingDisable = nil
+                Task { await setEnabled(request.engine, false) }
+            }
+            Button("common.cancel", role: .cancel) {
+                pendingDisable = nil
+            }
+        } message: { request in
+            Text(
+                String(
+                    format: String(localized: "settings.engines.disable.message"),
+                    request.roleNames.joined(separator: "、")
+                )
+            )
+        }
+    }
+
+    private var usingAgents: [AgentRole] {
+        guard let selected else { return [] }
+        return model.agentsUsing(selected.agentType)
     }
 
     private var envDirty: Bool {
@@ -270,4 +321,11 @@ struct EnginesSettingsView: View {
             return
         }
     }
+}
+
+private struct DisableRequest: Identifiable {
+    let engine: Engine
+    let roleNames: [String]
+
+    var id: String { engine.agentType }
 }

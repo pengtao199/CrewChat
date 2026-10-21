@@ -2304,6 +2304,86 @@
           }
         }
       }
+    },
+    "settings.models.search": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索供应商"
+          }
+        }
+      }
+    },
+    "settings.models.nameLocked": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名字被配置档案引用，暂不支持改名。"
+          }
+        }
+      }
+    },
+    "settings.models.keyScope": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这里写入的是供应商级密钥；已有的独立密钥会保留。"
+          }
+        }
+      }
+    },
+    "settings.engines.usedBy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中的 Agent"
+          }
+        }
+      }
+    },
+    "settings.engines.usedByList": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中：%@"
+          }
+        }
+      }
+    },
+    "settings.engines.disable.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停用这个 CLI？"
+          }
+        }
+      }
+    },
+    "settings.engines.disable.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这些 Agent 将无法启动：%@"
+          }
+        }
+      }
+    },
+    "settings.engines.disable.confirm": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仍然停用"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

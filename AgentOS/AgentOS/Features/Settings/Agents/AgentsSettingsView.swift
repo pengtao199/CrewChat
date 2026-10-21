@@ -76,7 +76,16 @@ struct AgentsSettingsView: View {
     private var sidebar: some View {
         List(filteredAgents, selection: selectionBinding) { agent in
             VStack(alignment: .leading, spacing: 2) {
-                Text(agent.name)
+                HStack(spacing: 5) {
+                    Text(agent.name)
+                    if let engine = model.engines.first(where: { $0.agentType == agent.agentType }),
+                       !engine.available {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.orange)
+                            .help("settings.engines.missing")
+                    }
+                }
                 Text(subtitle(agent))
                     .font(.caption)
                     .foregroundStyle(.secondary)

@@ -57,8 +57,15 @@ struct ProviderEditorSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
-                Section("settings.models.basic") {
+                Section {
                     TextField("settings.models.name", text: $name)
+                        .disabled(existing != nil)
+
+                    if existing != nil {
+                        Text("settings.models.nameLocked")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
 
                     TextField("settings.models.baseURL", text: $baseURL)
                         .textContentType(.URL)
@@ -77,7 +84,7 @@ struct ProviderEditorSheet: View {
                     )
                     .disabled(clearKey)
 
-                    if existing != nil {
+                    if existing != nil, !hasIndependentCredentials {
                         Toggle("settings.models.clearKey", isOn: $clearKey)
                     }
 
@@ -142,8 +149,13 @@ struct ProviderEditorSheet: View {
                 } header: {
                     Text("settings.models.models")
                 } footer: {
-                    Text("settings.models.secretHint")
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("settings.models.secretHint")
+                        if hasIndependentCredentials {
+                            Text("settings.models.keyScope")
+                        }
+                    }
+                    .foregroundStyle(.secondary)
                 }
 
                 if let error {
@@ -191,6 +203,10 @@ struct ProviderEditorSheet: View {
         } message: {
             Text(String(format: String(localized: "settings.models.delete.message"), existing?.name ?? ""))
         }
+    }
+
+    private var hasIndependentCredentials: Bool {
+        existing?.credentials.contains(where: { $0.id != "api_key" }) == true
     }
 
     private var canSave: Bool {
