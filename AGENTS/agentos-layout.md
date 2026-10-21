@@ -36,6 +36,13 @@ App ──▶ Features ──▶ Domain ◀── Core ──▶ Infrastructure
 - **wire 枚举必须留 `unknown` 分支**：核心新增 `kind` / `status` / `agentType` 时，壳只降级显示，不崩、不吞。反序列化失败只允许发生在字段缺失，不允许因为未知枚举值。
 - 一个类型只有一个归属层；跨层直接调用（视图 → 适配）一律禁止。
 
+## 第三方源码（Vendor）
+
+- 第三方 Swift 源码放 `AgentOS/Vendor/<Name>/`，随文件系统同步组一起编译；**不用 SPM**。
+- 每个 vendored 目录必须有 `LICENSE` 与 `NOTICE.md`（上游、版本、引入原因、对源码做的改动、升级方式）。
+- 改上游文件必须登记在 `NOTICE.md`；能不改就不改，优先在调用处适配。
+- 顶层类型名冲突（例如上游的 `Image`）要在 vendoring 时改名，别让应用代码到处写模块前缀。
+
 ## 依赖白名单
 
 默认零第三方依赖。引入前按 `AGENTS/dependencies.md` 调研，并满足：

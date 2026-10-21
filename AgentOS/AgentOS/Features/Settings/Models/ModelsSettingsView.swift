@@ -134,12 +134,22 @@ struct ModelsSettingsView: View {
             Section("settings.models.ccr") {
                 LabeledContent("settings.models.ccrURL", value: model.health?.url ?? "—")
                 LabeledContent("settings.models.token") {
-                    Text(model.health?.tokenConfigured == true ? "settings.models.token.ok" : "settings.models.token.missing")
-                        .foregroundStyle(model.health?.tokenConfigured == true ? .green : .orange)
+                    Text(tokenKey)
+                        .foregroundStyle(tokenColor)
                 }
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var tokenKey: LocalizedStringKey {
+        model.health?.tokenConfigured == true
+            ? "settings.models.token.ok"
+            : "settings.models.token.missing"
+    }
+
+    private var tokenColor: Color {
+        model.health?.tokenConfigured == true ? .green : .orange
     }
 
     private func accountRow(_ account: CCRAccount) -> some View {

@@ -187,6 +187,7 @@ AgentOS/
 
 - Intent：核心体验跑通。
 - 已落地：
+  - **Markdown**：vendored [Textual 0.5.0](https://github.com/gonzalezreal/textual)（MIT，源码在 `AgentOS/Vendor/Textual/`，改动表见其 `NOTICE.md`）。助手正文用 `StructuredText` 块级渲染（标题 / 列表 / 代码块 / 表格），流式中仍用纯 `Text`，完成后切换。**deployment target 提到 macOS 15**。删掉了 math 支持（避免再引 7.5MB 的 swiftui-math）。
   - 草稿页：`你想让 <项目> 构建什么？` + Agent 多选（第一个为 leader，选中态用 `borderedProminent`）+ 底部统一输入容器（左下 `+` 占位、右下圆形发送箭头；不展示模型/供应商/思考程度）。
   - 会话页：**常显输入容器**（与草稿同一个 `Composer`）；消息按群聊排布——用户在右（头像 + 昵称 + 灰底气泡），Agent 在左（头像 + **角色名** + 气泡：思考与回答同泡，运行中展开、回复完折叠），工具调用在泡内、错误红字；复制 / 编辑重发是**气泡下方的图标**（悬停出现），编辑=回填输入框（不改历史，核心没有单条消息删除）。
   - 及时展示：发送后立即插入本地用户气泡（`pendingUserText`），核心落库后由持久化消息替换。

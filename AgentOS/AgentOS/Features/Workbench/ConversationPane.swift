@@ -350,8 +350,9 @@ private struct AssistantBubble: View {
     private func blockView(_ block: ConversationBlock) -> some View {
         switch block {
         case let .text(value):
-            Text(value)
-                .textSelection(.enabled)
+            StructuredText(markdown: value)
+                .textual.structuredTextStyle(.gitHub)
+                .textual.textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
         case let .toolUse(name, preview):
