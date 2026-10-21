@@ -1572,6 +1572,19 @@ pub fn build_router(
         // ─── CCR model management（[crewchat] 模型层的唯一内核）───
         .route("/ccr_health", post(handlers::ccr::ccr_health))
         .route("/ccr_call", post(handlers::ccr::ccr_call))
+        // 供应商写路径：整文档 saveConfig 的读-改-写收敛在核心，壳只提交补丁
+        .route(
+            "/ccr_provider_save",
+            post(handlers::ccr::ccr_provider_save),
+        )
+        .route(
+            "/ccr_provider_delete",
+            post(handlers::ccr::ccr_provider_delete),
+        )
+        .route(
+            "/ccr_provider_probe",
+            post(handlers::ccr::ccr_provider_probe),
+        )
         // 5.1 CCR 托管：管理进程的探活 / 接管 / 拉起（守护线程见 ccr::supervisor）
         .route(
             "/ccr_supervisor_state",

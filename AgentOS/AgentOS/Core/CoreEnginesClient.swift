@@ -14,10 +14,20 @@ final class CoreEnginesClient: CoreEngines, @unchecked Sendable {
 
     func setEngineEnabled(_ agentType: String, enabled: Bool) async throws {
         let current = try await engines().first { $0.agentType == agentType }
+        try await setPreferences(
+            EnginePreferences(
+                agentType: agentType,
+                enabled: enabled,
+                env: current?.env ?? [:]
+            )
+        )
+    }
+
+    func setPreferences(_ preferences: EnginePreferences) async throws {
         let saved = CoreAgentPreferences(
-            agentType: agentType,
-            enabled: enabled,
-            env: current?.env ?? [:]
+            agentType: preferences.agentType,
+            enabled: preferences.enabled,
+            env: preferences.env
         )
         try await provider.client().sendIgnoring("acp_update_agent_preferences", body: saved)
     }

@@ -22,8 +22,10 @@ struct CCRCredential: Identifiable, Sendable, Equatable {
     let enabled: Bool
 
     var masked: String {
-        guard !apiKey.isEmpty else { return "—" }
-        return "\(apiKey.prefix(6))…"
+        let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "—" }
+        guard trimmed.count > 8 else { return "••••••••" }
+        return "••••••••" + trimmed.suffix(4)
     }
 }
 
@@ -43,4 +45,21 @@ struct CCRMeter: Identifiable, Sendable, Equatable {
     let used: Double?
     let window: String?
     let resetAt: String?
+}
+
+struct CCRProviderDraft: Sendable {
+    let originalID: String?
+    let name: String
+    let baseURL: String
+    let protocolName: String
+    let apiKey: String?
+    let clearAPIKey: Bool
+    let enabled: Bool
+    let models: [String]
+}
+
+struct CCRProbeResult: Sendable {
+    let models: [String]
+    let baseURL: String?
+    let protocolName: String?
 }

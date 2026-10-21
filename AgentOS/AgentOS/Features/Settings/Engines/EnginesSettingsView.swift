@@ -3,6 +3,11 @@ import SwiftUI
 struct EnginesSettingsView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var selection: String?
+    @State private var env: [String: String] = [:]
+    @State private var envEngineID: String?
+    @State private var newKey = ""
+    @State private var newValue = ""
+    @State private var actionError: String?
 
     private var model: EnginesSettingsViewModel { environment.engines }
 
@@ -15,8 +20,15 @@ struct EnginesSettingsView: View {
         MasterDetailLayout {
             List(model.engines, selection: $selection) { engine in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(engine.name)
-                    Text(engine.installedVersion ?? "—")
+                    HStack(spacing: 6) {
+                        Text(engine.name)
+                        if !engine.available {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.caption)
+                        }
+                    }
+                    Text(engine.installedVersion ?? String(localized: "settings.engines.missing"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -26,28 +38,55 @@ struct EnginesSettingsView: View {
             detail
         }
         .navigationTitle("settings.engines")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    Task { await refresh() }
+                } label: {
+                    Label("settings.engines.refresh", systemImage: "arrow.clockwise")
+                }
+                .disabled(model.isLoading)
+            }
+        }
+        .onChange(of: selection) { _, _ in
+            actionError = nil
+            if let selected {
+                syncEnv(selected)
+            }
+        }
         .task {
             await model.load()
             selectFirstIfNeeded()
+            if let selected {
+                syncEnv(selected, force: true)
+            }
         }
     }
 
     @ViewBuilder
     private var detail: some View {
         if let message = model.errorMessage {
-            ContentUnavailableView(
-                "common.error",
-                systemImage: "exclamationmark.triangle",
-                description: Text(message)
-            )
+            ContentUnavailableView {
+                Label("common.error", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(message)
+            } actions: {
+                Button("settings.engines.retry") {
+                    Task { await refresh() }
+                }
+            }
         } else if let engine = selected {
             engineDetail(engine)
         } else if model.engines.isEmpty {
-            ContentUnavailableView(
-                "settings.engines.empty.title",
-                systemImage: "terminal",
-                description: Text("settings.engines.empty.description")
-            )
+            ContentUnavailableView {
+                Label("settings.engines.empty.title", systemImage: "terminal")
+            } description: {
+                Text("settings.engines.empty.description")
+            } actions: {
+                Button("settings.engines.refresh") {
+                    Task { await refresh() }
+                }
+            }
         } else {
             SelectItemPlaceholder()
         }
@@ -55,6 +94,13 @@ struct EnginesSettingsView: View {
 
     private func engineDetail(_ engine: Engine) -> some View {
         Form {
+            if let actionError {
+                Section {
+                    Text(actionError)
+                        .foregroundStyle(.red)
+                }
+            }
+
             Section("settings.engines.info") {
                 LabeledContent("settings.engines.available") {
                     Label(
@@ -63,10 +109,21 @@ struct EnginesSettingsView: View {
                     )
                     .foregroundStyle(engine.available ? .green : .orange)
                 }
-                LabeledContent("settings.engines.version", value: engine.installedVersion ?? "—")
+                LabeledContent("settings.engines.version") {
+                    Text(engine.installedVersion ?? "—")
+                        .textSelection(.enabled)
+                }
                 LabeledContent("settings.engines.distribution", value: engine.distributionType)
                 LabeledContent("settings.engines.adapter") {
                     Text(engine.isAdapter ? String(localized: "common.yes") : String(localized: "common.no"))
+                }
+            }
+
+            if !engine.available {
+                Section {
+                    Text("settings.engines.unavailableHint")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -76,10 +133,11 @@ struct EnginesSettingsView: View {
                     isOn: Binding(
                         get: { engine.enabled },
                         set: { value in
-                            Task { await model.setEnabled(engine, enabled: value) }
+                            Task { await setEnabled(engine, value) }
                         }
                     )
                 )
+                .disabled(!engine.available)
             } header: {
                 Text("settings.engines.behavior")
             } footer: {
@@ -88,19 +146,122 @@ struct EnginesSettingsView: View {
                 }
             }
 
-            if !engine.env.isEmpty {
-                Section("settings.engines.env") {
-                    ForEach(engine.env.sorted(by: { $0.key < $1.key }), id: \.key) { pair in
-                        LabeledContent(pair.key) {
-                            Text(pair.value)
-                                .foregroundStyle(.secondary)
+            Section {
+                if env.isEmpty {
+                    Text("settings.engines.env.empty")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(env.keys.sorted(), id: \.self) { key in
+                        HStack(spacing: 8) {
+                            Text(key)
+                                .font(.system(.body, design: .monospaced))
                                 .textSelection(.enabled)
+                                .frame(minWidth: 120, alignment: .leading)
+
+                            TextField(
+                                "settings.engines.env.value",
+                                text: Binding(
+                                    get: { env[key] ?? "" },
+                                    set: { env[key] = $0 }
+                                )
+                            )
+                            .textFieldStyle(.roundedBorder)
+
+                            Button {
+                                env.removeValue(forKey: key)
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("common.delete")
                         }
                     }
                 }
+
+                HStack(spacing: 8) {
+                    TextField("settings.engines.env.key", text: $newKey)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("settings.engines.env.value", text: $newValue)
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        addEnv()
+                    } label: {
+                        Image(systemName: "plus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(newKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                HStack {
+                    if envDirty {
+                        Text("settings.engines.env.unsaved")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    Spacer()
+                    Button("settings.engines.env.save") {
+                        Task { await saveEnv(engine) }
+                    }
+                    .disabled(!envDirty || model.isLoading)
+                }
+            } header: {
+                Text("settings.engines.env")
+            } footer: {
+                Text("settings.engines.env.footer")
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var envDirty: Bool {
+        guard let selected else { return false }
+        return env != selected.env
+    }
+
+    private func syncEnv(_ engine: Engine, force: Bool = false) {
+        guard force || envEngineID != engine.agentType else { return }
+        env = engine.env
+        envEngineID = engine.agentType
+        newKey = ""
+        newValue = ""
+    }
+
+    private func addEnv() {
+        let key = newKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { return }
+        env[key] = newValue
+        newKey = ""
+        newValue = ""
+    }
+
+    private func refresh() async {
+        await model.load()
+        if let selected {
+            syncEnv(selected)
+        }
+    }
+
+    private func setEnabled(_ engine: Engine, _ value: Bool) async {
+        actionError = nil
+        do {
+            try await model.update(engine, enabled: value, env: engine.env)
+        } catch {
+            actionError = error.localizedDescription
+            await model.load()
+        }
+    }
+
+    private func saveEnv(_ engine: Engine) async {
+        actionError = nil
+        do {
+            try await model.update(engine, enabled: engine.enabled, env: env)
+            if let refreshed = model.engines.first(where: { $0.agentType == engine.agentType }) {
+                syncEnv(refreshed, force: true)
+            }
+        } catch {
+            actionError = error.localizedDescription
+        }
     }
 
     private func selectFirstIfNeeded() {

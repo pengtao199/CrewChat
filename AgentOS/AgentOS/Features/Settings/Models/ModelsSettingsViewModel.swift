@@ -52,4 +52,19 @@ final class ModelsSettingsViewModel {
             return .failure(error)
         }
     }
+
+    func saveProvider(_ draft: CCRProviderDraft) async throws -> CCRProvider {
+        let saved = try await ccr.saveProvider(draft)
+        await load()
+        return saved
+    }
+
+    func deleteProvider(id: String) async throws {
+        try await ccr.deleteProvider(id: id)
+        await load()
+    }
+
+    func probeProvider(baseURL: String, apiKey: String?) async throws -> CCRProbeResult {
+        try await ccr.probeProvider(baseURL: baseURL, apiKey: apiKey)
+    }
 }

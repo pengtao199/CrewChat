@@ -13,6 +13,7 @@ use serde_json::Value;
 use crate::app_error::AppCommandError;
 use crate::app_state::AppState;
 use crate::ccr::client;
+use crate::ccr::providers;
 use crate::ccr::supervisor::CcrDaemonStatus;
 
 #[derive(Deserialize)]
@@ -49,4 +50,30 @@ pub async fn ccr_supervisor_start(
         .await
         .map(Json)
         .map_err(AppCommandError::dependency_missing)
+}
+
+#[derive(Deserialize)]
+pub struct CcrProviderIdParams {
+    pub id: String,
+}
+
+/// Create or update one provider (read → merge → saveConfig in the core).
+pub async fn ccr_provider_save(
+    Json(params): Json<providers::ProviderSaveRequest>,
+) -> Result<Json<Value>, AppCommandError> {
+    Ok(Json(providers::save_provider(params).await?))
+}
+
+/// Remove one provider; refuses while a profile still references it.
+pub async fn ccr_provider_delete(
+    Json(params): Json<CcrProviderIdParams>,
+) -> Result<Json<bool>, AppCommandError> {
+    Ok(Json(providers::delete_provider(params.id).await?))
+}
+
+/// Probe a provider base URL and return the detected models/protocol.
+pub async fn ccr_provider_probe(
+    Json(params): Json<providers::ProviderProbeRequest>,
+) -> Result<Json<Value>, AppCommandError> {
+    Ok(Json(providers::probe_provider(params).await?))
 }

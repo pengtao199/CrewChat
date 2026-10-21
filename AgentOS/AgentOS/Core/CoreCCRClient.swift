@@ -34,18 +34,55 @@ final class CoreCCRClient: CoreCCR, @unchecked Sendable {
         )
         return rows.map(\.domain)
     }
+
+    func saveProvider(_ draft: CCRProviderDraft) async throws -> CCRProvider {
+        let saved: CoreCCRProvider = try await provider.client().send(
+            "ccr_provider_save",
+            body: CoreCCRProviderSave(draft)
+        )
+        return saved.domain
+    }
+
+    func deleteProvider(id: String) async throws {
+        try await provider.client().sendIgnoring(
+            "ccr_provider_delete",
+            body: CoreCCRIdBody(id: id)
+        )
+    }
+
+    func probeProvider(baseURL: String, apiKey: String?) async throws -> CCRProbeResult {
+        let result: CoreCCRProbeResult = try await provider.client().send(
+            "ccr_provider_probe",
+            body: CoreCCRProbeBody(baseURL: baseURL, apiKey: apiKey)
+        )
+        return CCRProbeResult(
+            models: result.models,
+            baseURL: result.normalizedBaseUrl,
+            protocolName: result.detectedProtocol
+        )
+    }
 }
 
 private extension CoreCCRProvider {
     var domain: CCRProvider {
-        CCRProvider(
+        var resolved = (credentials ?? []).map(\.domain)
+        // Older CCR configs keep the key at the provider level. Surface it as
+        // one credential so the list, the masked display and the probe share a
+        // single path.
+        if resolved.isEmpty, let apiKey, !apiKey.isEmpty {
+            resolved = [
+                CCRCredential(id: "api_key", name: "Key", apiKey: apiKey, enabled: true)
+            ]
+        }
+
+        return CCRProvider(
             id: id ?? name,
             name: name,
             type: type ?? "—",
             baseURL: baseURL ?? "—",
             enabled: enabled ?? true,
             models: models ?? [],
-            credentials: (credentials ?? []).map(\.domain)
+            credentials: resolved
         )
     }
 }

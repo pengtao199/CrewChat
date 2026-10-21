@@ -62,6 +62,8 @@ Codeg 工作台的模型页经薄代理操作 CCR：后端 `ccr_call` / `ccr_hea
 ## 具体规则
 
 - 新增推理端点：只改 CCR 配置（模型页操作或直接改 CCR 配置），不动 Python / Codeg 代码。
+- 模型页写供应商只能走核心的 `ccr_provider_save/delete/probe`：核心做 `getConfig → 合并原始 JSON → saveConfig`，保留 `transformer` / `modelMetadata` / `account` 等壳不认识字段；**不要**在 Swift 里拼整份 config 再回写。
+- 供应商改名暂不开放：CCR 的 profile 用 `providerName` / `providerId` 引用它，改名会留下悬空档案。删除前核心会检查引用并拒绝，错误里带上档案名。
 - 某 CLI 拿不到某端点时：先确认该 CLI 在 CCR 里有 profile，再看端点是否要 transform，最后才怀疑端点。
 - 改 CCR 自身代码前读 `ccr/NOTICE.md`（变更清单）与 `AGENTS/upstream.md`（同步规则）；我们的改动带 `[crewchat]` 标记。
 - 改托管逻辑：进程管理交给 `ccr start/stop`，不要在 Codeg 里重造 daemon / pidfile；探活判据（回环 / token / CLI）在 `supervisor.rs` 的纯函数里，改判据先补用例。

@@ -11,6 +11,7 @@
 //! here — see `AGENTS/gateway.md`.
 
 pub mod client;
+pub mod providers;
 pub mod supervisor;
 
 pub use supervisor::{

@@ -21,6 +21,7 @@ struct CoreCCRProvider: Decodable, Sendable {
     let enabled: Bool?
     let models: [String]?
     let credentials: [CoreCCRCredential]?
+    let apiKey: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -31,6 +32,9 @@ struct CoreCCRProvider: Decodable, Sendable {
         case enabled
         case models
         case credentials
+        case apiKey = "api_key"
+        case apiKeyAlt = "apiKey"
+        case apikey
     }
 
     init(from decoder: Decoder) throws {
@@ -43,6 +47,9 @@ struct CoreCCRProvider: Decodable, Sendable {
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
         models = try container.decodeIfPresent([String].self, forKey: .models)
         credentials = try container.decodeIfPresent([CoreCCRCredential].self, forKey: .credentials)
+        apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey)
+            ?? container.decodeIfPresent(String.self, forKey: .apiKeyAlt)
+            ?? container.decodeIfPresent(String.self, forKey: .apikey)
     }
 }
 
@@ -111,4 +118,57 @@ enum CoreCCRArgument: Encodable {
 struct CoreCCRCall: Encodable {
     let method: String
     let args: [CoreCCRArgument]
+}
+
+struct CoreCCRProviderSave: Encodable {
+    let originalId: String?
+    let name: String
+    let baseURL: String
+    let protocolName: String
+    let apiKey: String?
+    let clearApiKey: Bool
+    let enabled: Bool
+    let models: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case originalId
+        case name
+        case baseURL = "baseUrl"
+        case protocolName = "protocol"
+        case apiKey
+        case clearApiKey
+        case enabled
+        case models
+    }
+
+    init(_ draft: CCRProviderDraft) {
+        originalId = draft.originalID
+        name = draft.name
+        baseURL = draft.baseURL
+        protocolName = draft.protocolName
+        apiKey = draft.apiKey
+        clearApiKey = draft.clearAPIKey
+        enabled = draft.enabled
+        models = draft.models
+    }
+}
+
+struct CoreCCRIdBody: Encodable {
+    let id: String
+}
+
+struct CoreCCRProbeBody: Encodable {
+    let baseURL: String
+    let apiKey: String?
+
+    enum CodingKeys: String, CodingKey {
+        case baseURL = "baseUrl"
+        case apiKey
+    }
+}
+
+struct CoreCCRProbeResult: Decodable, Sendable {
+    let models: [String]
+    let normalizedBaseUrl: String?
+    let detectedProtocol: String?
 }

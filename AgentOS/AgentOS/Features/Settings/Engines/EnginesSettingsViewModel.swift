@@ -1,4 +1,4 @@
-import SwiftUI
+import Foundation
 
 @MainActor
 @Observable
@@ -26,12 +26,14 @@ final class EnginesSettingsViewModel {
         isLoading = false
     }
 
-    func setEnabled(_ engine: Engine, enabled: Bool) async {
-        do {
-            try await client.setEngineEnabled(engine.agentType, enabled: enabled)
-            await load()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
+    func update(_ engine: Engine, enabled: Bool, env: [String: String]) async throws {
+        try await client.setPreferences(
+            EnginePreferences(
+                agentType: engine.agentType,
+                enabled: enabled,
+                env: env
+            )
+        )
+        await load()
     }
 }

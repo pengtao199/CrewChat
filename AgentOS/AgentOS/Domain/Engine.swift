@@ -13,3 +13,9 @@ struct Engine: Identifiable, Sendable, Equatable {
 
     var id: String { agentType }
 }
+
+struct EnginePreferences: Sendable, Equatable {
+    let agentType: String
+    let enabled: Bool
+    let env: [String: String]
+}

@@ -9,6 +9,9 @@ struct ModelsSettingsView: View {
     @State private var revealed: Set<String> = []
     @State private var modelsExpanded = true
     @State private var accountsExpanded = true
+    @State private var editor: EditorTarget?
+    @State private var confirmDelete = false
+    @State private var actionError: String?
 
     private var model: ModelsSettingsViewModel { environment.models }
 
@@ -34,21 +37,78 @@ struct ModelsSettingsView: View {
         }
         .navigationTitle("settings.models")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    Task { await loadAccounts(forceRefresh: true) }
+                    editor = .create
+                } label: {
+                    Label("settings.models.add", systemImage: "plus")
+                }
+
+                Button {
+                    if let selected {
+                        editor = .edit(selected)
+                    }
+                } label: {
+                    Label("common.edit", systemImage: "pencil")
+                }
+                .disabled(selected == nil)
+
+                Button(role: .destructive) {
+                    confirmDelete = true
+                } label: {
+                    Label("common.delete", systemImage: "trash")
+                }
+                .disabled(selected == nil)
+
+                Button {
+                    Task {
+                        await model.load()
+                        await loadAccounts(forceRefresh: true)
+                    }
                 } label: {
                     Label("settings.models.refresh", systemImage: "arrow.clockwise")
                 }
-                .disabled(selected == nil || isLoadingAccounts)
+                .disabled(selected == nil || isLoadingAccounts || model.isLoading)
             }
         }
-        .onChange(of: selection) { _, _ in
-            Task { await loadAccounts(forceRefresh: false) }
+        .sheet(item: $editor) { target in
+            switch target {
+            case .create:
+                ProviderEditorSheet(existing: nil, model: model) { saved in
+                    if let saved {
+                        selection = saved.id
+                    }
+                }
+            case let .edit(provider):
+                ProviderEditorSheet(existing: provider, model: model) { saved in
+                    if let saved {
+                        selection = saved.id
+                    } else {
+                        selection = nil
+                        selectFirstIfNeeded()
+                    }
+                }
+            }
+        }
+        .alert(
+            "settings.models.delete.title",
+            isPresented: $confirmDelete,
+            presenting: selected
+        ) { provider in
+            Button("common.delete", role: .destructive) {
+                Task { await delete(provider) }
+            }
+            Button("common.cancel", role: .cancel) {}
+        } message: { provider in
+            Text(String(format: String(localized: "settings.models.delete.message"), provider.name))
         }
         .task {
             await model.load()
             selectFirstIfNeeded()
+        }
+        .task(id: selection) {
+            revealed.removeAll()
+            await loadAccounts(forceRefresh: false)
         }
     }
 
@@ -64,15 +124,26 @@ struct ModelsSettingsView: View {
                     Task { await model.startCCR() }
                 }
                 .disabled(model.isStarting)
+
+                Button("settings.models.reload") {
+                    Task {
+                        await model.load()
+                        await loadAccounts(forceRefresh: true)
+                    }
+                }
             }
         } else if let provider = selected {
             providerDetail(provider)
         } else if model.providers.isEmpty {
-            ContentUnavailableView(
-                "settings.models.empty.title",
-                systemImage: "cube.box",
-                description: Text("settings.models.empty.description")
-            )
+            ContentUnavailableView {
+                Label("settings.models.empty.title", systemImage: "cube.box")
+            } description: {
+                Text("settings.models.empty.description")
+            } actions: {
+                Button("settings.models.add") {
+                    editor = .create
+                }
+            }
         } else {
             SelectItemPlaceholder()
         }
@@ -80,12 +151,33 @@ struct ModelsSettingsView: View {
 
     private func providerDetail(_ provider: CCRProvider) -> some View {
         Form {
+            if let actionError {
+                Section {
+                    Text(actionError)
+                        .foregroundStyle(.red)
+                }
+            }
+
             Section("settings.models.basic") {
                 LabeledContent("settings.models.name", value: provider.name)
                 LabeledContent("settings.models.type", value: provider.type)
+                LabeledContent("settings.models.enabled") {
+                    Label(
+                        provider.enabled ? "common.yes" : "common.no",
+                        systemImage: provider.enabled ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(provider.enabled ? .green : .orange)
+                }
                 LabeledContent("settings.models.baseURL") {
                     Text(provider.baseURL)
                         .textSelection(.enabled)
+                }
+            }
+
+            Section("settings.models.credentials") {
+                if provider.credentials.isEmpty {
+                    Text("settings.models.noCredentials")
+                        .foregroundStyle(.secondary)
                 }
                 ForEach(provider.credentials) { credential in
                     LabeledContent(credential.name) {
@@ -113,7 +205,14 @@ struct ModelsSettingsView: View {
                 if isLoadingAccounts {
                     ProgressView().controlSize(.small)
                 } else if let accountsError {
-                    Text(accountsError).foregroundStyle(.red)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(accountsError).foregroundStyle(.red)
+                        Button("settings.models.retry") {
+                            Task { await loadAccounts(forceRefresh: true) }
+                        }
+                        .buttonStyle(.link)
+                        .font(.caption)
+                    }
                 } else if accounts.isEmpty {
                     Text("settings.models.noAccounts")
                         .foregroundStyle(.secondary)
@@ -136,6 +235,18 @@ struct ModelsSettingsView: View {
                 LabeledContent("settings.models.token") {
                     Text(tokenKey)
                         .foregroundStyle(tokenColor)
+                }
+            }
+
+            Section {
+                HStack {
+                    Button("common.edit") {
+                        editor = .edit(provider)
+                    }
+                    Button("common.delete", role: .destructive) {
+                        confirmDelete = true
+                    }
+                    Spacer()
                 }
             }
         }
@@ -185,7 +296,6 @@ struct ModelsSettingsView: View {
     private func selectFirstIfNeeded() {
         guard let selection, model.providers.contains(where: { $0.id == selection }) else {
             self.selection = model.providers.first?.id
-            Task { await loadAccounts(forceRefresh: false) }
             return
         }
     }
@@ -209,5 +319,28 @@ struct ModelsSettingsView: View {
         }
 
         isLoadingAccounts = false
+    }
+
+    private func delete(_ provider: CCRProvider) async {
+        actionError = nil
+        do {
+            try await model.deleteProvider(id: provider.id)
+            selection = nil
+            selectFirstIfNeeded()
+        } catch {
+            actionError = error.localizedDescription
+        }
+    }
+}
+
+private enum EditorTarget: Identifiable {
+    case create
+    case edit(CCRProvider)
+
+    var id: String {
+        switch self {
+        case .create: "create"
+        case let .edit(provider): provider.id
+        }
     }
 }
