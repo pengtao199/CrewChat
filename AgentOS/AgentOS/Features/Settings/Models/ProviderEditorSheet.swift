@@ -57,7 +57,7 @@ struct ProviderEditorSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             Form {
-                Section {
+                Section("settings.models.basic") {
                     TextField("settings.models.name", text: $name)
                         .disabled(existing != nil)
 
