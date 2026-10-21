@@ -50,6 +50,12 @@ struct AgentsSettingsView: View {
         .onChange(of: role.agentType) { _, _ in
             Task { await reloadForDraft() }
         }
+        .onChange(of: isDirty, initial: true) { _, dirty in
+            model.hasUnsavedChanges = dirty
+        }
+        .onDisappear {
+            model.hasUnsavedChanges = false
+        }
         .task {
             await model.load()
             selectFirstIfNeeded()

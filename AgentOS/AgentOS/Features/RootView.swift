@@ -3,6 +3,8 @@ import SwiftUI
 struct RootView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var settingsPage: SettingsPage? = .general
+    @State private var pendingExit: SettingsExit?
+    @State private var showExitAlert = false
 
     var body: some View {
         NavigationSplitView {
@@ -29,7 +31,7 @@ struct RootView: View {
             ToolbarItem(placement: .navigation) {
                 if environment.mode == .settings {
                     Button {
-                        environment.mode = .workbench
+                        requestExit(.workbench)
                     } label: {
                         Label("settings.back", systemImage: "chevron.left")
                     }
@@ -41,6 +43,52 @@ struct RootView: View {
             await environment.coreSettings.applyDefaultsIfNeeded()
             await environment.coreSettings.load()
         }
+        .alert(
+            "settings.agents.discard.title",
+            isPresented: $showExitAlert,
+            presenting: pendingExit
+        ) { exit in
+            Button("settings.agents.discard", role: .destructive) {
+                performExit(exit)
+            }
+            Button("common.cancel", role: .cancel) {
+                pendingExit = nil
+            }
+        } message: { _ in
+            Text("settings.agents.discard.message")
+        }
+    }
+
+    private var settingsPageBinding: Binding<SettingsPage?> {
+        Binding(
+            get: { settingsPage },
+            set: { page in
+                guard page != settingsPage else { return }
+                requestExit(.page(page))
+            }
+        )
+    }
+
+    private func requestExit(_ exit: SettingsExit) {
+        if environment.roster.hasUnsavedChanges {
+            pendingExit = exit
+            showExitAlert = true
+        } else {
+            performExit(exit)
+        }
+    }
+
+    private func performExit(_ exit: SettingsExit) {
+        pendingExit = nil
+        showExitAlert = false
+
+        switch exit {
+        case let .page(page):
+            settingsPage = page
+        case .workbench:
+            environment.roster.hasUnsavedChanges = false
+            environment.mode = .workbench
+        }
     }
 
     @ViewBuilder
@@ -50,7 +98,7 @@ struct RootView: View {
             WorkbenchSidebar()
 
         case .settings:
-            List(SettingsPage.allCases, id: \.self, selection: $settingsPage) { page in
+            List(SettingsPage.allCases, id: \.self, selection: settingsPageBinding) { page in
                 Label(page.titleKey, systemImage: page.symbol)
                     .tag(page)
             }
@@ -79,4 +127,9 @@ struct RootView: View {
             SettingsDetail(page: settingsPage)
         }
     }
+}
+
+private enum SettingsExit {
+    case page(SettingsPage?)
+    case workbench
 }

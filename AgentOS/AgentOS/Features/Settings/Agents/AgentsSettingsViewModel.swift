@@ -7,6 +7,8 @@ final class AgentsSettingsViewModel {
     private(set) var engines: [Engine] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
+    /// Set by the editor; the settings container asks before leaving the page.
+    var hasUnsavedChanges = false
     private(set) var enginesError: String?
 
     private(set) var face: ModelFace?
