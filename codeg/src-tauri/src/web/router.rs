@@ -1585,6 +1585,19 @@ pub fn build_router(
             "/ccr_provider_probe",
             post(handlers::ccr::ccr_provider_probe),
         )
+        // 模型页行内开关：单模型 / 单凭据启停（读-改-写收敛在核心）
+        .route(
+            "/ccr_disabled_models",
+            post(handlers::ccr::ccr_disabled_models),
+        )
+        .route(
+            "/ccr_provider_set_model",
+            post(handlers::ccr::ccr_provider_set_model),
+        )
+        .route(
+            "/ccr_provider_set_credential",
+            post(handlers::ccr::ccr_provider_set_credential),
+        )
         // 5.1 CCR 托管：管理进程的探活 / 接管 / 拉起（守护线程见 ccr::supervisor）
         .route(
             "/ccr_supervisor_state",

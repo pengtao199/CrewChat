@@ -13,6 +13,7 @@ use serde_json::Value;
 use crate::app_error::AppCommandError;
 use crate::app_state::AppState;
 use crate::ccr::client;
+use crate::ccr::provider_toggles;
 use crate::ccr::providers;
 use crate::ccr::supervisor::CcrDaemonStatus;
 
@@ -69,6 +70,25 @@ pub async fn ccr_provider_delete(
     Json(params): Json<CcrProviderIdParams>,
 ) -> Result<Json<bool>, AppCommandError> {
     Ok(Json(providers::delete_provider(params.id).await?))
+}
+
+/// [crewchat] 模型页行内开关：启用/停用单个模型（模型清单里的 Toggle）。
+pub async fn ccr_provider_set_model(
+    Json(params): Json<provider_toggles::ModelToggleRequest>,
+) -> Result<Json<bool>, AppCommandError> {
+    Ok(Json(provider_toggles::set_model_enabled(params).await?))
+}
+
+/// [crewchat] 已停用模型清单：{ "<provider id/name>": ["model", …] }。
+pub async fn ccr_disabled_models() -> Result<Json<Value>, AppCommandError> {
+    provider_toggles::disabled_models().map(Json)
+}
+
+/// [crewchat] 模型页行内开关：启用/停用单条凭据（凭据清单里的 Toggle）。
+pub async fn ccr_provider_set_credential(
+    Json(params): Json<provider_toggles::CredentialToggleRequest>,
+) -> Result<Json<bool>, AppCommandError> {
+    Ok(Json(provider_toggles::set_credential_enabled(params).await?))
 }
 
 /// Probe a provider base URL and return the detected models/protocol.

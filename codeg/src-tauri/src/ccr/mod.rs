@@ -11,6 +11,7 @@
 //! here — see `AGENTS/gateway.md`.
 
 pub mod client;
+pub mod provider_toggles;
 pub mod providers;
 pub mod supervisor;
 
