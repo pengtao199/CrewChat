@@ -174,7 +174,7 @@ Claude Code / Codex / OpenCode 仍经各自 CLI 的 per-role overlay 指向 `:34
 | 方法 | 用途 | 备注 |
 | --- | --- | --- |
 | `getConfig` | 模型页、`body_model_face`、overlay | 响应必须带 `configRevision`；`Providers[].models` 是 Codex/OpenCode 的面，不能和 `/v1/models` 的 Claude 面混用 |
-| `saveConfig` | 模型页写回整份配置 | 调用是 `saveConfig(config, {applyProfile: true})`；必须做 revision 冲突 409；保留未知字段；`applyProfile` 只对 claude-code / codex 生效，其余返回 skipped |
+| `saveConfig` | 模型页写回整份配置 | 调用是 `saveConfig(config, {applyProfile: true})`；必须做 revision 冲突 409；保留未知字段；`applyProfile` 只写 claude-code 的全局配置；codex / opencode 暂不覆盖（Agent 会话走 per-role overlay） |
 | `probeProvider` | 测试连接 / 拉模型 | 只发最小请求 |
 | `getProviderAccountSnapshots` | 额度 | 见 Phase 4 |
 | `getProviderPresets` | 新建供应商预设 | 可静态 |
@@ -320,7 +320,7 @@ Route {
 
 - `saveConfig`（revision 409、保留未知字段）、`probeProvider`、模型/凭据开关（现有 `provider_toggles` 直接复用）。
 - `getProviderAccountSnapshots`：受限 JSONPath + 四则表达式，覆盖现有 `http-json` connector；拉不到显示缓存 + 时间，不伪造。
-- `applyProfile`：只做 claude-code + codex 的最小写入；其余冻结。
+- `applyProfile`：只做 claude-code 的最小写入；codex / opencode 的全局配置暂不覆盖（Agent 会话走 per-role overlay）。
 - **Gate**：模型页 CRUD 正常；额度与切之前一致；`forceRefresh` 可刷新。
 
 ### Phase 5：切换与回退（1–2 天）
@@ -388,7 +388,7 @@ Route {
 | Responses / Chat 行为差异 | Claude 工具调用或 usage 异常 | Phase 0 录真实 SSE，逐帧对比 |
 | 虚拟 ID 与 `[1m]` 对不上 | Claude 拒绝启动或 Agent 静默回退 | 导入实时 `/v1/models`；`one_million` 单列；Agent 页显式提示 |
 | `apiKeyHelper` 指向 CCR bin | 删 CCR 后 Claude 起不来 | 先导入 7 条 key 继续接受；切换后再换 helper |
-| `applyProfile` 体量大 | 模型页改完全局 CLI 不生效 | 只做 claude + codex；Agent 会话本来不走它 |
+| `applyProfile` 体量大 | 模型页改完全局 CLI 不生效 | 只做 claude；Agent 会话本来不走它 |
 | 双写 | 配置互相覆盖 | 导入后停 CCR，单写入者 |
 | 并发串味 | 两个 Agent 用错模型 | 禁止全局当前态；请求级 Route；并发验收 |
 | 端口冲突 | 切换时 3456/3458 被占 | 先停 CCR launchd；失败即回退 |
