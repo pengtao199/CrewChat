@@ -7,8 +7,10 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private let lock = NSLock()
     private let sidecar = SidecarProcess()
     private let modelSidecar = SidecarProcess()
+    private let cliSidecar = SidecarProcess()
     private let tokenStore = TokenStore(directory: CoreBinaryLocator.dataDirectory())
     private let modelTokenStore = TokenStore(directory: CoreBinaryLocator.modelLayerDirectory())
+    private let cliTokenStore = TokenStore(directory: CoreBinaryLocator.cliLayerDirectory())
     private let logger = Logger(subsystem: "com.crewchat.AgentOS", category: "supervisor")
 
     private var continuations: [UUID: AsyncStream<CorePhase>.Continuation] = [:]
@@ -16,6 +18,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private var starting = false
     private var ownsCore = false
     private var ownsModelLayer = false
+    private var ownsCliLayer = false
     private let signalSource: DispatchSourceSignal
 
     init() {
@@ -59,6 +62,13 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
 
     func start() async {
         guard beginStarting() else { return }
+
+        if CoreBinaryLocator.isCliLayerEnabled() {
+            if await startCliLayerIfAvailable() {
+                finishStarting()
+                return
+            }
+        }
 
         if let adopted = await adoptExistingCore() {
             emit(adopted)
@@ -125,6 +135,10 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     }
 
     func stopNow() {
+        if ownsCliLayer {
+            cliSidecar.stop()
+            ownsCliLayer = false
+        }
         if ownsModelLayer {
             modelSidecar.stop()
             ownsModelLayer = false
@@ -167,6 +181,102 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
         lock.lock()
         starting = false
         lock.unlock()
+    }
+
+    /// Opt-in Phase 3 dev switch: start `crewchat-cli` and point the shell at
+    /// it instead of codeg. Kept off by default (`AGENTOS_CLI_LAYER=1` or a
+    /// `cli/required` marker) until the settings pages reach parity.
+    private func startCliLayerIfAvailable() async -> Bool {
+        guard let binary = CoreBinaryLocator.locateCliLayer() else {
+            logger.log("cli layer enabled but binary not found")
+            return false
+        }
+        _ = await startModelLayerIfAvailable()
+
+        let port = PortPicker.isFree(3081) ? 3081 : PortPicker.freePort()
+        let token: String
+        do {
+            if let existing = cliTokenStore.load() {
+                token = existing
+            } else {
+                token = try makeToken()
+                try cliTokenStore.save(token)
+            }
+        } catch {
+            logger.error("cli layer token failed: \(error.localizedDescription)")
+            return false
+        }
+
+        let directory = CoreBinaryLocator.cliLayerDirectory()
+        let logFile = CoreBinaryLocator.cliLayerLogFile()
+        let model = readModelLayerRuntime()
+        let environment = [
+            "CLI_LAYER_DATA_DIR": directory.path,
+            "CLI_LAYER_PORT": String(port),
+            "CLI_LAYER_TOKEN": token,
+            "MODEL_LAYER_URL": model.controlUrl,
+            "MODEL_LAYER_GATEWAY_URL": model.gatewayUrl,
+            "MODEL_LAYER_TOKEN": model.token ?? "",
+        ]
+
+        do {
+            try cliSidecar.start(
+                binary: binary,
+                endpoint: CoreEndpoint(host: "127.0.0.1", port: port, token: token),
+                dataDirectory: directory,
+                logFile: logFile,
+                extraEnvironment: environment,
+                label: "cli"
+            )
+        } catch {
+            logger.error("cli layer failed to start: \(error.localizedDescription)")
+            return false
+        }
+
+        if await waitForCliLayer(port: port, token: token) {
+            ownsCliLayer = true
+            logger.log("cli layer ready on :\(port); codeg skipped")
+            emit(.connected(CoreEndpoint(host: "127.0.0.1", port: port, token: token), version: "cli-layer"))
+            return true
+        }
+
+        cliSidecar.stop()
+        logger.error("cli layer did not become healthy; falling back to codeg")
+        return false
+    }
+
+    private func waitForCliLayer(port: Int, token: String) async -> Bool {
+        let deadline = Date().addingTimeInterval(20)
+        guard let url = URL(string: "http://127.0.0.1:\(port)/api/health") else {
+            return false
+        }
+        while Date() < deadline {
+            if !cliSidecar.isRunning {
+                return false
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = Data("{}".utf8)
+            if let (_, response) = try? await URLSession.shared.data(for: request),
+               (response as? HTTPURLResponse)?.statusCode == 200 {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return false
+    }
+
+    private func readModelLayerRuntime() -> (controlUrl: String, token: String?, gatewayUrl: String) {
+        let path = CoreBinaryLocator.modelLayerDirectory().appending(path: "model-layer.json")
+        if let data = try? Data(contentsOf: path),
+           let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let control = value["controlUrl"] as? String ?? "http://127.0.0.1:3458"
+            let gateway = value["gatewayUrl"] as? String ?? "http://127.0.0.1:3456"
+            return (control, value["controlToken"] as? String, gateway)
+        }
+        return ("http://127.0.0.1:3458", nil, "http://127.0.0.1:3456")
     }
 
     /// Start the Rust model layer when its binary is present. The ports are

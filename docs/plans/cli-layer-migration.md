@@ -371,3 +371,11 @@ skills / MCP / engine install、数据迁移、打包。
 
 剩余：AgentOS 切换（Phase 3）、skills/MCP/engine install、旧 transcript 导入、
 打包。
+
+### AgentOS 开发开关（2026-10-23）
+
+`CoreSupervisor` 已加 `AGENTOS_CLI_LAYER=1` / `cli/required` 分支：启用时先拉模型层，
+再拉 `crewchat-cli`，把壳的 `CoreEndpoint` 指向 3081，跳过 codeg。
+scheme 里 `AGENTOS_CLI_LAYER_BINARY` 默认关闭；未启用时行为与现在完全一致。
+技能/MCP/引擎安装/委派仍是 501，所以这个开关只用于聊天/模型/花名册验证，
+Phase 3 再默认打开。
