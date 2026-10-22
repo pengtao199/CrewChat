@@ -12,7 +12,6 @@ struct ModelsSettingsView: View {
     @State private var editor: EditorTarget?
     @State private var confirmDelete = false
     @State private var actionError: String?
-    @State private var query = ""
 
     private var model: ModelsSettingsViewModel { environment.models }
 
@@ -21,18 +20,9 @@ struct ModelsSettingsView: View {
         return model.providers.first { $0.id == selection }
     }
 
-    private var filteredProviders: [CCRProvider] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return model.providers }
-        return model.providers.filter {
-            $0.name.localizedCaseInsensitiveContains(needle)
-                || $0.baseURL.localizedCaseInsensitiveContains(needle)
-        }
-    }
-
     var body: some View {
         MasterDetailLayout {
-            List(filteredProviders, selection: $selection) { provider in
+            List(model.providers, selection: $selection) { provider in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(provider.name)
                     Text(provider.baseURL)
@@ -42,7 +32,6 @@ struct ModelsSettingsView: View {
                 }
                 .tag(provider.id)
             }
-            .searchable(text: $query, placement: .sidebar, prompt: Text("settings.models.search"))
         } right: {
             detail
         }
@@ -70,16 +59,6 @@ struct ModelsSettingsView: View {
                     Label("common.delete", systemImage: "trash")
                 }
                 .disabled(selected == nil)
-
-                Button {
-                    Task {
-                        await model.load()
-                        await loadAccounts(forceRefresh: true)
-                    }
-                } label: {
-                    Label("settings.models.refresh", systemImage: "arrow.clockwise")
-                }
-                .disabled(selected == nil || isLoadingAccounts || model.isLoading)
             }
         }
         .sheet(item: $editor) { target in
