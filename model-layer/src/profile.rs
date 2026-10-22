@@ -24,13 +24,22 @@ pub fn apply_claude(app: &App) -> Result<Value, String> {
     let bin = app.config.data_dir.join("bin");
     std::fs::create_dir_all(&bin).map_err(|error| format!("create {}: {error}", bin.display()))?;
 
-    let key_path = bin.join("claude-api-key");
-    write_private(&key_path, key.as_bytes())?;
     let helper_path = bin.join("claude-api-key.sh");
-    let script = format!(
-        "#!/bin/sh\ncat {}\n",
-        shell_single_quote(&key_path.to_string_lossy())
-    );
+    let key_path = bin.join("claude-api-key");
+    let script = if app.store.uses_keychain() {
+        // No plaintext key file: the helper asks the same Keychain item the
+        // model layer uses. `security` created the item, so it has access.
+        let _ = std::fs::remove_file(&key_path);
+        "#!/bin/sh\n/usr/bin/security find-generic-password \
+         -a 'caller:local-gateway' -s 'com.crewchat.model-layer' -w\n"
+            .to_string()
+    } else {
+        write_private(&key_path, key.as_bytes())?;
+        format!(
+            "#!/bin/sh\ncat {}\n",
+            shell_single_quote(&key_path.to_string_lossy())
+        )
+    };
     write_private(&helper_path, script.as_bytes())?;
     #[cfg(unix)]
     {

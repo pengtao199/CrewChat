@@ -436,7 +436,7 @@ Route {
   stale revision 已实测。
 - **Phase 4**：额度 `http-json` mapping 已实现（实测 OpenCode Go 2 条凭据 ×
   3 个 meter）；`applyProfile` 写 `~/.claude/settings.json` + 自己的
-  `apiKeyHelper`（默认不在 saveConfig 时自动应用，`MODEL_LAYER_APPLY_PROFILE=1` 打开）。
+  `apiKeyHelper`（helper 直接从 Keychain 读，不落明文；默认不在 saveConfig 时自动应用，`MODEL_LAYER_APPLY_PROFILE=1` 打开）。
 - **AgentOS 接线**：壳在启动核心前拉起 `crewchat-model`，端口被 CCR 占用时自动改用空闲端口，
   并把 `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` / `CODEG_CCR_SUPERVISE=0` 传给核心。
 - **端到端契约**：临时 `codeg-server` 指向模型层，`agent_role_model_face` 返回

@@ -769,6 +769,10 @@ impl Store {
         }))
     }
 
+    pub fn uses_keychain(&self) -> bool {
+        self.keystore.is_persistent()
+    }
+
     pub fn has_caller_keys(&self) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
         let count: i64 = conn.query_row(
