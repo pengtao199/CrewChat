@@ -36,6 +36,7 @@ struct EnginesSettingsView: View {
                     }
                 }
             }
+            .scrollIndicators(.hidden)
         } right: {
             detail
         }
@@ -112,144 +113,191 @@ struct EnginesSettingsView: View {
     }
 
     private func engineDetail(_ engine: Engine) -> some View {
-        Form {
-            if let actionError {
+        VStack(spacing: 0) {
+            detailHeader(engine)
+            Divider()
+
+            Form {
+                if let actionError {
+                    Section {
+                        Text(actionError).foregroundStyle(.red)
+                    }
+                }
+
+                if let installError = model.installError {
+                    Section {
+                        Text(installError).foregroundStyle(.red)
+                    }
+                }
+
                 Section {
-                    Text(actionError).foregroundStyle(.red)
-                }
-            }
+                    LabeledContent("settings.engines.version") {
+                        HStack(spacing: 6) {
+                            Text(versionText(engine))
+                                .monospacedDigit()
+                                .textSelection(.enabled)
 
-            if let installError = model.installError {
-                Section {
-                    Text(installError).foregroundStyle(.red)
-                }
-            }
-
-            Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(engine.name)
-                            .font(.headline)
-                        Spacer()
-                        statusLabel(engine)
-                    }
-                    if !engine.summary.isEmpty {
-                        Text(engine.summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
-                }
-
-                LabeledContent("settings.engines.version") {
-                    HStack(spacing: 6) {
-                        Text(versionText(engine))
-                            .monospacedDigit()
-                            .textSelection(.enabled)
-
-                        if model.isCheckingLatest(engine) {
-                            ProgressView().controlSize(.mini)
-                        }
-                    }
-                }
-
-                if let latest = model.latest(for: engine) {
-                    LabeledContent("settings.engines.updateAvailable") {
-                        Text(verbatim: "v\(latest)")
-                            .monospacedDigit()
-                            .foregroundStyle(.orange)
-                    }
-                }
-
-                HStack(spacing: 8) {
-                    if model.installing == engine.agentType {
-                        ProgressView().controlSize(.small)
-                        Text("settings.engines.installing")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        if !engine.isInstalled || model.latest(for: engine) != nil {
-                            Button {
-                                Task { await install(engine) }
-                            } label: {
-                                Label(installTitle(engine), systemImage: "arrow.down.circle")
+                            if model.isCheckingLatest(engine) {
+                                ProgressView().controlSize(.mini)
                             }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(!engine.available || model.installing != nil)
-                        } else if model.latestChecked.contains(engine.agentType) {
-                            Text(
-                                model.latestCheckFailed.contains(engine.agentType)
-                                    ? LocalizedStringKey("settings.engines.updateCheckFailed")
-                                    : LocalizedStringKey("settings.engines.upToDate")
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        } else if model.isCheckingLatest(engine) {
-                            Text("settings.engines.checkingUpdate")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                         }
-
-                        Button("settings.engines.refresh") {
-                            Task { await refresh(engine) }
-                        }
-                        .disabled(model.isLoading || model.installing != nil)
                     }
 
-                    Spacer()
+                    actionRow(engine)
+
+                    if !engine.available {
+                        Text("settings.engines.platformUnsupported")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
-                if !engine.available {
-                    Text("settings.engines.platformUnsupported")
+                envSection(engine)
+
+                Section {
+                    diagnosticsGroup(engine)
+                }
+            }
+            .formStyle(.grouped)
+            .contentMargins(.top, 12, for: .scrollContent)
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private func detailHeader(_ engine: Engine) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(engine.name)
+                    .font(.title3.weight(.semibold))
+                if !engine.summary.isEmpty {
+                    Text(engine.summary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer(minLength: 12)
+
+            Label(
+                engine.isInstalled
+                    ? LocalizedStringKey("settings.engines.installed")
+                    : LocalizedStringKey("settings.engines.missing"),
+                systemImage: engine.isInstalled ? "checkmark.circle.fill" : "circle.dashed"
+            )
+            .font(.callout)
+            .foregroundStyle(engine.isInstalled ? .green : .secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private func actionRow(_ engine: Engine) -> some View {
+        HStack(spacing: 8) {
+            if model.installing == engine.agentType {
+                ProgressView().controlSize(.small)
+                Text("settings.engines.installing")
+                    .foregroundStyle(.secondary)
+            } else {
+                if !engine.isInstalled {
+                    Button {
+                        Task { await install(engine) }
+                    } label: {
+                        Label("settings.engines.install", systemImage: "arrow.down.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!engine.available)
+                } else if let latest = model.latest(for: engine) {
+                    Text(verbatim: "\(String(localized: "settings.engines.updateAvailable")) v\(latest)")
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+                        .monospacedDigit()
+
+                    Button {
+                        Task { await install(engine) }
+                    } label: {
+                        Label("settings.engines.update", systemImage: "arrow.down.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else if model.latestChecked.contains(engine.agentType) {
+                    Text(
+                        model.latestCheckFailed.contains(engine.agentType)
+                            ? LocalizedStringKey("settings.engines.updateCheckFailed")
+                            : LocalizedStringKey("settings.engines.upToDate")
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                } else if model.isCheckingLatest(engine) {
+                    Text("settings.engines.checkingUpdate")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
-            }
 
-            envSection(engine)
+                Spacer(minLength: 8)
 
-            Section {
-                diagnosticsGroup(engine)
+                Button("settings.engines.refresh") {
+                    Task { await refresh(engine) }
+                }
+                .disabled(model.isLoading || model.installing != nil)
             }
         }
-        .formStyle(.grouped)
     }
 
     private func envSection(_ engine: Engine) -> some View {
         Section {
-            TextEditor(text: $envText)
-                .font(.system(.caption, design: .monospaced))
-                .frame(minHeight: 120, maxHeight: 180)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(.separator)
-                )
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $envText)
+                    .font(.system(size: 12, design: .monospaced))
+                    .scrollIndicators(.hidden)
+                    .padding(6)
+                    .frame(height: 150)
+                    .background(Color(nsColor: .textBackgroundColor))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(.separator)
+                    )
+
+                if envText.isEmpty {
+                    Text("settings.engines.env.empty")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 12)
+                        .allowsHitTesting(false)
+                }
+            }
 
             if let error = parsedEnv.error {
                 Text(error)
                     .font(.caption)
                     .foregroundStyle(.red)
             }
-
-            Text("settings.engines.env.formatHint")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
+        } header: {
             HStack(spacing: 8) {
+                Text("settings.engines.env")
+
+                Spacer()
+
                 if envDirty {
                     Text("settings.engines.env.unsaved")
                         .font(.caption)
                         .foregroundStyle(.orange)
                 }
 
-                Spacer()
+                Button("settings.engines.env.reset") {
+                    syncEnv(engine, force: true)
+                }
+                .controlSize(.small)
+                .disabled(!envDirty)
 
                 Button("settings.engines.env.save") {
                     Task { await saveEnv(engine) }
                 }
+                .controlSize(.small)
                 .disabled(!envDirty || parsedEnv.error != nil)
             }
-        } header: {
-            Text("settings.engines.env")
         } footer: {
             Text("settings.engines.env.footer")
                 .foregroundStyle(.secondary)
@@ -259,55 +307,7 @@ struct EnginesSettingsView: View {
     @ViewBuilder
     private func diagnosticsGroup(_ engine: Engine) -> some View {
         DisclosureGroup(isExpanded: $diagnosticsExpanded) {
-            if model.diagnosticsLoading.contains(engine.agentType) {
-                ProgressView().controlSize(.small)
-            } else if let error = model.diagnosticsError[engine.agentType] {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(error).foregroundStyle(.red)
-                    Button("settings.engines.retry") {
-                        Task { await model.loadDiagnostics(for: engine, force: true) }
-                    }
-                    .buttonStyle(.link)
-                    .font(.caption)
-                }
-            } else if let report = model.diagnostics[engine.agentType] {
-                ForEach(report.sections) { section in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(section.title)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        ForEach(section.checks) { check in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                Text(check.label)
-                                Spacer(minLength: 8)
-                                Text(check.value)
-                                    .font(.caption)
-                                    .monospaced()
-                                    .textSelection(.enabled)
-                                Image(systemName: statusSymbol(check.status))
-                                    .foregroundStyle(statusColor(check.status))
-                                    .font(.caption)
-                            }
-
-                            if let hint = check.hint, !hint.isEmpty {
-                                Text(hint)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
-
-                Button("settings.engines.diagnostics.copy") {
-                    copyToPasteboard(report.plainText)
-                }
-                .controlSize(.small)
-            } else {
-                Text("settings.engines.diagnostics.expand")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            diagnosticsContent(engine)
         } label: {
             HStack(spacing: 8) {
                 Text("settings.engines.diagnostics")
@@ -330,17 +330,63 @@ struct EnginesSettingsView: View {
     }
 
     @ViewBuilder
+    private func diagnosticsContent(_ engine: Engine) -> some View {
+        if model.diagnosticsLoading.contains(engine.agentType) {
+            ProgressView().controlSize(.small)
+        } else if let error = model.diagnosticsError[engine.agentType] {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(error).foregroundStyle(.red)
+                Button("settings.engines.retry") {
+                    Task { await model.loadDiagnostics(for: engine, force: true) }
+                }
+                .buttonStyle(.link)
+                .font(.caption)
+            }
+        } else if let report = model.diagnostics[engine.agentType] {
+            HStack(spacing: 8) {
+                Text(verbatim: String(
+                    format: String(localized: "settings.engines.diagnostics.items"),
+                    report.sections.reduce(0) { $0 + $1.checks.count }
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Button("settings.engines.diagnostics.rediagnose") {
+                    Task { await model.loadDiagnostics(for: engine, force: true) }
+                }
+                .controlSize(.small)
+
+                Button("settings.engines.diagnostics.copy") {
+                    copyToPasteboard(report.plainText)
+                }
+                .controlSize(.small)
+            }
+
+            ForEach(sortedSections(report.sections)) { section in
+                DiagnosticSectionRow(section: section)
+            }
+        } else {
+            Text("settings.engines.diagnostics.expand")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
     private func engineRow(_ engine: Engine) -> some View {
         HStack(spacing: 8) {
             Image(systemName: engine.isInstalled ? "checkmark.circle.fill" : "circle.dashed")
                 .foregroundStyle(engine.isInstalled ? .green : .secondary)
                 .font(.caption)
+                .frame(width: 14)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(engine.name)
                 Text(rowCaption(engine))
                     .font(.caption)
-                    .monospacedDigit()
+                    .monospaced()
                     .foregroundStyle(.secondary)
             }
 
@@ -353,6 +399,7 @@ struct EnginesSettingsView: View {
                     .help("settings.engines.updateAvailable")
             }
         }
+        .padding(.vertical, 2)
         .tag(engine.agentType)
     }
 
@@ -373,25 +420,24 @@ struct EnginesSettingsView: View {
         return "v\(version)"
     }
 
-    private func statusLabel(_ engine: Engine) -> some View {
-        Label(
-            engine.isInstalled
-                ? LocalizedStringKey("settings.engines.installed")
-                : LocalizedStringKey("settings.engines.missing"),
-            systemImage: engine.isInstalled ? "checkmark.circle.fill" : "circle.dashed"
-        )
-        .foregroundStyle(engine.isInstalled ? .green : .secondary)
-        .font(.caption)
+    private func sortedSections(_ sections: [EngineDiagnosticsSection]) -> [EngineDiagnosticsSection] {
+        sections.enumerated()
+            .sorted { lhs, rhs in
+                let left = sectionRank(lhs.element)
+                let right = sectionRank(rhs.element)
+                if left != right { return left < right }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 
-    private func installTitle(_ engine: Engine) -> String {
-        if let latest = model.latest(for: engine) {
-            return String(
-                format: String(localized: "settings.engines.updateTo"),
-                latest
-            )
+    private func sectionRank(_ section: EngineDiagnosticsSection) -> Int {
+        switch worstStatus(section) {
+        case "fail": 0
+        case "warn": 1
+        case "ok": 2
+        default: 3
         }
-        return String(localized: "settings.engines.install")
     }
 
     private func verdictLabel(_ level: String) -> LocalizedStringKey {
@@ -400,15 +446,6 @@ struct EnginesSettingsView: View {
         case "warn": "settings.engines.diagnostics.warn"
         case "fail": "settings.engines.diagnostics.fail"
         default: "settings.engines.diagnostics.info"
-        }
-    }
-
-    private func statusSymbol(_ level: String) -> String {
-        switch level {
-        case "ok": "checkmark.circle.fill"
-        case "warn": "exclamationmark.triangle.fill"
-        case "fail": "xmark.octagon.fill"
-        default: "info.circle"
         }
     }
 
@@ -497,6 +534,102 @@ struct EnginesSettingsView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
+}
+
+private struct DiagnosticSectionRow: View {
+    let section: EngineDiagnosticsSection
+
+    @State private var expanded: Bool
+
+    init(section: EngineDiagnosticsSection) {
+        self.section = section
+        _expanded = State(initialValue: worstStatus(section) != "ok")
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            ForEach(section.checks) { check in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(check.label)
+                        Spacer(minLength: 8)
+                        Text(check.value)
+                            .font(.caption)
+                            .monospaced()
+                            .textSelection(.enabled)
+
+                        if check.status != "ok" {
+                            Image(systemName: statusSymbol(check.status))
+                                .font(.caption)
+                                .foregroundStyle(statusColor(check.status))
+                        }
+                    }
+
+                    if check.status != "ok", let hint = check.hint, !hint.isEmpty {
+                        Text(hint)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 1)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(section.title)
+                Spacer(minLength: 8)
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(verdictLabel(worstStatus(section)))
+                    .font(.caption)
+                    .foregroundStyle(statusColor(worstStatus(section)))
+            }
+        }
+    }
+
+    private var summary: String {
+        let issue = section.checks.first {
+            $0.status != "ok" && !$0.value.isEmpty
+        }
+        return issue?.value
+            ?? section.checks.first(where: { !$0.value.isEmpty })?.value
+            ?? ""
+    }
+
+    private func verdictLabel(_ level: String) -> LocalizedStringKey {
+        switch level {
+        case "ok": "settings.engines.diagnostics.ok"
+        case "warn": "settings.engines.diagnostics.warn"
+        case "fail": "settings.engines.diagnostics.fail"
+        default: "settings.engines.diagnostics.info"
+        }
+    }
+
+    private func statusColor(_ level: String) -> Color {
+        switch level {
+        case "ok": .green
+        case "warn": .orange
+        case "fail": .red
+        default: .secondary
+        }
+    }
+
+    private func statusSymbol(_ level: String) -> String {
+        switch level {
+        case "warn": "exclamationmark.triangle.fill"
+        case "fail": "xmark.octagon.fill"
+        default: "info.circle"
+        }
+    }
+}
+
+private func worstStatus(_ section: EngineDiagnosticsSection) -> String {
+    if section.checks.contains(where: { $0.status == "fail" }) { return "fail" }
+    if section.checks.contains(where: { $0.status == "warn" }) { return "warn" }
+    if section.checks.contains(where: { $0.status == "ok" }) { return "ok" }
+    return "info"
 }
 
 private struct EnvParseResult {

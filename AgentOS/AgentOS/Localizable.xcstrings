@@ -133,6 +133,7 @@
       }
     },
     "common.no" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -153,6 +154,7 @@
       }
     },
     "common.yes" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1326,6 +1328,7 @@
       }
     },
     "settings.engines.adapter" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1336,6 +1339,7 @@
       }
     },
     "settings.engines.available" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1346,6 +1350,7 @@
       }
     },
     "settings.engines.behavior" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1355,42 +1360,12 @@
         }
       }
     },
-    "settings.engines.disable.confirm" : {
+    "settings.engines.checkingUpdate" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仍然停用"
-          }
-        }
-      }
-    },
-    "settings.engines.disable.message" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这些 Agent 将无法启动：%@"
-          }
-        }
-      }
-    },
-    "settings.engines.disable.title" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "停用这个 CLI？"
-          }
-        }
-      }
-    },
-    "settings.engines.distribution" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分发方式"
+            "value" : "正在检查更新…"
           }
         }
       }
@@ -1425,6 +1400,46 @@
         }
       }
     },
+    "settings.engines.diagnostics.fail" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有问题"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.info" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信息"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.items" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查项 %lld"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.rediagnose" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新诊断"
+          }
+        }
+      }
+    },
     "settings.engines.diagnostics.ok" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1445,22 +1460,46 @@
         }
       }
     },
-    "settings.engines.diagnostics.fail" : {
+    "settings.engines.disable.confirm" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "有问题"
+            "value" : "仍然停用"
           }
         }
       }
     },
-    "settings.engines.diagnostics.info" : {
+    "settings.engines.disable.message" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "信息"
+            "value" : "这些 Agent 将无法启动：%@"
+          }
+        }
+      }
+    },
+    "settings.engines.disable.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停用这个 CLI？"
+          }
+        }
+      }
+    },
+    "settings.engines.distribution" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分发方式"
           }
         }
       }
@@ -1486,6 +1525,7 @@
       }
     },
     "settings.engines.enabled" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1506,6 +1546,7 @@
       }
     },
     "settings.engines.env.add" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1515,32 +1556,12 @@
         }
       }
     },
-    "settings.engines.env.empty" : {
+    "settings.engines.env.discard.confirm" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有环境变量。"
-          }
-        }
-      }
-    },
-    "settings.engines.env.footer" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这些变量只对这个 CLI 生效，保存后新会话才会读取。"
-          }
-        }
-      }
-    },
-    "settings.engines.env.discard.title" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "放弃未保存的环境变量？"
+            "value" : "放弃修改"
           }
         }
       }
@@ -1555,12 +1576,33 @@
         }
       }
     },
-    "settings.engines.env.discard.confirm" : {
+    "settings.engines.env.discard.title" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "放弃修改"
+            "value" : "放弃未保存的环境变量？"
+          }
+        }
+      }
+    },
+    "settings.engines.env.empty" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有环境变量。"
+          }
+        }
+      }
+    },
+    "settings.engines.env.footer" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每行 KEY=VALUE；空行和 # 注释忽略。只对这个 CLI 生效，保存后新会话读取。"
           }
         }
       }
@@ -1586,11 +1628,22 @@
       }
     },
     "settings.engines.env.key" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "变量名"
+          }
+        }
+      }
+    },
+    "settings.engines.env.reset" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还原"
           }
         }
       }
@@ -1616,6 +1669,7 @@
       }
     },
     "settings.engines.env.value" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1626,21 +1680,12 @@
       }
     },
     "settings.engines.info" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "信息"
-          }
-        }
-      }
-    },
-    "settings.engines.installed" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已安装"
           }
         }
       }
@@ -1655,6 +1700,16 @@
         }
       }
     },
+    "settings.engines.installed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已安装"
+          }
+        }
+      }
+    },
     "settings.engines.installing" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1665,42 +1720,12 @@
         }
       }
     },
-    "settings.engines.checkingUpdate" : {
+    "settings.engines.missing" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在检查更新…"
-          }
-        }
-      }
-    },
-    "settings.engines.updateAvailable" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "可更新到"
-          }
-        }
-      }
-    },
-    "settings.engines.updateTo" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新到 v%@"
-          }
-        }
-      }
-    },
-    "settings.engines.upToDate" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已是最新"
+            "value" : "未安装"
           }
         }
       }
@@ -1711,26 +1736,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "当前平台不可用"
-          }
-        }
-      }
-    },
-    "settings.engines.updateCheckFailed" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法检查更新"
-          }
-        }
-      }
-    },
-    "settings.engines.missing" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未安装"
           }
         }
       }
@@ -1756,6 +1761,7 @@
       }
     },
     "settings.engines.unavailableHint" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1765,7 +1771,58 @@
         }
       }
     },
+    "settings.engines.updateAvailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可更新到"
+          }
+        }
+      }
+    },
+    "settings.engines.updateCheckFailed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法检查更新"
+          }
+        }
+      }
+    },
+    "settings.engines.update" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新"
+          }
+        }
+      }
+    },
+    "settings.engines.updateTo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新到 v%@"
+          }
+        }
+      }
+    },
+    "settings.engines.upToDate" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已是最新"
+          }
+        }
+      }
+    },
     "settings.engines.usedBy" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1776,6 +1833,7 @@
       }
     },
     "settings.engines.usedByList" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
