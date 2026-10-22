@@ -44,18 +44,18 @@ struct RootView: View {
             await environment.coreSettings.load()
         }
         .alert(
-            "settings.agents.discard.title",
+            "settings.leave.title",
             isPresented: $showExitAlert,
             presenting: pendingExit
         ) { exit in
-            Button("settings.agents.discard", role: .destructive) {
+            Button("settings.leave.discard", role: .destructive) {
                 performExit(exit)
             }
             Button("common.cancel", role: .cancel) {
                 pendingExit = nil
             }
         } message: { _ in
-            Text("settings.agents.discard.message")
+            Text("settings.leave.message")
         }
     }
 
@@ -70,7 +70,7 @@ struct RootView: View {
     }
 
     private func requestExit(_ exit: SettingsExit) {
-        if environment.roster.hasUnsavedChanges {
+        if environment.roster.hasUnsavedChanges || environment.skills.hasUnsavedChanges {
             pendingExit = exit
             showExitAlert = true
         } else {
@@ -87,6 +87,7 @@ struct RootView: View {
             settingsPage = page
         case .workbench:
             environment.roster.hasUnsavedChanges = false
+            environment.skills.hasUnsavedChanges = false
             environment.mode = .workbench
         }
     }

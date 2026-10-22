@@ -8,6 +8,8 @@ final class AppEnvironment {
     let coreSettings: CoreSettingsViewModel
     let models: ModelsSettingsViewModel
     let roster: AgentsSettingsViewModel
+    let skills: SkillsSettingsViewModel
+    let mcp: MCPSettingsViewModel
     let engines: EnginesSettingsViewModel
     let workbench: WorkbenchViewModel
     var mode: AppMode = .workbench
@@ -20,6 +22,8 @@ final class AppEnvironment {
         let enginesClient = CoreEnginesClient(provider: provider)
         let rosterClient = CoreRosterClient(provider: provider)
         let capabilitiesClient = CoreCapabilitiesClient(provider: provider)
+        let skillsClient = CoreSkillsClient(provider: provider)
+        let mcpClient = CoreMCPClient(provider: provider)
         let workspacesClient = CoreWorkspacesClient(provider: provider)
         let conversationsClient = CoreConversationsClient(provider: provider)
         let sessionClient = CoreSessionClient(provider: provider)
@@ -32,6 +36,12 @@ final class AppEnvironment {
         )
         self.models = ModelsSettingsViewModel(ccr: CoreCCRClient(provider: provider))
         self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient, capabilities: capabilitiesClient)
+        self.skills = SkillsSettingsViewModel(
+            skills: skillsClient,
+            engines: enginesClient,
+            workspaces: workspacesClient
+        )
+        self.mcp = MCPSettingsViewModel(mcp: mcpClient)
         self.engines = EnginesSettingsViewModel(engines: enginesClient, roster: rosterClient)
         self.workbench = WorkbenchViewModel(
             workspaces: workspacesClient,

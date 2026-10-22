@@ -13,6 +13,10 @@ struct SettingsDetail: View {
             ModelsSettingsView()
         case .agents:
             AgentsSettingsView()
+        case .skills:
+            SkillsSettingsView()
+        case .mcp:
+            MCPSettingsView()
         case .engines:
             EnginesSettingsView()
         case .about:
