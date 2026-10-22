@@ -5,6 +5,7 @@ final class SidecarProcess: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
     private var logHandle: FileHandle?
+    private var label = "core"
 
     private let logger = Logger(subsystem: "com.crewchat.AgentOS", category: "sidecar")
 
@@ -14,7 +15,14 @@ final class SidecarProcess: @unchecked Sendable {
         return process?.isRunning ?? false
     }
 
-    func start(binary: URL, endpoint: CoreEndpoint, dataDirectory: URL, logFile: URL) throws {
+    func start(
+        binary: URL,
+        endpoint: CoreEndpoint,
+        dataDirectory: URL,
+        logFile: URL,
+        extraEnvironment: [String: String] = [:],
+        label: String = "core"
+    ) throws {
         stop()
 
         try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
@@ -35,14 +43,15 @@ final class SidecarProcess: @unchecked Sendable {
         environment["CODEG_TOKEN"] = endpoint.token
         environment["CODEG_DATA_DIR"] = dataDirectory.path
         environment["CODEG_HOME"] = dataDirectory.path
+        environment.merge(extraEnvironment) { _, new in new }
         process.environment = environment
 
         process.standardOutput = handle
         process.standardError = handle
         process.standardInput = FileHandle.nullDevice
 
-        process.terminationHandler = { [logger] finished in
-            logger.log("core exited: status=\(finished.terminationStatus)")
+        process.terminationHandler = { [logger, label] finished in
+            logger.log("\(label) exited: status=\(finished.terminationStatus)")
         }
 
         try process.run()
@@ -50,9 +59,10 @@ final class SidecarProcess: @unchecked Sendable {
         lock.lock()
         self.process = process
         self.logHandle = handle
+        self.label = label
         lock.unlock()
 
-        logger.log("core started pid=\(process.processIdentifier) port=\(endpoint.port)")
+        logger.log("\(label) started pid=\(process.processIdentifier) port=\(endpoint.port)")
     }
 
     func stop() {
@@ -61,6 +71,7 @@ final class SidecarProcess: @unchecked Sendable {
         process = nil
         let handle = logHandle
         logHandle = nil
+        let label = self.label
         lock.unlock()
 
         guard let running else { return }
@@ -69,6 +80,6 @@ final class SidecarProcess: @unchecked Sendable {
             running.waitUntilExit()
         }
         try? handle?.close()
-        logger.log("core stopped")
+        logger.log("\(label) stopped")
     }
 }

@@ -6,13 +6,16 @@ import Security
 final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private let lock = NSLock()
     private let sidecar = SidecarProcess()
+    private let modelSidecar = SidecarProcess()
     private let tokenStore = TokenStore(directory: CoreBinaryLocator.dataDirectory())
+    private let modelTokenStore = TokenStore(directory: CoreBinaryLocator.modelLayerDirectory())
     private let logger = Logger(subsystem: "com.crewchat.AgentOS", category: "supervisor")
 
     private var continuations: [UUID: AsyncStream<CorePhase>.Continuation] = [:]
     private var phase: CorePhase = .idle
     private var starting = false
     private var ownsCore = false
+    private var ownsModelLayer = false
     private let signalSource: DispatchSourceSignal
 
     init() {
@@ -72,7 +75,14 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
             let logFile = CoreBinaryLocator.logFile()
 
             emit(.connecting)
-            try sidecar.start(binary: binary, endpoint: endpoint, dataDirectory: dataDirectory, logFile: logFile)
+            let modelEnvironment = await startModelLayerIfAvailable()
+            try sidecar.start(
+                binary: binary,
+                endpoint: endpoint,
+                dataDirectory: dataDirectory,
+                logFile: logFile,
+                extraEnvironment: modelEnvironment
+            )
             ownsCore = true
             CoreRuntimeState.save(port: port, directory: dataDirectory)
 
@@ -110,6 +120,10 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     }
 
     func stopNow() {
+        if ownsModelLayer {
+            modelSidecar.stop()
+            ownsModelLayer = false
+        }
         if ownsCore {
             sidecar.stop()
             CoreRuntimeState.clear(directory: CoreBinaryLocator.dataDirectory())
@@ -150,6 +164,102 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Start the Rust model layer when its binary is present. The ports are
+    /// chosen to avoid a running CCR: if 3456/3458 are taken, the sidecar gets
+    /// free ports and codeg is pointed at those, so both can run side by side
+    /// during the cutover. An empty dictionary means "keep using CCR".
+    private func startModelLayerIfAvailable() async -> [String: String] {
+        guard let binary = CoreBinaryLocator.locateModelLayer() else {
+            return [:]
+        }
+
+        let gatewayPort = PortPicker.isFree(3456) ? 3456 : PortPicker.freePort()
+        let controlPort = PortPicker.isFree(3458) ? 3458 : PortPicker.freePort()
+        let token: String
+        do {
+            token = try resolveModelToken()
+        } catch {
+            logger.error("model layer token failed: \(error.localizedDescription)")
+            return [:]
+        }
+
+        let directory = CoreBinaryLocator.modelLayerDirectory()
+        let logFile = CoreBinaryLocator.modelLayerLogFile()
+        let disabled = CoreBinaryLocator.dataDirectory()
+            .appending(path: "ccr-disabled-models.json")
+        let environment = [
+            "MODEL_LAYER_DATA_DIR": directory.path,
+            "MODEL_LAYER_CONTROL_TOKEN": token,
+            "MODEL_LAYER_GATEWAY_PORT": String(gatewayPort),
+            "MODEL_LAYER_CONTROL_PORT": String(controlPort),
+            "MODEL_LAYER_HOST": "127.0.0.1",
+            "MODEL_LAYER_IMPORT_ON_START": "1",
+            "MODEL_LAYER_DISABLED_MODELS": disabled.path,
+        ]
+
+        do {
+            try modelSidecar.start(
+                binary: binary,
+                endpoint: CoreEndpoint(host: "127.0.0.1", port: controlPort, token: token),
+                dataDirectory: directory,
+                logFile: logFile,
+                extraEnvironment: environment,
+                label: "model"
+            )
+        } catch {
+            logger.error("model layer failed to start: \(error.localizedDescription)")
+            return [:]
+        }
+
+        if await waitForModelLayer(port: gatewayPort) {
+            ownsModelLayer = true
+            logger.log("model layer ready gateway=\(gatewayPort) control=\(controlPort)")
+            return [
+                "CCR_WEB_URL": "http://127.0.0.1:\(controlPort)",
+                "CCR_WEB_AUTH_TOKEN": token,
+                "CODEG_CCR_SUPERVISE": "0",
+            ]
+        }
+
+        modelSidecar.stop()
+        logger.error("model layer did not become healthy; falling back to CCR")
+        return [:]
+    }
+
+    private func waitForModelLayer(port: Int) async -> Bool {
+        let deadline = Date().addingTimeInterval(15)
+        while Date() < deadline {
+            if !modelSidecar.isRunning {
+                return false
+            }
+            if let url = URL(string: "http://127.0.0.1:\(port)/health"),
+               let (_, response) = try? await URLSession.shared.data(from: url),
+               (response as? HTTPURLResponse)?.statusCode == 200 {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return false
+    }
+
+    private func resolveModelToken() throws -> String {
+        if let token = modelTokenStore.load() {
+            return token
+        }
+        let token = try makeToken()
+        try modelTokenStore.save(token)
+        return token
+    }
+
+    private func makeToken() throws -> String {
+        var bytes = [UInt8](repeating: 0, count: 24)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        guard status == errSecSuccess else {
+            throw CoreError(code: "token_generation", message: "无法生成访问令牌（\(status)）", detail: nil)
+        }
+        return bytes.map { String(format: "%02x", $0) }.joined()
+    }
+
     private func resolveBinary() throws -> URL {
         guard let binary = CoreBinaryLocator.locate() else {
             throw CoreError(
@@ -165,14 +275,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
         if let token = tokenStore.load() {
             return token
         }
-
-        var bytes = [UInt8](repeating: 0, count: 24)
-        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        guard status == errSecSuccess else {
-            throw CoreError(code: "token_generation", message: "无法生成访问令牌（\(status)）", detail: nil)
-        }
-
-        let token = bytes.map { String(format: "%02x", $0) }.joined()
+        let token = try makeToken()
         try tokenStore.save(token)
         return token
     }
