@@ -58,7 +58,9 @@ MODEL_LAYER_CONTROL_TOKEN=... ./target/release/crewchat-model
    `~/.claude-code-router/config.sqlite`。
 2. 用 `local-gateway` key 读一次源网关的 `/v1/models`（Claude UA），把 `[1m]` 标记写进库。
 3. 合并 codeg 的 `ccr-disabled-models.json`（如果存在）。
-4. 写 `<data dir>/model-layer.json`（0600），含两个 URL、控制面 token、PID。
+4. 把 Claude 可见目录写到 `<data dir>/claude-models.json`；CCR 停掉时回读，
+   保住 38 个 ID 与 8 个 `[1m]` 标记。
+5. 写 `<data dir>/model-layer.json`（0600），含两个 URL、控制面 token、PID。
 
 不会覆盖 CCR 的 `service.json`，也不会写任何全局 CLI 配置。
 
@@ -123,6 +125,7 @@ codeg 的模型页、`body_model_face` 和 overlay 不需要改代码。
   Agent 会话不依赖它。
 - AgentOS 接线（启动 / 端口回退 / 健康检查）与 `cutover.sh` / `rollback.sh`。
 - 密钥：provider key 与 caller key 进 macOS Keychain，SQLite 只留引用；启动时自动迁移旧明文。
+- 离线导入：CCR 停掉后从 `config.sqlite` 导入，用 `claude-models.json` 快照保留 `[1m]` 标记。
 
 未完成 / 下一步：
 

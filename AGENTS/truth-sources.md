@@ -15,7 +15,7 @@
 | Agent 定义（全局花名册） | Codeg 数据目录的 `codeg.db` → `custom_agent`（`kind='role'`） | SQLite | 否 | 否 |
 | 花名册遗留存储（冻结只读） | `.data/agents/*.jsonc`、`.data/codeg/agent-roles.json` | JSONC / JSON | 否 | 否 |
 | 大脑池（通用 provider） | `.data/providers.jsonc` | JSONC | 否 | **否（含 key）** |
-| 模型供应商 / 路由 / 密钥（模型层） | 元数据：`~/Library/Application Support/AgentOS/model/model.db`；密钥：macOS Keychain（service `com.crewchat.model-layer`） | SQLite（引用）+ Keychain | 否 | 否 |
+| 模型供应商 / 路由 / 密钥（模型层） | 元数据与 Claude 目录快照：`~/Library/Application Support/AgentOS/model/`（`model.db`、`claude-models.json`）；密钥：macOS Keychain（service `com.crewchat.model-layer`） | SQLite（引用）+ Keychain + JSON | 否 | 否 |
 | 旧 CCR 配置（回退用，冻结） | `~/.claude-code-router/` | SQLite（`config.sqlite`） | 否 | 否 |
 | 项目列表（工作区/一等公民） | `.data/projects.json` | JSON | 否 | 否 |
 | 界面偏好 | `.data/crewchat.db` | SQLite | 否 | 否 |

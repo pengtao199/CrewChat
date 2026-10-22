@@ -442,13 +442,15 @@ Route {
 - **端到端契约**：临时 `codeg-server` 指向模型层，`agent_role_model_face` 返回
   claude 38 / codex 69 / open_code 69；网关路由覆盖 `autoFetchKnownModels`，
   `/v1/models` 仍为 38 个 ID、8 个 `[1m]`。
+- **离线导入**：CCR 停掉后从 `config.sqlite` 导入；`claude-models.json` 快照保留
+  38 个 ID / 8 个 `[1m]`，`apply_config` 也保留已有 `one_million` 标记。
 - **密钥迁移**：provider key 与 caller key 进 macOS Keychain（service
   `com.crewchat.model-layer`），SQLite 只存 `keychain_ref`；启动时自动把旧明文迁走。
   实测 5 条 provider 凭据 + 7 条 caller key，DB 中的 key 长度为 0，`getConfig` 与额度
   仍能取到完整值。
 - **切换工具**：`model-layer/scripts/cutover.sh` / `rollback.sh` / `apply-profile.sh`；
   规则已同步到 `AGENTS/gateway.md`、`truth-sources.md`、`architecture.md`。
-- 28 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机、额度求值、Keychain 迁移）。
+- 29 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机、额度求值、Keychain 迁移、`[1m]` 重导入）。
 
 ### 未完成
 
