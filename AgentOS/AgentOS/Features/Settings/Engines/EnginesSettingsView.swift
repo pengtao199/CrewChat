@@ -175,44 +175,65 @@ struct EnginesSettingsView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(env.keys.sorted(), id: \.self) { key in
-                        HStack(spacing: 8) {
-                            Text(key)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                                .frame(minWidth: 120, alignment: .leading)
-
-                            TextField(
-                                "settings.engines.env.value",
-                                text: Binding(
-                                    get: { env[key] ?? "" },
-                                    set: { env[key] = $0 }
+                        LabeledContent {
+                            HStack(spacing: 8) {
+                                TextField(
+                                    "",
+                                    text: Binding(
+                                        get: { env[key] ?? "" },
+                                        set: { env[key] = $0 }
+                                    ),
+                                    prompt: Text("settings.engines.env.value")
                                 )
-                            )
-                            .textFieldStyle(.roundedBorder)
+                                .labelsHidden()
+                                .textFieldStyle(.roundedBorder)
 
-                            Button {
-                                env.removeValue(forKey: key)
-                            } label: {
-                                Image(systemName: "minus.circle")
+                                Button {
+                                    env.removeValue(forKey: key)
+                                } label: {
+                                    Image(systemName: "minus.circle")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("common.delete")
                             }
-                            .buttonStyle(.borderless)
-                            .help("common.delete")
+                        } label: {
+                            Text(key)
+                                .font(.system(.caption, design: .monospaced))
+                                .textSelection(.enabled)
                         }
                     }
                 }
 
-                HStack(spacing: 8) {
-                    TextField("settings.engines.env.key", text: $newKey)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("settings.engines.env.add")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 8) {
+                        TextField(
+                            "",
+                            text: $newKey,
+                            prompt: Text("settings.engines.env.key")
+                        )
+                        .labelsHidden()
                         .textFieldStyle(.roundedBorder)
-                    TextField("settings.engines.env.value", text: $newValue)
+
+                        TextField(
+                            "",
+                            text: $newValue,
+                            prompt: Text("settings.engines.env.value")
+                        )
+                        .labelsHidden()
                         .textFieldStyle(.roundedBorder)
-                    Button {
-                        addEnv()
-                    } label: {
-                        Image(systemName: "plus.circle")
+
+                        Button {
+                            addEnv()
+                        } label: {
+                            Image(systemName: "plus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(newKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                    .buttonStyle(.borderless)
-                    .disabled(newKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
                 HStack {

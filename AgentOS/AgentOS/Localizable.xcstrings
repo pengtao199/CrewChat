@@ -14,6 +14,7 @@
       }
     },
     "%@.": {},
+    "%lld": {},
     "%lld.": {},
     "127.0.0.1:%lld": {},
     "Apache-2.0": {},
@@ -88,7 +89,6 @@
       }
     },
     "common.edit": {
-      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -586,7 +586,6 @@
       }
     },
     "settings.agents.add": {
-      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -606,12 +605,122 @@
         }
       }
     },
+    "settings.agents.autoApproveHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "所有权限请求都会自动通过，只建议在受信任的目录使用。"
+          }
+        }
+      }
+    },
     "settings.agents.capabilities": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "能力"
+          }
+        }
+      }
+    },
+    "settings.agents.capabilities.empty": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有可用的能力。"
+          }
+        }
+      }
+    },
+    "settings.agents.capabilityMissing": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前 CLI 未提供"
+          }
+        }
+      }
+    },
+    "settings.agents.clearAll": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清空"
+          }
+        }
+      }
+    },
+    "settings.agents.copy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制"
+          }
+        }
+      }
+    },
+    "settings.agents.copyName": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 副本"
+          }
+        }
+      }
+    },
+    "settings.agents.delete.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” 将被删除，历史会话会保留。"
+          }
+        }
+      }
+    },
+    "settings.agents.delete.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这个 Agent？"
+          }
+        }
+      }
+    },
+    "settings.agents.discard": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃"
+          }
+        }
+      }
+    },
+    "settings.agents.discard.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前编辑还没有保存，切换后会丢失。"
+          }
+        }
+      }
+    },
+    "settings.agents.discard.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃未保存的修改？"
           }
         }
       }
@@ -656,6 +765,36 @@
         }
       }
     },
+    "settings.agents.engine.disabled": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已停用"
+          }
+        }
+      }
+    },
+    "settings.agents.engine.missing": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未安装"
+          }
+        }
+      }
+    },
+    "settings.agents.engine.none": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择引擎"
+          }
+        }
+      }
+    },
     "settings.agents.identity": {
       "localizations": {
         "zh-Hans": {
@@ -686,6 +825,36 @@
         }
       }
     },
+    "settings.agents.model.none": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择模型"
+          }
+        }
+      }
+    },
+    "settings.agents.modelClear": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除"
+          }
+        }
+      }
+    },
+    "settings.agents.modelInvalid": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前模型不在这个引擎的可用列表里，启动时会退回 CLI 默认模型。"
+          }
+        }
+      }
+    },
     "settings.agents.modelUnsupported": {
       "localizations": {
         "zh-Hans": {
@@ -712,6 +881,66 @@
           "stringUnit": {
             "state": "translated",
             "value": "权限模式"
+          }
+        }
+      }
+    },
+    "settings.agents.permissionMode.acceptEdits": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动接受编辑"
+          }
+        }
+      }
+    },
+    "settings.agents.permissionMode.auto": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动"
+          }
+        }
+      }
+    },
+    "settings.agents.permissionMode.bypass": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "跳过所有确认"
+          }
+        }
+      }
+    },
+    "settings.agents.permissionMode.default": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "默认"
+          }
+        }
+      }
+    },
+    "settings.agents.permissionMode.dontAsk": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不再询问"
+          }
+        }
+      }
+    },
+    "settings.agents.permissionMode.plan": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "计划模式"
           }
         }
       }
@@ -756,12 +985,62 @@
         }
       }
     },
+    "settings.agents.retry": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
     "settings.agents.rules": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "规则"
+          }
+        }
+      }
+    },
+    "settings.agents.search": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索 Agent"
+          }
+        }
+      }
+    },
+    "settings.agents.searchMCP": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索 MCP"
+          }
+        }
+      }
+    },
+    "settings.agents.searchSkills": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索技能"
+          }
+        }
+      }
+    },
+    "settings.agents.selectAll": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全选"
           }
         }
       }
@@ -776,7 +1055,26 @@
         }
       }
     },
-    "settings.agents.soul": {},
+    "settings.agents.soul": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "人设"
+          }
+        }
+      }
+    },
+    "settings.agents.unsaved": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存"
+          }
+        }
+      }
+    },
     "settings.back": {
       "localizations": {
         "zh-Hans": {
@@ -998,6 +1296,36 @@
         }
       }
     },
+    "settings.engines.disable.confirm": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仍然停用"
+          }
+        }
+      }
+    },
+    "settings.engines.disable.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这些 Agent 将无法启动：%@"
+          }
+        }
+      }
+    },
+    "settings.engines.disable.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停用这个 CLI？"
+          }
+        }
+      }
+    },
     "settings.engines.distribution": {
       "localizations": {
         "zh-Hans": {
@@ -1048,6 +1376,66 @@
         }
       }
     },
+    "settings.engines.env.empty": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有环境变量。"
+          }
+        }
+      }
+    },
+    "settings.engines.env.footer": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这些变量只对这个 CLI 生效，保存后新会话才会读取。"
+          }
+        }
+      }
+    },
+    "settings.engines.env.key": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "变量名"
+          }
+        }
+      }
+    },
+    "settings.engines.env.save": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存环境变量"
+          }
+        }
+      }
+    },
+    "settings.engines.env.unsaved": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有未保存的修改"
+          }
+        }
+      }
+    },
+    "settings.engines.env.value": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "值"
+          }
+        }
+      }
+    },
     "settings.engines.info": {
       "localizations": {
         "zh-Hans": {
@@ -1059,7 +1447,6 @@
       }
     },
     "settings.engines.missing": {
-      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -1069,7 +1456,66 @@
         }
       }
     },
-    "settings.engines.version": {},
+    "settings.engines.refresh": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新检测"
+          }
+        }
+      }
+    },
+    "settings.engines.retry": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
+    "settings.engines.unavailableHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未检测到该 CLI。请先安装，或配置好路径后重新检测。"
+          }
+        }
+      }
+    },
+    "settings.engines.usedBy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中的 Agent"
+          }
+        }
+      }
+    },
+    "settings.engines.usedByList": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用中：%@"
+          }
+        }
+      }
+    },
+    "settings.engines.version": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
+          }
+        }
+      }
+    },
     "settings.general": {
       "localizations": {
         "zh-Hans": {
@@ -1150,6 +1596,36 @@
         }
       }
     },
+    "settings.models.add": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加供应商"
+          }
+        }
+      }
+    },
+    "settings.models.apiKey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API 密钥"
+          }
+        }
+      }
+    },
+    "settings.models.apiKeyKeep": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "留空保持现有密钥"
+          }
+        }
+      }
+    },
     "settings.models.baseURL": {
       "localizations": {
         "zh-Hans": {
@@ -1200,6 +1676,56 @@
         }
       }
     },
+    "settings.models.clearKey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除已保存的密钥"
+          }
+        }
+      }
+    },
+    "settings.models.credentials": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "密钥"
+          }
+        }
+      }
+    },
+    "settings.models.delete.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” 将被移除，正在使用它的 Agent 会失效。"
+          }
+        }
+      }
+    },
+    "settings.models.delete.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这个供应商？"
+          }
+        }
+      }
+    },
+    "settings.models.edit": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑供应商"
+          }
+        }
+      }
+    },
     "settings.models.empty.description": {
       "localizations": {
         "zh-Hans": {
@@ -1220,12 +1746,52 @@
         }
       }
     },
+    "settings.models.enabled": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "状态"
+          }
+        }
+      }
+    },
+    "settings.models.enabledToggle": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启用"
+          }
+        }
+      }
+    },
     "settings.models.hideKey": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "隐藏密钥"
+          }
+        }
+      }
+    },
+    "settings.models.keyScope": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这里写入的是供应商级密钥；已有的独立密钥会保留。"
+          }
+        }
+      }
+    },
+    "settings.models.manualModel": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手动添加模型 id"
           }
         }
       }
@@ -1240,12 +1806,42 @@
         }
       }
     },
+    "settings.models.modelsEmpty": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有模型，先测试连接或手动添加。"
+          }
+        }
+      }
+    },
     "settings.models.name": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "名字"
+          }
+        }
+      }
+    },
+    "settings.models.nameLocked": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名字被配置档案引用，暂不支持改名。"
+          }
+        }
+      }
+    },
+    "settings.models.new": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建供应商"
           }
         }
       }
@@ -1260,12 +1856,112 @@
         }
       }
     },
+    "settings.models.noCredentials": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个供应商还没有配置密钥。"
+          }
+        }
+      }
+    },
+    "settings.models.probe": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "测试连接"
+          }
+        }
+      }
+    },
+    "settings.models.probeOK": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接，发现 %lld 个模型"
+          }
+        }
+      }
+    },
+    "settings.models.protocol": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "协议"
+          }
+        }
+      }
+    },
     "settings.models.refresh": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "刷新额度"
+          }
+        }
+      }
+    },
+    "settings.models.reload": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重新加载"
+          }
+        }
+      }
+    },
+    "settings.models.retry": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
+    "settings.models.search": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索供应商"
+          }
+        }
+      }
+    },
+    "settings.models.searchModels": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索模型"
+          }
+        }
+      }
+    },
+    "settings.models.secretHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "留空保持已保存的密钥；填写后会替换供应商级密钥。"
+          }
+        }
+      }
+    },
+    "settings.models.selectedCount": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选 %lld"
           }
         }
       }
@@ -1705,682 +2401,172 @@
         }
       }
     },
-    "settings.agents.search": {
+    "settings.models.availableTitle": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "搜索 Agent"
+            "value": "可获取的模型"
           }
         }
       }
     },
-    "settings.agents.copy": {
+    "settings.models.availableSubtitle": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制"
+            "value": "来自供应商"
           }
         }
       }
     },
-    "settings.agents.copyName": {
+    "settings.models.addedTitle": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ 副本"
+            "value": "已添加"
           }
         }
       }
     },
-    "settings.agents.discard.title": {
+    "settings.models.addedSubtitle": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "放弃未保存的修改？"
+            "value": "会出现在 Agent 的模型列表里"
           }
         }
       }
     },
-    "settings.agents.discard.message": {
+    "settings.models.availableEmpty": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "当前编辑还没有保存，切换后会丢失。"
+            "value": "还没有获取到模型，点「获取模型」拉取。"
           }
         }
       }
     },
-    "settings.agents.discard": {
+    "settings.models.addedEmpty": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "放弃"
+            "value": "还没有添加模型。"
           }
         }
       }
     },
-    "settings.agents.delete.title": {
+    "settings.models.noMatch": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "删除这个 Agent？"
+            "value": "没有匹配项。"
           }
         }
       }
     },
-    "settings.agents.delete.message": {
+    "settings.models.added": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "“%@” 将被删除，历史会话会保留。"
+            "value": "已添加"
           }
         }
       }
     },
-    "settings.agents.unsaved": {
+    "settings.models.addAll": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "未保存"
+            "value": "全部添加"
           }
         }
       }
     },
-    "settings.agents.engine.none": {
+    "settings.models.removeAll": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择引擎"
+            "value": "全部移除"
           }
         }
       }
     },
-    "settings.agents.engine.missing": {
+    "settings.models.addCustom": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "未安装"
+            "value": "添加"
           }
         }
       }
     },
-    "settings.agents.engine.disabled": {
+    "settings.engines.env.add": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已停用"
+            "value": "新增变量"
           }
         }
       }
     },
-    "settings.agents.model.none": {
+    "settings.agents.capabilitiesMissing": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "选择模型"
+            "value": "%lld 个已选项当前 CLI 未提供，启动后可能不生效。"
           }
         }
       }
     },
-    "settings.agents.modelInvalid": {
+    "settings.agents.capabilityMissingShort": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "当前模型不在这个引擎的可用列表里，启动时会退回 CLI 默认模型。"
+            "value": "未提供"
           }
         }
       }
     },
-    "settings.agents.modelClear": {
+    "settings.models.searchAvailable": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "清除"
+            "value": "搜索可获取的模型"
           }
         }
       }
     },
-    "settings.agents.capabilityMissing": {
+    "settings.models.searchAdded": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "当前 CLI 未提供"
+            "value": "搜索已添加的模型"
           }
         }
       }
     },
-    "settings.agents.capabilities.empty": {
+    "settings.models.fetch": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "没有可用的能力。"
-          }
-        }
-      }
-    },
-    "settings.agents.selectAll": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "全选"
-          }
-        }
-      }
-    },
-    "settings.agents.clearAll": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清空"
-          }
-        }
-      }
-    },
-    "settings.agents.retry": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重试"
-          }
-        }
-      }
-    },
-    "settings.agents.searchSkills": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索技能"
-          }
-        }
-      }
-    },
-    "settings.agents.searchMCP": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索 MCP"
-          }
-        }
-      }
-    },
-    "settings.agents.autoApproveHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "所有权限请求都会自动通过，只建议在受信任的目录使用。"
-          }
-        }
-      }
-    },
-    "settings.agents.permissionMode.default": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "默认"
-          }
-        }
-      }
-    },
-    "settings.agents.permissionMode.acceptEdits": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自动接受编辑"
-          }
-        }
-      }
-    },
-    "settings.agents.permissionMode.auto": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自动"
-          }
-        }
-      }
-    },
-    "settings.agents.permissionMode.dontAsk": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不再询问"
-          }
-        }
-      }
-    },
-    "settings.agents.permissionMode.bypass": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "跳过所有确认"
-          }
-        }
-      }
-    },
-    "settings.agents.permissionMode.plan": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "计划模式"
-          }
-        }
-      }
-    },
-    "settings.engines.refresh": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新检测"
-          }
-        }
-      }
-    },
-    "settings.engines.retry": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重试"
-          }
-        }
-      }
-    },
-    "settings.engines.unavailableHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未检测到该 CLI。请先安装，或配置好路径后重新检测。"
-          }
-        }
-      }
-    },
-    "settings.engines.env.empty": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有环境变量。"
-          }
-        }
-      }
-    },
-    "settings.engines.env.key": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "变量名"
-          }
-        }
-      }
-    },
-    "settings.engines.env.value": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "值"
-          }
-        }
-      }
-    },
-    "settings.engines.env.unsaved": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "有未保存的修改"
-          }
-        }
-      }
-    },
-    "settings.engines.env.save": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存环境变量"
-          }
-        }
-      }
-    },
-    "settings.engines.env.footer": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这些变量只对这个 CLI 生效，保存后新会话才会读取。"
-          }
-        }
-      }
-    },
-    "settings.models.retry": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重试"
-          }
-        }
-      }
-    },
-    "settings.models.reload": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重新加载"
-          }
-        }
-      }
-    },
-    "settings.models.enabled": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "状态"
-          }
-        }
-      }
-    },
-    "settings.models.noCredentials": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这个供应商还没有配置密钥。"
-          }
-        }
-      }
-    },
-    "settings.models.credentials": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "密钥"
-          }
-        }
-      }
-    },
-    "settings.models.add": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加供应商"
-          }
-        }
-      }
-    },
-    "settings.models.new": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新建供应商"
-          }
-        }
-      }
-    },
-    "settings.models.edit": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑供应商"
-          }
-        }
-      }
-    },
-    "settings.models.protocol": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "协议"
-          }
-        }
-      }
-    },
-    "settings.models.apiKey": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "API 密钥"
-          }
-        }
-      }
-    },
-    "settings.models.apiKeyKeep": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "留空保持现有密钥"
-          }
-        }
-      }
-    },
-    "settings.models.clearKey": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "清除已保存的密钥"
-          }
-        }
-      }
-    },
-    "settings.models.enabledToggle": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "启用"
-          }
-        }
-      }
-    },
-    "settings.models.probe": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "测试连接"
-          }
-        }
-      }
-    },
-    "settings.models.probeOK": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已连接，发现 %lld 个模型"
-          }
-        }
-      }
-    },
-    "settings.models.selectedCount": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已选 %lld"
-          }
-        }
-      }
-    },
-    "settings.models.modelsEmpty": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还没有模型，先测试连接或手动添加。"
-          }
-        }
-      }
-    },
-    "settings.models.searchModels": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索模型"
-          }
-        }
-      }
-    },
-    "settings.models.manualModel": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "手动添加模型 id"
-          }
-        }
-      }
-    },
-    "settings.models.secretHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "密钥只用于连接测试；留空不会覆盖已保存的密钥。"
-          }
-        }
-      }
-    },
-    "settings.models.delete.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除这个供应商？"
-          }
-        }
-      }
-    },
-    "settings.models.delete.message": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“%@” 将被移除，正在使用它的 Agent 会失效。"
-          }
-        }
-      }
-    },
-    "settings.models.search": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索供应商"
-          }
-        }
-      }
-    },
-    "settings.models.nameLocked": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "名字被配置档案引用，暂不支持改名。"
-          }
-        }
-      }
-    },
-    "settings.models.keyScope": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这里写入的是供应商级密钥；已有的独立密钥会保留。"
-          }
-        }
-      }
-    },
-    "settings.engines.usedBy": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用中的 Agent"
-          }
-        }
-      }
-    },
-    "settings.engines.usedByList": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用中：%@"
-          }
-        }
-      }
-    },
-    "settings.engines.disable.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "停用这个 CLI？"
-          }
-        }
-      }
-    },
-    "settings.engines.disable.message": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这些 Agent 将无法启动：%@"
-          }
-        }
-      }
-    },
-    "settings.engines.disable.confirm": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "仍然停用"
+            "value": "获取模型"
           }
         }
       }

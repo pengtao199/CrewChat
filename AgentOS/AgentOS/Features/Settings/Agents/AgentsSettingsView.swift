@@ -413,6 +413,7 @@ struct AgentsSettingsView: View {
             Text("settings.agents.capabilities.empty")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             TextField(searchPrompt, text: query)
 
@@ -434,13 +435,31 @@ struct AgentsSettingsView: View {
             .buttonStyle(.link)
             .font(.caption)
 
+            let missing = options.filter {
+                !knownIDs.contains($0.id) && selection.wrappedValue.contains($0.id)
+            }.count
+
+            if missing > 0 {
+                Label(
+                    String(
+                        format: String(localized: "settings.agents.capabilitiesMissing"),
+                        missing
+                    ),
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+            }
+
             ForEach(filtered(options, query: query.wrappedValue)) { option in
-                HStack(spacing: 6) {
-                    Toggle(option.name, isOn: binding(for: option.id, in: selection))
-                    if !knownIDs.contains(option.id) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                            .help(Text("settings.agents.capabilityMissing"))
+                Toggle(isOn: binding(for: option.id, in: selection)) {
+                    HStack(spacing: 4) {
+                        Text(option.name)
+                        if !knownIDs.contains(option.id) {
+                            Text("settings.agents.capabilityMissingShort")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }

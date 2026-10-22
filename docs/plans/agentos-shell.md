@@ -190,7 +190,7 @@ AgentOS/
   - **设置三页（2026-10-21）**：
     - Agents：未保存守卫（切换角色/设置页/返回工作台/新建/复制前确认）、保存/取消、删除确认、`provider_id` 绑定、模型失效提示、技能/MCP 错误不再被 `try?` 吞掉、复制角色、搜索、权限模式 Picker、Textual 预览。
     - 引擎：重新检测、env 编辑器（增删改 + 保存）、不可用说明、内联错误（不再整页替换）。
-    - 模型：供应商新建/编辑/删除/测试连接（核心新增 `ccr_provider_*` 三条路由，读-改-写保留未知字段）、模型多选与手动添加、密钥遮罩修复、账号请求去重。
+    - 模型：供应商新建/编辑/删除/测试连接（核心新增 `ccr_provider_*` 三条路由，读-改-写保留未知字段）、模型选择改为 CCR/codeg 式左右双栏（左：可获取；右：已添加；各自搜索，自定义模型加到右侧）、密钥遮罩修复、账号请求去重。
     - 核心单测：`ccr::providers` 3 条（保留未知字段、创建补 id、档案引用时拒绝删除）。
   - **Markdown**：vendored [Textual 0.5.0](https://github.com/gonzalezreal/textual)（MIT，源码在 `AgentOS/Vendor/Textual/`，改动表见其 `NOTICE.md`）。助手正文用 `StructuredText` 块级渲染（标题 / 列表 / 代码块 / 表格），流式中仍用纯 `Text`，完成后切换。**deployment target 提到 macOS 15**。删掉了 math 支持（避免再引 7.5MB 的 swiftui-math）。
   - 草稿页：`你想让 <项目> 构建什么？` + Agent 多选（第一个为 leader，选中态用 `borderedProminent`）+ 底部统一输入容器（左下 `+` 占位、右下圆形发送箭头；不展示模型/供应商/思考程度）。
