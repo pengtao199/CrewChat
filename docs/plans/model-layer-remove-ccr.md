@@ -452,14 +452,22 @@ Route {
   仍能取到完整值。
 - **切换工具**：`model-layer/scripts/cutover.sh` / `rollback.sh` / `apply-profile.sh`；
   规则已同步到 `AGENTS/gateway.md`、`truth-sources.md`、`architecture.md`。
+- **CCR 下线**：已停掉 codeg/CCR 进程、bootout launchd，3456/3458 空闲；
+  `AgentOS/model/required` 已创建，Xcode 启动会直接拉起模型层；`ccr/` 源码保留作回退。
+- **真实调用**：用 `~/.crewchat/bin/claude-api-key.sh` 取 key，
+  `POST /v1/messages` 返回 200，content 为 `ok`。
+- **helper 路径修复**：Claude Code 用未加引号的 shell 执行 helper，原路径含
+  `Application Support` 空格会失败；已移到 `~/.crewchat/bin/claude-api-key.sh`。
 - 29 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机、额度求值、Keychain 迁移、`[1m]` 重导入）。
 
 ### 未完成
 
-- Responses 面的 Anthropic 翻译（Claude 目前走 Chat；OpenCode Go 的 Chat 端点可用）。
-- 正式打包的 copy phase（开发用 scheme / `install-dev.sh`）。
-- CCR 进程下线本身（脚本已就绪，等用户执行 `cutover.sh`）。
+- Responses 面的 Anthropic 翻译（可选；当前 Claude 走 Chat，基础真实调用已通）。
+- 正式打包的 copy phase（按你的要求先不做；开发用 Xcode scheme）。
+- 真实 Claude Code 的工具调用 / 多轮 / 取消验收（建议今天顺手跑一次）。
+- 跑一周后删除 `ccr/` 源码与 launchd plist；现在保留作回退。
+- Phase 6：建 Agents 并按引擎验收。
 
 ### 下一步
 
-Phase 5（执行 `cutover.sh`，CCR 下线）→ Phase 6（建 Agents 并按引擎验收）。
+Phase 6（建 Agents + Claude 工具调用验收）→ 一周后清理 `ccr/`；打包按需再开。
