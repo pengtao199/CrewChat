@@ -42,7 +42,7 @@ final class AppEnvironment {
             workspaces: workspacesClient
         )
         self.mcp = MCPSettingsViewModel(mcp: mcpClient)
-        self.engines = EnginesSettingsViewModel(engines: enginesClient, roster: rosterClient)
+        self.engines = EnginesSettingsViewModel(engines: enginesClient)
         self.workbench = WorkbenchViewModel(
             workspaces: workspacesClient,
             conversations: conversationsClient,

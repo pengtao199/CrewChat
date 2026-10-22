@@ -15,7 +15,9 @@ actor CoreClient {
         self.endpoint = endpoint
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 60
-        configuration.timeoutIntervalForResource = 60
+        // Installs and binary downloads run for minutes; the per-request
+        // timeout below is what actually applies to those calls.
+        configuration.timeoutIntervalForResource = 900
         self.session = URLSession(configuration: configuration)
     }
 
@@ -23,17 +25,30 @@ actor CoreClient {
         try await send("health", body: EmptyBody())
     }
 
-    func send<Body: Encodable, Response: Decodable>(_ command: String, body: Body) async throws -> Response {
-        let data = try await sendRaw(command, body: body)
+    func send<Body: Encodable, Response: Decodable>(
+        _ command: String,
+        body: Body,
+        timeout: TimeInterval = 60
+    ) async throws -> Response {
+        let data = try await sendRaw(command, body: body, timeout: timeout)
         return try JSONDecoder().decode(Response.self, from: data)
     }
 
-    func sendIgnoring<Body: Encodable>(_ command: String, body: Body) async throws {
-        _ = try await sendRaw(command, body: body)
+    func sendIgnoring<Body: Encodable>(
+        _ command: String,
+        body: Body,
+        timeout: TimeInterval = 60
+    ) async throws {
+        _ = try await sendRaw(command, body: body, timeout: timeout)
     }
 
-    private func sendRaw<Body: Encodable>(_ command: String, body: Body) async throws -> Data {
+    private func sendRaw<Body: Encodable>(
+        _ command: String,
+        body: Body,
+        timeout: TimeInterval
+    ) async throws -> Data {
         var request = URLRequest(url: endpoint.url(command))
+        request.timeoutInterval = timeout
         request.httpMethod = "POST"
         request.setValue("Bearer \(endpoint.token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

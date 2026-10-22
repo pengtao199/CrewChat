@@ -1320,7 +1320,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引擎"
+            "value" : "CLI"
           }
         }
       }
@@ -1395,12 +1395,82 @@
         }
       }
     },
+    "settings.engines.diagnostics" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "诊断"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.copy" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制报告"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.expand" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展开后运行诊断"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.ok" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.warn" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "注意"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.fail" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有问题"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.info" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信息"
+          }
+        }
+      }
+    },
     "settings.engines.empty.description" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "先安装 CLI 引擎，再回到这里启用。"
+            "value" : "刷新后会显示核心内置的 CLI。"
           }
         }
       }
@@ -1465,6 +1535,56 @@
         }
       }
     },
+    "settings.engines.env.discard.title" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃未保存的环境变量？"
+          }
+        }
+      }
+    },
+    "settings.engines.env.discard.message" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换 CLI 会丢掉当前未保存的修改。"
+          }
+        }
+      }
+    },
+    "settings.engines.env.discard.confirm" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放弃修改"
+          }
+        }
+      }
+    },
+    "settings.engines.env.formatHint" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每行 KEY=VALUE；空行和 # 注释会被忽略。"
+          }
+        }
+      }
+    },
+    "settings.engines.env.invalidLine" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %lld 行格式不正确，应为 KEY=VALUE。"
+          }
+        }
+      }
+    },
     "settings.engines.env.key" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1511,6 +1631,96 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "信息"
+          }
+        }
+      }
+    },
+    "settings.engines.installed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已安装"
+          }
+        }
+      }
+    },
+    "settings.engines.install" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安装"
+          }
+        }
+      }
+    },
+    "settings.engines.installing" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在安装…"
+          }
+        }
+      }
+    },
+    "settings.engines.checkingUpdate" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在检查更新…"
+          }
+        }
+      }
+    },
+    "settings.engines.updateAvailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可更新到"
+          }
+        }
+      }
+    },
+    "settings.engines.updateTo" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新到 v%@"
+          }
+        }
+      }
+    },
+    "settings.engines.upToDate" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已是最新"
+          }
+        }
+      }
+    },
+    "settings.engines.platformUnsupported" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前平台不可用"
+          }
+        }
+      }
+    },
+    "settings.engines.updateCheckFailed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法检查更新"
           }
         }
       }

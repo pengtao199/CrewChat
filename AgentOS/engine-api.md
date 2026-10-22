@@ -42,8 +42,13 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `mcp_upsert_local_server` | 新建 / 更新 MCP 服务 | `CoreMCP` | body `{serverId, spec:<object>, apps:[wire names]}`（camelCase）。`apps` 是**权威集合**：没勾的 CLI 会被移除；`spec` 原样保存由后端 canonicalize |
 | `mcp_remove_server` | 删除 MCP 服务 | `CoreMCP` | body `{serverId}`；不传 `apps` = 从所有 CLI 移除，返回 bool |
 | `mcp_scan_local` | 本机 MCP 服务清单 | `CoreCapabilities` / `CoreMCP` | 无参数；返回 `{servers:[{id,spec,apps}], warnings:[{app,message}]}`。花名册的 `mcp` 存 `server.id`；MCP 页直接展示 `spec` 与 `apps`（实测 6 个） |
-| `acp_list_agents` | 引擎清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/distribution_type/is_acp_adapter/env`（snake_case） |
-| `acp_update_agent_preferences` | 启用 / 禁用引擎（保留 env） | `CoreEngines` | body `{agentType, enabled, env}`（**camelCase**；漏写 agentType 会 400）。壳先取该引擎当前 `env` 原样回传，避免清空 |
+| `acp_list_agents` | CLI 清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/registry_version/supports_custom_version/distribution_type/is_acp_adapter/env`（snake_case）。`installed_version` 才是「已安装」；npx 的 `available` 只表示分发方式受支持 |
+| `acp_update_agent_preferences` | 写引擎偏置（env；enabled 仍保留） | `CoreEngines` | body `{agentType, enabled, env}`（**camelCase**；漏写 agentType 会 400）。CLI 页不再暴露启用开关，保存 env 时回传当前 `enabled`；首次加载会把历史 disabled 的内置引擎置回 true |
+| `acp_fetch_agent_latest_release` | 检查可更新的新版本 | `CoreEngines` | body `{agentType}`；返回 `{version}` 或 `null`。只返回比核心 pin 新的版本，壳再与本地已装版本比较；网络失败按「无法检查」处理 |
+| `acp_prepare_npx_agent` | 安装 / 更新 npx 或 uvx 引擎 | `CoreEngines` | body `{agentType, registryVersion?, version?, cleanFirst, taskId}`（camelCase）；同步等到安装结束，返回解析出的版本字符串。超时按 600s 计（npm/uv 下载可能数分钟）。uvx 不接受 version override |
+| `acp_download_agent_binary` | 下载 / 更新二进制引擎 | `CoreEngines` | body `{agentType, version?, taskId}`；同步等到下载解压完成，超时 600s |
+| `acp_install_pi_binary` | 安装 Pi 的 `pi` 运行时 | `CoreEngines` | body `{taskId}`；Pi 的 npx adapter（`pi-acp`）之外还要这个二进制，安装 / 更新 Pi 时串行调用 |
+| `acp_env_diagnostics` | 引擎环境诊断 | `CoreEngines` | body `{agentType}`；返回 `{verdict:{level,code,summary}, sections:[{title,checks:[{label,value,status,hint}]}], plain_text}`（snake_case）。页面默认折叠，展开才调用 |
 
 | `list_open_folder_details` | 工作区（已打开的文件夹） | `CoreWorkspaces` | 无参数；返回 `FolderDetail[]`（snake_case：`id/name/path/alias/sort_order/kind/...`），核心已按 `is_open + kind=regular` 过滤排序 |
 | `open_folder` | 添加工作区 | `CoreWorkspaces` | body `{path}`；返回 `FolderDetail`；只落库+标记打开，不动磁盘 |
