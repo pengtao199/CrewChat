@@ -65,6 +65,14 @@ enum CoreBinaryLocator {
         FileManager.default.fileExists(atPath: modelLayerRequiredMarker().path)
     }
 
+    /// Written by rollback.sh. A disabled model layer means "use CCR", even if
+    /// the binary is still in the bundle/scheme.
+    static func isModelLayerDisabled() -> Bool {
+        FileManager.default.fileExists(
+            atPath: modelLayerDirectory().appending(path: "disabled").path
+        )
+    }
+
     static func modelLayerLogFile() -> URL {
         let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
             .appending(path: "Logs/AgentOS", directoryHint: .isDirectory)

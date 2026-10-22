@@ -174,6 +174,10 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     /// free ports and codeg is pointed at those, so both can run side by side
     /// during the cutover. An empty dictionary means "keep using CCR".
     private func startModelLayerIfAvailable() async -> [String: String] {
+        if CoreBinaryLocator.isModelLayerDisabled() {
+            logger.log("model layer disabled by marker; using CCR")
+            return [:]
+        }
         guard let binary = CoreBinaryLocator.locateModelLayer() else {
             return [:]
         }

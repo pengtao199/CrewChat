@@ -27,6 +27,8 @@ fi
 
 DATA="${MODEL_LAYER_DATA_DIR:-$HOME/Library/Application Support/AgentOS/model}"
 rm -f "$DATA/required"
+mkdir -p "$DATA"
+touch "$DATA/disabled"
 
 echo "==> relaunching AgentOS (it will fall back to CCR if the model layer is absent)"
 APP="$(find "$HOME/Library/Developer/Xcode/DerivedData" \

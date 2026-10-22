@@ -44,7 +44,8 @@ model-layer/scripts/rollback.sh
 ```
 
 `cutover.sh` 只杀命令行里带 `claude-code-router` / `ccr` 的监听进程；端口被别的
-进程占着会直接退出，不会误杀。
+进程占着会直接退出，不会误杀。`rollback.sh` 会恢复 settings 备份、启动 CCR，并写
+`model/disabled` 标记——壳下次启动就跳过模型层。
 
 ## 运行
 

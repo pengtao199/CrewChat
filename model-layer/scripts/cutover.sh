@@ -46,6 +46,7 @@ done
 
 DATA="${MODEL_LAYER_DATA_DIR:-$HOME/Library/Application Support/AgentOS/model}"
 mkdir -p "$DATA"
+rm -f "$DATA/disabled"
 # From this point on a missing model layer is a hard error, not a silent
 # fallback to CCR. Remove this file (or run rollback.sh) to undo it.
 touch "$DATA/required"
