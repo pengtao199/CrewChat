@@ -76,7 +76,7 @@ async fn load_config(cfg: &Config) -> Result<(Value, String)> {
 
 async fn fetch_live(url: &str, token: Option<&str>) -> Result<Value> {
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(8))
         .build()?;
     let mut request = client
         .post(format!("{}/api/ccr/rpc", url.trim_end_matches('/')))
@@ -266,7 +266,7 @@ fn local_gateway_key(config: &Value) -> Option<String> {
 
 async fn fetch_claude_models(gateway: &str, key: &str) -> Result<Vec<String>> {
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(5))
         .build()?;
     let body: Value = client
         .get(format!("{gateway}/v1/models"))
