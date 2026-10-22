@@ -56,7 +56,7 @@ App ──▶ Features ──▶ Domain ◀── Core ──▶ Infrastructure
 - 小切片推进，不做大重写；改前 `git status --short`，不覆盖别人的改动。
 - 原生优先：先用 SwiftUI / Foundation / URLSession，再加依赖。
 - **代码里不写解释性长注释与同义注释**；命名与类型负责表达意图。
-- 密钥不落 AgentOS：模型密钥归核心（CCR），壳只持有本机核心的 token。
+- 密钥不落 AgentOS：模型密钥归模型层（`model-layer/`），壳只持有本机核心与模型层的 token。
 - 每个多 Agent 运行都必须可取消、可观察、有上限；上限由核心执行，壳只负责显示与触发。
 
 ## 检查

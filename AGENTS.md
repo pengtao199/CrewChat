@@ -1,7 +1,7 @@
 # CrewChat 项目规则
 
 多 Agent 协作桌面应用。三条腿：核心 **Codeg**（`codeg/`，Rust 后端 + Next.js 界面，二次开发）、
-模型层 **CCR**（`ccr/`，统一模型管理与本地网关）、macOS 壳 **AgentOS**（`AgentOS/`，Swift）。
+模型层 **model-layer/**（Rust，统一模型管理、本地网关与控制面；`ccr/` 仅作回退保留）、macOS 壳 **AgentOS**（`AgentOS/`，Swift）。
 v1 的 Python 编排层已冻结归档在 `archive/`，不参与运行时。
 
 花名册里只有两份预置 Agent 了解本应用：`agent-helper`（改别人的 Agent 配置）和 `crewchat-manager`（群聊 Leader）。其余 Agent 是通用角色，不绑定本仓库。细节见 `AGENTS/agent-model.md`。
@@ -33,7 +33,7 @@ v1 的 Python 编排层已冻结归档在 `archive/`，不参与运行时。
 | `AGENTS/verification.md` | 完成任何改动、准备汇报或提交之前。 |
 | `AGENTS/dependencies.md` | 新增依赖、选择开源实现、升级现有库、遇到网络受限时。 |
 | `AGENTS/git.md` | 执行 Git 初始化、暂存、提交、推送、分支操作，或修改 `.gitignore` 时。 |
-| `AGENTS/upstream.md` | 改动 `codeg/`、`ccr/` 里的上游代码，或跟进它们的上游修复时。 |
+| `AGENTS/upstream.md` | 改动 `codeg/` 里的上游代码，或维护 `ccr/` 回退基座时。 |
 | `AGENTS/agentos-boundary.md` | 改动 `AgentOS/`、判断某能力该不该进壳、或壳与核心的边界/范围/失败降级时。**进壳先读这条。** |
 | `AGENTS/agentos-layout.md` | 新增 `AgentOS/` 下的目录或模块、调整壳的分层、给壳引入依赖时。 |
 | `AGENTS/agentos-transport.md` | 新增 `AgentOS/` 对核心的调用、订阅事件、处理流式 / 重连 / 取消 / 错误时。 |

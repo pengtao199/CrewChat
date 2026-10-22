@@ -94,7 +94,7 @@ API、`permission` 帧与确认端点、`tests/test_permissions.py`）。原因�
 cc-switch 网关已移除：身体直接用各自 CLI 的登录与用户配置（`~/.claude`、`~/.codex`、
 `~/.gemini`、`~/.grok`、`~/.hermes/config.yaml` 等），不再注入模型、不再建临时家。
 模型统一管理由 CCR 承担（见 `AGENTS/gateway.md`）。`Executor.run(req, provider)` 的
-`provider` 参数保留为契约接缝，留给未来的 Agent Host（由 CCR 注入）。
+`provider` 参数保留为契约接缝，留给 Agent Host（由模型层与 per-role overlay 注入）。
 
 ## 禁止项
 

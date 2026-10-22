@@ -26,8 +26,9 @@
 
 - **Codeg** → `codeg/`（Apache-2.0）。协作工作台（Next.js 前端 + Tauri/Server 后端）的二次开发基座。
   - 排除 `.git/` 与 `docs/images/`；取舍与升级方式见 `codeg/NOTICE.md`。
-- **CCR（claude-code-router）** → `ccr/`（MIT）。统一模型管理（本地网关 + 控制面）。
+- **CCR（claude-code-router）** → `ccr/`（MIT）。**legacy 回退**；运行时已由 `model-layer/` 取代。
   - 排除 `.git/`、`blog/`、`cdn/`；取舍与升级方式见 `ccr/NOTICE.md`。
+- **模型层** → `model-layer/`（自有 Rust 代码，不是 vendored 基座）。
 
 ## 网络受限
 
