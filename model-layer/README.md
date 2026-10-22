@@ -122,8 +122,9 @@ codeg 的模型页、`body_model_face` 和 overlay 不需要改代码。
 - 请求级凭据选择（priority + weight），无全局「当前凭据」。
 - 额度：`account.connectors` 的 `http-json` mapping（受限 JSONPath + 四则运算），
   实测 OpenCode Go 2 条凭据 × 3 个 meter；失败返回缓存 + 错误，不伪造。
-- `applyProfile`：写 `~/.claude/settings.json` + 自己的 `apiKeyHelper`；helper 直接从
-  Keychain 读，不落明文 key 文件；Agent 会话不依赖它。
+- `applyProfile`：写 `~/.claude/settings.json` + 自己的 `apiKeyHelper`（安装在
+  `~/.crewchat/bin/claude-api-key.sh`，路径无空格——Claude Code 用未加引号的
+  shell 执行它）；helper 直接从 Keychain 读，不落明文 key 文件；Agent 会话不依赖它。
 - AgentOS 接线（启动 / 端口回退 / 健康检查）与 `cutover.sh` / `rollback.sh`。
 - 密钥：provider key 与 caller key 进 macOS Keychain，SQLite 只留引用；启动时自动迁移旧明文。
 - 离线导入：CCR 停掉后从 `config.sqlite` 导入，用 `claude-models.json` 快照保留 `[1m]` 标记。

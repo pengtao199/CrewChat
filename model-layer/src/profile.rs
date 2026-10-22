@@ -21,11 +21,24 @@ pub fn apply_claude(app: &App) -> Result<Value, String> {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
         .ok_or_else(|| "HOME is not set".to_string())?;
-    let bin = app.config.data_dir.join("bin");
+    // No spaces in this path: Claude Code runs `apiKeyHelper` through an
+    // unquoted shell command, so `Application Support/...` becomes
+    // `/Users/.../Application` and fails. Keep the helper under `~/.crewchat`.
+    let bin = home.join(".crewchat/bin");
     std::fs::create_dir_all(&bin).map_err(|error| format!("create {}: {error}", bin.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o700));
+    }
 
     let helper_path = bin.join("claude-api-key.sh");
     let key_path = bin.join("claude-api-key");
+
+    // Clean up the old helper location; it is no longer referenced.
+    let old_bin = app.config.data_dir.join("bin");
+    let _ = std::fs::remove_file(old_bin.join("claude-api-key.sh"));
+    let _ = std::fs::remove_file(old_bin.join("claude-api-key"));
     let script = if app.store.uses_keychain() {
         // No plaintext key file: the helper asks the same Keychain item the
         // model layer uses. `security` created the item, so it has access.
