@@ -33,6 +33,19 @@ model-layer/scripts/install-dev.sh
 所以模型层和 CCR 可以并排跑，先验证再接替。壳必须在**自己启动核心**时才会拉起模型层：
 已经完全退出 AgentOS（包括旧的 core）再重启。
 
+### 切换与回退
+
+```sh
+# 停 CCR、重启 AgentOS（模型层接管 3456/3458）、把全局 claude 指过来
+model-layer/scripts/cutover.sh
+
+# 回退：恢复 settings 备份 + 启动 CCR
+model-layer/scripts/rollback.sh
+```
+
+`cutover.sh` 只杀命令行里带 `claude-code-router` / `ccr` 的监听进程；端口被别的
+进程占着会直接退出，不会误杀。
+
 ## 运行
 
 ```sh
@@ -62,6 +75,7 @@ MODEL_LAYER_CONTROL_TOKEN=... ./target/release/crewchat-model
 | `CCR_WEB_URL` | 从 `service.json` 发现 | 运行中的 CCR 控制面 |
 | `MODEL_LAYER_DISABLED_MODELS` | `$CODEG_DATA_DIR/ccr-disabled-models.json` | 停用清单 |
 | `MODEL_LAYER_IMPORT_ON_START` | `1` | 设为 `0` 跳过导入 |
+| `MODEL_LAYER_APPLY_PROFILE` | `0` | 设为 `1` 时每次 `saveConfig` 也写 `~/.claude/settings.json` |
 
 ### 让 codeg 接过来（切换阶段）
 
@@ -94,19 +108,23 @@ codeg 的模型页、`body_model_face` 和 overlay 不需要改代码。
 
 - Store + 从运行中的 CCR 导入；原始 provider JSON 整段保留。
 - 控制面：`getConfig` / `saveConfig`（revision 409）/ `probeProvider` /
-  `getProviderPresets` / `getGatewayStatus` / 启停 no-op / `applyProfile` 显式 skipped。
-- `/v1/models` 两种 UA；实测与现网 38 个 ID、8 个 `[1m]` 完全一致。
+  `getProviderPresets` / `getGatewayStatus` / 启停 no-op；模型/凭据开关走
+  `saveConfig`，实时生效。
+- `/v1/models` 两种 UA；实测 38 个 ID、8 个 `[1m]` 与现网一致。
 - `/v1/chat/completions`、`/v1/responses` 透传。
 - `/v1/messages` → Chat 翻译：文本、图片、工具调用、工具结果、流式 SSE、stop_reason、usage。
 - 请求级凭据选择（priority + weight），无全局「当前凭据」。
+- 额度：`account.connectors` 的 `http-json` mapping（受限 JSONPath + 四则运算），
+  实测 OpenCode Go 2 条凭据 × 3 个 meter；失败返回缓存 + 错误，不伪造。
+- `applyProfile`：写 `~/.claude/settings.json` + 自己的 `apiKeyHelper`；
+  Agent 会话不依赖它。
+- AgentOS 接线（启动 / 端口回退 / 健康检查）与 `cutover.sh` / `rollback.sh`。
 
 未完成 / 下一步：
 
 - Responses 面的 Anthropic 翻译（目前 Claude 走 Chat；OpenCode Go 的 Chat 端点可用）。
-- 额度 `http-json` connector 求值（现在返回缓存或空，不伪造）。
-- `applyProfile` 写全局 CLI 配置（现在只返回 skipped；Agent 会话不依赖它）。
-- AgentOS 打包/启动接线与 CCR 下线（Phase 5）。
-- Keychain 迁移（现在沿用 CCR 的 0600 SQLite）。
+- 正式打包的 copy phase（开发用 `install-dev.sh` / scheme 已可用）。
+- Keychain 迁移（现在沿用 0600 SQLite）。
 
 ## 测试
 

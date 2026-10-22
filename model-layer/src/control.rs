@@ -66,10 +66,12 @@ async fn rpc(State(app): State<App>, headers: HeaderMap, Json(body): Json<Value>
         "getProviderPresets" => Ok(presets()),
         "getProviderAccountSnapshots" => {
             let provider = args.first().and_then(Value::as_str);
-            app.store
-                .quota_snapshots(provider)
-                .map(|snapshots| json!(snapshots))
-                .map_err(|error| error.to_string())
+            let force = args
+                .get(1)
+                .and_then(|options| options.get("forceRefresh"))
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            Ok(json!(crate::quota::snapshots(&app, provider, force).await))
         }
         "getGatewayStatus" => Ok(json!({
             "state": "running",
@@ -82,10 +84,7 @@ async fn rpc(State(app): State<App>, headers: HeaderMap, Json(body): Json<Value>
             "state": "running",
             "endpoint": app.config.gateway_url(),
         })),
-        "applyProfile" => Ok(json!({
-            "applied": false,
-            "reason": "model-layer does not write global CLI configs; per-agent overlays inject the model",
-        })),
+        "applyProfile" => crate::profile::apply_claude(&app),
         other => Err(format!("unknown method '{other}'")),
     };
 
@@ -126,7 +125,15 @@ async fn save_config(app: &App, config: Option<&Value>) -> Result<Value, String>
     }
     app.store.apply_config(config).map_err(|e| e.to_string())?;
     let revision = app.store.bump_revision().map_err(|e| e.to_string())?;
-    Ok(json!({"configRevision": revision}))
+    let profile = if app.config.apply_profile_on_save {
+        Some(
+            crate::profile::apply_claude(app)
+                .unwrap_or_else(|error| json!({"applied": false, "error": error})),
+        )
+    } else {
+        None
+    };
+    Ok(json!({"configRevision": revision, "profile": profile}))
 }
 
 async fn probe_provider(request: Option<&Value>) -> Result<Value, String> {

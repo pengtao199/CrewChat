@@ -123,6 +123,43 @@ impl Upstream {
         headers
     }
 
+    /// GET a JSON document with the same provider fingerprint used for chat.
+    /// Used by the account/quota connectors.
+    pub async fn get_json(&self, url: &str, api_key: &str) -> Result<Value, UpstreamError> {
+        let mut headers = HeaderMap::new();
+        if let Ok(value) = HeaderValue::from_str(&format!("Bearer {api_key}")) {
+            headers.insert(AUTHORIZATION, value);
+        }
+        if is_opencode(url) {
+            if let Ok(value) = HeaderValue::from_str(&self.opencode_session) {
+                headers.insert("x-opencode-session", value);
+            }
+            headers.insert("x-opencode-client", HeaderValue::from_static("cli"));
+            headers.insert(USER_AGENT, HeaderValue::from_static("opencode/1.18.31"));
+        } else {
+            headers.insert(USER_AGENT, HeaderValue::from_static("crewchat-model/0.1"));
+        }
+        let response = self
+            .client
+            .get(url)
+            .headers(headers)
+            .send()
+            .await
+            .map_err(|error| UpstreamError::bad_gateway(format!("GET {url}: {error}")))?;
+        let status = response.status();
+        let body: Value = response
+            .json()
+            .await
+            .map_err(|error| UpstreamError::bad_gateway(format!("GET {url}: {error}")))?;
+        if !status.is_success() {
+            return Err(UpstreamError {
+                status,
+                message: format!("GET {url} returned {status}: {body}"),
+            });
+        }
+        Ok(body)
+    }
+
     pub async fn probe_models(base_url: &str, api_key: &str) -> Result<Vec<String>, UpstreamError> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(15))

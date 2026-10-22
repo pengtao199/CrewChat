@@ -14,6 +14,8 @@ mod control;
 mod gateway;
 mod import;
 mod model_id;
+mod profile;
+mod quota;
 mod store;
 mod translate;
 mod upstream;

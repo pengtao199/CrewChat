@@ -309,6 +309,7 @@ fn resolve(app: &App, raw: &str) -> Result<Target, ResolveError> {
     model_id::resolve(raw, &views)
 }
 
+#[allow(clippy::result_large_err)]
 fn credential(app: &App, target: &Target) -> Result<String, Response> {
     match app.store.pick_credential(&target.provider_id) {
         Ok(Some(credential)) => Ok(credential.api_key),
@@ -329,6 +330,7 @@ fn credential(app: &App, target: &Target) -> Result<String, Response> {
     }
 }
 
+#[allow(clippy::result_large_err)]
 fn check_auth(app: &App, headers: &HeaderMap, anthropic: bool) -> Result<(), Response> {
     let configured = app.store.has_caller_keys().unwrap_or(false);
     if !configured {

@@ -23,6 +23,9 @@ pub struct Config {
     /// `ccr-disabled-models.json` owned by codeg, if it exists.
     pub disabled_models_path: Option<PathBuf>,
     pub import_on_start: bool,
+    /// Rewrite `~/.claude/settings.json` on every model-page save. Off by
+    /// default so side-by-side testing does not move the user's global CLI.
+    pub apply_profile_on_save: bool,
 }
 
 impl Config {
@@ -53,7 +56,7 @@ impl Config {
             });
 
         let import_on_start = env_bool("MODEL_LAYER_IMPORT_ON_START").unwrap_or(true);
-
+        let apply_profile_on_save = env_bool("MODEL_LAYER_APPLY_PROFILE").unwrap_or(false);
         Ok(Self {
             data_dir,
             host,
@@ -65,6 +68,7 @@ impl Config {
             ccr_web_token,
             disabled_models_path,
             import_on_start,
+            apply_profile_on_save,
         })
     }
 
@@ -195,6 +199,7 @@ mod tests {
             ccr_web_token: None,
             disabled_models_path: None,
             import_on_start: false,
+            apply_profile_on_save: false,
         };
         assert_eq!(cfg.db_path(), PathBuf::from("/tmp/x/model.db"));
         assert_eq!(cfg.gateway_url(), "http://127.0.0.1:3456");

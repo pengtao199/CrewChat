@@ -505,6 +505,18 @@ impl Store {
         Ok(hit.is_some())
     }
 
+    pub fn local_gateway_key(&self) -> Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let key: Option<String> = conn
+            .query_row(
+                "SELECT key FROM caller_keys WHERE id = 'local-gateway' AND enabled = 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(key)
+    }
+
     pub fn has_caller_keys(&self) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
         let count: i64 = conn.query_row(
@@ -559,6 +571,40 @@ impl Store {
         Ok(rows)
     }
 
+    pub fn quota_snapshot(&self, credential_id: &str) -> Result<Option<(Value, String)>> {
+        let conn = self.conn.lock().unwrap();
+        let row: Option<(String, String)> = conn
+            .query_row(
+                "SELECT meters_json, fetched_at FROM quota_snapshots WHERE credential_id = ?1",
+                params![credential_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        Ok(row.and_then(|(meters, fetched_at)| {
+            serde_json::from_str::<Value>(&meters)
+                .ok()
+                .map(|value| (value, fetched_at))
+        }))
+    }
+
+    pub fn save_quota_snapshot(&self, credential_id: &str, meters: &Value) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO quota_snapshots (credential_id, meters_json, fetched_at)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(credential_id) DO UPDATE SET
+                meters_json = excluded.meters_json,
+                fetched_at = excluded.fetched_at",
+            params![
+                credential_id,
+                serde_json::to_string(meters)?,
+                crate::config::now()
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[allow(dead_code)]
     pub fn quota_snapshots(&self, provider: Option<&str>) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
