@@ -199,6 +199,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
             "MODEL_LAYER_CONTROL_PORT": String(controlPort),
             "MODEL_LAYER_HOST": "127.0.0.1",
             "MODEL_LAYER_IMPORT_ON_START": "1",
+            "MODEL_LAYER_APPLY_PROFILE": CoreBinaryLocator.isModelLayerRequired() ? "1" : "0",
             "MODEL_LAYER_DISABLED_MODELS": disabled.path,
         ]
 

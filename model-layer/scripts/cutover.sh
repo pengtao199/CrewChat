@@ -6,29 +6,6 @@
 set -euo pipefail
 
 PLIST="$HOME/Library/LaunchAgents/com.crewchat.ccr.plist"
-
-echo "==> stopping CCR launchd job"
-launchctl bootout "gui/$UID" "$PLIST" 2>/dev/null || true
-
-echo "==> stopping processes still listening on 3456/3458"
-for port in 3456 3458; do
-  while read -r pid; do
-    [[ -z "$pid" ]] && continue
-    command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
-    if [[ "$command" == *claude-code-router* || "$command" == *ccr* ]]; then
-      echo "    kill $pid ($port): $command"
-      kill "$pid" 2>/dev/null || true
-    else
-      echo "    port $port is held by a non-CCR process; aborting: $command" >&2
-      exit 1
-    fi
-  done < <(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null || true)
-done
-
-echo "==> quitting AgentOS"
-osascript -e 'tell application "AgentOS" to quit' 2>/dev/null || true
-sleep 2
-
 APP="$(find "$HOME/Library/Developer/Xcode/DerivedData" \
   -path '*/Build/Products/Debug/AgentOS.app' -maxdepth 6 -print 2>/dev/null | head -n 1)"
 if [[ -z "$APP" ]]; then
@@ -39,11 +16,38 @@ if [[ ! -d "$APP" ]]; then
   exit 1
 fi
 
-echo "==> installing crewchat-model into the app"
+echo "==> quitting AgentOS"
+osascript -e 'tell application "AgentOS" to quit' 2>/dev/null || true
+sleep 2
+
+echo "==> building and installing crewchat-model into $APP"
 "$(dirname "$0")/install-dev.sh" "$APP"
+
+echo "==> stopping CCR launchd job"
+launchctl bootout "gui/$UID" "$PLIST" 2>/dev/null || true
+
+echo "==> stopping CCR processes still listening on 3456/3458"
+for port in 3456 3458; do
+  while read -r pid; do
+    [[ -z "$pid" ]] && continue
+    command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+    if [[ "$command" == *crewchat-model* ]]; then
+      continue
+    fi
+    if [[ "$command" == *claude-code-router* || "$command" == *ccr* ]]; then
+      echo "    kill $pid ($port): $command"
+      kill "$pid" 2>/dev/null || true
+    else
+      echo "    port $port is held by a non-CCR process; aborting: $command" >&2
+      exit 1
+    fi
+  done < <(lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null || true)
+done
 
 DATA="${MODEL_LAYER_DATA_DIR:-$HOME/Library/Application Support/AgentOS/model}"
 mkdir -p "$DATA"
+# From this point on a missing model layer is a hard error, not a silent
+# fallback to CCR. Remove this file (or run rollback.sh) to undo it.
 touch "$DATA/required"
 
 echo "==> relaunching $APP"
@@ -58,6 +62,7 @@ for _ in $(seq 1 60); do
 done
 curl -sf http://127.0.0.1:3456/health >/dev/null || {
   echo "model layer did not become healthy; see ~/Library/Logs/AgentOS/model-layer.log" >&2
+  echo "rollback: model-layer/scripts/rollback.sh" >&2
   exit 1
 }
 
