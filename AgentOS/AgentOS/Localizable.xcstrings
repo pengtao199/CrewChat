@@ -1607,6 +1607,481 @@
         }
       }
     },
+    "settings.leave.discard": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃"
+          }
+        }
+      }
+    },
+    "settings.leave.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前编辑还没有保存，离开后会丢失。"
+          }
+        }
+      }
+    },
+    "settings.leave.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃未保存的修改？"
+          }
+        }
+      }
+    },
+    "settings.mcp": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MCP"
+          }
+        }
+      }
+    },
+    "settings.mcp.add": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加 MCP 服务"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.antigravity": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Antigravity"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.claudeCode": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.cline": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cline"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.codeBuddy": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "CodeBuddy"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.codex": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codex"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.cursor": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cursor"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.deepseek": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "DeepSeek"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.gemini": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.grok": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grok"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.hermes": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hermes"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.kimiCode": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kimi Code"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.openClaw": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenClaw"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.openCode": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.pi": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pi"
+          }
+        }
+      }
+    },
+    "settings.mcp.app.qoder": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qoder"
+          }
+        }
+      }
+    },
+    "settings.mcp.appCount": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个 CLI"
+          }
+        }
+      }
+    },
+    "settings.mcp.apps": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "写入的 CLI"
+          }
+        }
+      }
+    },
+    "settings.mcp.appsHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存会把这个服务写进勾选的 CLI，并从没勾选的 CLI 移除。"
+          }
+        }
+      }
+    },
+    "settings.mcp.basic": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基本信息"
+          }
+        }
+      }
+    },
+    "settings.mcp.delete.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” 会从所有 CLI 配置里移除。"
+          }
+        }
+      }
+    },
+    "settings.mcp.delete.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这个 MCP 服务？"
+          }
+        }
+      }
+    },
+    "settings.mcp.edit": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑 MCP 服务"
+          }
+        }
+      }
+    },
+    "settings.mcp.empty.description": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加一个本地 MCP 服务，选择要写入的 CLI。"
+          }
+        }
+      }
+    },
+    "settings.mcp.empty.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有 MCP 服务"
+          }
+        }
+      }
+    },
+    "settings.mcp.id": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务 ID"
+          }
+        }
+      }
+    },
+    "settings.mcp.jsonInvalid": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JSON 格式错误。"
+          }
+        }
+      }
+    },
+    "settings.mcp.new": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建 MCP 服务"
+          }
+        }
+      }
+    },
+    "settings.mcp.noApps": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未写入任何 CLI"
+          }
+        }
+      }
+    },
+    "settings.mcp.objectRequired": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置必须是一个 JSON 对象。"
+          }
+        }
+      }
+    },
+    "settings.mcp.refresh": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷新"
+          }
+        }
+      }
+    },
+    "settings.mcp.retry": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
+    "settings.mcp.search": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索 MCP"
+          }
+        }
+      }
+    },
+    "settings.mcp.selectedApps": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已选 %lld 个 CLI"
+          }
+        }
+      }
+    },
+    "settings.mcp.spec": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "配置 JSON"
+          }
+        }
+      }
+    },
+    "settings.mcp.specHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "直接编辑写入 CLI 配置的对象；类型支持 stdio / http / sse。"
+          }
+        }
+      }
+    },
+    "settings.mcp.summary": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "摘要"
+          }
+        }
+      }
+    },
+    "settings.mcp.template": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模板"
+          }
+        }
+      }
+    },
+    "settings.mcp.template.http": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP 地址"
+          }
+        }
+      }
+    },
+    "settings.mcp.template.stdio": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "stdio 命令"
+          }
+        }
+      }
+    },
+    "settings.mcp.type": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "类型"
+          }
+        }
+      }
+    },
+    "settings.mcp.warnings": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 个配置读取失败"
+          }
+        }
+      }
+    },
     "settings.models": {
       "localizations": {
         "zh-Hans": {
@@ -2234,6 +2709,398 @@
         }
       }
     },
+    "settings.skills": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "技能"
+          }
+        }
+      }
+    },
+    "settings.skills.content": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容"
+          }
+        }
+      }
+    },
+    "settings.skills.create": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建"
+          }
+        }
+      }
+    },
+    "settings.skills.delete.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” 会从磁盘删除，无法撤销。"
+          }
+        }
+      }
+    },
+    "settings.skills.delete.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除这个技能？"
+          }
+        }
+      }
+    },
+    "settings.skills.discard": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃"
+          }
+        }
+      }
+    },
+    "settings.skills.discard.message": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前技能内容还没有保存。"
+          }
+        }
+      }
+    },
+    "settings.skills.discard.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "放弃未保存的修改？"
+          }
+        }
+      }
+    },
+    "settings.skills.edit": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑"
+          }
+        }
+      }
+    },
+    "settings.skills.empty.description": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "为这个 CLI 创建第一个技能。"
+          }
+        }
+      }
+    },
+    "settings.skills.empty.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有技能"
+          }
+        }
+      }
+    },
+    "settings.skills.engine": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "引擎"
+          }
+        }
+      }
+    },
+    "settings.skills.id": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "技能 ID"
+          }
+        }
+      }
+    },
+    "settings.skills.idExists": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个 ID 已存在，请换一个。"
+          }
+        }
+      }
+    },
+    "settings.skills.info": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "基本信息"
+          }
+        }
+      }
+    },
+    "settings.skills.layout": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "形式"
+          }
+        }
+      }
+    },
+    "settings.skills.layout.directory": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "技能目录"
+          }
+        }
+      }
+    },
+    "settings.skills.layout.markdown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "单文件"
+          }
+        }
+      }
+    },
+    "settings.skills.loadFailed": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内容读取失败"
+          }
+        }
+      }
+    },
+    "settings.skills.name": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名字"
+          }
+        }
+      }
+    },
+    "settings.skills.needsWorkspace": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先在侧边栏打开一个项目，才能管理项目级技能。"
+          }
+        }
+      }
+    },
+    "settings.skills.needsWorkspace.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先选择项目"
+          }
+        }
+      }
+    },
+    "settings.skills.new": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建技能"
+          }
+        }
+      }
+    },
+    "settings.skills.noWorkspace": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有打开的项目"
+          }
+        }
+      }
+    },
+    "settings.skills.path": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路径"
+          }
+        }
+      }
+    },
+    "settings.skills.preview": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预览"
+          }
+        }
+      }
+    },
+    "settings.skills.readOnly": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "内置技能，只读"
+          }
+        }
+      }
+    },
+    "settings.skills.refresh": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷新"
+          }
+        }
+      }
+    },
+    "settings.skills.retry": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重试"
+          }
+        }
+      }
+    },
+    "settings.skills.save": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存"
+          }
+        }
+      }
+    },
+    "settings.skills.scope": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "范围"
+          }
+        }
+      }
+    },
+    "settings.skills.scope.global": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全局"
+          }
+        }
+      }
+    },
+    "settings.skills.scope.project": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "项目"
+          }
+        }
+      }
+    },
+    "settings.skills.search": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索技能"
+          }
+        }
+      }
+    },
+    "settings.skills.template": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用模板"
+          }
+        }
+      }
+    },
+    "settings.skills.unsaved": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未保存"
+          }
+        }
+      }
+    },
+    "settings.skills.unsupported": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个 CLI 暂不支持在设置里管理技能。"
+          }
+        }
+      }
+    },
+    "settings.skills.unsupported.title": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不支持技能管理"
+          }
+        }
+      }
+    },
+    "settings.skills.workspace": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "项目"
+          }
+        }
+      }
+    },
     "settings.title": {
       "localizations": {
         "zh-Hans": {
@@ -2579,852 +3446,12 @@
         }
       }
     },
-    "settings.skills": {
+    "settings.skills.empty.hint": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "技能"
-          }
-        }
-      }
-    },
-    "settings.skills.engine": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "引擎"
-          }
-        }
-      }
-    },
-    "settings.skills.scope": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "范围"
-          }
-        }
-      }
-    },
-    "settings.skills.scope.global": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "全局"
-          }
-        }
-      }
-    },
-    "settings.skills.scope.project": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "项目"
-          }
-        }
-      }
-    },
-    "settings.skills.workspace": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "项目"
-          }
-        }
-      }
-    },
-    "settings.skills.noWorkspace": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有打开的项目"
-          }
-        }
-      }
-    },
-    "settings.skills.search": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索技能"
-          }
-        }
-      }
-    },
-    "settings.skills.empty.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还没有技能"
-          }
-        }
-      }
-    },
-    "settings.skills.empty.description": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "为这个 CLI 创建第一个技能。"
-          }
-        }
-      }
-    },
-    "settings.skills.unsupported.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不支持技能管理"
-          }
-        }
-      }
-    },
-    "settings.skills.unsupported": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这个 CLI 暂不支持在设置里管理技能。"
-          }
-        }
-      }
-    },
-    "settings.skills.needsWorkspace": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先在侧边栏打开一个项目，才能管理项目级技能。"
-          }
-        }
-      }
-    },
-    "settings.skills.needsWorkspace.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "先选择项目"
-          }
-        }
-      }
-    },
-    "settings.skills.info": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "基本信息"
-          }
-        }
-      }
-    },
-    "settings.skills.name": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "名字"
-          }
-        }
-      }
-    },
-    "settings.skills.id": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "技能 ID"
-          }
-        }
-      }
-    },
-    "settings.skills.path": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "路径"
-          }
-        }
-      }
-    },
-    "settings.skills.layout": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "形式"
-          }
-        }
-      }
-    },
-    "settings.skills.layout.directory": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "技能目录"
-          }
-        }
-      }
-    },
-    "settings.skills.layout.markdown": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "单文件"
-          }
-        }
-      }
-    },
-    "settings.skills.readOnly": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "内置技能，只读"
-          }
-        }
-      }
-    },
-    "settings.skills.content": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "内容"
-          }
-        }
-      }
-    },
-    "settings.skills.edit": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑"
-          }
-        }
-      }
-    },
-    "settings.skills.preview": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "预览"
-          }
-        }
-      }
-    },
-    "settings.skills.save": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存"
-          }
-        }
-      }
-    },
-    "settings.skills.unsaved": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未保存"
-          }
-        }
-      }
-    },
-    "settings.skills.new": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新建技能"
-          }
-        }
-      }
-    },
-    "settings.skills.create": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "创建"
-          }
-        }
-      }
-    },
-    "settings.skills.template": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使用模板"
-          }
-        }
-      }
-    },
-    "settings.skills.refresh": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "刷新"
-          }
-        }
-      }
-    },
-    "settings.skills.retry": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重试"
-          }
-        }
-      }
-    },
-    "settings.skills.delete.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除这个技能？"
-          }
-        }
-      }
-    },
-    "settings.skills.delete.message": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“%@” 会从磁盘删除，无法撤销。"
-          }
-        }
-      }
-    },
-    "settings.skills.discard.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "放弃未保存的修改？"
-          }
-        }
-      }
-    },
-    "settings.skills.discard.message": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前技能内容还没有保存。"
-          }
-        }
-      }
-    },
-    "settings.skills.discard": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "放弃"
-          }
-        }
-      }
-    },
-    "settings.skills.loadFailed": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "内容读取失败"
-          }
-        }
-      }
-    },
-    "settings.mcp": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MCP"
-          }
-        }
-      }
-    },
-    "settings.mcp.add": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加 MCP 服务"
-          }
-        }
-      }
-    },
-    "settings.mcp.new": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新建 MCP 服务"
-          }
-        }
-      }
-    },
-    "settings.mcp.edit": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "编辑 MCP 服务"
-          }
-        }
-      }
-    },
-    "settings.mcp.refresh": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "刷新"
-          }
-        }
-      }
-    },
-    "settings.mcp.retry": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "重试"
-          }
-        }
-      }
-    },
-    "settings.mcp.search": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "搜索 MCP"
-          }
-        }
-      }
-    },
-    "settings.mcp.empty.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还没有 MCP 服务"
-          }
-        }
-      }
-    },
-    "settings.mcp.empty.description": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加一个本地 MCP 服务，选择要写入的 CLI。"
-          }
-        }
-      }
-    },
-    "settings.mcp.basic": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "基本信息"
-          }
-        }
-      }
-    },
-    "settings.mcp.id": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "服务 ID"
-          }
-        }
-      }
-    },
-    "settings.mcp.type": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "类型"
-          }
-        }
-      }
-    },
-    "settings.mcp.apps": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "写入的 CLI"
-          }
-        }
-      }
-    },
-    "settings.mcp.noApps": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "未写入任何 CLI"
-          }
-        }
-      }
-    },
-    "settings.mcp.summary": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "摘要"
-          }
-        }
-      }
-    },
-    "settings.mcp.spec": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配置 JSON"
-          }
-        }
-      }
-    },
-    "settings.mcp.specHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "直接编辑写入 CLI 配置的对象；类型支持 stdio / http / sse。"
-          }
-        }
-      }
-    },
-    "settings.mcp.template": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "模板"
-          }
-        }
-      }
-    },
-    "settings.mcp.template.stdio": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "stdio 命令"
-          }
-        }
-      }
-    },
-    "settings.mcp.template.http": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "HTTP 地址"
-          }
-        }
-      }
-    },
-    "settings.mcp.appCount": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld 个 CLI"
-          }
-        }
-      }
-    },
-    "settings.mcp.selectedApps": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已选 %lld 个 CLI"
-          }
-        }
-      }
-    },
-    "settings.mcp.appsHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "保存会把这个服务写进勾选的 CLI，并从没勾选的 CLI 移除。"
-          }
-        }
-      }
-    },
-    "settings.mcp.warnings": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld 个配置读取失败"
-          }
-        }
-      }
-    },
-    "settings.mcp.delete.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "删除这个 MCP 服务？"
-          }
-        }
-      }
-    },
-    "settings.mcp.delete.message": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "“%@” 会从所有 CLI 配置里移除。"
-          }
-        }
-      }
-    },
-    "settings.mcp.jsonInvalid": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "JSON 格式错误。"
-          }
-        }
-      }
-    },
-    "settings.mcp.objectRequired": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "配置必须是一个 JSON 对象。"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.claudeCode": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Claude Code"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.codex": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Codex"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.gemini": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gemini"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.openCode": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "OpenCode"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.openClaw": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "OpenClaw"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.cline": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cline"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.hermes": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hermes"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.codeBuddy": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "CodeBuddy"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.kimiCode": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kimi Code"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.grok": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Grok"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.cursor": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cursor"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.deepseek": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "DeepSeek"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.qoder": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Qoder"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.antigravity": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Antigravity"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.pi": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pi"
-          }
-        }
-      }
-    },
-    "settings.leave.title": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "放弃未保存的修改？"
-          }
-        }
-      }
-    },
-    "settings.leave.message": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "当前编辑还没有保存，离开后会丢失。"
-          }
-        }
-      }
-    },
-    "settings.leave.discard": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "放弃"
-          }
-        }
-      }
-    },
-    "settings.skills.idExists": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这个 ID 已存在，请换一个。"
+            "value": "这个引擎没有技能。Codex / OpenCode 会读取共享的 ~/.agents/skills。"
           }
         }
       }

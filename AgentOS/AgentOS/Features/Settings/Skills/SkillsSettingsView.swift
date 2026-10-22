@@ -169,11 +169,16 @@ struct SkillsSettingsView: View {
                     .controlSize(.small)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if filteredSkills.isEmpty {
-                Text("settings.skills.empty.title")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(20)
+                VStack(spacing: 4) {
+                    Text("settings.skills.empty.title")
+                        .font(.callout)
+                    Text("settings.skills.empty.hint")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(20)
                 Spacer()
             } else {
                 List(filteredSkills, selection: selectionBinding) { skill in

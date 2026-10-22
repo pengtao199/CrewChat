@@ -63,9 +63,14 @@ final class SkillsSettingsViewModel {
         workspaces = (try? await workspaceRows) ?? []
 
         if agentType.isEmpty {
-            agentType = engines.first(where: { $0.available && $0.enabled })?.agentType
-                ?? engines.first?.agentType
-                ?? ""
+            let saved = UserDefaults.standard.string(forKey: "settings.skills.engine")
+            if let saved, engines.contains(where: { $0.agentType == saved }) {
+                agentType = saved
+            } else {
+                agentType = engines.first(where: { $0.available && $0.enabled })?.agentType
+                    ?? engines.first?.agentType
+                    ?? ""
+            }
         }
         if scope == .project, workspaceID == nil {
             workspaceID = workspaces.first?.id
@@ -92,6 +97,7 @@ final class SkillsSettingsViewModel {
 
         isLoading = true
         errorMessage = nil
+        UserDefaults.standard.set(agentType, forKey: "settings.skills.engine")
 
         do {
             catalog = try await skills.catalog(
