@@ -57,6 +57,11 @@
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
+            key = "AGENTOS_MODEL_BINARY"
+            value = "$(SRCROOT)/../model-layer/target/debug/crewchat-model"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
             key = "CCR_BIN"
             value = "$(SRCROOT)/../.data/ccr/node_modules/.bin/ccr"
             isEnabled = "YES">
