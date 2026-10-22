@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct ModelsSettingsView: View {
@@ -6,9 +7,8 @@ struct ModelsSettingsView: View {
     @State private var accounts: [CCRAccount] = []
     @State private var isLoadingAccounts = false
     @State private var accountsError: String?
-    @State private var revealed: Set<String> = []
-    @State private var modelsExpanded = true
-    @State private var accountsExpanded = true
+    @State private var togglingModel: String?
+    @State private var togglingCredential: String?
     @State private var editor: EditorTarget?
     @State private var confirmDelete = false
     @State private var actionError: String?
@@ -118,7 +118,7 @@ struct ModelsSettingsView: View {
             selectFirstIfNeeded()
         }
         .task(id: selection) {
-            revealed.removeAll()
+            actionError = nil
             await loadAccounts(forceRefresh: false)
         }
     }
@@ -169,50 +169,56 @@ struct ModelsSettingsView: View {
                 }
             }
 
-            Section("settings.models.basic") {
-                LabeledContent("settings.models.name", value: provider.name)
-                LabeledContent("settings.models.type", value: provider.type)
-                LabeledContent("settings.models.enabled") {
-                    Label(
-                        provider.enabled ? "common.yes" : "common.no",
-                        systemImage: provider.enabled ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-                    )
-                    .foregroundStyle(provider.enabled ? .green : .orange)
-                }
-                LabeledContent("settings.models.baseURL") {
-                    Text(provider.baseURL)
-                        .textSelection(.enabled)
-                }
-            }
-
-            Section("settings.models.credentials") {
+            Section {
                 if provider.credentials.isEmpty {
                     Text("settings.models.noCredentials")
                         .foregroundStyle(.secondary)
-                }
-                ForEach(provider.credentials) { credential in
-                    LabeledContent(credential.name) {
+                } else {
+                    ForEach(
+                        Array(provider.credentials.enumerated()),
+                        id: \.element.id
+                    ) { index, credential in
                         HStack(spacing: 8) {
-                            Text(revealed.contains(credential.id) ? credential.apiKey : credential.masked)
+                            Text("\(index + 1)")
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                                .frame(width: 18, alignment: .trailing)
+                            Text(credential.name)
+                            Text(credential.keyTail)
+                                .font(.caption)
                                 .monospaced()
-                                .textSelection(.enabled)
-                            Button {
-                                if revealed.contains(credential.id) {
-                                    revealed.remove(credential.id)
-                                } else {
-                                    revealed.insert(credential.id)
-                                }
-                            } label: {
-                                Image(systemName: revealed.contains(credential.id) ? "eye.slash" : "eye")
-                            }
-                            .buttonStyle(.borderless)
-                            .help(revealed.contains(credential.id) ? "settings.models.hideKey" : "settings.models.showKey")
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 8)
+                            Toggle(
+                                "",
+                                isOn: Binding(
+                                    get: { credential.enabled },
+                                    set: { enabled in
+                                        Task {
+                                            await setCredentialEnabled(
+                                                provider,
+                                                credential,
+                                                enabled
+                                            )
+                                        }
+                                    }
+                                )
+                            )
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .disabled(
+                                credential.isSynthetic
+                                    || togglingCredential == credential.id
+                            )
                         }
                     }
                 }
+            } header: {
+                Text("settings.models.credentials")
             }
 
-            Section("settings.models.accounts", isExpanded: $accountsExpanded) {
+            Section {
                 if isLoadingAccounts {
                     ProgressView().controlSize(.small)
                 } else if let accountsError {
@@ -232,46 +238,69 @@ struct ModelsSettingsView: View {
                         accountRow(account)
                     }
                 }
-            }
-
-            Section("settings.models.models", isExpanded: $modelsExpanded) {
-                ForEach(provider.models, id: \.self) { model in
-                    Text(model)
-                        .textSelection(.enabled)
-                }
-            }
-
-            Section("settings.models.ccr") {
-                LabeledContent("settings.models.ccrURL", value: model.health?.url ?? "—")
-                LabeledContent("settings.models.token") {
-                    Text(tokenKey)
-                        .foregroundStyle(tokenColor)
+            } header: {
+                HStack(spacing: 8) {
+                    Text("settings.models.usage")
+                    Spacer()
+                    Button {
+                        Task { await loadAccounts(forceRefresh: true) }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .disabled(isLoadingAccounts)
+                    .help("settings.models.refresh")
                 }
             }
 
             Section {
-                HStack {
-                    Button("common.edit") {
-                        editor = .edit(provider)
+                if listedModels(for: provider).isEmpty {
+                    Text("settings.models.modelsEmpty")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(listedModels(for: provider), id: \.self) { modelID in
+                        HStack(spacing: 8) {
+                            Text(modelID)
+                                .font(.callout)
+                                .monospaced()
+                                .textSelection(.enabled)
+                            Spacer(minLength: 8)
+                            Toggle(
+                                "",
+                                isOn: Binding(
+                                    get: { provider.models.contains(modelID) },
+                                    set: { enabled in
+                                        Task {
+                                            await setModelEnabled(
+                                                provider,
+                                                modelID: modelID,
+                                                enabled
+                                            )
+                                        }
+                                    }
+                                )
+                            )
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .disabled(togglingModel == modelID)
+                        }
                     }
-                    Button("common.delete", role: .destructive) {
-                        confirmDelete = true
-                    }
-                    Spacer()
+                }
+            } header: {
+                HStack(spacing: 4) {
+                    Text("settings.models.models")
+                    Text(verbatim: "(\(listedModels(for: provider).count))")
+                        .foregroundStyle(.secondary)
                 }
             }
         }
         .formStyle(.grouped)
     }
 
-    private var tokenKey: LocalizedStringKey {
-        model.health?.tokenConfigured == true
-            ? "settings.models.token.ok"
-            : "settings.models.token.missing"
-    }
-
-    private var tokenColor: Color {
-        model.health?.tokenConfigured == true ? .green : .orange
+    private func listedModels(for provider: CCRProvider) -> [String] {
+        Array(Set(provider.models + provider.disabledModels)).sorted()
     }
 
     private func accountRow(_ account: CCRAccount) -> some View {
@@ -284,7 +313,7 @@ struct ModelsSettingsView: View {
             }
 
             ForEach(account.meters) { meter in
-                LabeledContent(meter.label) {
+                LabeledContent(meterLabel(meter)) {
                     Text(meterText(meter))
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
@@ -294,14 +323,80 @@ struct ModelsSettingsView: View {
         .padding(.vertical, 2)
     }
 
-    private func meterText(_ meter: CCRMeter) -> String {
-        let remaining = meter.remaining.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—"
-        let limit = meter.limit.map { $0.formatted(.number.precision(.fractionLength(0...1))) } ?? "—"
-        var text = "\(remaining) / \(limit) \(meter.unit)"
-        if let window = meter.window, !window.isEmpty {
-            text += " · \(window)"
+    private func meterLabel(_ meter: CCRMeter) -> String {
+        guard let window = meter.window, !window.isEmpty else {
+            return meter.label
         }
-        return text
+        return "\(meter.label) (\(window))"
+    }
+
+    private func meterText(_ meter: CCRMeter) -> String {
+        let unit = meter.unit
+        let text: String
+
+        if let remaining = meter.remaining {
+            if let limit = meter.limit {
+                text = "\(numberText(remaining))/\(numberText(limit)) \(unit)"
+            } else {
+                text = "\(numberText(remaining)) \(unit)"
+            }
+        } else if let used = meter.used {
+            text = "\(numberText(used)) \(unit)"
+        } else {
+            text = ""
+        }
+
+        return text.trimmingCharacters(in: .whitespaces)
+    }
+
+    private func numberText(_ value: Double) -> String {
+        value == value.rounded()
+            ? String(Int(value))
+            : String(format: "%.1f", value)
+    }
+
+    private func setModelEnabled(
+        _ provider: CCRProvider,
+        modelID: String,
+        _ enabled: Bool
+    ) async {
+        togglingModel = modelID
+        actionError = nil
+
+        do {
+            try await model.setModelEnabled(
+                providerID: provider.id,
+                modelID: modelID,
+                enabled: enabled
+            )
+        } catch {
+            actionError = error.localizedDescription
+            await model.load()
+        }
+
+        togglingModel = nil
+    }
+
+    private func setCredentialEnabled(
+        _ provider: CCRProvider,
+        _ credential: CCRCredential,
+        _ enabled: Bool
+    ) async {
+        togglingCredential = credential.id
+        actionError = nil
+
+        do {
+            try await model.setCredentialEnabled(
+                providerID: provider.id,
+                credentialID: credential.id,
+                enabled: enabled
+            )
+        } catch {
+            actionError = error.localizedDescription
+            await model.load()
+        }
+
+        togglingCredential = nil
     }
 
     private func selectFirstIfNeeded() {

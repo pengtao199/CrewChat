@@ -21,6 +21,7 @@ struct CoreCCRProvider: Decodable, Sendable {
     let enabled: Bool?
     let models: [String]?
     let credentials: [CoreCCRCredential]?
+    let disabledModels: [String]?
     let apiKey: String?
 
     enum CodingKeys: String, CodingKey {
@@ -32,6 +33,7 @@ struct CoreCCRProvider: Decodable, Sendable {
         case enabled
         case models
         case credentials
+        case disabledModels
         case apiKey = "api_key"
         case apiKeyAlt = "apiKey"
         case apikey
@@ -47,6 +49,7 @@ struct CoreCCRProvider: Decodable, Sendable {
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
         models = try container.decodeIfPresent([String].self, forKey: .models)
         credentials = try container.decodeIfPresent([CoreCCRCredential].self, forKey: .credentials)
+        disabledModels = try container.decodeIfPresent([String].self, forKey: .disabledModels)
         apiKey = try container.decodeIfPresent(String.self, forKey: .apiKey)
             ?? container.decodeIfPresent(String.self, forKey: .apiKeyAlt)
             ?? container.decodeIfPresent(String.self, forKey: .apikey)
@@ -59,6 +62,9 @@ struct CoreCCRCredential: Decodable, Sendable {
     let label: String?
     let apiKey: String?
     let enabled: Bool?
+    let priority: Int?
+    let weight: Double?
+    let limits: JSONValue?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -68,6 +74,9 @@ struct CoreCCRCredential: Decodable, Sendable {
         case apiKeyAlt = "apiKey"
         case apikey = "apikey"
         case enabled
+        case priority
+        case weight
+        case limits
     }
 
     init(from decoder: Decoder) throws {
@@ -79,6 +88,9 @@ struct CoreCCRCredential: Decodable, Sendable {
             ?? container.decodeIfPresent(String.self, forKey: .apiKeyAlt)
             ?? container.decodeIfPresent(String.self, forKey: .apikey)
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        priority = try container.decodeIfPresent(Int.self, forKey: .priority)
+        weight = try container.decodeIfPresent(Double.self, forKey: .weight)
+        limits = try container.decodeIfPresent(JSONValue.self, forKey: .limits)
     }
 }
 
@@ -125,20 +137,18 @@ struct CoreCCRProviderSave: Encodable {
     let name: String
     let baseURL: String
     let protocolName: String
-    let apiKey: String?
-    let clearApiKey: Bool
     let enabled: Bool
     let models: [String]
+    let credentials: [CoreCCRCredentialSave]
 
     enum CodingKeys: String, CodingKey {
         case originalId
         case name
         case baseURL = "baseUrl"
         case protocolName = "protocol"
-        case apiKey
-        case clearApiKey
         case enabled
         case models
+        case credentials
     }
 
     init(_ draft: CCRProviderDraft) {
@@ -146,11 +156,30 @@ struct CoreCCRProviderSave: Encodable {
         name = draft.name
         baseURL = draft.baseURL
         protocolName = draft.protocolName
-        apiKey = draft.apiKey
-        clearApiKey = draft.clearAPIKey
         enabled = draft.enabled
         models = draft.models
+        credentials = draft.credentials.map { credential in
+            CoreCCRCredentialSave(
+                id: credential.id?.isEmpty == false ? credential.id : nil,
+                name: credential.name,
+                apiKey: credential.apiKey,
+                priority: credential.priority,
+                weight: credential.weight,
+                limits: credential.limits ?? .null,
+                enabled: credential.enabled
+            )
+        }
     }
+}
+
+struct CoreCCRCredentialSave: Encodable {
+    let id: String?
+    let name: String
+    let apiKey: String
+    let priority: Int?
+    let weight: Double?
+    let limits: JSONValue
+    let enabled: Bool
 }
 
 struct CoreCCRIdBody: Encodable {
@@ -171,4 +200,41 @@ struct CoreCCRProbeResult: Decodable, Sendable {
     let models: [String]
     let normalizedBaseUrl: String?
     let detectedProtocol: String?
+}
+
+struct CoreCCRModelToggle: Encodable {
+    let providerId: String
+    let model: String
+    let enabled: Bool
+}
+
+struct CoreCCRCredentialToggle: Encodable {
+    let providerId: String
+    let credentialId: String
+    let enabled: Bool
+}
+
+struct CoreCCRPreset: Decodable, Sendable {
+    let id: String
+    let name: String
+    let endpoints: [CoreCCRPresetEndpoint]?
+    let defaultModels: [String]?
+
+    var domain: CCRProviderPreset {
+        CCRProviderPreset(
+            id: id,
+            name: name,
+            endpoints: (endpoints ?? []).map(\.domain),
+            defaultModels: defaultModels ?? []
+        )
+    }
+}
+
+struct CoreCCRPresetEndpoint: Decodable, Sendable {
+    let baseUrl: String
+    let protocols: [String]?
+
+    var domain: CCRPresetEndpoint {
+        CCRPresetEndpoint(baseURL: baseUrl, protocols: protocols ?? [])
+    }
 }

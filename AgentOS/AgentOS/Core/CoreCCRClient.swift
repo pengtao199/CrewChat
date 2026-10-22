@@ -21,7 +21,23 @@ final class CoreCCRClient: CoreCCR, @unchecked Sendable {
             "ccr_call",
             body: CoreCCRCall(method: "getConfig", args: [])
         )
-        return config.providers.map(\.domain)
+        // Models the user switched off live in a core-owned file, not in the
+        // CCR provider (its loader would drop an unknown field).
+        let disabled: [String: [String]] = (try? await provider.client().send(
+            "ccr_disabled_models",
+            body: EmptyBody()
+        )) ?? [:]
+        return config.providers.map {
+            $0.domain(disabledModels: disabled[$0.id ?? $0.name] ?? [])
+        }
+    }
+
+    func presets() async throws -> [CCRProviderPreset] {
+        let rows: [CoreCCRPreset] = try await provider.client().send(
+            "ccr_call",
+            body: CoreCCRCall(method: "getProviderPresets", args: [])
+        )
+        return rows.map(\.domain)
     }
 
     func accounts(provider name: String, forceRefresh: Bool) async throws -> [CCRAccount] {
@@ -40,13 +56,35 @@ final class CoreCCRClient: CoreCCR, @unchecked Sendable {
             "ccr_provider_save",
             body: CoreCCRProviderSave(draft)
         )
-        return saved.domain
+        return saved.domain(disabledModels: [])
     }
 
     func deleteProvider(id: String) async throws {
         try await provider.client().sendIgnoring(
             "ccr_provider_delete",
             body: CoreCCRIdBody(id: id)
+        )
+    }
+
+    func setModelEnabled(providerID: String, model: String, enabled: Bool) async throws {
+        try await provider.client().sendIgnoring(
+            "ccr_provider_set_model",
+            body: CoreCCRModelToggle(providerId: providerID, model: model, enabled: enabled)
+        )
+    }
+
+    func setCredentialEnabled(
+        providerID: String,
+        credentialID: String,
+        enabled: Bool
+    ) async throws {
+        try await provider.client().sendIgnoring(
+            "ccr_provider_set_credential",
+            body: CoreCCRCredentialToggle(
+                providerId: providerID,
+                credentialId: credentialID,
+                enabled: enabled
+            )
         )
     }
 
@@ -64,14 +102,23 @@ final class CoreCCRClient: CoreCCR, @unchecked Sendable {
 }
 
 private extension CoreCCRProvider {
-    var domain: CCRProvider {
+    func domain(disabledModels: [String]) -> CCRProvider {
         var resolved = (credentials ?? []).map(\.domain)
         // Older CCR configs keep the key at the provider level. Surface it as
         // one credential so the list, the masked display and the probe share a
         // single path.
         if resolved.isEmpty, let apiKey, !apiKey.isEmpty {
             resolved = [
-                CCRCredential(id: "api_key", name: "Key", apiKey: apiKey, enabled: true)
+                CCRCredential(
+                    id: "api_key",
+                    name: "Key 1",
+                    apiKey: apiKey,
+                    enabled: true,
+                    priority: nil,
+                    weight: nil,
+                    limits: nil,
+                    isSynthetic: true
+                )
             ]
         }
 
@@ -82,7 +129,8 @@ private extension CoreCCRProvider {
             baseURL: baseURL ?? "—",
             enabled: enabled ?? true,
             models: models ?? [],
-            credentials: resolved
+            credentials: resolved,
+            disabledModels: disabledModels
         )
     }
 }
@@ -93,7 +141,11 @@ private extension CoreCCRCredential {
             id: id ?? name ?? label ?? UUID().uuidString,
             name: name ?? label ?? "Key",
             apiKey: apiKey ?? "",
-            enabled: enabled ?? true
+            enabled: enabled ?? true,
+            priority: priority,
+            weight: weight,
+            limits: limits,
+            isSynthetic: false
         )
     }
 
