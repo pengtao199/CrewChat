@@ -439,6 +439,9 @@ Route {
   `apiKeyHelper`（默认不在 saveConfig 时自动应用，`MODEL_LAYER_APPLY_PROFILE=1` 打开）。
 - **AgentOS 接线**：壳在启动核心前拉起 `crewchat-model`，端口被 CCR 占用时自动改用空闲端口，
   并把 `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` / `CODEG_CCR_SUPERVISE=0` 传给核心。
+- **端到端契约**：临时 `codeg-server` 指向模型层，`agent_role_model_face` 返回
+  claude 38 / codex 69 / open_code 69；网关路由覆盖 `autoFetchKnownModels`，
+  `/v1/models` 仍为 38 个 ID、8 个 `[1m]`。
 - **切换工具**：`model-layer/scripts/cutover.sh` / `rollback.sh` / `apply-profile.sh`；
   规则已同步到 `AGENTS/gateway.md`、`truth-sources.md`、`architecture.md`。
 - 25 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机、额度求值）。

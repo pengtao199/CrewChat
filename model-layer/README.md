@@ -100,7 +100,9 @@ codeg 的模型页、`body_model_face` 和 overlay 不需要改代码。
 | `POST /api/ccr/rpc` | CCR 兼容控制面 |
 
 模型解析顺序：Claude 虚拟 ID → `crewchat/<model>` → `Provider/model` → 裸 model
-（只有唯一 provider 服务时才接受，否则 400）。
+（只有唯一 provider 服务时才接受，否则 400）。路由同时接受 `models` 与
+`autoFetchKnownModels`（Codex/OpenCode 的模型面会列出两者）；`/v1/models` 仍只列
+`models`，保持 Claude 的 38 个 ID 不变。
 
 ## 当前状态（2026-10-22）
 

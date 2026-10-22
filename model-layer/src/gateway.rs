@@ -304,7 +304,7 @@ async fn proxy_response(response: reqwest::Response, anthropic: bool) -> Respons
 fn resolve(app: &App, raw: &str) -> Result<Target, ResolveError> {
     let views = app
         .store
-        .provider_views()
+        .routing_views()
         .map_err(|_| ResolveError::NotFound(raw.to_string()))?;
     model_id::resolve(raw, &views)
 }

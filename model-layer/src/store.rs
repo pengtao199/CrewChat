@@ -391,16 +391,34 @@ impl Store {
     }
 
     /// Projection used by the model resolver: only enabled, routable models.
+    /// The catalog projection: only routable models. This is what
+    /// `/v1/models` advertises, so Claude's 38-id list stays the same.
     pub fn provider_views(&self) -> Result<Vec<ProviderView>> {
+        self.provider_views_with(false)
+    }
+
+    /// The routing projection: routable + auto-fetch. Codex/OpenCode are
+    /// offered both arrays by `body_model_face`, so the gateway must resolve a
+    /// model the user picked from the auto-fetch catalog.
+    pub fn routing_views(&self) -> Result<Vec<ProviderView>> {
+        self.provider_views_with(true)
+    }
+
+    fn provider_views_with(&self, include_auto: bool) -> Result<Vec<ProviderView>> {
         let providers = self.providers()?;
         let conn = self.conn.lock().unwrap();
         let mut views = Vec::with_capacity(providers.len());
+        let condition = if include_auto {
+            "(routable = 1 OR auto_fetch = 1)"
+        } else {
+            "routable = 1"
+        };
         for provider in providers.into_iter().filter(|p| p.enabled) {
-            let mut stmt = conn.prepare(
+            let mut stmt = conn.prepare(&format!(
                 "SELECT model, one_million FROM provider_models
-                 WHERE provider_id = ?1 AND enabled = 1 AND routable = 1
+                 WHERE provider_id = ?1 AND enabled = 1 AND {condition}
                  ORDER BY position",
-            )?;
+            ))?;
             let rows = stmt
                 .query_map(params![provider.id], |row| {
                     Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)? != 0))
@@ -932,6 +950,15 @@ mod tests {
         store.apply_config(&config()).unwrap();
         let picked = store.pick_credential("opencode-go").unwrap().unwrap();
         assert_eq!(picked.id, "c1");
+    }
+
+    #[test]
+    fn routing_views_include_auto_fetch_models() {
+        let store = Store::open_in_memory().unwrap();
+        store.apply_config(&config()).unwrap();
+        assert_eq!(store.provider_views().unwrap()[0].models.len(), 2);
+        let routing = store.routing_views().unwrap();
+        assert!(routing[0].models.contains(&"extra-model".to_string()));
     }
 
     #[test]
