@@ -11,7 +11,6 @@ struct ProviderEditorSheet: View {
     @State private var name: String
     @State private var baseURL: String
     @State private var protocolName: String
-    @State private var enabled: Bool
     @State private var credentials: [CredentialRow]
     @State private var availableModels: [String]
     @State private var selectedModels: Set<String>
@@ -51,7 +50,6 @@ struct ProviderEditorSheet: View {
         _name = State(initialValue: existing?.name ?? "")
         _baseURL = State(initialValue: storedURL == "—" ? "" : storedURL)
         _protocolName = State(initialValue: type)
-        _enabled = State(initialValue: existing?.enabled ?? true)
         _availableModels = State(initialValue: [])
         _selectedModels = State(initialValue: Set(storedModels))
 
@@ -83,25 +81,36 @@ struct ProviderEditorSheet: View {
             .padding(.top, 14)
 
             Form {
-                Section {
-                    field("settings.models.preset") {
-                        Picker("", selection: $presetID) {
-                            Text("settings.models.preset.custom").tag("custom")
-                            ForEach(model.presets) { preset in
-                                Text(preset.name).tag(preset.id)
+                Section("settings.models.basic") {
+                    HStack(alignment: .top, spacing: 12) {
+                        field("settings.models.preset") {
+                            Picker("", selection: $presetID) {
+                                Text("settings.models.preset.custom").tag("custom")
+                                ForEach(model.presets) { preset in
+                                    Text(preset.name).tag(preset.id)
+                                }
                             }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .help("settings.models.presetHint")
                         }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(width: 220, alignment: .leading)
+
+                        field("settings.models.protocol") {
+                            Picker("", selection: $protocolName) {
+                                ForEach(Self.protocols, id: \.id) { option in
+                                    Text(option.label).tag(option.id)
+                                }
+                                if !Self.protocols.contains(where: { $0.id == protocolName }) {
+                                    Text(protocolName).tag(protocolName)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.menu)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
 
-                    Text("settings.models.presetHint")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("settings.models.basic") {
                     HStack(alignment: .top, spacing: 12) {
                         field("settings.models.name") {
                             TextField("", text: $name)
@@ -115,22 +124,6 @@ struct ProviderEditorSheet: View {
                                 .textContentType(.URL)
                         }
                     }
-
-                    field("settings.models.protocol") {
-                        Picker("", selection: $protocolName) {
-                            ForEach(Self.protocols, id: \.id) { option in
-                                Text(option.id).tag(option.id)
-                            }
-                            if !Self.protocols.contains(where: { $0.id == protocolName }) {
-                                Text(protocolName).tag(protocolName)
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(width: 260, alignment: .leading)
-                    }
-
-                    Toggle("settings.models.enabledToggle", isOn: $enabled)
                 }
 
                 Section {
@@ -205,7 +198,7 @@ struct ProviderEditorSheet: View {
                             }
                         }
                     }
-                    .frame(height: 300)
+                    .frame(height: 240)
                 } header: {
                     Text("settings.models.selectModels")
                 } footer: {
@@ -252,7 +245,7 @@ struct ProviderEditorSheet: View {
             }
             .padding(14)
         }
-        .frame(minWidth: 980, minHeight: 820)
+        .frame(width: 880, height: 720)
         .onChange(of: presetID) { _, value in
             applyPreset(value)
         }
@@ -669,12 +662,18 @@ struct ProviderEditorSheet: View {
         error = nil
         isSaving = true
 
-        let drafts = credentials.enumerated().map { index, row in
+        let drafts = credentials.enumerated().compactMap { index, row -> CCRCredentialDraft? in
+            let key = row.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            // A blank row the user added but never filled in is not a credential.
+            if key.isEmpty && row.credentialID == nil {
+                return nil
+            }
+
             let trimmedName = row.name.trimmingCharacters(in: .whitespacesAndNewlines)
             return CCRCredentialDraft(
                 id: row.credentialID,
                 name: trimmedName.isEmpty ? "Key \(index + 1)" : trimmedName,
-                apiKey: row.apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                apiKey: key,
                 enabled: row.enabled,
                 priorityText: row.priorityText.trimmingCharacters(in: .whitespacesAndNewlines),
                 weightText: row.weightText.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -687,7 +686,7 @@ struct ProviderEditorSheet: View {
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             baseURL: baseURL.trimmingCharacters(in: .whitespacesAndNewlines),
             protocolName: protocolName,
-            enabled: enabled,
+            enabled: true,
             models: selectedModels.sorted(),
             credentials: drafts
         )

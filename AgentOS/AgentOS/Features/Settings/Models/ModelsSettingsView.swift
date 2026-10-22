@@ -197,39 +197,38 @@ struct ModelsSettingsView: View {
                 Text("settings.models.credentials")
             }
 
-            Section {
-                if isLoadingAccounts {
-                    ProgressView().controlSize(.small)
-                } else if let accountsError {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(accountsError).foregroundStyle(.red)
-                        Button("settings.models.retry") {
-                            Task { await loadAccounts(forceRefresh: true) }
+            if isLoadingAccounts || accountsError != nil || !accounts.isEmpty {
+                Section {
+                    if isLoadingAccounts {
+                        ProgressView().controlSize(.small)
+                    } else if let accountsError {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(accountsError).foregroundStyle(.red)
+                            Button("settings.models.retry") {
+                                Task { await loadAccounts(forceRefresh: true) }
+                            }
+                            .buttonStyle(.link)
+                            .font(.caption)
                         }
-                        .buttonStyle(.link)
-                        .font(.caption)
+                    } else {
+                        ForEach(accounts) { account in
+                            accountRow(account)
+                        }
                     }
-                } else if accounts.isEmpty {
-                    Text("settings.models.noAccounts")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(accounts) { account in
-                        accountRow(account)
+                } header: {
+                    HStack(spacing: 8) {
+                        Text("settings.models.usage")
+                        Spacer()
+                        Button {
+                            Task { await loadAccounts(forceRefresh: true) }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                        .disabled(isLoadingAccounts)
+                        .help("settings.models.refresh")
                     }
-                }
-            } header: {
-                HStack(spacing: 8) {
-                    Text("settings.models.usage")
-                    Spacer()
-                    Button {
-                        Task { await loadAccounts(forceRefresh: true) }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .buttonStyle(.borderless)
-                    .controlSize(.small)
-                    .disabled(isLoadingAccounts)
-                    .help("settings.models.refresh")
                 }
             }
 
