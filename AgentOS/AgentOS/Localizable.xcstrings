@@ -16,6 +16,16 @@
     "%@.": {},
     "%lld": {},
     "%lld.": {},
+    "1": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1"
+          }
+        }
+      }
+    },
     "127.0.0.1:%lld": {},
     "Apache-2.0": {},
     "app.name": {
@@ -489,6 +499,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "你想让 %@ 构建什么？"
+          }
+        }
+      }
+    },
+    "Key %lld": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Key %lld"
           }
         }
       }
@@ -2093,6 +2113,7 @@
       }
     },
     "settings.models.accounts": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2174,7 +2195,28 @@
         }
       }
     },
+    "settings.models.addKey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加 Key"
+          }
+        }
+      }
+    },
+    "settings.models.advanced": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高级选项"
+          }
+        }
+      }
+    },
     "settings.models.apiKey": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2185,6 +2227,7 @@
       }
     },
     "settings.models.apiKeyKeep": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2245,6 +2288,7 @@
       }
     },
     "settings.models.ccr": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2265,6 +2309,7 @@
       }
     },
     "settings.models.ccrURL": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2275,11 +2320,22 @@
       }
     },
     "settings.models.clearKey": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "清除已保存的密钥"
+          }
+        }
+      }
+    },
+    "settings.models.create": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建"
           }
         }
       }
@@ -2290,6 +2346,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "密钥"
+          }
+        }
+      }
+    },
+    "settings.models.credentialsHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "密钥保存在 CCR 的供应商配置里。"
+          }
+        }
+      }
+    },
+    "settings.models.credentialsPool": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "凭据池"
+          }
+        }
+      }
+    },
+    "settings.models.customModel": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义模型"
           }
         }
       }
@@ -2345,6 +2431,7 @@
       }
     },
     "settings.models.enabled": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2375,6 +2462,7 @@
       }
     },
     "settings.models.hideKey": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2384,7 +2472,78 @@
         }
       }
     },
+    "settings.models.import": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入"
+          }
+        }
+      }
+    },
+    "settings.models.importFailed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "JSON 格式错误。"
+          }
+        }
+      }
+    },
+    "settings.models.importHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "粘贴一个数组或 {\"credentials\":[...]}。每项支持 name、api_key、priority、weight、limits。"
+          }
+        }
+      }
+    },
+    "settings.models.importJSON": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入 JSON"
+          }
+        }
+      }
+    },
+    "settings.models.importNoKeys": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有解析到密钥。"
+          }
+        }
+      }
+    },
+    "settings.models.importTitle": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导入密钥 JSON"
+          }
+        }
+      }
+    },
+    "settings.models.keyPlaceholder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "密钥"
+          }
+        }
+      }
+    },
     "settings.models.keyScope": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2394,12 +2553,43 @@
         }
       }
     },
+    "settings.models.limits": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "限额 (JSON)"
+          }
+        }
+      }
+    },
+    "settings.models.limitsInvalid": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "限额必须是 JSON 对象。"
+          }
+        }
+      }
+    },
     "settings.models.manualModel": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "手动添加模型 id"
+          }
+        }
+      }
+    },
+    "settings.models.modelIDPlaceholder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模型 id"
           }
         }
       }
@@ -2415,7 +2605,6 @@
       }
     },
     "settings.models.modelsEmpty": {
-      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2436,6 +2625,7 @@
       }
     },
     "settings.models.nameLocked": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2446,6 +2636,7 @@
       }
     },
     "settings.models.new": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2475,12 +2666,62 @@
         }
       }
     },
+    "settings.models.noKey": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "至少填写一个密钥。"
+          }
+        }
+      }
+    },
     "settings.models.noMatch": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
             "value": "没有匹配项。"
+          }
+        }
+      }
+    },
+    "settings.models.preset": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预设"
+          }
+        }
+      }
+    },
+    "settings.models.preset.custom": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自定义"
+          }
+        }
+      }
+    },
+    "settings.models.presetHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择预设会自动带出名称、地址、协议和默认模型。"
+          }
+        }
+      }
+    },
+    "settings.models.priority": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "优先级"
           }
         }
       }
@@ -2599,6 +2840,7 @@
       }
     },
     "settings.models.secretHint": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2619,7 +2861,28 @@
         }
       }
     },
+    "settings.models.selectModels": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择模型"
+          }
+        }
+      }
+    },
+    "settings.models.selectModelsHint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择这个供应商对外可用的模型。"
+          }
+        }
+      }
+    },
     "settings.models.showKey": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2639,7 +2902,18 @@
         }
       }
     },
+    "settings.models.testConnection": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "测试连接"
+          }
+        }
+      }
+    },
     "settings.models.token": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2650,6 +2924,7 @@
       }
     },
     "settings.models.token.missing": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2660,6 +2935,7 @@
       }
     },
     "settings.models.token.ok": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2670,6 +2946,7 @@
       }
     },
     "settings.models.type": {
+      "extractionState": "stale",
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
@@ -2685,6 +2962,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "用量"
+          }
+        }
+      }
+    },
+    "settings.models.weight": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "权重"
           }
         }
       }
@@ -2816,6 +3103,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "为这个 CLI 创建第一个技能。"
+          }
+        }
+      }
+    },
+    "settings.skills.empty.hint": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这个引擎没有技能。Codex / OpenCode 会读取共享的 ~/.agents/skills。"
           }
         }
       }
@@ -3452,266 +3749,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "创建永久工作树"
-          }
-        }
-      }
-    },
-    "settings.skills.empty.hint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "这个引擎没有技能。Codex / OpenCode 会读取共享的 ~/.agents/skills。"
-          }
-        }
-      }
-    },
-    "settings.models.preset": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "预设"
-          }
-        }
-      }
-    },
-    "settings.models.preset.custom": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自定义"
-          }
-        }
-      }
-    },
-    "settings.models.presetHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择预设会自动带出名称、地址、协议和默认模型。"
-          }
-        }
-      }
-    },
-    "settings.models.credentialsPool": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "凭据池"
-          }
-        }
-      }
-    },
-    "settings.models.importJSON": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导入 JSON"
-          }
-        }
-      }
-    },
-    "settings.models.addKey": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "添加 Key"
-          }
-        }
-      }
-    },
-    "settings.models.priority": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "优先级"
-          }
-        }
-      }
-    },
-    "settings.models.weight": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "权重"
-          }
-        }
-      }
-    },
-    "settings.models.limits": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "限额 (JSON)"
-          }
-        }
-      }
-    },
-    "settings.models.advanced": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "高级选项"
-          }
-        }
-      }
-    },
-    "settings.models.keyPlaceholder": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "密钥"
-          }
-        }
-      }
-    },
-    "settings.models.testConnection": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "测试连接"
-          }
-        }
-      }
-    },
-    "settings.models.create": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "创建"
-          }
-        }
-      }
-    },
-    "settings.models.modelIDPlaceholder": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "模型 id"
-          }
-        }
-      }
-    },
-    "settings.models.customModel": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自定义模型"
-          }
-        }
-      }
-    },
-    "settings.models.selectModels": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择模型"
-          }
-        }
-      }
-    },
-    "settings.models.selectModelsHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "选择这个供应商对外可用的模型。"
-          }
-        }
-      }
-    },
-    "settings.models.noKey": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "至少填写一个密钥。"
-          }
-        }
-      }
-    },
-    "settings.models.limitsInvalid": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "限额必须是 JSON 对象。"
-          }
-        }
-      }
-    },
-    "settings.models.importTitle": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导入密钥 JSON"
-          }
-        }
-      }
-    },
-    "settings.models.importHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "粘贴一个数组或 {\"credentials\":[...]}。每项支持 name、api_key、priority、weight、limits。"
-          }
-        }
-      }
-    },
-    "settings.models.import": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "导入"
-          }
-        }
-      }
-    },
-    "settings.models.importNoKeys": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有解析到密钥。"
-          }
-        }
-      }
-    },
-    "settings.models.importFailed": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "JSON 格式错误。"
-          }
-        }
-      }
-    },
-    "settings.models.credentialsHint": {
-      "localizations": {
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "密钥保存在 CCR 的供应商配置里。"
           }
         }
       }

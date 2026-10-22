@@ -27,8 +27,10 @@ final class CoreCCRClient: CoreCCR, @unchecked Sendable {
             "ccr_disabled_models",
             body: EmptyBody()
         )) ?? [:]
-        return config.providers.map {
-            $0.domain(disabledModels: disabled[$0.id ?? $0.name] ?? [])
+        return config.providers.map { provider in
+            let key = provider.id ?? provider.name
+            let removed = disabled[key] ?? disabled[provider.name] ?? []
+            return provider.domain(disabledModels: removed)
         }
     }
 
