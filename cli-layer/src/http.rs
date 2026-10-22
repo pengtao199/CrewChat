@@ -1,0 +1,529 @@
+//! HTTP compatibility surface for AgentOS.
+//!
+//! Phase 1 implements health, model proxy, roster, folders/conversations and the
+//! ACP session path. Skills/MCP/engine-install/delegation return a structured
+//! `not_implemented` until their phases land.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use axum::{
+    extract::{State, WebSocketUpgrade},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+    Json, Router,
+};
+use base64::Engine;
+use serde_json::{json, Value};
+
+use crate::acp::host::AcpHost;
+use crate::config::Config;
+use crate::model_proxy::ModelLayerClient;
+use crate::store::Store;
+use crate::ws;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub config: Arc<Config>,
+    pub store: Store,
+    pub host: AcpHost,
+    pub model: Arc<ModelLayerClient>,
+}
+
+pub fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/api/health", post(health))
+        .route("/api/ccr_health", post(ccr_health))
+        .route("/api/ccr_call", post(ccr_call))
+        .route("/api/ccr_provider_save", post(ccr_provider_save))
+        .route("/api/ccr_provider_delete", post(ccr_provider_delete))
+        .route("/api/ccr_provider_probe", post(ccr_provider_probe))
+        .route("/api/ccr_disabled_models", post(ccr_disabled_models))
+        .route("/api/ccr_supervisor_start", post(ccr_supervisor_start))
+        .route("/api/acp_list_agents", post(acp_list_agents))
+        .route("/api/acp_connect", post(acp_connect))
+        .route("/api/acp_prompt", post(acp_prompt))
+        .route("/api/acp_cancel", post(acp_cancel))
+        .route("/api/acp_respond_permission", post(acp_respond_permission))
+        .route("/api/agent_roles_list", post(agent_roles_list))
+        .route("/api/agent_roles_save", post(agent_roles_save))
+        .route("/api/agent_roles_delete", post(agent_roles_delete))
+        .route("/api/agent_role_model_face", post(agent_role_model_face))
+        .route("/api/list_open_folder_details", post(list_folders))
+        .route("/api/open_folder", post(open_folder))
+        .route("/api/remove_folder_from_workspace", post(remove_folder))
+        .route("/api/list_all_conversations", post(list_conversations))
+        .route("/api/create_conversation", post(create_conversation))
+        .route("/api/get_folder_conversation", post(get_conversation))
+        .route("/api/get_conversation", post(get_conversation))
+        .route("/api/delete_conversation", post(delete_conversation))
+        .route("/api/acp_list_agent_skills", post(not_implemented))
+        .route("/api/acp_read_agent_skill", post(not_implemented))
+        .route("/api/acp_save_agent_skill", post(not_implemented))
+        .route("/api/acp_delete_agent_skill", post(not_implemented))
+        .route("/api/mcp_scan_local", post(not_implemented))
+        .route("/api/mcp_upsert_local_server", post(not_implemented))
+        .route("/api/mcp_remove_server", post(not_implemented))
+        .route("/api/acp_update_agent_preferences", post(not_implemented))
+        .route("/api/acp_fetch_agent_latest_release", post(not_implemented))
+        .route("/api/acp_prepare_npx_agent", post(not_implemented))
+        .route("/api/acp_download_agent_binary", post(not_implemented))
+        .route("/api/acp_install_pi_binary", post(not_implemented))
+        .route("/api/acp_env_diagnostics", post(not_implemented))
+        .route("/api/get_delegation_settings", post(not_implemented))
+        .route("/api/set_delegation_settings", post(not_implemented))
+        .route("/ws/events", get(events_ws))
+        .with_state(state)
+}
+
+async fn health(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    Json(json!({"status": "ok", "version": env!("CARGO_PKG_VERSION")})).into_response()
+}
+
+async fn ccr_health(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    Json(state.model.health()).into_response()
+}
+
+async fn ccr_call(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let method = body
+        .get("method")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let args = body.get("args").cloned().unwrap_or_else(|| json!([]));
+    match state.model.rpc(method, args).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
+    }
+}
+
+async fn ccr_provider_save(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.model.provider_save(&body).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+async fn ccr_provider_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.model.provider_delete(&body).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+async fn ccr_provider_probe(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.model.provider_probe(&body).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+async fn ccr_disabled_models(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.model.disabled_models().await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
+    }
+}
+
+async fn ccr_supervisor_start(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    Json(json!({"state": "running", "endpoint": state.model.health()["url"]})).into_response()
+}
+
+async fn acp_list_agents(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    Json(state.host.engines().list()).into_response()
+}
+
+async fn acp_connect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
+    let cwd = field(&body, &["workingDir", "working_dir"])
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_else(|| PathBuf::from("/"));
+    let role =
+        field(&body, &["roleId", "role_id"]).and_then(|id| state.store.role(id).ok().flatten());
+    let api_key = state.model.local_gateway_key().await;
+    match state
+        .host
+        .connect(
+            agent_type,
+            cwd,
+            role,
+            api_key,
+            field(&body, &["conversationId", "conversation_id"]).map(str::to_string),
+        )
+        .await
+    {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error.to_string()),
+    }
+}
+
+async fn acp_prompt(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let connection_id = field(&body, &["connectionId", "connection_id"]).unwrap_or_default();
+    let text = body
+        .get("blocks")
+        .map(blocks_to_text)
+        .filter(|text| !text.trim().is_empty())
+        .or_else(|| field(&body, &["text"]).map(str::to_string))
+        .unwrap_or_default();
+    if text.trim().is_empty() {
+        return api_error(StatusCode::BAD_REQUEST, "prompt has no text");
+    }
+    if let Some(conversation_id) = field(&body, &["conversationId", "conversation_id"]) {
+        let _ = state.store.append_turn(
+            conversation_id,
+            "user",
+            &json!([{"type": "text", "text": text.clone()}]),
+        );
+    }
+    match state.host.prompt(connection_id, text) {
+        Ok(()) => Json(json!({})).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn acp_cancel(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let connection_id = field(&body, &["connectionId", "connection_id"]).unwrap_or_default();
+    match state.host.cancel(connection_id) {
+        Ok(()) => Json(json!({})).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn acp_respond_permission(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let request_id = field(&body, &["requestId", "request_id"]).unwrap_or_default();
+    let option_id = field(&body, &["optionId", "option_id"]).map(str::to_string);
+    if state.host.respond_permission(request_id, option_id) {
+        Json(json!(true)).into_response()
+    } else {
+        api_error(StatusCode::NOT_FOUND, "unknown permission request")
+    }
+}
+
+async fn agent_roles_list(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.store.list_roles() {
+        Ok(roles) => Json(roles).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn agent_roles_save(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let role = body.get("role").cloned().unwrap_or(body);
+    match state.store.save_role(&role) {
+        Ok(role) => Json(role).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn agent_roles_delete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["id"]).unwrap_or_default();
+    match state.store.delete_role(id) {
+        Ok(()) => Json(json!(true)).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn agent_role_model_face(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
+    match state.model.model_face(agent_type).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
+    }
+}
+
+async fn list_folders(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.store.list_folders() {
+        Ok(folders) => Json(folders).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn open_folder(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let path = field(&body, &["path"]).unwrap_or_default();
+    match state.store.open_folder(path) {
+        Ok(folder) => Json(folder).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn remove_folder(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["folder_id", "folderId"]).unwrap_or_default();
+    match state.store.remove_folder(id) {
+        Ok(()) => Json(Value::Null).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn list_conversations(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let folders: Vec<String> = body
+        .get("folderIds")
+        .or_else(|| body.get("folder_ids"))
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    match state.store.list_conversations(&folders) {
+        Ok(rows) => Json(rows).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn create_conversation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let folder = field(&body, &["folderId", "folder_id"]);
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
+    let title = field(&body, &["title"]);
+    match state.store.create_conversation(folder, agent_type, title) {
+        Ok(id) => Json(json!(id)).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn get_conversation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["conversationId", "conversation_id"]).unwrap_or_default();
+    match state.store.get_conversation(id) {
+        Ok(Some(value)) => Json(value).into_response(),
+        Ok(None) => api_error(StatusCode::NOT_FOUND, "conversation not found"),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn delete_conversation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["conversationId", "conversation_id"]).unwrap_or_default();
+    match state.store.delete_conversation(id) {
+        Ok(()) => Json(Value::Null).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn not_implemented(headers: HeaderMap) -> Response {
+    let _ = headers;
+    (
+        StatusCode::NOT_IMPLEMENTED,
+        Json(json!({
+            "code": "not_implemented",
+            "message": "This command is scheduled for a later cli-layer phase.",
+        })),
+    )
+        .into_response()
+}
+
+async fn events_ws(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    ws: WebSocketUpgrade,
+) -> Response {
+    if !ws_authorized(&state, &headers) {
+        return unauthorized();
+    }
+    ws.on_upgrade(move |socket| ws::serve(state, socket))
+}
+
+fn authorized(state: &AppState, headers: &HeaderMap) -> bool {
+    headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .map(|value| value.trim() == state.config.token)
+        .unwrap_or(false)
+}
+
+fn ws_authorized(state: &AppState, headers: &HeaderMap) -> bool {
+    if authorized(state, headers) {
+        return true;
+    }
+    let Some(protocol) = headers.get("sec-websocket-protocol") else {
+        return false;
+    };
+    let Ok(protocol) = protocol.to_str() else {
+        return false;
+    };
+    for part in protocol.split(',') {
+        let Some(token) = part.trim().strip_prefix("codeg-token.") else {
+            continue;
+        };
+        if let Ok(bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(token) {
+            if String::from_utf8(bytes).ok().as_deref() == Some(state.config.token.as_str()) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+pub fn unauthorized() -> Response {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({"code": "unauthorized", "message": "invalid token"})),
+    )
+        .into_response()
+}
+
+pub fn api_error(status: StatusCode, message: &str) -> Response {
+    (
+        status,
+        Json(json!({"code": "api_error", "message": message})),
+    )
+        .into_response()
+}
+
+fn field<'a>(body: &'a Value, names: &[&str]) -> Option<&'a str> {
+    names
+        .iter()
+        .find_map(|name| body.get(*name).and_then(Value::as_str))
+}
+
+fn blocks_to_text(blocks: &Value) -> String {
+    blocks
+        .as_array()
+        .map(|list| {
+            list.iter()
+                .filter_map(|block| block.get("text").and_then(Value::as_str))
+                .collect::<Vec<_>>()
+                .join("\n")
+        })
+        .unwrap_or_default()
+}

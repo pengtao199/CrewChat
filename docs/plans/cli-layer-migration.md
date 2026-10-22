@@ -1,7 +1,7 @@
 # CLI Layer：移除 Codeg
 
 Updated: 2026-10-22
-Status: Proposed
+Status: In Progress
 关系：模型层已完成（[模型层：移除 CCR](model-layer-remove-ccr.md)）。本计划取代
 [Swift 原生运行时迁移](swift-runtime-migration.md) 的 Phase 2–5，作为近期路径；
 Swift 原生 runtime 仍是终态选项，不在本计划内。
@@ -316,3 +316,29 @@ tool → permission → cancel；不接 AgentOS。
    否则退回 codeg 的 `connection` 参考，时间 +1–2 周。
 
 **Gate**：一个独立测试进程完成 Claude turn；AgentOS 不动。
+
+---
+
+## 11. 进展（2026-10-22）
+
+`cli-layer/` 已落地 Phase 0/1 骨架（约 2.4k 行 Rust），按你的要求**暂不编译/测试**。
+
+已实现：
+
+- `config` / `store`：folders、conversations、turns、agent_roles、events 的 schema 与基础 CRUD。
+- `engines`：Claude / Codex / OpenCode 注册表，`AcpAgentConfig` + per-session env。
+- `roles`：三种引擎的 per-role home；Claude 注入 gateway / model / `apiKeyHelper`。
+- `acp/host`：spawn、initialize、`session/new`、prompt、cancel、permission broker，
+  并把 `session/update` 转成 `content_delta` / `tool_call` / `turn_complete` envelope。
+- `http`：45 命令兼容面；skills / MCP / engine install / delegation 暂返回 501。
+- `ws`：attach / replay / event。
+- `model_proxy`：`ccr_*` 薄代理到 model-layer。
+- `NOTICE.md`：rust-sdk / OpenAB / codeg 的来源与许可。
+
+未做：
+
+- 编译与单测（下一步 `cargo check` 修 SDK API 差异）。
+- Codex / OpenCode 的真实会话（Phase 2）。
+- 数据迁移、技能 / MCP / 引擎安装（Phase 3）。
+
+**Phase 0 Gate 不变**：`cargo check` 通过 + Claude 一条 turn。
