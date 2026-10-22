@@ -71,7 +71,7 @@ Status: In Progress（S0 ✅；S1 ✅；S2 ✅；S3 ✅；S4 ✅（权限审批�
 | --- | --- | --- |
 | 通用 | 外观、启动行为（自动拉起 / 恢复上次工作区） | 壳本地 |
 | 核心 | 二进制路径、数据目录、端口策略、重启、打开日志 / 目录、**委派开关（默认开启）** | 壳本地 + `CoreLifecycle` + `get/set_delegation_settings` |
-| 模型 | 供应商增删改、预设、凭据池、模型选择、额度 | `ccr_call getConfig` + `ccr_provider_save/delete/probe` |
+| 模型 | 供应商增删改、预设、凭据池、模型选择、额度 | 核心 `ccr_call`（兼容 RPC，运行时由 `model-layer` 提供）+ `ccr_provider_save/delete/probe` |
 | Agents | 花名册增删改：角色 / 引擎 / 模型 / 技能 / MCP / 权限 | `agent_roles_list/save/delete` + `agent_role_model_face` |
 | 技能 | 按引擎管理全局/项目技能，读写 Markdown | `acp_list/read/save/delete_agent_skill` |
 | MCP | 扫描/新建/编辑/删除本机 MCP 服务 | `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` |

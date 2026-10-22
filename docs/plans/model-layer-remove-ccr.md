@@ -432,20 +432,24 @@ Route {
 - **Phase 3（Chat 面）**：`/v1/messages` → Chat 翻译，流式文本、工具调用、工具结果、
   `stop_reason`、usage；已用假上游验证完整 SSE 事件序列。
 - **控制面**：`getConfig` / `saveConfig`（revision 409）/ `probeProvider` /
-  `getProviderPresets` / `getGatewayStatus` / 启停 no-op / `applyProfile` 显式 skipped；
-  `saveConfig` 往返与 stale revision 已实测。
+  `getProviderPresets` / `getGatewayStatus` / 启停 no-op；`saveConfig` 往返与
+  stale revision 已实测。
+- **Phase 4**：额度 `http-json` mapping 已实现（实测 OpenCode Go 2 条凭据 ×
+  3 个 meter）；`applyProfile` 写 `~/.claude/settings.json` + 自己的
+  `apiKeyHelper`（默认不在 saveConfig 时自动应用，`MODEL_LAYER_APPLY_PROFILE=1` 打开）。
 - **AgentOS 接线**：壳在启动核心前拉起 `crewchat-model`，端口被 CCR 占用时自动改用空闲端口，
   并把 `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` / `CODEG_CCR_SUPERVISE=0` 传给核心。
-- 21 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机）。
+- **切换工具**：`model-layer/scripts/cutover.sh` / `rollback.sh` / `apply-profile.sh`；
+  规则已同步到 `AGENTS/gateway.md`、`truth-sources.md`、`architecture.md`。
+- 25 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机、额度求值）。
 
 ### 未完成
 
 - Responses 面的 Anthropic 翻译（Claude 目前走 Chat；OpenCode Go 的 Chat 端点可用）。
-- 额度 `http-json` connector 求值（现在返回缓存或空，不伪造）。
-- `applyProfile` 写全局 CLI 配置（现在只返回 skipped；Agent 会话不依赖它）。
-- AgentOS 打包（开发接线已完成）、CCR 下线。
-- Keychain 迁移（现在沿用 CCR 的 0600 SQLite）。
+- 正式打包的 copy phase（开发用 scheme / `install-dev.sh`）。
+- CCR 进程下线本身（脚本已就绪，等用户执行 `cutover.sh`）。
+- Keychain 迁移（现在沿用 0600 SQLite）。
 
 ### 下一步
 
-Phase 4（写入 / 额度）→ Phase 5（切换）→ Phase 6（建 Agents 并按引擎验收）。
+Phase 5（执行 `cutover.sh`，CCR 下线）→ Phase 6（建 Agents 并按引擎验收）。
