@@ -4,6 +4,10 @@ Updated: 2026-10-22 (Asia/Shanghai)
 Status: Proposed（Phase 0 未开工）
 关系：`agentos-shell.md` 的下一阶段。壳计划约束的是「Swift UI + codeg 核心」；本计划的目标是让 Swift 自己成为核心。
 
+> 近期路径已改为 Rust 的 [CLI Layer](cli-layer-migration.md)：先新建 `cli-layer/` 取代
+> codeg，再评估是否把 ACP 宿主迁到 Swift。本计划的 Phase 2–5 作为终态选项保留，
+> 不在近期执行。
+
 ## 1. 目标与边界
 
 ### 目标

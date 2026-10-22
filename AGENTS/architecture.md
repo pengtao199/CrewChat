@@ -6,6 +6,10 @@
 
 ## 定位（2026-10-19）
 
+> 计划中（未实施）：`codeg/` 将由 `cli-layer/` 取代，见
+> [`docs/plans/cli-layer-migration.md`](../docs/plans/cli-layer-migration.md)。
+> 切换前 `codeg/` 仍是核心。
+
 产品由三条腿 + 一个归档组成：
 
 | 腿 | 路径 | 职责 | 真相源 |
