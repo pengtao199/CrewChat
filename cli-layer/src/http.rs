@@ -45,6 +45,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/acp_connect", post(acp_connect))
         .route("/api/acp_prompt", post(acp_prompt))
         .route("/api/acp_cancel", post(acp_cancel))
+        .route("/api/acp_disconnect", post(acp_disconnect))
         .route("/api/acp_respond_permission", post(acp_respond_permission))
         .route("/api/agent_roles_list", post(agent_roles_list))
         .route("/api/agent_roles_save", post(agent_roles_save))
@@ -252,6 +253,19 @@ async fn acp_cancel(
         Ok(()) => Json(json!({})).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
+}
+
+async fn acp_disconnect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let connection_id = field(&body, &["connectionId", "connection_id"]).unwrap_or_default();
+    state.host.close(connection_id);
+    Json(json!({})).into_response()
 }
 
 async fn acp_respond_permission(

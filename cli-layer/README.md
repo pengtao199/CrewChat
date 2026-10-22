@@ -38,6 +38,19 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 | folders / conversations | ✅ 基础 |
 | skills / MCP / engine install / delegation | 501，Phase 2–4 |
 
+## 已验证（2026-10-22）
+
+- `cargo check` / `cargo test`（5 个）/ `cargo clippy -D warnings` 通过。
+- `scripts/smoke.sh`：假 ACP agent → `content_delta` → `turn_complete`。
+- 假 ACP 权限：`permission_request` → `acp_respond_permission(allow_once)` → 工具继续。
+- 真实 Claude（`claude-agent-acp@0.89.1`，经 model-layer）：
+  - 基础回复 `ok`；
+  - 工具 `Read File` → completed → `probe-ok`；
+  - Bash `echo permission-ok` → completed；
+  - per-role：`deepseek-v4.1-flash` 的会话 `_claude/model` 正确；
+- `/ws/events`：ready → replay → attached → event。
+- 模型页代理：`getConfig` 返回 3 provider / 38 models。
+
 ## 目录
 
 ```

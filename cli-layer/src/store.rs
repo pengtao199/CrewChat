@@ -17,14 +17,6 @@ pub struct Store {
     conn: Arc<Mutex<Connection>>,
 }
 
-pub struct FolderRow {
-    pub id: String,
-    pub path: String,
-    pub name: String,
-    pub alias: String,
-    pub sort_order: i64,
-}
-
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent() {
@@ -313,30 +305,31 @@ impl Store {
 
     pub fn role(&self, id: &str) -> Result<Option<Value>> {
         let conn = self.conn.lock().unwrap();
-        conn.query_row(
-            "SELECT id, name, soul, rules, agent_type, model, model_provider,
+        Ok(conn
+            .query_row(
+                "SELECT id, name, soul, rules, agent_type, model, model_provider,
                     skills_json, mcp_json, permission_mode, auto_approve
              FROM agent_roles WHERE id = ?1",
-            params![id],
-            |row| {
-                Ok(json!({
-                    "id": row.get::<_, String>(0)?,
-                    "name": row.get::<_, String>(1)?,
-                    "soul": row.get::<_, String>(2)?,
-                    "rules": row.get::<_, String>(3)?,
-                    "agent_type": row.get::<_, String>(4)?,
-                    "model": row.get::<_, String>(5)?,
-                    "model_provider": row.get::<_, String>(6)?,
-                    "skills": serde_json::from_str::<Value>(&row.get::<_, String>(7)?)
-                        .unwrap_or(Value::Null),
-                    "mcp": serde_json::from_str::<Value>(&row.get::<_, String>(8)?)
-                        .unwrap_or(Value::Null),
-                    "permission_mode": row.get::<_, String>(9)?,
-                    "auto_approve": row.get::<_, i64>(10)? != 0,
-                }))
-            },
-        )
-        .optional()
+                params![id],
+                |row| {
+                    Ok(json!({
+                        "id": row.get::<_, String>(0)?,
+                        "name": row.get::<_, String>(1)?,
+                        "soul": row.get::<_, String>(2)?,
+                        "rules": row.get::<_, String>(3)?,
+                        "agent_type": row.get::<_, String>(4)?,
+                        "model": row.get::<_, String>(5)?,
+                        "model_provider": row.get::<_, String>(6)?,
+                        "skills": serde_json::from_str::<Value>(&row.get::<_, String>(7)?)
+                            .unwrap_or(Value::Null),
+                        "mcp": serde_json::from_str::<Value>(&row.get::<_, String>(8)?)
+                            .unwrap_or(Value::Null),
+                        "permission_mode": row.get::<_, String>(9)?,
+                        "auto_approve": row.get::<_, i64>(10)? != 0,
+                    }))
+                },
+            )
+            .optional()?)
     }
 
     pub fn save_role(&self, role: &Value) -> Result<Value> {
@@ -388,7 +381,14 @@ impl Store {
                 timestamp
             ],
         )?;
-        Ok(role.clone())
+        let mut saved = role.clone();
+        if !saved.is_object() {
+            saved = json!({});
+        }
+        saved["id"] = json!(id);
+        saved["created_at"] = json!(timestamp);
+        saved["updated_at"] = json!(timestamp);
+        Ok(saved)
     }
 
     pub fn delete_role(&self, id: &str) -> Result<()> {
@@ -446,4 +446,66 @@ fn conversation_json(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
         "message_count": 0,
         "child_count": 0,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store() -> (tempfile::TempDir, Store) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("test.db")).unwrap();
+        store.init_schema().unwrap();
+        (dir, store)
+    }
+
+    #[test]
+    fn folders_and_conversations_round_trip() {
+        let (_dir, store) = store();
+        let folder = store.open_folder("/tmp/workspace").unwrap();
+        let folder_id = folder["id"].as_str().unwrap();
+        let conversation = store
+            .create_conversation(Some(folder_id), "claude_code", Some("Hello"))
+            .unwrap();
+        let rows = store.list_conversations(&[folder_id.to_string()]).unwrap();
+        assert_eq!(rows.len(), 1);
+        let detail = store.get_conversation(&conversation).unwrap().unwrap();
+        assert_eq!(detail["summary"]["title"], "Hello");
+    }
+
+    #[test]
+    fn roles_round_trip() {
+        let (_dir, store) = store();
+        let role = json!({
+            "name": "Builder",
+            "agent_type": "claude_code",
+            "model": "mimo-v2.6-flash",
+            "model_provider": "opencode-go",
+            "skills": ["codegraph"],
+            "mcp": ["xcode"]
+        });
+        let saved = store.save_role(&role).unwrap();
+        assert_eq!(saved["name"], "Builder");
+        let rows = store.list_roles().unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["skills"][0], "codegraph");
+        let id = rows[0]["id"].as_str().unwrap();
+        assert!(store.role(id).unwrap().is_some());
+        store.delete_role(id).unwrap();
+        assert_eq!(store.list_roles().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn events_are_replayable() {
+        let (_dir, store) = store();
+        store
+            .append_event("c1", None, &json!({"type": "content_delta", "seq": 1}))
+            .unwrap();
+        store
+            .append_event("c1", None, &json!({"type": "turn_complete", "seq": 2}))
+            .unwrap();
+        let rows = store.events_since("c1", 0).unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1]["type"], "turn_complete");
+    }
 }

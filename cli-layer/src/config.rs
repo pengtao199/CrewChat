@@ -70,10 +70,6 @@ impl Config {
         self.data_dir.join("cli-layer.json")
     }
 
-    pub fn roles_dir(&self) -> PathBuf {
-        self.data_dir.join("roles")
-    }
-
     pub fn base_url(&self) -> String {
         format!("http://{}:{}", self.host, self.port)
     }

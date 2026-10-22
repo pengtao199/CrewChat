@@ -31,7 +31,7 @@ impl ModelLayerClient {
         json!({
             "url": self.base_url,
             "tokenConfigured": self.token.is_some(),
-            "tokenSource": if self.token.is_some() { "env-or-file" } else { Value::Null },
+            "tokenSource": if self.token.is_some() { json!("env-or-file") } else { Value::Null },
         })
     }
 
@@ -292,5 +292,32 @@ fn slug(name: &str) -> String {
         uuid::Uuid::new_v4().to_string()
     } else {
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn provider_save_keeps_an_existing_key_when_the_ui_sends_blank() {
+        let mut config = serde_json::json!({
+            "Providers": [{
+                "id": "p1",
+                "name": "Provider",
+                "credentials": [{"id": "c1", "name": "main", "api_key": "sk-old"}]
+            }]
+        });
+        let body = serde_json::json!({
+            "originalId": "p1",
+            "name": "Provider",
+            "baseUrl": "https://example.com/v1",
+            "protocol": "openai_chat_completions",
+            "models": ["m1"],
+            "credentials": [{"id": "c1", "name": "main", "apiKey": ""}]
+        });
+        let provider = merge_provider(&mut config, &body).unwrap();
+        assert_eq!(provider["credentials"][0]["api_key"], "sk-old");
+        assert_eq!(provider["models"][0], "m1");
     }
 }

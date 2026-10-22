@@ -12,7 +12,6 @@ use crate::engines::EngineKind;
 pub struct RoleOverlay {
     pub env: BTreeMap<String, String>,
     pub model_label: String,
-    pub home: Option<PathBuf>,
 }
 
 /// Build a disposable home for one role. `api_key` is only needed by the
@@ -87,14 +86,20 @@ fn prepare_claude(home: &Path, model_label: &str, gateway: &str) -> Result<RoleO
         "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT".into(),
         json!("1"),
     );
+    let mut settings = json!({"env": env});
+    // `apiKeyHelper` and `enabledPlugins` are top-level Claude Code settings,
+    // not env vars.
     if let Some(helper) = global_claude_helper() {
-        env.insert("apiKeyHelper".into(), json!(helper));
+        settings["apiKeyHelper"] = json!(helper);
     }
-    let settings = json!({"env": env});
+    if let Some(plugins) = global_claude_plugins() {
+        settings["enabledPlugins"] = plugins;
+    }
     std::fs::write(
         home.join("settings.json"),
         serde_json::to_vec_pretty(&settings)?,
     )?;
+    link_shared_claude_dirs(home);
 
     let mut result = BTreeMap::new();
     result.insert(
@@ -104,8 +109,38 @@ fn prepare_claude(home: &Path, model_label: &str, gateway: &str) -> Result<RoleO
     Ok(RoleOverlay {
         env: result,
         model_label: model_label.to_string(),
-        home: Some(home.to_path_buf()),
     })
+}
+
+/// Keep transcripts, plugins, skills and shell snapshots in the shared tree
+/// the rest of the app already reads.
+fn link_shared_claude_dirs(home: &Path) {
+    const SHARED: &[&str] = &[
+        "projects",
+        "plugins",
+        "todos",
+        "statsig",
+        "shell-snapshots",
+        "downloads",
+    ];
+    let Some(base) = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join(".claude"))
+    else {
+        return;
+    };
+    for name in SHARED {
+        let target = base.join(name);
+        if !target.is_dir() {
+            continue;
+        }
+        let link = home.join(name);
+        if link.exists() {
+            continue;
+        }
+        #[cfg(unix)]
+        let _ = std::os::unix::fs::symlink(&target, &link);
+    }
 }
 
 fn prepare_codex(
@@ -125,15 +160,39 @@ fn prepare_codex(
         "model = {model:?}\nmodel_provider = \"crewchat\"\n\n[model_providers.crewchat]\nname = \"CrewChat\"\nbase_url = {base:?}\nwire_api = \"responses\"\nrequires_openai_auth = false\nenv_key = \"CODEG_CCR_GATEWAY_KEY\"\n"
     );
     std::fs::write(home.join("config.toml"), config)?;
+    link_shared_codex_home(home);
 
     let mut env = BTreeMap::new();
     env.insert("CODEX_HOME".to_string(), home.to_string_lossy().to_string());
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), api_key.to_string());
     Ok(RoleOverlay {
         env,
-        model_label,
-        home: Some(home.to_path_buf()),
+        model_label: model_label.to_string(),
     })
+}
+
+fn link_shared_codex_home(home: &Path) {
+    let Some(base) = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .map(|home| home.join(".codex"))
+    else {
+        return;
+    };
+    let Ok(entries) = std::fs::read_dir(&base) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if name == "config.toml" {
+            continue;
+        }
+        let link = home.join(&name);
+        if link.exists() {
+            continue;
+        }
+        #[cfg(unix)]
+        let _ = std::os::unix::fs::symlink(entry.path(), &link);
+    }
 }
 
 fn prepare_opencode(
@@ -176,9 +235,18 @@ fn prepare_opencode(
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), api_key.to_string());
     Ok(RoleOverlay {
         env,
-        model_label,
-        home: Some(home.to_path_buf()),
+        model_label: model_label.to_string(),
     })
+}
+
+fn global_claude_plugins() -> Option<Value> {
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    let raw = std::fs::read_to_string(home.join(".claude/settings.json")).ok()?;
+    let value: Value = serde_json::from_str(&raw).ok()?;
+    value
+        .get("enabledPlugins")
+        .cloned()
+        .filter(|value| !value.is_null())
 }
 
 fn global_claude_helper() -> Option<String> {
@@ -189,4 +257,40 @@ fn global_claude_helper() -> Option<String> {
         .get("apiKeyHelper")
         .and_then(Value::as_str)
         .map(str::to_string)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn claude_overlay_writes_gateway_and_model() {
+        let dir = tempfile::tempdir().unwrap();
+        let role = serde_json::json!({
+            "id": "r1",
+            "model": "mimo-v2.6-flash",
+            "model_provider": "OpenCode Go"
+        });
+        let overlay = prepare(
+            EngineKind::ClaudeCode,
+            &role,
+            "http://127.0.0.1:3456",
+            None,
+            dir.path(),
+        )
+        .unwrap();
+        let home = overlay.env.get("CLAUDE_CONFIG_DIR").unwrap();
+        let settings: Value = serde_json::from_str(
+            &std::fs::read_to_string(std::path::Path::new(home).join("settings.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            settings["env"]["ANTHROPIC_BASE_URL"],
+            "http://127.0.0.1:3456"
+        );
+        assert_eq!(
+            settings["env"]["ANTHROPIC_MODEL"],
+            "OpenCode Go/mimo-v2.6-flash"
+        );
+    }
 }

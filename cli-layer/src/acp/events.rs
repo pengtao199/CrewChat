@@ -46,10 +46,6 @@ impl EventBus {
         let _ = self.tx.send(event.clone());
         event
     }
-
-    pub fn next_seq(&self) -> u64 {
-        self.seq.load(Ordering::SeqCst)
-    }
 }
 
 impl Default for EventBus {

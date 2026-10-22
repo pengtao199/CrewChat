@@ -12,10 +12,11 @@ use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
     CancelNotification, ContentBlock, InitializeRequest, NewSessionRequest, PromptRequest,
-    ProtocolVersion, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     SelectedPermissionOutcome, SessionId, SessionNotification, TextContent,
 };
-use agent_client_protocol::{AcpAgent, Agent, Client, ConnectionTo};
+use agent_client_protocol::schema::ProtocolVersion;
+use agent_client_protocol::{Agent, Client, ConnectionTo};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -77,6 +78,7 @@ pub struct ConnectionInfo {
     pub id: String,
     pub agent_type: String,
     pub session_id: String,
+    #[allow(dead_code)]
     pub conversation_id: Option<String>,
     pub model_label: String,
 }
@@ -122,6 +124,7 @@ impl AcpHost {
         self.sink.subscribe()
     }
 
+    #[allow(dead_code)]
     pub fn connection(&self, connection_id: &str) -> Option<ConnectionInfo> {
         self.connections
             .lock()
@@ -216,7 +219,7 @@ impl AcpHost {
                                     RequestPermissionOutcome::Cancelled,
                                 ),
                             };
-                            responder.respond(response);
+                            let _ = responder.respond(response);
                             Ok(())
                         })
                     },

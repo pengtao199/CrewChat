@@ -342,3 +342,19 @@ tool → permission → cancel；不接 AgentOS。
 - 数据迁移、技能 / MCP / 引擎安装（Phase 3）。
 
 **Phase 0 Gate 不变**：`cargo check` 通过 + Claude 一条 turn。
+
+### 验证（2026-10-22）
+
+- `cargo check` / `cargo test`（5 个）/ `cargo clippy -D warnings` 通过。
+- 假 ACP：connect → `content_delta` → `turn_complete`；权限 request → `allow_once` → 工具继续。
+- 真实 Claude（`claude-agent-acp@0.89.1`，经 model-layer）：
+  - 基础回复 `ok`、`turn_complete end_turn`；
+  - `Read File` 工具 → `tool_call_update completed` → `probe-ok`；
+  - Bash `echo permission-ok` → completed → `permission-ok`；
+  - per-role `deepseek-v4.1-flash`：会话 `_claude/model` 正确，回复 `role-ok`；
+  - 模型页代理 `getConfig`：3 provider / 38 models。
+- `/ws/events`：ready → replay → attached → event。
+- role home：`apiKeyHelper` 是顶层设置，补了 plugins 与 `~/.claude` 共享目录 symlink。
+
+未做：AgentOS 切换（Phase 3）、Codex / OpenCode 实聊（Phase 2）、
+skills / MCP / engine install、数据迁移、打包。
