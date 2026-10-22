@@ -189,15 +189,20 @@ codeg 的 66k 行 parsers 是为了从 CLI 自己的 JSONL 里重建历史。Swi
 
 **Gate**：一个假 ACP 会话能在测试里跑完 streaming + tool + permission + cancel；fake provider 能返回可解析的 SSE。
 
-### Phase 1：Swift 模型层，移除 CCR（约 4–6 周）
+### Phase 1：模型层（已拆出 → [模型层：移除 CCR](model-layer-remove-ccr.md)）
 
-1. `ModelStore`：providers、credentials（Keychain）、per-role model、额度快照。
-2. `ModelGateway`：上表四条链路，先 pass-through，再补需要的转换。
-3. **CCR 兼容控制面**：实现 `getConfig` / `getProviderAccountSnapshots` 的最小子集，把 codeg 的 `CCR_WEB_URL` 指到 Swift 服务；codeg 的 `agent_host` / overlay 不改。
-4. AgentOS 模型页从 `ccr_call` 切到进程内 `ModelService`（UI 不动）。
-5. （可选）内置 FreeLLMAPI 精选预设包：只做 provider prefill，不引入它的运行时或目录（见第 4 节）。
+模型层先以 **Rust sidecar** 落地（控制面 `:3458` + 网关 `:3456`），不再在 Swift 里新建 `ModelStore` / `ModelGateway`：
 
-**Gate**：CCR 进程不再启动；模型页可新建/编辑 provider + 多密钥；Claude Code/Codex 各跑一轮；额度页有数据；连续 2 周无回归。
+- 当前 `AGENTS/agentos-boundary.md` 规定壳不持有模型、路由与协议解析；
+- Rust 侧已有可复用的 Anthropic→OpenAI 翻译实现，Swift 没有成熟基座；
+- 独立 HTTP 服务在本计划的 Phase 3 之后仍可原样复用，不必随壳重写。
+
+本计划后续只做两件事：
+
+1. Phase 3 之后，Swift runtime 通过同一 HTTP 契约消费模型层；若最终要进程内化，按 `model-layer` 的 conformance fixture 移植，不重新定义语义。
+2. 模型页从 `ccr_call` 切到 `ModelService` 时，数据源仍是模型层，**不在壳里另存一份**。
+
+**Gate**：以 `model-layer-remove-ccr.md` 的 Phase 5 Gate 为准（CCR 进程不再启动、模型页 CRUD 正常、Claude/Codex/OpenCode 各跑一轮、并发多模型不串味）。
 
 **回退**：`CCR_WEB_URL` 指回 CCR，保留二进制。
 
@@ -311,12 +316,13 @@ codeg 的 66k 行 parsers 是为了从 CLI 自己的 JSONL 里重建历史。Swi
 | Phase | 人周（1 人） |
 | --- | --- |
 | 0 契约/测试地基 | 2 |
-| 1 模型层 | 4–6 |
+| 1 模型层（已拆出 → `model-layer-remove-ccr.md`） | 0（另计 3–4 周） |
 | 2 ACP 单 CLI | 4–6 |
 | 3 全 CLI + 存储 + 切换 | 6–8 |
 | 4 团队/权限/能力 | 4–6 |
 | 5 清理/打包 | 3–4 |
-| 合计 | 23–32 人周 |
+| 小计（本计划） | 19–26 人周 |
+| 加模型层 | 22–30 人周 |
 
 - 1 人：约 6–8 个月（含缓冲）。
 - 2 人并行（模型层 / ACP）：约 4 个月。

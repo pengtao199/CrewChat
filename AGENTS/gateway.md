@@ -6,6 +6,8 @@
 
 ## 现状
 
+> 计划中（未实施）：模型层将以 Rust sidecar 取代 CCR，见 [`docs/plans/model-layer-remove-ccr.md`](../docs/plans/model-layer-remove-ccr.md)。切换前本文件仍是运行时规则。
+
 模型统一管理由 **CCR（claude-code-router）** 承担，源码固化进本仓库 `ccr/`。运行时有两侧：
 
 - **控制面**：CCR 管理进程（默认 `127.0.0.1:3458`），RPC 入口 `POST /api/ccr/rpc`（头 `x-ccr-web-auth`）；
