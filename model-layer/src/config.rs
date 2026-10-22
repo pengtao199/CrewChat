@@ -76,6 +76,13 @@ impl Config {
         self.data_dir.join("model.db")
     }
 
+    /// The last Claude-visible catalog. `[1m]` is not in the provider JSON, so
+    /// a stopped CCR would otherwise make the next import forget which models
+    /// carry the suffix.
+    pub fn claude_models_path(&self) -> PathBuf {
+        self.data_dir.join("claude-models.json")
+    }
+
     pub fn runtime_path(&self) -> PathBuf {
         self.data_dir.join("model-layer.json")
     }

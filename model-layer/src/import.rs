@@ -38,13 +38,16 @@ pub async fn run(cfg: &Config, store: &Store) -> Result<Imported> {
         .unwrap_or_else(|| cfg.gateway_url());
     let claude_models = match local_key {
         Some(key) => match fetch_claude_models(&source_gateway, &key).await {
-            Ok(ids) => ids,
+            Ok(ids) => {
+                save_claude_models(cfg, &ids);
+                ids
+            }
             Err(error) => {
                 tracing::warn!("claude model discovery from {source_gateway} failed: {error}");
-                Vec::new()
+                load_claude_models(cfg)
             }
         },
-        None => Vec::new(),
+        None => load_claude_models(cfg),
     };
 
     store.apply_config(&config)?;
@@ -133,8 +136,10 @@ fn read_sqlite(path: &Path) -> Result<Value> {
 /// can prove are plaintext; the alternative is inventing a key that Claude
 /// Code's existing `apiKeyHelper` will not match.
 fn read_plaintext_api_keys(conn: &Connection) -> Result<Vec<Value>> {
+    // `api_keys.enabled` only exists on newer CCR builds; select the columns
+    // every version has.
     let mut stmt = conn.prepare(
-        "SELECT id, name, encrypted_key, encryption, limits_json, enabled, created_at
+        "SELECT id, name, encrypted_key, encryption, limits_json, created_at
          FROM api_keys",
     )?;
     let rows = stmt
@@ -145,14 +150,13 @@ fn read_plaintext_api_keys(conn: &Connection) -> Result<Vec<Value>> {
                 row.get::<_, Option<String>>(2)?,
                 row.get::<_, Option<String>>(3)?,
                 row.get::<_, Option<String>>(4)?,
-                row.get::<_, Option<i64>>(5)?,
-                row.get::<_, Option<String>>(6)?,
+                row.get::<_, Option<String>>(5)?,
             ))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
 
     let mut keys = Vec::new();
-    for (id, name, key, encryption, limits, enabled, created_at) in rows {
+    for (id, name, key, encryption, limits, created_at) in rows {
         let Some(key) = key.filter(|value| !value.trim().is_empty()) else {
             continue;
         };
@@ -176,7 +180,7 @@ fn read_plaintext_api_keys(conn: &Connection) -> Result<Vec<Value>> {
             "name": name,
             "key": key,
             "limits": limits.and_then(|raw| serde_json::from_str::<Value>(&raw).ok()),
-            "enabled": enabled.unwrap_or(1) != 0,
+            "enabled": true,
             "createdAt": created_at,
         }));
     }
@@ -240,6 +244,39 @@ fn merge_disabled_models(config: &mut Value, cfg: &Config) {
         }
     }
     tracing::info!("merged disabled models from {}", path.display());
+}
+
+fn save_claude_models(cfg: &Config, ids: &[String]) {
+    if ids.is_empty() {
+        return;
+    }
+    let path = cfg.claude_models_path();
+    let body = match serde_json::to_vec_pretty(&ids) {
+        Ok(body) => body,
+        Err(error) => {
+            tracing::warn!("cannot serialize claude catalog: {error}");
+            return;
+        }
+    };
+    let tmp = path.with_extension("json.tmp");
+    if let Err(error) = std::fs::write(&tmp, body) {
+        tracing::warn!("cannot write {}: {error}", tmp.display());
+        return;
+    }
+    if let Err(error) = std::fs::rename(&tmp, &path) {
+        tracing::warn!("cannot replace {}: {error}", path.display());
+    }
+}
+
+fn load_claude_models(cfg: &Config) -> Vec<String> {
+    let path = cfg.claude_models_path();
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    serde_json::from_str::<Vec<String>>(&raw).unwrap_or_else(|error| {
+        tracing::warn!("ignoring malformed {}: {error}", path.display());
+        Vec::new()
+    })
 }
 
 fn validate(config: &Value) -> Result<()> {

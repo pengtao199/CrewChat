@@ -5,7 +5,7 @@
 //! survive a round trip. Normalized columns exist only for routing and the
 //! model list.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -171,6 +171,7 @@ impl Store {
         let tx = conn.transaction()?;
         let existing_credentials = snapshot_secrets(&tx, "credentials", "api_key")?;
         let existing_callers = snapshot_secrets(&tx, "caller_keys", "key")?;
+        let existing_one_million = snapshot_one_million(&tx)?;
 
         tx.execute("DELETE FROM providers", [])?;
         tx.execute("DELETE FROM provider_models", [])?;
@@ -419,6 +420,16 @@ impl Store {
                     ],
                 )?;
             }
+        }
+
+        // The provider JSON has no `[1m]` flag; a re-import (e.g. from SQLite
+        // while CCR is offline) must not forget it.
+        for (provider_id, model) in existing_one_million {
+            tx.execute(
+                "UPDATE provider_models SET one_million = 1
+                 WHERE provider_id = ?1 AND model = ?2",
+                params![provider_id, model],
+            )?;
         }
 
         tx.execute(
@@ -1090,6 +1101,15 @@ fn looks_masked(key: &str) -> bool {
     key.contains('\u{2022}') || key.contains("****")
 }
 
+fn snapshot_one_million(tx: &rusqlite::Transaction<'_>) -> Result<HashSet<(String, String)>> {
+    let mut stmt =
+        tx.prepare("SELECT provider_id, model FROM provider_models WHERE one_million = 1")?;
+    let rows = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows.into_iter().collect())
+}
+
 fn snapshot_secrets(
     tx: &rusqlite::Transaction<'_>,
     table: &str,
@@ -1312,6 +1332,22 @@ mod tests {
             )
             .unwrap();
         assert!(inline.is_empty());
+    }
+
+    #[test]
+    fn reimport_keeps_one_million_flags() {
+        let store = Store::open_in_memory().unwrap();
+        store.apply_config(&config()).unwrap();
+        let id = format!(
+            "anthropic/claude-ccr-h{}[1m]",
+            crate::model_id::virtual_hex("OpenCode Go", "mimo-v2.6-flash")
+        );
+        store.mark_one_million(&[id]).unwrap();
+        store.apply_config(&config()).unwrap();
+        let views = store.provider_views().unwrap();
+        assert!(views[0]
+            .one_million
+            .contains(&"mimo-v2.6-flash".to_string()));
     }
 
     #[test]
