@@ -75,6 +75,7 @@ MODEL_LAYER_CONTROL_TOKEN=... ./target/release/crewchat-model
 | `CCR_WEB_URL` | 从 `service.json` 发现 | 运行中的 CCR 控制面 |
 | `MODEL_LAYER_DISABLED_MODELS` | `$CODEG_DATA_DIR/ccr-disabled-models.json` | 停用清单 |
 | `MODEL_LAYER_IMPORT_ON_START` | `1` | 设为 `0` 跳过导入 |
+| `MODEL_LAYER_KEYSTORE` | macOS `keychain`，其他 `db` | `keychain` 或 `db`（测试/非 macOS 回退） |
 | `MODEL_LAYER_APPLY_PROFILE` | `0` | 设为 `1` 时每次 `saveConfig` 也写 `~/.claude/settings.json` |
 
 ### 让 codeg 接过来（切换阶段）
@@ -121,12 +122,12 @@ codeg 的模型页、`body_model_face` 和 overlay 不需要改代码。
 - `applyProfile`：写 `~/.claude/settings.json` + 自己的 `apiKeyHelper`；
   Agent 会话不依赖它。
 - AgentOS 接线（启动 / 端口回退 / 健康检查）与 `cutover.sh` / `rollback.sh`。
+- 密钥：provider key 与 caller key 进 macOS Keychain，SQLite 只留引用；启动时自动迁移旧明文。
 
 未完成 / 下一步：
 
 - Responses 面的 Anthropic 翻译（目前 Claude 走 Chat；OpenCode Go 的 Chat 端点可用）。
 - 正式打包的 copy phase（开发用 `install-dev.sh` / scheme 已可用）。
-- Keychain 迁移（现在沿用 0600 SQLite）。
 
 ## 测试
 

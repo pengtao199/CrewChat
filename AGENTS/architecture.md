@@ -11,7 +11,7 @@
 | 腿 | 路径 | 职责 | 真相源 |
 | --- | --- | --- | --- |
 | 核心（运行时） | `codeg/` | 界面 + 内置 Rust 后端：ACP 会话、委派、权限、持久化、用量 | `codeg.db` |
-| 模型层 | `model-layer/` | 供应商 / 路由 / 密钥 / 额度（本地网关 + 控制面） | 模型层 SQLite（`AgentOS/model/model.db`） |
+| 模型层 | `model-layer/` | 供应商 / 路由 / 密钥 / 额度（本地网关 + 控制面） | SQLite 元数据 + macOS Keychain |
 | 壳（macOS） | `AgentOS/` | Swift 客户端：只渲染与交互 | 无，只持自己的设置 |
 | 归档 | `archive/` | 冻结的 Python 编排层与历史，只读 | 无 |
 

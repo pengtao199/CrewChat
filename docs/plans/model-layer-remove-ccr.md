@@ -217,14 +217,14 @@ SQLite（`~/Library/Application Support/AgentOS/model/model.db`，0600）。原�
 | --- | --- | --- |
 | `providers` | `id`、`name`、`type`、`api_base_url`、`raw_json`、`enabled`、`position` | `raw_json` 保留 `account` / `capabilities` / `icon` / `preferredProvider` |
 | `provider_models` | `provider_id`、`model`、`one_million`、`routable`、`auto_fetch`、`enabled`、`display_name`、`capabilities_json` | `[1m]` 只存布尔 |
-| `credentials` | `id`、`provider_id`、`name`、`api_key`、`priority`、`weight`、`enabled`、`limits_json`、`position` | 0600；日志永不打印 |
-| `caller_keys` | `id`、`name`、`key`、`limits_json`、`enabled` | 必须可还原：`getConfig.APIKEYS` 要把它交给 codeg，overlay 再写进会话环境；不能只存 hash |
+| `credentials` | `id`、`provider_id`、`name`、`keychain_ref`、`priority`、`weight`、`enabled`、`limits_json`、`position` | 密钥在 Keychain；SQLite 只存引用 |
+| `caller_keys` | `id`、`name`、`keychain_ref`、`limits_json`、`enabled` | 密钥在 Keychain；`getConfig.APIKEYS` 时解析出来交给 codeg，overlay 再写进会话环境 |
 | `disabled_models` | `provider_id`、`model` | 与现有 `ccr-disabled-models.json` 对齐 |
 | `legacy_config` | `key`、`value_json` | `profile` / `Router` / `preferredProvider` 原样回放 |
 | `quota_snapshots` | `credential_id`、`meters_json`、`fetched_at` | 过期显示缓存，不伪造 |
 | `imports` | `source`、`source_hash`、`imported_at` | 幂等 |
 
-**密钥落点**：v1 沿用 CCR 的做法——provider key 与 caller key 存在 0600 的 SQLite 里；DB 与备份不进 git、不进日志。签名稳定后再评估迁 Keychain（开发期 ad-hoc 签名会让 Keychain ACL 反复弹窗，见 `AGENTS/agentos-boundary.md` 的同一条理由）。
+**密钥落点**：provider key 与 caller key 进 macOS Keychain（service `com.crewchat.model-layer`，account `provider:<provider_id>:<credential_id>` / `caller:<caller_key_id>`）；SQLite 只存 `keychain_ref`，DB 与备份不进 git、不进日志。启动时自动把旧明文迁走，迁不动的保留 inline 并告警。非 macOS/测试用 `MODEL_LAYER_KEYSTORE=db` 回退 0600 SQLite。
 
 导入源：**运行中的 CCR**（`getConfig` 会注入 `APIKEYS`，静态 sqlite 不会）+ 实时 `/v1/models` 两种 UA + `api_keys` 表 + 禁用清单。不要只读 `config.sqlite`。
 
@@ -442,16 +442,19 @@ Route {
 - **端到端契约**：临时 `codeg-server` 指向模型层，`agent_role_model_face` 返回
   claude 38 / codex 69 / open_code 69；网关路由覆盖 `autoFetchKnownModels`，
   `/v1/models` 仍为 38 个 ID、8 个 `[1m]`。
+- **密钥迁移**：provider key 与 caller key 进 macOS Keychain（service
+  `com.crewchat.model-layer`），SQLite 只存 `keychain_ref`；启动时自动把旧明文迁走。
+  实测 5 条 provider 凭据 + 7 条 caller key，DB 中的 key 长度为 0，`getConfig` 与额度
+  仍能取到完整值。
 - **切换工具**：`model-layer/scripts/cutover.sh` / `rollback.sh` / `apply-profile.sh`；
   规则已同步到 `AGENTS/gateway.md`、`truth-sources.md`、`architecture.md`。
-- 25 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机、额度求值）。
+- 28 个单元测试通过（模型解析、store 往返、翻译、SSE 状态机、额度求值、Keychain 迁移）。
 
 ### 未完成
 
 - Responses 面的 Anthropic 翻译（Claude 目前走 Chat；OpenCode Go 的 Chat 端点可用）。
 - 正式打包的 copy phase（开发用 scheme / `install-dev.sh`）。
 - CCR 进程下线本身（脚本已就绪，等用户执行 `cutover.sh`）。
-- Keychain 迁移（现在沿用 0600 SQLite）。
 
 ### 下一步
 

@@ -33,7 +33,7 @@ codeg 仍经 `ccr_call` / `ccr_health` 操作它（`codeg/src-tauri/src/ccr/`）
 - **单一写入者**：模型数据只经模型层；CCR 与模型层不同时写同一份配置。
 - **协议差异集中在模型层**：上游不支持某 CLI 的线格式时在翻译层解决，不进入业务代码。
 - **端点是配置不是代码**：新增推理端点 = 模型页加 provider / 模型；不改 Swift 壳。
-- **密钥只落一处**：provider key 与 caller key 在模型层 SQLite（0600）；不写进代码、日志或前端。
+- **密钥只落一处**：provider key 与 caller key 在模型层 Keychain（service `com.crewchat.model-layer`），SQLite 只存引用；不写进代码、日志或前端。
 - **Agent 绑定只在花名册**：模型层不知道 Agent 存在；会话注入归核心。
 
 ## 具体规则

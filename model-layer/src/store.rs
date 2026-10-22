@@ -5,6 +5,7 @@
 //! survive a round trip. Normalized columns exist only for routing and the
 //! model list.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -12,6 +13,7 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
 
+use crate::keystore::{self, KeyStore};
 use crate::model_id::ProviderView;
 
 #[derive(Debug, Clone)]
@@ -40,6 +42,7 @@ pub struct ProviderRow {
 #[derive(Clone)]
 pub struct Store {
     conn: Arc<Mutex<Connection>>,
+    keystore: Arc<dyn KeyStore>,
 }
 
 impl Store {
@@ -54,17 +57,28 @@ impl Store {
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
         }
-        Ok(Self {
+        Ok(Self::with_keystore(conn, keystore::from_env()))
+    }
+
+    fn with_keystore(conn: Connection, keystore: Arc<dyn KeyStore>) -> Self {
+        Self {
             conn: Arc::new(Mutex::new(conn)),
-        })
+            keystore,
+        }
     }
 
     #[cfg(test)]
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
-        let store = Self {
-            conn: Arc::new(Mutex::new(conn)),
-        };
+        let store = Self::with_keystore(conn, Arc::new(keystore::InlineStore));
+        store.init_schema()?;
+        Ok(store)
+    }
+
+    #[cfg(test)]
+    pub fn open_in_memory_with(keystore: Arc<dyn KeyStore>) -> Result<Self> {
+        let conn = Connection::open_in_memory()?;
+        let store = Self::with_keystore(conn, keystore);
         store.init_schema()?;
         Ok(store)
     }
@@ -107,7 +121,8 @@ impl Store {
                 id TEXT PRIMARY KEY,
                 provider_id TEXT NOT NULL,
                 name TEXT NOT NULL,
-                api_key TEXT NOT NULL,
+                api_key TEXT NOT NULL DEFAULT '',
+                keychain_ref TEXT,
                 priority INTEGER NOT NULL DEFAULT 0,
                 weight INTEGER NOT NULL DEFAULT 1,
                 enabled INTEGER NOT NULL DEFAULT 1,
@@ -118,7 +133,8 @@ impl Store {
             CREATE TABLE IF NOT EXISTS caller_keys (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
-                key TEXT NOT NULL,
+                key TEXT NOT NULL DEFAULT '',
+                keychain_ref TEXT,
                 limits_json TEXT,
                 enabled INTEGER NOT NULL DEFAULT 1
             );
@@ -141,6 +157,8 @@ impl Store {
             );
             "#,
         )?;
+        ensure_column(&conn, "credentials", "keychain_ref", "TEXT")?;
+        ensure_column(&conn, "caller_keys", "keychain_ref", "TEXT")?;
         Ok(())
     }
 
@@ -151,6 +169,8 @@ impl Store {
     pub fn apply_config(&self, config: &Value) -> Result<()> {
         let mut conn = self.conn.lock().unwrap();
         let tx = conn.transaction()?;
+        let existing_credentials = snapshot_secrets(&tx, "credentials", "api_key")?;
+        let existing_callers = snapshot_secrets(&tx, "caller_keys", "key")?;
 
         tx.execute("DELETE FROM providers", [])?;
         tx.execute("DELETE FROM provider_models", [])?;
@@ -165,7 +185,7 @@ impl Store {
             .unwrap_or_default();
 
         for (position, provider) in providers.iter().enumerate() {
-            let object = provider.as_object().cloned().unwrap_or_default();
+            let mut object = provider.as_object().cloned().unwrap_or_default();
             let name = str_field(&object, &["name"]).unwrap_or_else(|| "Provider".to_string());
             let id = str_field(&object, &["id"]).unwrap_or_else(|| slug(&name));
             let kind = str_field(&object, &["type"])
@@ -176,6 +196,28 @@ impl Store {
                 .and_then(Value::as_bool)
                 .unwrap_or(true);
 
+            // Provider-level legacy keys must not stay in raw_json. If there
+            // is no credential pool, turn the key into the pool's first entry.
+            let legacy_key = take_secret(&mut object);
+            let has_credentials = object
+                .get("credentials")
+                .and_then(Value::as_array)
+                .map(|list| !list.is_empty())
+                .unwrap_or(false);
+            if let Some(key) = &legacy_key {
+                if !has_credentials {
+                    object.insert(
+                        "credentials".into(),
+                        json!([{
+                            "id": format!("{id}:legacy"),
+                            "name": "default",
+                            "api_key": key,
+                            "enabled": true,
+                        }]),
+                    );
+                }
+            }
+
             tx.execute(
                 "INSERT INTO providers (id, name, kind, base_url, raw_json, enabled, position)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -184,7 +226,7 @@ impl Store {
                     name,
                     kind,
                     base_url,
-                    serde_json::to_string(provider)?,
+                    serde_json::to_string(&Value::Object(object.clone()))?,
                     enabled as i64,
                     position as i64
                 ],
@@ -279,10 +321,6 @@ impl Store {
                     let Some(credential) = credential.as_object() else {
                         continue;
                     };
-                    let Some(api_key) = str_field(credential, &["api_key", "apiKey", "apikey"])
-                    else {
-                        continue;
-                    };
                     let credential_id = str_field(credential, &["id"])
                         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
                     let credential_name =
@@ -300,15 +338,37 @@ impl Store {
                         .get("enabled")
                         .and_then(Value::as_bool)
                         .unwrap_or(true);
+                    let incoming =
+                        str_field(credential, &["api_key", "apiKey", "apikey"]).unwrap_or_default();
+                    let incoming = if looks_masked(&incoming) {
+                        String::new()
+                    } else {
+                        incoming
+                    };
+                    let account = format!("provider:{id}:{credential_id}");
+                    let (existing_inline, existing_ref) = existing_credentials
+                        .get(&credential_id)
+                        .cloned()
+                        .unwrap_or_default();
+                    let (api_key, keychain_ref) = if !incoming.is_empty() {
+                        self.protect(&account, &incoming)
+                    } else if existing_ref.is_some() {
+                        (String::new(), existing_ref)
+                    } else if !existing_inline.is_empty() {
+                        self.protect(&account, &existing_inline)
+                    } else {
+                        (String::new(), None)
+                    };
                     tx.execute(
                         "INSERT INTO credentials
-                         (id, provider_id, name, api_key, priority, weight, enabled, limits_json, position)
-                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                         (id, provider_id, name, api_key, keychain_ref, priority, weight, enabled, limits_json, position)
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                         params![
                             credential_id,
                             id,
                             credential_name,
                             api_key,
+                            keychain_ref,
                             priority,
                             weight,
                             enabled as i64,
@@ -326,16 +386,34 @@ impl Store {
         if let Some(keys) = config.get("APIKEYS").and_then(Value::as_array) {
             for key in keys {
                 let Some(key) = key.as_object() else { continue };
-                let Some(value) = str_field(key, &["key", "api_key", "apiKey"]) else {
-                    continue;
+                let id =
+                    str_field(key, &["id"]).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+                let incoming = str_field(key, &["key", "api_key", "apiKey"]).unwrap_or_default();
+                let incoming = if looks_masked(&incoming) {
+                    String::new()
+                } else {
+                    incoming
+                };
+                let account = format!("caller:{id}");
+                let (existing_inline, existing_ref) =
+                    existing_callers.get(&id).cloned().unwrap_or_default();
+                let (value, keychain_ref) = if !incoming.is_empty() {
+                    self.protect(&account, &incoming)
+                } else if existing_ref.is_some() {
+                    (String::new(), existing_ref)
+                } else if !existing_inline.is_empty() {
+                    self.protect(&account, &existing_inline)
+                } else {
+                    (String::new(), None)
                 };
                 tx.execute(
-                    "INSERT INTO caller_keys (id, name, key, limits_json, enabled)
-                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    "INSERT INTO caller_keys (id, name, key, keychain_ref, limits_json, enabled)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                     params![
-                        str_field(key, &["id"]).unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
+                        id,
                         str_field(key, &["name", "label"]).unwrap_or_default(),
                         value,
+                        keychain_ref,
                         key.get("limits").map(serde_json::to_string).transpose()?,
                         key.get("enabled").and_then(Value::as_bool).unwrap_or(true) as i64
                     ],
@@ -367,6 +445,115 @@ impl Store {
     }
 
     // ---------------------------------------------------------------- read
+
+    /// Move existing plaintext rows into the KeyStore. New writes already go
+    /// through `protect`; this catches databases created before the switch.
+    pub fn migrate_keys(&self) -> Result<()> {
+        if !self.keystore.is_persistent() {
+            return Ok(());
+        }
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        let mut migrated = 0usize;
+
+        let credentials: Vec<(String, String, String, Option<String>)> = {
+            let mut stmt =
+                tx.prepare("SELECT id, provider_id, api_key, keychain_ref FROM credentials")?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            rows
+        };
+        for (id, provider_id, inline, reference) in credentials {
+            if reference.is_some() || inline.is_empty() {
+                continue;
+            }
+            let account = format!("provider:{provider_id}:{id}");
+            match self.keystore.put(&account, &inline) {
+                Ok(()) => {
+                    tx.execute(
+                        "UPDATE credentials SET api_key = '', keychain_ref = ?1 WHERE id = ?2",
+                        params![account, id],
+                    )?;
+                    migrated += 1;
+                }
+                Err(error) => tracing::warn!("keychain migration failed for {account}: {error}"),
+            }
+        }
+
+        let callers: Vec<(String, String, Option<String>)> = {
+            let mut stmt = tx.prepare("SELECT id, key, keychain_ref FROM caller_keys")?;
+            let rows = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            rows
+        };
+        for (id, inline, reference) in callers {
+            if reference.is_some() || inline.is_empty() {
+                continue;
+            }
+            let account = format!("caller:{id}");
+            match self.keystore.put(&account, &inline) {
+                Ok(()) => {
+                    tx.execute(
+                        "UPDATE caller_keys SET key = '', keychain_ref = ?1 WHERE id = ?2",
+                        params![account, id],
+                    )?;
+                    migrated += 1;
+                }
+                Err(error) => tracing::warn!("keychain migration failed for {account}: {error}"),
+            }
+        }
+
+        let providers: Vec<(String, String)> = {
+            let mut stmt = tx.prepare("SELECT id, raw_json FROM providers")?;
+            let rows = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            rows
+        };
+        for (id, raw) in providers {
+            let mut value: Value = serde_json::from_str(&raw).unwrap_or(Value::Null);
+            let Some(object) = value.as_object_mut() else {
+                continue;
+            };
+            let Some(key) = take_secret(object) else {
+                continue;
+            };
+            let has_credentials = object
+                .get("credentials")
+                .and_then(Value::as_array)
+                .map(|list| !list.is_empty())
+                .unwrap_or(false);
+            if !has_credentials {
+                let credential_id = format!("{id}:legacy");
+                let account = format!("provider:{id}:{credential_id}");
+                if let Err(error) = self.keystore.put(&account, &key) {
+                    tracing::warn!("keychain migration failed for {account}: {error}");
+                    continue;
+                }
+                tx.execute(
+                    "INSERT OR IGNORE INTO credentials
+                     (id, provider_id, name, api_key, keychain_ref, priority, weight, enabled, position)
+                     VALUES (?1, ?2, 'default', '', ?3, 0, 1, 1, 0)",
+                    params![credential_id, id, account],
+                )?;
+            }
+            tx.execute(
+                "UPDATE providers SET raw_json = ?1 WHERE id = ?2",
+                params![serde_json::to_string(&value)?, id],
+            )?;
+            migrated += 1;
+        }
+
+        tx.commit()?;
+        if migrated > 0 {
+            tracing::info!("migrated {migrated} secrets into the keystore");
+        }
+        Ok(())
+    }
 
     pub fn providers(&self) -> Result<Vec<ProviderRow>> {
         let conn = self.conn.lock().unwrap();
@@ -464,20 +651,23 @@ impl Store {
     pub fn credentials_for(&self, provider_id: &str) -> Result<Vec<CredentialRow>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, provider_id, name, api_key, priority, weight
+            "SELECT id, provider_id, name, api_key, keychain_ref, priority, weight
              FROM credentials
              WHERE provider_id = ?1 AND enabled = 1
              ORDER BY priority, position",
         )?;
+        let keystore = self.keystore.clone();
         let rows = stmt
             .query_map(params![provider_id], |row| {
+                let inline: String = row.get(3)?;
+                let reference: Option<String> = row.get(4)?;
                 Ok(CredentialRow {
                     id: row.get(0)?,
                     provider_id: row.get(1)?,
                     name: row.get(2)?,
-                    api_key: row.get(3)?,
-                    priority: row.get(4)?,
-                    weight: row.get(5)?,
+                    api_key: resolve_secret_with(keystore.as_ref(), &inline, reference.as_deref()),
+                    priority: row.get(5)?,
+                    weight: row.get(6)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -509,30 +699,63 @@ impl Store {
     }
 
     pub fn caller_key_valid(&self, key: &str) -> Result<bool> {
-        if key.trim().is_empty() {
+        let key = key.trim();
+        if key.is_empty() {
             return Ok(false);
         }
         let conn = self.conn.lock().unwrap();
-        let hit: Option<i64> = conn
-            .query_row(
-                "SELECT 1 FROM caller_keys WHERE key = ?1 AND enabled = 1 LIMIT 1",
-                params![key.trim()],
-                |row| row.get(0),
-            )
-            .optional()?;
-        Ok(hit.is_some())
+        let mut stmt =
+            conn.prepare("SELECT key, keychain_ref FROM caller_keys WHERE enabled = 1")?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        let keystore = self.keystore.clone();
+        for (inline, reference) in rows {
+            if resolve_secret_with(keystore.as_ref(), &inline, reference.as_deref()) == key {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// Move one secret behind the KeyStore. On failure keep it inline instead
+    /// of failing the whole import/save.
+    fn protect(&self, account: &str, secret: &str) -> (String, Option<String>) {
+        if secret.is_empty() {
+            return (String::new(), None);
+        }
+        if !self.keystore.is_persistent() {
+            return (secret.to_string(), None);
+        }
+        match self.keystore.put(account, secret) {
+            Ok(()) => (String::new(), Some(account.to_string())),
+            Err(error) => {
+                tracing::warn!("keychain put failed for {account}: {error}; keeping key in DB");
+                (secret.to_string(), None)
+            }
+        }
+    }
+
+    fn resolve_secret(&self, inline: &str, reference: Option<&str>) -> String {
+        resolve_secret_with(self.keystore.as_ref(), inline, reference)
     }
 
     pub fn local_gateway_key(&self) -> Result<Option<String>> {
         let conn = self.conn.lock().unwrap();
-        let key: Option<String> = conn
+        let row: Option<(String, Option<String>)> = conn
             .query_row(
-                "SELECT key FROM caller_keys WHERE id = 'local-gateway' AND enabled = 1",
+                "SELECT key, keychain_ref FROM caller_keys
+                 WHERE id = 'local-gateway' AND enabled = 1",
                 [],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )
             .optional()?;
-        Ok(key)
+        Ok(row.and_then(|(inline, reference)| {
+            let key = self.resolve_secret(&inline, reference.as_deref());
+            (!key.is_empty()).then_some(key)
+        }))
     }
 
     pub fn has_caller_keys(&self) -> Result<bool> {
@@ -572,17 +795,22 @@ impl Store {
     pub fn api_keys(&self) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, key, limits_json, enabled FROM caller_keys ORDER BY rowid",
+            "SELECT id, name, key, keychain_ref, limits_json, enabled
+             FROM caller_keys ORDER BY rowid",
         )?;
+        let keystore = self.keystore.clone();
         let rows = stmt
             .query_map([], |row| {
-                let limits: Option<String> = row.get(3)?;
+                let inline: String = row.get(2)?;
+                let reference: Option<String> = row.get(3)?;
+                let key = resolve_secret_with(keystore.as_ref(), &inline, reference.as_deref());
+                let limits: Option<String> = row.get(4)?;
                 Ok(json!({
                     "id": row.get::<_, String>(0)?,
                     "name": row.get::<_, String>(1)?,
-                    "key": row.get::<_, String>(2)?,
+                    "key": key,
                     "limits": limits.and_then(|raw| serde_json::from_str::<Value>(&raw).ok()),
-                    "enabled": row.get::<_, i64>(4)? != 0,
+                    "enabled": row.get::<_, i64>(5)? != 0,
                 }))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -805,19 +1033,23 @@ impl Store {
         }
 
         let mut stmt = conn.prepare(
-            "SELECT id, name, api_key, priority, weight, enabled, limits_json
+            "SELECT id, name, api_key, keychain_ref, priority, weight, enabled, limits_json
              FROM credentials WHERE provider_id = ?1 ORDER BY position",
         )?;
+        let keystore = self.keystore.clone();
         let credentials = stmt
             .query_map(params![provider_id], |row| {
-                let limits: Option<String> = row.get(6)?;
+                let inline: String = row.get(2)?;
+                let reference: Option<String> = row.get(3)?;
+                let api_key = resolve_secret_with(keystore.as_ref(), &inline, reference.as_deref());
+                let limits: Option<String> = row.get(7)?;
                 Ok(json!({
                     "id": row.get::<_, String>(0)?,
                     "name": row.get::<_, String>(1)?,
-                    "api_key": row.get::<_, String>(2)?,
-                    "priority": row.get::<_, i64>(3)?,
-                    "weight": row.get::<_, i64>(4)?,
-                    "enabled": row.get::<_, i64>(5)? != 0,
+                    "api_key": api_key,
+                    "priority": row.get::<_, i64>(4)?,
+                    "weight": row.get::<_, i64>(5)?,
+                    "enabled": row.get::<_, i64>(6)? != 0,
                     "limits": limits.and_then(|raw| serde_json::from_str::<Value>(&raw).ok()),
                 }))
             })?
@@ -825,6 +1057,72 @@ impl Store {
 
         Ok((models, auto, disabled, credentials))
     }
+}
+
+fn resolve_secret_with(keystore: &dyn KeyStore, inline: &str, reference: Option<&str>) -> String {
+    if let Some(reference) = reference.filter(|value| !value.is_empty()) {
+        match keystore.get(reference) {
+            Ok(Some(secret)) => return secret,
+            Ok(None) => tracing::warn!("keychain item {reference} is missing"),
+            Err(error) => tracing::warn!("keychain get failed for {reference}: {error}"),
+        }
+    }
+    inline.to_string()
+}
+
+/// Remove a provider-level legacy key from the raw JSON. The key moves behind
+/// the KeyStore; `raw_json` must never carry it again.
+fn take_secret(object: &mut Map<String, Value>) -> Option<String> {
+    let mut found = None;
+    for key in ["api_key", "apiKey", "apikey"] {
+        if let Some(Value::String(value)) = object.remove(key) {
+            let value = value.trim().to_string();
+            if !value.is_empty() && !looks_masked(&value) {
+                found = Some(value);
+            }
+        }
+    }
+    found
+}
+
+/// A masked key from the UI must not overwrite the stored one.
+fn looks_masked(key: &str) -> bool {
+    key.contains('\u{2022}') || key.contains("****")
+}
+
+fn snapshot_secrets(
+    tx: &rusqlite::Transaction<'_>,
+    table: &str,
+    column: &str,
+) -> Result<HashMap<String, (String, Option<String>)>> {
+    let mut stmt = tx.prepare(&format!("SELECT id, {column}, keychain_ref FROM {table}"))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows
+        .into_iter()
+        .map(|(id, inline, reference)| (id, (inline, reference)))
+        .collect())
+}
+
+fn ensure_column(conn: &Connection, table: &str, column: &str, decl: &str) -> Result<()> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let names: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    if !names.iter().any(|name| name == column) {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"),
+            [],
+        )?;
+    }
+    Ok(())
 }
 
 fn str_field(object: &Map<String, Value>, keys: &[&str]) -> Option<String> {
@@ -959,6 +1257,61 @@ mod tests {
         assert_eq!(store.provider_views().unwrap()[0].models.len(), 2);
         let routing = store.routing_views().unwrap();
         assert!(routing[0].models.contains(&"extra-model".to_string()));
+    }
+
+    #[test]
+    fn secrets_go_to_the_keystore() {
+        let keystore = Arc::new(crate::keystore::MemoryKeyStore::default());
+        let store = Store::open_in_memory_with(keystore.clone()).unwrap();
+        store.apply_config(&config()).unwrap();
+        let creds = store.credentials_for("opencode-go").unwrap();
+        assert_eq!(creds[0].api_key, "sk-a");
+        {
+            let conn = store.conn.lock().unwrap();
+            let inline: String = conn
+                .query_row(
+                    "SELECT api_key FROM credentials WHERE id = 'c1'",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(inline.is_empty());
+        }
+        assert!(store.caller_key_valid("sk-local").unwrap());
+    }
+
+    #[test]
+    fn migrate_keys_moves_plaintext_out_of_sqlite() {
+        let keystore = Arc::new(crate::keystore::MemoryKeyStore::default());
+        let store = Store::open_in_memory_with(keystore).unwrap();
+        store.apply_config(&config()).unwrap();
+        {
+            let conn = store.conn.lock().unwrap();
+            conn.execute(
+                "UPDATE credentials SET api_key = 'sk-legacy', keychain_ref = NULL WHERE id = 'c1'",
+                [],
+            )
+            .unwrap();
+            conn.execute(
+                "UPDATE caller_keys SET key = 'sk-caller', keychain_ref = NULL
+                 WHERE id = 'local-gateway'",
+                [],
+            )
+            .unwrap();
+        }
+        store.migrate_keys().unwrap();
+        let creds = store.credentials_for("opencode-go").unwrap();
+        assert_eq!(creds[0].api_key, "sk-legacy");
+        assert!(store.caller_key_valid("sk-caller").unwrap());
+        let conn = store.conn.lock().unwrap();
+        let inline: String = conn
+            .query_row(
+                "SELECT api_key FROM credentials WHERE id = 'c1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(inline.is_empty());
     }
 
     #[test]

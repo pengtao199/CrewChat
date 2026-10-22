@@ -13,6 +13,7 @@ mod config;
 mod control;
 mod gateway;
 mod import;
+mod keystore;
 mod model_id;
 mod profile;
 mod quota;
@@ -43,6 +44,7 @@ async fn main() -> Result<()> {
     let config = Arc::new(Config::from_env()?);
     let store = Store::open(&config.db_path())?;
     store.init_schema()?;
+    store.migrate_keys()?;
 
     if config.import_on_start {
         match import::run(&config, &store).await {
@@ -74,6 +76,13 @@ async fn main() -> Result<()> {
         store,
         upstream: Arc::new(Upstream::new()?),
     };
+
+    if config.apply_profile_on_save {
+        match profile::apply_claude(&app) {
+            Ok(value) => info!("global Claude profile: {value}"),
+            Err(error) => warn!("global Claude profile skipped: {error}"),
+        }
+    }
 
     let gateway_router = gateway::router(app.clone());
     let control_router = control::router(app.clone());
