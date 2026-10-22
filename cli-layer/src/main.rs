@@ -16,6 +16,7 @@ mod roles;
 mod store;
 mod ws;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -40,6 +41,25 @@ async fn main() -> Result<()> {
     let config = Arc::new(Config::from_env()?);
     let store = Store::open(&config.db_path())?;
     store.init_schema()?;
+
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "--import-codeg") {
+        let path = args
+            .windows(2)
+            .find(|pair| pair[0] == "--codeg")
+            .map(|pair| PathBuf::from(&pair[1]))
+            .unwrap_or_else(default_codeg_path);
+        let report = store.import_codeg(&path)?;
+        println!(
+            "imported {} folders, {} conversations, {} roles from {}",
+            report.folders,
+            report.conversations,
+            report.roles,
+            path.display()
+        );
+        return Ok(());
+    }
+
     config.write_runtime_file()?;
 
     let host = AcpHost::new(config.clone(), store.clone());
@@ -65,4 +85,11 @@ async fn main() -> Result<()> {
         _ = tokio::signal::ctrl_c() => info!("shutting down"),
     }
     Ok(())
+}
+
+fn default_codeg_path() -> PathBuf {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/"))
+        .join("Library/Application Support/AgentOS/core/codeg.db")
 }

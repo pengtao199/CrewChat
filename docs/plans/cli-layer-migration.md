@@ -358,3 +358,16 @@ tool → permission → cancel；不接 AgentOS。
 
 未做：AgentOS 切换（Phase 3）、Codex / OpenCode 实聊（Phase 2）、
 skills / MCP / engine install、数据迁移、打包。
+
+### Phase 2 验证（2026-10-23）
+
+- 真实 Codex（`codex-acp@2.2.2`）：connect → `codex-ok` → usage → turn_complete。
+- 真实 OpenCode（`opencode acp`）：thinking → `opencode-ok` → usage → turn_complete。
+- 三个引擎都通过 per-role overlay 使用 `OpenCode Go/deepseek-v4.1-flash`。
+- 旧数据导入 `--import-codeg`：1 folder / 5 conversations / 8 roles；
+  provider id 与显示名混用（`opencode-go-chat-completions`、`75f800be`）时，
+  按「provider 名/id → 模型唯一命中」归一化，会话模型标签正确。
+- 生产 `cli-layer.db` 已预置（AgentOS/cli），codeg 仍在运行，未切换。
+
+剩余：AgentOS 切换（Phase 3）、skills/MCP/engine install、旧 transcript 导入、
+打包。

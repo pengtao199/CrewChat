@@ -128,6 +128,47 @@ impl ModelLayerClient {
         Ok(Value::Object(out))
     }
 
+    /// The roster stores `provider_id` for new rows and display names for old
+    /// ones. The CLI overlay needs the display name encoded in the model label.
+    pub async fn normalize_provider(&self, provider: &str, model: &str) -> Option<String> {
+        let config = self.get_config().await.ok()?;
+        let providers = config.get("Providers").and_then(Value::as_array)?;
+        if let Some(name) = providers.iter().find_map(|entry| {
+            let name = entry.get("name").and_then(Value::as_str)?;
+            let id = entry.get("id").and_then(Value::as_str);
+            if name.eq_ignore_ascii_case(provider) || id == Some(provider) {
+                Some(name.to_string())
+            } else {
+                None
+            }
+        }) {
+            return Some(name);
+        }
+        // A stale roster provider id (the provider was removed or renamed) still
+        // works when exactly one provider serves the model.
+        let mut hits: Vec<String> = providers
+            .iter()
+            .filter(|entry| {
+                ["models", "autoFetchKnownModels"].iter().any(|field| {
+                    entry
+                        .get(*field)
+                        .and_then(Value::as_array)
+                        .map(|list| {
+                            list.iter()
+                                .filter_map(Value::as_str)
+                                .any(|candidate| candidate.eq_ignore_ascii_case(model))
+                        })
+                        .unwrap_or(false)
+                })
+            })
+            .filter_map(|entry| entry.get("name").and_then(Value::as_str))
+            .map(str::to_string)
+            .collect();
+        hits.sort();
+        hits.dedup();
+        (hits.len() == 1).then(|| hits.remove(0))
+    }
+
     pub async fn model_face(&self, _agent_type: &str) -> Result<Value, String> {
         let config = self.get_config().await?;
         let mut models = Vec::new();

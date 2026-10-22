@@ -11,6 +11,11 @@ UI 归 `AgentOS/`。
 ```sh
 cd cli-layer
 cargo run
+
+# 一次性导入 codeg.db（folders / conversations / roster）
+cargo run -- --import-codeg
+# 或指定来源
+cargo run -- --import-codeg --codeg /path/to/codeg.db
 ```
 
 默认 `127.0.0.1:3081`，控制 token 在 `CLI_LAYER_TOKEN`，或写在
@@ -48,6 +53,11 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
   - 工具 `Read File` → completed → `probe-ok`；
   - Bash `echo permission-ok` → completed；
   - per-role：`deepseek-v4.1-flash` 的会话 `_claude/model` 正确；
+- 真实 Codex（`codex-acp@2.2.2`）：`codex-ok` + usage + turn_complete。
+- 真实 OpenCode（`opencode acp`）：thinking + `opencode-ok` + usage + turn_complete。
+- 旧数据导入：`--import-codeg` 导入 1 个 folder、5 个 conversation、8 个 role；
+  stale provider id（`75f800be`、`opencode-go-chat-completions`）按模型回退到
+  `OpenCode Go`。
 - `/ws/events`：ready → replay → attached → event。
 - 模型页代理：`getConfig` 返回 3 provider / 38 models。
 

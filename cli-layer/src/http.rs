@@ -190,8 +190,24 @@ async fn acp_connect(
         .map(PathBuf::from)
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_else(|| PathBuf::from("/"));
-    let role =
+    let mut role =
         field(&body, &["roleId", "role_id"]).and_then(|id| state.store.role(id).ok().flatten());
+    if let Some(role) = role.as_mut() {
+        if let Some(provider) = role
+            .get("model_provider")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+        {
+            let model = role
+                .get("model")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            if let Some(display) = state.model.normalize_provider(&provider, &model).await {
+                role["model_provider"] = json!(display);
+            }
+        }
+    }
     let api_key = state.model.local_gateway_key().await;
     match state
         .host
