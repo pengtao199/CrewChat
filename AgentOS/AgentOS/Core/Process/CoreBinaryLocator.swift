@@ -55,6 +55,16 @@ enum CoreBinaryLocator {
         return logs.appending(path: "core.log")
     }
 
+    /// A marker the cutover script creates. When present, a failed/missing
+    /// model layer is a hard error instead of a silent fallback to CCR.
+    static func modelLayerRequiredMarker() -> URL {
+        modelLayerDirectory().appending(path: "required")
+    }
+
+    static func isModelLayerRequired() -> Bool {
+        FileManager.default.fileExists(atPath: modelLayerRequiredMarker().path)
+    }
+
     static func modelLayerLogFile() -> URL {
         let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
             .appending(path: "Logs/AgentOS", directoryHint: .isDirectory)

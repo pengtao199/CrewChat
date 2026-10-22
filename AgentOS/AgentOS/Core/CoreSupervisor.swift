@@ -76,6 +76,11 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
 
             emit(.connecting)
             let modelEnvironment = await startModelLayerIfAvailable()
+            if modelEnvironment.isEmpty && CoreBinaryLocator.isModelLayerRequired() {
+                emit(.failed("模型层没有启动，但已标记为必需。删除 \(CoreBinaryLocator.modelLayerRequiredMarker().path) 可回退到 CCR。"))
+                finishStarting()
+                return
+            }
             try sidecar.start(
                 binary: binary,
                 endpoint: endpoint,
