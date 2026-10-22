@@ -5,7 +5,9 @@ Status: In Progress（S0 ✅；S1 ✅；S2 ✅；S3 ✅；S4 ✅（权限审批�
 
 ## Goal（终态）
 
-一个可日常使用的 macOS 原生客户端：用户在 AgentOS 里选工作区与 Agent，发起任务，看见多个 Agent 谁在说、调了什么工具、花了多少，能随时取消与审批。**所有真相与执行都在核心（`codeg-server`）**，AgentOS 只渲染与交互。
+一个可日常使用的 macOS 原生客户端：用户在 AgentOS 里选工作区与 Agent，发起任务，看见多个 Agent 谁在说、调了什么工具、花了多少，能随时取消与审批。**当前阶段所有真相与执行都在核心（`codeg-server`）**，AgentOS 只渲染与交互。
+
+> 终态是 Swift 自己成为核心、去掉 codeg/CCR；见 [Swift 原生运行时迁移](swift-runtime-migration.md)。本计划的 Non-Goals（不实现 ACP / 不 spawn CLI / 不碰模型）只约束当前「壳 + codeg」阶段。
 
 判定达标：把核心当黑盒，`Features` 里不出现任何核心字段形状（`AGENTS/agentos-layout.md` 的硬约束）；杀掉核心再拉起，界面靠 `snapshot` / `replay` 自愈。
 
@@ -57,21 +59,23 @@ Status: In Progress（S0 ✅；S1 ✅；S2 ✅；S3 ✅；S4 ✅（权限审批�
 | 8 | 与 Next 工作台并行 | 不并行；AgentOS 是替代品，核心的 `CODEG_STATIC_DIR` 指向空目录 | 内嵌 WebView 做对照（否决） |
 | 9 | 主界面布局 | **两栏**：左侧可折叠工作区（`Section(isExpanded:)`，初始全折叠）+ 右侧主对话区；`.inspector` 默认隐藏、记住上次开合（⌘⌥I） | 三栏固定（否决） |
 | 10 | 委派开关 | 放「核心」页；**默认开启**（首次运行一次性写入核心，落「已初始化」标记，之后以核心为准） | 跟随核心默认（false） |
-| 11 | 设置页 | 6 个 tab：通用 / 核心 / 模型 / Agents / 能力 / 关于；每项对应已登记的核心命令 | 只做壳自身设置（否决） |
+| 11 | 设置页 | 8 个 tab：通用 / 核心 / 模型 / Agents / 技能 / MCP / 引擎 / 关于；每项对应已登记的核心命令 | 只做壳自身设置（否决） |
 | 12 | 设置入口 | **窗口内整页切换**：左栏 = 设置项列表，右栏 = 详情；齿轮 / ⌘, 进入，工具栏「返回工作区」退出 | 独立设置窗口 / Settings scene（否决） |
 | 13 | 侧栏折叠 | 工作区初始全折叠，折叠状态持久化 | 全展开（否决） |
 
 ## 设置与主界面（S1–S3 的落点）
 
-**设置 6 个 tab**（展示与编辑在壳，逻辑在核心）：
+**设置 8 个 tab**（展示与编辑在壳，逻辑在核心）：
 
 | Tab | 内容 | 核心命令 |
 | --- | --- | --- |
 | 通用 | 外观、启动行为（自动拉起 / 恢复上次工作区） | 壳本地 |
 | 核心 | 二进制路径、数据目录、端口策略、重启、打开日志 / 目录、**委派开关（默认开启）** | 壳本地 + `CoreLifecycle` + `get/set_delegation_settings` |
-| 模型 | 供应商增删改、密钥、默认模型 | `list/create/update/delete_model_provider` |
+| 模型 | 供应商增删改、预设、凭据池、模型选择、额度 | `ccr_call getConfig` + `ccr_provider_save/delete/probe` |
 | Agents | 花名册增删改：角色 / 引擎 / 模型 / 技能 / MCP / 权限 | `agent_roles_list/save/delete` + `agent_role_model_face` |
-| 能力 | MCP 服务、技能包、快捷短语 | `mcp_*` / `*_skill` / `quick_messages_*` |
+| 技能 | 按引擎管理全局/项目技能，读写 Markdown | `acp_list/read/save/delete_agent_skill` |
+| MCP | 扫描/新建/编辑/删除本机 MCP 服务 | `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` |
+| 引擎 | CLI 启用、环境变量、使用中的 Agent | `acp_list_agents` + `acp_update_agent_preferences` |
 | 关于 | 壳版本、核心版本、许可、诊断 | `Bundle` + `health` |
 
 **主界面**：两栏 + `.inspector`。

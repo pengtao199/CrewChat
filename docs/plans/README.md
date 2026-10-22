@@ -5,7 +5,8 @@
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
 | [Agents 核心协作](agents-core-collaboration.md) | In Progress | 聊天页做 Agents 核心改造；多 Agent 协作走 Codeg 原生委派增强（团队选择 / 管理员约束 / 成员模型注入 / 可见性）；花名册收敛与平台收尾随行 |
-| [AgentOS 壳（macOS 前端）](agentos-shell.md) | Ready | `AgentOS/` 下的 SwiftUI 壳：拉起并消费 `codeg-server` 的 HTTP/WS 契约，落地会话 / 流式 / 委派可见性 / 审批 / 花名册只读与打包 |
+| [AgentOS 壳（macOS 前端）](agentos-shell.md) | In Progress | `AgentOS/` 下的 SwiftUI 壳：拉起并消费 `codeg-server` 的 HTTP/WS 契约，落地会话 / 流式 / 委派可见性 / 审批 / 花名册与打包 |
+| [Swift 原生运行时迁移](swift-runtime-migration.md) | Proposed | 去掉 `codeg-server` / CCR：Swift 自己拥有 ACP、持久化、模型网关、权限与编排；外部 CLI/adapter 保留 |
 
 ## 归档
 
