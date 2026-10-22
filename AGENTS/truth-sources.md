@@ -20,15 +20,15 @@
 | 界面偏好 | `.data/crewchat.db` | SQLite | 否 | 否 |
 | 会话与消息 | `.data/crewchat.db` | SQLite | 否 | 否 |
 | 用量统计（经本 app 的 CLI 身体） | `.data/crewchat.db`（`usage_events`） | SQLite | 否 | 否 |
-| 技能 | `~/.agents/skills/*/SKILL.md` | Markdown | **是** | — |
-| MCP 服务 | `~/.agents/mcp.json` | JSON | **是** | — |
+| 技能 | 各 CLI 自己的技能目录（`~/.claude/skills`、`~/.codex/skills`、`~/.config/opencode/skills`、`~/.gemini/skills`…）+ 共享 `~/.agents/skills`；项目级在 `<workspace>/.<cli>/skills` / `.agents/skills` | Markdown（`SKILL.md`） | **是** | — |
+| MCP 服务 | 各 CLI 自己的 MCP 配置（Claude/Codex/Gemini/OpenCode…）+ 共享 `~/.agents/mcp.json` | JSON / TOML | **是** | — |
 | 插件 | `~/.agents/plugins/*` | 目录 | **是** | — |
 | 本地覆盖（CLI 参数等） | `.data/overrides.json` | JSON | 否 | 否 |
 
 ## 原则
 
 - **文件优先于数据库**：可被人阅读、被 git 管理、被其他工具消费的数据放文件；纯运行时状态放数据库。
-- **跨工具共享的数据不复制**：技能与 MCP 直接读 `~/.agents/`，不导入、不镜像。
+- **跨工具共享的数据不复制**：技能与 MCP 由各 CLI 自己的目录/配置承载，`~/.agents/` 是共享来源之一；不把它们复制进 AgentOS 的数据库，也不在 `.data/` 里做镜像。
 - **密钥只落一处**：模型端点 API key 存在 CCR 的供应商配置（模型页写入）；编排层自身的大脑池 `.data/providers.jsonc` 同样含 key。两处都禁止散落到 agent 文件、代码或前端。
 - **模型统一管理在 CCR**：供应商 / 路由的真相源是 CCR（经模型页写入）；Python 编排层保留自己的大脑池 `.data/providers.jsonc`（`core/providers.py`），但身体执行不再注入模型——CLI 用哪个模型由 CCR 写进其全局配置（见 `AGENTS/gateway.md`）。
 - **界面必须标注位置**：任何会写入文件的操作，界面要显示「保存到 → 路径」。
@@ -41,7 +41,8 @@
 ## 具体规则
 
 - 修改 Agent 只经 Agents 页写 `codeg.db` 的 `custom_agent`（角色行）；不再写 `.data/agents/*.jsonc`（冻结只读）。
-- 读取技能/MCP 一律通过 `providers.py` 的 `available_skills()` / `shared_mcp_servers()`，不自行拼路径。
+- 读写技能/MCP 一律通过核心命令：`acp_list_agent_skills` / `acp_read_agent_skill` / `acp_save_agent_skill` / `acp_delete_agent_skill` 与 `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server`。壳不自行拼路径、不直接改这些文件。
+- 技能页显示 `SkillItem.path`；MCP 页显示 `spec` 与写入的 CLI 集合（核心的 scan 不返回每个 CLI 的配置文件路径）。
 - `.data/` 整体被 gitignore；新增本地状态放进 `.data/`，不要放仓库根目录。
 - 新增配置文件时，先判断它是否属于「跨工具共享」（`~/.agents/`）还是「本项目私有」（`.data/`）。
 - 会话消息以 SQLite 为准；UI 端的乐观渲染不是真相源。
