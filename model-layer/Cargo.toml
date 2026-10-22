@@ -1,0 +1,33 @@
+[package]
+name = "crewchat-model"
+version = "0.1.0"
+edition = "2021"
+description = "CrewChat model layer: CCR-compatible control plane + local model gateway"
+license = "MIT"
+
+[[bin]]
+name = "crewchat-model"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+async-stream = "0.3"
+axum = { version = "0.8", features = ["macros"] }
+bytes = "1"
+futures-util = "0.3"
+hex = "0.4"
+http = "1"
+http-body-util = "0.1"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+time = { version = "0.3", features = ["formatting"] }
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3"
