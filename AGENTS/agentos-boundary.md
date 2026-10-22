@@ -27,6 +27,8 @@ AgentOS 是 CrewChat 的 macOS 原生客户端，只做壳：
 | 接口 | `POST /api/<command>`（命令名同 Tauri command，snake_case）；事件走 `GET /ws/events` |
 | 错误 | `{ code(snake_case), message, detail?, i18n_key?, i18n_params? }` |
 
+- **模型层是独立 sidecar**：`crewchat-model` 监听 3456/3458；壳只负责拉起它、把
+  `CCR_WEB_URL` / `CCR_WEB_AUTH_TOKEN` 传给核心，不解析模型协议、不持有 provider key。
 - **token 由壳生成**：启动核心时传 `CODEG_TOKEN`，壳把同一值写进 `~/Library/Application Support/AgentOS/core/token`（0600）。核心只在没收到时才自己生成并落库——壳永不读核心数据库。
 - 不传 `CODEG_STATIC_DIR` 也可运行（核心只警告），所以 AgentOS 不需要 Next.js 前端产物。
 - 参考实现可读不可依赖：`codeg/src/lib/transport/`（TS）。
