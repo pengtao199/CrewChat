@@ -108,6 +108,70 @@ UI → SessionCoordinator.prompt
 
 不做 CCR 的全量 provider 矩阵、proxy、插件、bot gateway、virtual models。转换层只覆盖实际用到的工具调用/推理/流式边界。
 
+### FreeLLMAPI：只取预设，不引入运行时
+
+FreeLLMAPI 和 CCR 不是同类：它是“免费额度聚合器”（34 个免费 provider / 635 端点，OpenAI/Anthropic/Gemini/Ollama 多协议、自动降级、按 key 限流），CCR 是“本地模型控制面”（profile、凭据池、与 codeg 集成）。它在免费池和协议覆盖面更强，但 README 明确写着 *“personal experimentation, not production”*；模型目录是 freellmapi.co 的签名 feed（免费安装约 30 天快照，live 目录 $19/年 premium），免费 tier 没有 SLA、晚高峰会随额度耗尽而降智。
+
+**决策**
+
+- 不把 FreeLLMAPI 作为 Swift 模型网关或 CCR 的替代，也不把它作为运行时依赖。
+- 只复用它的 **provider Base URL / 显示名 / 协议 / key 格式** 作为“免费/实验”预设数据源（MIT；不复制签名模型目录）。
+- 预设只是 prefill 数据；模型列表仍由我们的「获取可用模型」现场 probe，不落库、不依赖它的 catalog。
+
+**可复用数据**
+
+| 数据 | 来源 | 用法 |
+| --- | --- | --- |
+| Base URL、平台名、协议 | `server/src/providers/index.ts` + 专用 adapter | 精选后写入 bundled `provider-presets.json` |
+| key 格式 / quirk | 专用 adapter + `docs/en/providers/01-supported-platforms.md` | 预设的 `keyHint` / `notes` |
+| 模型 id、限额、排名、上下文 | `freellmapi.co` 签名 catalog | **不复制**；probe 现场获取 |
+
+**预设格式**（`AgentOS/Resources/provider-presets.json`）
+
+```json
+{
+  "source": "FreeLLMAPI",
+  "license": "MIT",
+  "commit": "<pinned>",
+  "presets": [
+    {
+      "id": "groq",
+      "name": "Groq",
+      "baseUrl": "https://api.groq.com/openai/v1",
+      "protocol": "openai_chat_completions",
+      "group": "free",
+      "requiresKey": true,
+      "keyHint": "gsk_...",
+      "notes": "免费 tier；无 SLA"
+    }
+  ]
+}
+```
+
+**筛选门槛**
+
+- 只收 chat provider；排除 usage / key 校验 / search-MCP / 媒体专用端点。
+- 每个预设必须现场 probe 通过（`/v1/models` 或一次最小 chat）。
+- 排除已退役或免费 roster 已关闭的（SambaNova、OpenCode Zen free、Reka 新账号）。
+- 排除会把 prompt 用于训练的（如 Kilo）；默认不收 keyless。
+- 首批 8–10 个：Groq、Cerebras、Mistral、OpenRouter、HuggingFace、NVIDIA NIM、Google Gemini、Cohere、Ollama Cloud、LLM7。
+- UI 单独分组「免费 / 实验」，标「无 SLA」，**不作为默认 provider**；付费 provider 不受影响。
+
+**特殊协议 / key**
+
+- Google → `gemini_generate_content`（不是 OpenAI Chat）。
+- Cloudflare → key 为 `account_id:token`，URL 含 account id。
+- Zhipu → 国内 `open.bigmodel.cn` / 海外 `api.z.ai`，key 不互通。
+- Cohere → `/compatibility/v1`，tool schema 需要清洗。
+- keyless（Kilo / OVH / AI Horde）暂不做；要做需给 `ModelStore` 加 `requiresKey: false` 并放宽保存校验。
+
+**归属**
+
+- 在 `NOTICE` 里注明来源、commit、MIT；只取事实性 provider 元数据，不复制目录数据。
+- 上游 provider 的 ToS 仍适用；免费/实验分组必须在 UI 明示，不承诺可用性。
+
+**Phase 1 的落点**：预设包是可选增量，不阻塞 CCR 下线。先内置精选 JSON，模型页读取；后续加 provider 只需改数据文件。
+
 ### 旧解析层为什么可以不迁
 
 codeg 的 66k 行 parsers 是为了从 CLI 自己的 JSONL 里重建历史。Swift 运行时自己产生并保存 ACP 事件，**历史由自己拥有**；只需要一个一次性的 `codeg.db` 导入器。
@@ -131,6 +195,7 @@ codeg 的 66k 行 parsers 是为了从 CLI 自己的 JSONL 里重建历史。Swi
 2. `ModelGateway`：上表四条链路，先 pass-through，再补需要的转换。
 3. **CCR 兼容控制面**：实现 `getConfig` / `getProviderAccountSnapshots` 的最小子集，把 codeg 的 `CCR_WEB_URL` 指到 Swift 服务；codeg 的 `agent_host` / overlay 不改。
 4. AgentOS 模型页从 `ccr_call` 切到进程内 `ModelService`（UI 不动）。
+5. （可选）内置 FreeLLMAPI 精选预设包：只做 provider prefill，不引入它的运行时或目录（见第 4 节）。
 
 **Gate**：CCR 进程不再启动；模型页可新建/编辑 provider + 多密钥；Claude Code/Codex 各跑一轮；额度页有数据；连续 2 周无回归。
 
@@ -206,7 +271,8 @@ codeg 的 66k 行 parsers 是为了从 CLI 自己的 JSONL 里重建历史。Swi
 - codeg 的 web UI / server 模式 / 多用户 / 远程工作区；
 - 每个 CLI 的 transcript parser（只留 importer）；
 - 插件市场、science/office tools、config sync、experts、bot gateway；
-- CCR 的 proxy、插件、virtual models、全量 provider 矩阵、所有协议互转。
+- CCR 的 proxy、插件、virtual models、全量 provider 矩阵、所有协议互转；
+- FreeLLMAPI 的运行时、43 个 provider 全量、635 个模型目录；只保留精选预设（见第 4 节）。
 
 保留：
 
@@ -238,6 +304,7 @@ codeg 的 66k 行 parsers 是为了从 CLI 自己的 JSONL 里重建历史。Swi
 | macOS 签名/公证 | 无法分发 | 非沙盒 + Developer ID，Phase 5 真机验证 |
 | 功能 scope 蔓延 | 无限期 | 按第 7 节砍；新需求进 backlog，不阻塞迁移 |
 | codeg/CCR 行为暗坑 | 回归 | conformance fixtures；并排跑一个版本 |
+| 免费/实验 provider 预设 | ToS / 无 SLA / 端点退役 | 只做 opt-in 分组；每个预设 probe 验证；不设默认 |
 
 ## 10. 估算
 
@@ -288,6 +355,7 @@ codeg 的 66k 行 parsers 是为了从 CLI 自己的 JSONL 里重建历史。Swi
 6. 密钥用 Keychain 还是加密文件？（Keychain 优先；ad-hoc 签名弹窗问题在发布签名下不存在）
 7. 旧会话恢复：`session/load` 不支持时，只读历史还是重放最近 N 轮？
 8. 团队/委派：沿用 codeg 的语义，还是借迁移重新设计？
+9. 免费/实验 provider 是否进入产品默认列表？（默认：不进，单独分组、opt-in）
 
 ## 13. 维护
 
