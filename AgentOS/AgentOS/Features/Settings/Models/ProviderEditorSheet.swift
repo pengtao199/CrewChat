@@ -82,47 +82,46 @@ struct ProviderEditorSheet: View {
 
             Form {
                 Section("settings.models.basic") {
-                    HStack(alignment: .top, spacing: 12) {
-                        field("settings.models.preset") {
-                            Picker("", selection: $presetID) {
-                                Text("settings.models.preset.custom").tag("custom")
-                                ForEach(model.presets) { preset in
-                                    Text(preset.name).tag(preset.id)
-                                }
+                    LabeledContent("settings.models.preset") {
+                        Picker("", selection: $presetID) {
+                            Text("settings.models.preset.custom").tag("custom")
+                            ForEach(model.presets) { preset in
+                                Text(preset.name).tag(preset.id)
                             }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .help("settings.models.presetHint")
                         }
-
-                        field("settings.models.protocol") {
-                            Picker("", selection: $protocolName) {
-                                ForEach(Self.protocols, id: \.id) { option in
-                                    Text(option.label).tag(option.id)
-                                }
-                                if !Self.protocols.contains(where: { $0.id == protocolName }) {
-                                    Text(protocolName).tag(protocolName)
-                                }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .help("settings.models.presetHint")
                     }
 
-                    HStack(alignment: .top, spacing: 12) {
-                        field("settings.models.name") {
-                            TextField("", text: $name)
-                                .labelsHidden()
-                                .textFieldStyle(.roundedBorder)
+                    LabeledContent("settings.models.protocol") {
+                        Picker("", selection: $protocolName) {
+                            ForEach(Self.protocols, id: \.id) { option in
+                                Text(option.label).tag(option.id)
+                            }
+                            if !Self.protocols.contains(where: { $0.id == protocolName }) {
+                                Text(protocolName).tag(protocolName)
+                            }
                         }
-                        field("settings.models.baseURL") {
-                            TextField("", text: $baseURL)
-                                .labelsHidden()
-                                .textFieldStyle(.roundedBorder)
-                                .textContentType(.URL)
-                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    LabeledContent("settings.models.name") {
+                        TextField("", text: $name)
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                            .frame(maxWidth: .infinity)
+                    }
+
+                    LabeledContent("settings.models.baseURL") {
+                        TextField("", text: $baseURL)
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+                            .textContentType(.URL)
+                            .frame(maxWidth: .infinity)
                     }
                 }
 
