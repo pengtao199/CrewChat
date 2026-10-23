@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use crate::engines::OverlayKind;
 
 pub struct RoleOverlay {
+    pub home: PathBuf,
     pub env: BTreeMap<String, String>,
     pub model_label: String,
     /// Set by engines whose ACP bridge needs a companion process (OpenClaw).
@@ -17,8 +18,9 @@ pub struct RoleOverlay {
 }
 
 impl RoleOverlay {
-    fn new(env: BTreeMap<String, String>, model_label: String) -> Self {
+    fn new(home: &Path, env: BTreeMap<String, String>, model_label: String) -> Self {
         Self {
+            home: home.to_path_buf(),
             env,
             model_label,
             gateway_port: None,
@@ -191,7 +193,7 @@ fn prepare_claude(home: &Path, model_label: &str, gateway: &str) -> Result<RoleO
         "CLAUDE_CONFIG_DIR".to_string(),
         home.to_string_lossy().to_string(),
     );
-    Ok(RoleOverlay::new(result, model_label.to_string()))
+    Ok(RoleOverlay::new(home, result, model_label.to_string()))
 }
 
 /// Keep transcripts, plugins, skills and shell snapshots in the shared tree
@@ -247,7 +249,7 @@ fn prepare_codex(
     let mut env = BTreeMap::new();
     env.insert("CODEX_HOME".to_string(), home.to_string_lossy().to_string());
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), api_key.to_string());
-    Ok(RoleOverlay::new(env, model_label.to_string()))
+    Ok(RoleOverlay::new(home, env, model_label.to_string()))
 }
 
 fn link_shared_codex_home(home: &Path) {
@@ -312,7 +314,7 @@ fn prepare_opencode(
         home.join("opencode.json").to_string_lossy().to_string(),
     );
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), api_key.to_string());
-    Ok(RoleOverlay::new(env, model_label.to_string()))
+    Ok(RoleOverlay::new(home, env, model_label.to_string()))
 }
 
 fn prepare_grok(
@@ -334,7 +336,7 @@ fn prepare_grok(
     let mut env = BTreeMap::new();
     env.insert("GROK_HOME".to_string(), home.to_string_lossy().to_string());
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
-    Ok(RoleOverlay::new(env, model.to_string()))
+    Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
 fn prepare_hermes(
@@ -360,7 +362,7 @@ fn prepare_hermes(
         home.to_string_lossy().to_string(),
     );
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
-    Ok(RoleOverlay::new(env, model.to_string()))
+    Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
 fn prepare_kimi(
@@ -385,7 +387,7 @@ fn prepare_kimi(
         home.to_string_lossy().to_string(),
     );
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
-    Ok(RoleOverlay::new(env, model.to_string()))
+    Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
 fn prepare_openclaw(
@@ -433,6 +435,7 @@ fn prepare_openclaw(
     );
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
     Ok(RoleOverlay {
+        home: home.to_path_buf(),
         env,
         model_label: model.to_string(),
         gateway_port: Some(free_loopback_port()?),
@@ -487,7 +490,7 @@ fn prepare_pi(
         home.to_string_lossy().to_string(),
     );
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
-    Ok(RoleOverlay::new(env, model.to_string()))
+    Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
 fn prepare_cline(
@@ -559,7 +562,7 @@ fn prepare_cline(
     env.insert("CLINE_PROVIDER".to_string(), "crewchat".to_string());
     env.insert("CLINE_MODEL".to_string(), model.to_string());
     env.insert("CLINE_API_KEY".to_string(), key.to_string());
-    Ok(RoleOverlay::new(env, model.to_string()))
+    Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
 fn prepare_deepseek(
@@ -587,7 +590,7 @@ fn prepare_deepseek(
     env.insert("DEEPSEEK_ACP_PROVIDER".to_string(), "crewchat".to_string());
     env.insert("DEEPSEEK_ACP_MODEL".to_string(), model.to_string());
     env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
-    Ok(RoleOverlay::new(env, model.to_string()))
+    Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
 fn global_claude_plugins() -> Option<Value> {

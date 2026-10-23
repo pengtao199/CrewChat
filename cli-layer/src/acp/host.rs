@@ -27,6 +27,7 @@ use crate::acp::events::{self, EventBus, EventEnvelope};
 use crate::config::Config;
 use crate::engines::Engines;
 use crate::roles;
+use crate::skill_proxy::SkillLayerClient;
 use crate::store::Store;
 
 #[derive(Clone)]
@@ -100,6 +101,24 @@ enum Command {
     Close,
 }
 
+fn role_skill_ids(role: &Value) -> Vec<String> {
+    role.get("skills")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| match item {
+                    Value::String(id) => Some(id.clone()),
+                    Value::Object(object) => {
+                        object.get("id").and_then(Value::as_str).map(str::to_string)
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[derive(Clone)]
 pub struct AcpHost {
     config: Arc<Config>,
@@ -107,10 +126,11 @@ pub struct AcpHost {
     sink: EventSink,
     permissions: PermissionBroker,
     connections: Arc<Mutex<HashMap<String, ConnectionHandle>>>,
+    skills: Arc<SkillLayerClient>,
 }
 
 impl AcpHost {
-    pub fn new(config: Arc<Config>, store: Store) -> Self {
+    pub fn new(config: Arc<Config>, store: Store, skills: Arc<SkillLayerClient>) -> Self {
         let bus = EventBus::new();
         Self {
             engines: Engines::new(config.clone()),
@@ -118,6 +138,7 @@ impl AcpHost {
             sink: EventSink { bus, store },
             permissions: PermissionBroker::default(),
             connections: Arc::new(Mutex::new(HashMap::new())),
+            skills,
         }
     }
 
@@ -169,6 +190,17 @@ impl AcpHost {
             )?),
             None => None,
         };
+        if let (Some(overlay), Some(role)) = (&overlay, role.as_ref()) {
+            let skill_ids = role_skill_ids(role);
+            if !skill_ids.is_empty() {
+                self.skills
+                    .materialize(&overlay.home, spec.agent_type, &skill_ids)
+                    .await
+                    .map_err(|error| {
+                        anyhow!("materialize skills for {}: {error}", spec.agent_type)
+                    })?;
+            }
+        }
         let mut env = engine_env;
         if let Some(overlay) = &overlay {
             env.extend(overlay.env.clone());

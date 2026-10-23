@@ -22,6 +22,7 @@ use crate::acp::host::AcpHost;
 use crate::config::Config;
 use crate::engine_manager;
 use crate::model_proxy::ModelLayerClient;
+use crate::skill_proxy::SkillLayerClient;
 use crate::store::Store;
 use crate::ws;
 
@@ -31,6 +32,7 @@ pub struct AppState {
     pub store: Store,
     pub host: AcpHost,
     pub model: Arc<ModelLayerClient>,
+    pub skill: Arc<SkillLayerClient>,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -61,10 +63,19 @@ pub fn router(state: AppState) -> Router {
         .route("/api/get_folder_conversation", post(get_conversation))
         .route("/api/get_conversation", post(get_conversation))
         .route("/api/delete_conversation", post(delete_conversation))
-        .route("/api/acp_list_agent_skills", post(not_implemented))
-        .route("/api/acp_read_agent_skill", post(not_implemented))
+        .route("/api/acp_list_agent_skills", post(acp_list_agent_skills))
+        .route("/api/acp_read_agent_skill", post(acp_read_agent_skill))
         .route("/api/acp_save_agent_skill", post(not_implemented))
         .route("/api/acp_delete_agent_skill", post(not_implemented))
+        .route("/api/skill_list", post(skill_list))
+        .route("/api/skill_read", post(skill_read))
+        .route("/api/skill_install", post(skill_install))
+        .route("/api/skill_check", post(skill_check))
+        .route("/api/skill_update", post(skill_update))
+        .route("/api/skill_remove", post(skill_remove))
+        .route("/api/skill_link_status", post(skill_link_status))
+        .route("/api/agent_skills_set", post(agent_skills_set))
+        .route("/api/agent_skill_status", post(agent_skill_status))
         .route("/api/mcp_scan_local", post(not_implemented))
         .route("/api/mcp_upsert_local_server", post(not_implemented))
         .route("/api/mcp_remove_server", post(not_implemented))
@@ -507,6 +518,318 @@ async fn agent_role_model_face(
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
     }
+}
+
+async fn acp_list_agent_skills(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(_body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.skill.list().await {
+        Ok(value) => {
+            let skills = value
+                .get("skills")
+                .and_then(Value::as_array)
+                .map(|rows| rows.iter().map(legacy_skill).collect::<Vec<_>>())
+                .unwrap_or_default();
+            Json(json!({"supported": true, "message": Value::Null, "skills": skills}))
+                .into_response()
+        }
+        Err(error) => Json(json!({
+            "supported": false,
+            "message": error,
+            "skills": [],
+        }))
+        .into_response(),
+    }
+}
+
+async fn acp_read_agent_skill(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
+    match state.skill.detail(id).await {
+        Ok(detail) => {
+            let skill = detail.get("skill").cloned().unwrap_or(Value::Null);
+            Json(json!({
+                "skill": legacy_skill(&skill),
+                "content": detail.get("content").cloned().unwrap_or(Value::Null),
+            }))
+            .into_response()
+        }
+        Err(error) => api_error(StatusCode::NOT_FOUND, &error),
+    }
+}
+
+fn legacy_skill(skill: &Value) -> Value {
+    let id = skill.get("id").and_then(Value::as_str).unwrap_or_default();
+    let root = std::env::var_os("SKILL_LAYER_ROOT")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".agents")));
+    let path = root
+        .map(|root| root.join("skills").join(id))
+        .map(|path| path.to_string_lossy().to_string())
+        .unwrap_or_default();
+    json!({
+        "id": id,
+        "name": skill.get("name").and_then(Value::as_str).unwrap_or(id),
+        "scope": "global",
+        "layout": "directory",
+        "path": path,
+        "description": skill.get("description").cloned().unwrap_or(Value::Null),
+        "read_only": false,
+    })
+}
+
+async fn skill_list(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let skills = state.skill.list().await;
+    let collections = state.skill.collections().await;
+    let links = state.skill.global_links().await;
+    match (skills, collections, links) {
+        (Ok(skills), Ok(collections), Ok(links)) => Json(json!({
+            "skills": skills.get("skills").cloned().unwrap_or_else(|| json!([])),
+            "collections": collections.get("collections").cloned().unwrap_or_else(|| json!([])),
+            "globalLinks": links.get("links").cloned().unwrap_or_else(|| json!([])),
+        }))
+        .into_response(),
+        (skills, collections, links) => api_error(
+            StatusCode::BAD_GATEWAY,
+            &skills
+                .err()
+                .or_else(|| collections.err())
+                .or_else(|| links.err())
+                .unwrap_or_else(|| "skill-layer request failed".to_string()),
+        ),
+    }
+}
+
+async fn skill_read(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
+    match state.skill.detail(id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::NOT_FOUND, &error),
+    }
+}
+
+async fn skill_install(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.skill.install(&body).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+async fn skill_check(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
+    match state.skill.check(id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+async fn skill_update(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
+    match state.skill.update(id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+async fn skill_remove(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
+    match state.skill.remove(id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+    }
+}
+
+async fn skill_link_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]);
+    match state.skill.global_links().await {
+        Ok(value) => {
+            let links = value
+                .get("links")
+                .and_then(Value::as_array)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|link| {
+                    agent_type.is_none_or(|agent| {
+                        link.get("agentType")
+                            .or_else(|| link.get("agent_type"))
+                            .and_then(Value::as_str)
+                            == Some(agent)
+                    })
+                })
+                .collect::<Vec<_>>();
+            Json(json!({"links": links})).into_response()
+        }
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
+    }
+}
+
+async fn agent_skills_set(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
+    let Some(mut role) = state.store.role(role_id).ok().flatten() else {
+        return api_error(StatusCode::NOT_FOUND, "role not found");
+    };
+    let mut ids = string_array(body.get("skillIds").or_else(|| body.get("skill_ids")));
+    let collection_ids = string_array(
+        body.get("collectionIds")
+            .or_else(|| body.get("collection_ids")),
+    );
+    if !collection_ids.is_empty() {
+        match state.skill.collections().await {
+            Ok(value) => {
+                if let Some(collections) = value.get("collections").and_then(Value::as_array) {
+                    for collection in collections {
+                        let id = collection
+                            .get("id")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        if !collection_ids.iter().any(|wanted| wanted == id) {
+                            continue;
+                        }
+                        ids.extend(string_array(
+                            collection
+                                .get("skillIds")
+                                .or_else(|| collection.get("skill_ids")),
+                        ));
+                    }
+                }
+            }
+            Err(error) => return api_error(StatusCode::BAD_GATEWAY, &error),
+        }
+    }
+    ids.sort();
+    ids.dedup();
+    role["skills"] = json!(ids);
+    match state.store.save_role(&role) {
+        Ok(role) => Json(json!({
+            "roleId": role.get("id").cloned().unwrap_or(Value::Null),
+            "skillIds": role.get("skills").cloned().unwrap_or_else(|| json!([])),
+        }))
+        .into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn agent_skill_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
+    let Some(role) = state.store.role(role_id).ok().flatten() else {
+        return api_error(StatusCode::NOT_FOUND, "role not found");
+    };
+    let selected = string_array(role.get("skills"));
+    let available = state
+        .skill
+        .list()
+        .await
+        .ok()
+        .and_then(|value| value.get("skills").and_then(Value::as_array).cloned())
+        .unwrap_or_default();
+    let mut rows = Vec::new();
+    let mut missing = Vec::new();
+    for id in selected {
+        let found = available
+            .iter()
+            .find(|skill| skill.get("id").and_then(Value::as_str) == Some(id.as_str()));
+        if found.is_none() {
+            missing.push(id.clone());
+        }
+        rows.push(json!({
+            "id": id,
+            "name": found
+                .and_then(|skill| skill.get("name"))
+                .and_then(Value::as_str)
+                .unwrap_or(&id),
+            "available": found.is_some(),
+        }));
+    }
+    Json(json!({"skills": rows, "missing": missing})).into_response()
+}
+
+fn string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| match item {
+                    Value::String(id) => Some(id.clone()),
+                    Value::Object(object) => {
+                        object.get("id").and_then(Value::as_str).map(str::to_string)
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 async fn list_folders(State(state): State<AppState>, headers: HeaderMap) -> Response {

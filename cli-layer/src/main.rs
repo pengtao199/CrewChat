@@ -14,6 +14,7 @@ mod engines;
 mod http;
 mod model_proxy;
 mod roles;
+mod skill_proxy;
 mod store;
 mod ws;
 
@@ -28,6 +29,7 @@ use crate::acp::host::AcpHost;
 use crate::config::Config;
 use crate::http::AppState;
 use crate::model_proxy::ModelLayerClient;
+use crate::skill_proxy::SkillLayerClient;
 use crate::store::Store;
 
 #[tokio::main]
@@ -63,13 +65,15 @@ async fn main() -> Result<()> {
 
     config.write_runtime_file()?;
 
-    let host = AcpHost::new(config.clone(), store.clone());
+    let skill = Arc::new(SkillLayerClient::new());
+    let host = AcpHost::new(config.clone(), store.clone(), skill.clone());
     let model = Arc::new(ModelLayerClient::new(&config));
     let state = AppState {
         config: config.clone(),
         store,
         host,
         model,
+        skill,
     };
 
     let router = http::router(state);

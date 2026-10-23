@@ -7,6 +7,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private let lock = NSLock()
     private let sidecar = SidecarProcess()
     private let modelSidecar = SidecarProcess()
+    private let skillSidecar = SidecarProcess()
     private let cliSidecar = SidecarProcess()
     private let tokenStore = TokenStore(directory: CoreBinaryLocator.dataDirectory())
     private let modelTokenStore = TokenStore(directory: CoreBinaryLocator.modelLayerDirectory())
@@ -18,6 +19,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private var starting = false
     private var ownsCore = false
     private var ownsModelLayer = false
+    private var ownsSkillLayer = false
     private var ownsCliLayer = false
     private let signalSource: DispatchSourceSignal
 
@@ -64,6 +66,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
         guard beginStarting() else { return }
 
         if CoreBinaryLocator.isCliLayerEnabled() {
+            _ = await startSkillLayerIfAvailable()
             if await startCliLayerIfAvailable() {
                 finishStarting()
                 return
@@ -139,6 +142,10 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
             cliSidecar.stop()
             ownsCliLayer = false
         }
+        if ownsSkillLayer {
+            skillSidecar.stop()
+            ownsSkillLayer = false
+        }
         if ownsModelLayer {
             modelSidecar.stop()
             ownsModelLayer = false
@@ -183,9 +190,86 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
         lock.unlock()
     }
 
-    /// Opt-in Phase 3 dev switch: start `crewchat-cli` and point the shell at
-    /// it instead of codeg. Kept off by default (`AGENTOS_CLI_LAYER=1` or a
-    /// `cli/required` marker) until the settings pages reach parity.
+    /// Start the local skill library before cli-layer so `skill_*` commands
+    /// can proxy immediately. A missing/failed skill layer does not block
+    /// chat; skill commands surface the error until the daemon is available.
+    private func startSkillLayerIfAvailable() async -> Bool {
+        if await skillLayerHealthy() {
+            logger.log("skill layer already running")
+            return true
+        }
+        guard let binary = CoreBinaryLocator.locateSkillLayer() else {
+            logger.log("skill layer binary not found")
+            return false
+        }
+
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let root = home.appending(path: ".agents", directoryHint: .isDirectory)
+        let port = PortPicker.isFree(3460) ? 3460 : PortPicker.freePort()
+        let logFile = CoreBinaryLocator.skillLayerLogFile()
+        let environment = [
+            "SKILL_LAYER_PORT": String(port),
+            "SKILL_LAYER_ROOT": root.path,
+        ]
+
+        do {
+            try skillSidecar.start(
+                binary: binary,
+                endpoint: CoreEndpoint(host: "127.0.0.1", port: port, token: ""),
+                dataDirectory: root,
+                logFile: logFile,
+                extraEnvironment: environment,
+                label: "skill"
+            )
+        } catch {
+            logger.error("skill layer failed to start: \(error.localizedDescription)")
+            return false
+        }
+
+        if await waitForSkillLayer() {
+            ownsSkillLayer = true
+            logger.log("skill layer ready on :\(port)")
+            return true
+        }
+        skillSidecar.stop()
+        logger.error("skill layer did not become healthy; skill commands will be unavailable")
+        return false
+    }
+
+    private func skillLayerHealthy() async -> Bool {
+        let runtime = FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: ".agents/skill-layer/runtime.json")
+        guard let data = try? Data(contentsOf: runtime),
+              let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let urlString = value["url"] as? String,
+              let token = value["token"] as? String,
+              let url = URL(string: urlString + "/v1/health") else {
+            return false
+        }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        guard let (_, response) = try? await URLSession.shared.data(for: request) else {
+            return false
+        }
+        return (response as? HTTPURLResponse)?.statusCode == 200
+    }
+
+    private func waitForSkillLayer() async -> Bool {
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            if !skillSidecar.isRunning {
+                return false
+            }
+            if await skillLayerHealthy() {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return false
+    }
+
+    /// cli-layer is the default core. It still falls back to codeg when the
+    /// binary is missing or unhealthy; the flag keeps rollback explicit.
     private func startCliLayerIfAvailable() async -> Bool {
         guard let binary = CoreBinaryLocator.locateCliLayer() else {
             logger.log("cli layer enabled but binary not found")

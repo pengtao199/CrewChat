@@ -418,17 +418,31 @@ impl Engines {
 
     /// The executable (without the adapter args) used to spawn the engine.
     pub fn base_command(&self, spec: &EngineSpec) -> String {
+        // Explicit test/development overrides always win; they are what the
+        // smoke fixture and local debugging rely on.
+        let configured = match spec.agent_type {
+            "claude_code" => std::env::var_os("CLI_LAYER_CLAUDE_COMMAND")
+                .map(|_| self.config.claude_command.clone()),
+            "codex" => std::env::var_os("CLI_LAYER_CODEX_COMMAND")
+                .map(|_| self.config.codex_command.clone()),
+            "open_code" => std::env::var_os("CLI_LAYER_OPENCODE_COMMAND")
+                .map(|_| self.config.opencode_command.clone()),
+            _ => None,
+        };
+        if let Some(command) = configured {
+            return command;
+        }
         if let Some(local) = self.local_binary(spec) {
             return quote_path(&local.to_string_lossy());
         }
-        match spec.agent_type {
-            "claude_code" => self.config.claude_command.clone(),
-            "codex" => self.config.codex_command.clone(),
-            "open_code" => self.config.opencode_command.clone(),
-            _ => match spec.distribution {
-                Distribution::Npx => format!("npx -y {}@{}", spec.package, spec.version),
-                Distribution::Binary => spec.cmd.to_string(),
-            },
+        // Codeg and the user installs often already have the adapter on PATH;
+        // use it instead of forcing an npx download per session.
+        if command_available(spec.cmd) {
+            return spec.cmd.to_string();
+        }
+        match spec.distribution {
+            Distribution::Npx => format!("npx -y {}@{}", spec.package, spec.version),
+            Distribution::Binary => spec.cmd.to_string(),
         }
     }
 

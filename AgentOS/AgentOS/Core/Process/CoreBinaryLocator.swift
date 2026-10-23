@@ -37,6 +37,21 @@ enum CoreBinaryLocator {
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
+    static func locateSkillLayer() -> URL? {
+        if let path = ProcessInfo.processInfo.environment["AGENTOS_SKILL_BINARY"],
+           !path.isEmpty,
+           FileManager.default.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
+        }
+        let contents = Bundle.main.bundleURL.appending(path: "Contents")
+        let candidates = [
+            contents.appending(path: "MacOS/crewchat-skill"),
+            contents.appending(path: "Resources/crewchat-skill"),
+            contents.appending(path: "Frameworks/crewchat-skill"),
+        ]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
+    }
+
     static func locateModelLayer() -> URL? {
         if let path = ProcessInfo.processInfo.environment["AGENTOS_MODEL_BINARY"],
            !path.isEmpty,
@@ -63,15 +78,15 @@ enum CoreBinaryLocator {
         return support.appending(path: "AgentOS/cli", directoryHint: .isDirectory)
     }
 
-    /// Opt-in: `AGENTOS_CLI_LAYER=1` or a `cli/required` marker. The app keeps
-    /// using codeg by default until Phase 3 is verified.
+    /// cli-layer is the default core now. `AGENTOS_CLI_LAYER=0` or
+    /// `AGENTOS_CODEG_CORE=1` keeps codeg for rollback; if the cli-layer
+    /// binary is missing or unhealthy the supervisor still falls back to codeg.
     static func isCliLayerEnabled() -> Bool {
-        if ProcessInfo.processInfo.environment["AGENTOS_CLI_LAYER"] == "1" {
-            return true
+        if ProcessInfo.processInfo.environment["AGENTOS_CLI_LAYER"] == "0"
+            || ProcessInfo.processInfo.environment["AGENTOS_CODEG_CORE"] == "1" {
+            return false
         }
-        return FileManager.default.fileExists(
-            atPath: cliLayerDirectory().appending(path: "required").path
-        )
+        return true
     }
 
     static func modelLayerDirectory() -> URL {
@@ -109,6 +124,13 @@ enum CoreBinaryLocator {
             .appending(path: "Logs/AgentOS", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         return logs.appending(path: "cli-layer.log")
+    }
+
+    static func skillLayerLogFile() -> URL {
+        let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
+            .appending(path: "Logs/AgentOS", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        return logs.appending(path: "skill-layer.log")
     }
 
     static func modelLayerLogFile() -> URL {

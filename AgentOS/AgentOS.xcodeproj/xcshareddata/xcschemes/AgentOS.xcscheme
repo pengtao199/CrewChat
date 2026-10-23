@@ -64,7 +64,12 @@
          <EnvironmentVariable
             key = "AGENTOS_CLI_LAYER_BINARY"
             value = "$(SRCROOT)/../cli-layer/target/debug/crewchat-cli"
-            isEnabled = "NO">
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "AGENTOS_SKILL_BINARY"
+            value = "$(SRCROOT)/../skill-layer/target/debug/crewchat-skill"
+            isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "CCR_BIN"
