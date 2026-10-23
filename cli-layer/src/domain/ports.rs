@@ -74,6 +74,7 @@ pub trait TeamRepository: Send + Sync {
         usage: Option<&Value>,
         child_conversation_id: Option<&str>,
     ) -> Result<()>;
+    fn delegation(&self, id: &str) -> Result<Option<Value>>;
     fn delegations(&self, conversation_id: &str) -> Result<Vec<Value>>;
 }
 
@@ -130,6 +131,10 @@ pub trait SessionRuntime: Send + Sync {
     fn close(&self, connection_id: &str);
     fn respond_permission(&self, request_id: &str, option_id: Option<String>) -> bool;
     fn subscribe(&self) -> Box<dyn EventSubscription>;
+    /// Whether a connection is still alive. Defaults to true for fake runtimes.
+    fn is_connected(&self, _connection_id: &str) -> bool {
+        true
+    }
 }
 
 #[async_trait]

@@ -28,6 +28,21 @@ pub(crate) async fn team_status(
     }
 }
 
+pub(crate) async fn cancel_delegation(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let delegation_id = field(&body, &["delegationId", "delegation_id"]).unwrap_or_default();
+    match state.team.cancel(delegation_id) {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
 pub(crate) async fn team_delegate(
     State(state): State<AppState>,
     headers: HeaderMap,

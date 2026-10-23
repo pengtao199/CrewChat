@@ -575,6 +575,10 @@ impl crate::domain::ports::SessionRuntime for AcpHost {
     fn subscribe(&self) -> Box<dyn crate::domain::ports::EventSubscription> {
         Box::new(BroadcastSubscription(AcpHost::subscribe(self)))
     }
+
+    fn is_connected(&self, connection_id: &str) -> bool {
+        self.connections.lock().unwrap().contains_key(connection_id)
+    }
 }
 
 struct BroadcastSubscription(broadcast::Receiver<EventEnvelope>);

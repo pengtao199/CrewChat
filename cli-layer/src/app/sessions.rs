@@ -24,12 +24,19 @@ pub struct SessionService {
     model: Arc<dyn ModelCatalog>,
     engines: EngineService,
     connections: Arc<Mutex<HashMap<String, ConnectionMeta>>>,
+    pool: Arc<Mutex<HashMap<(String, String), PooledConnection>>>,
 }
 
 #[derive(Clone, Debug)]
 struct ConnectionMeta {
     conversation_id: Option<String>,
     role_id: Option<String>,
+}
+
+#[derive(Clone)]
+struct PooledConnection {
+    connection_id: String,
+    last_used: Instant,
 }
 
 #[derive(Debug)]
@@ -66,6 +73,7 @@ impl SessionService {
             model,
             engines,
             connections: Arc::new(Mutex::new(HashMap::new())),
+            pool: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -196,8 +204,6 @@ impl SessionService {
     ) -> std::result::Result<Value, SessionError> {
         let started = Instant::now();
         let model = model_label(agent);
-        let mut events = self.runtime.subscribe();
-
         let cwd = cwd
             .or_else(|| std::env::current_dir().ok())
             .unwrap_or_else(|| PathBuf::from("/"));
@@ -227,13 +233,8 @@ impl SessionService {
                 ))
             }
         };
-        let connection_id = value
-            .get("connectionId")
-            .or_else(|| value.get("connection_id"))
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_string();
-
+        let connection_id = connection_id_of(&value);
+        let events = self.runtime.subscribe();
         if let Err(error) = self.runtime.prompt(&connection_id, prompt.to_string()) {
             self.runtime.close(&connection_id);
             return Ok(test_result(
@@ -246,8 +247,181 @@ impl SessionService {
                 Some(connection_id),
             ));
         }
+        let outcome = self
+            .wait_for_turn(&connection_id, events, timeout_seconds)
+            .await;
+        self.runtime.close(&connection_id);
+        self.connections.lock().unwrap().remove(&connection_id);
+        let (ok, phase, error, text, usage, events_seen) = outcome;
+        Ok(self.turn_result(
+            ok,
+            phase,
+            error,
+            text,
+            usage,
+            events_seen,
+            model,
+            started.elapsed(),
+            Some(connection_id),
+            conversation_id,
+            speaker_role_id,
+        ))
+    }
 
-        let outcome = timeout(Duration::from_secs(timeout_seconds), async {
+    /// Run a member turn on a pooled ACP connection. The connection is created
+    /// lazily on the first delegation and reused for later tasks in the same
+    /// team conversation. Failed/cancelled turns close the connection so the
+    /// next delegation starts from a clean process.
+    pub async fn run_member(
+        &self,
+        agent: &Agent,
+        prompt: &str,
+        cwd: PathBuf,
+        conversation_id: &str,
+        timeout_seconds: u64,
+    ) -> std::result::Result<Value, SessionError> {
+        let started = Instant::now();
+        let model = model_label(agent);
+        let connection_id = self.member_connection(agent, cwd, conversation_id).await?;
+        let events = self.runtime.subscribe();
+        if let Err(error) = self.runtime.prompt(&connection_id, prompt.to_string()) {
+            self.close_member(conversation_id, &agent.id);
+            return Ok(test_result(
+                false,
+                "prompt",
+                error.to_string(),
+                model,
+                started.elapsed(),
+                None,
+                Some(connection_id),
+            ));
+        }
+        let (ok, phase, error, text, usage, events_seen) = self
+            .wait_for_turn(&connection_id, events, timeout_seconds)
+            .await;
+        if ok {
+            if let Some(pooled) = self
+                .pool
+                .lock()
+                .unwrap()
+                .get_mut(&(conversation_id.to_string(), agent.id.clone()))
+            {
+                pooled.last_used = Instant::now();
+            }
+        } else {
+            self.close_member(conversation_id, &agent.id);
+        }
+        Ok(self.turn_result(
+            ok,
+            phase,
+            error,
+            text,
+            usage,
+            events_seen,
+            model,
+            started.elapsed(),
+            Some(connection_id),
+            Some(conversation_id),
+            Some(&agent.id),
+        ))
+    }
+
+    async fn member_connection(
+        &self,
+        agent: &Agent,
+        cwd: PathBuf,
+        conversation_id: &str,
+    ) -> std::result::Result<String, SessionError> {
+        let key = (conversation_id.to_string(), agent.id.clone());
+        let existing = self
+            .pool
+            .lock()
+            .unwrap()
+            .get(&key)
+            .map(|pooled| pooled.connection_id.clone());
+        if let Some(existing) = existing {
+            if self.runtime.is_connected(&existing) {
+                return Ok(existing);
+            }
+            self.close_member(conversation_id, &agent.id);
+        }
+
+        let value = self
+            .connect_with_role(
+                &agent.agent_type,
+                cwd,
+                Some(
+                    agent
+                        .to_value()
+                        .map_err(|error| SessionError::BadRequest(error.to_string()))?,
+                ),
+                Some(conversation_id.to_string()),
+            )
+            .await?;
+        let connection_id = connection_id_of(&value);
+        self.pool.lock().unwrap().insert(
+            key,
+            PooledConnection {
+                connection_id: connection_id.clone(),
+                last_used: Instant::now(),
+            },
+        );
+        Ok(connection_id)
+    }
+
+    fn close_member(&self, conversation_id: &str, role_id: &str) {
+        let key = (conversation_id.to_string(), role_id.to_string());
+        if let Some(pooled) = self.pool.lock().unwrap().remove(&key) {
+            self.connections
+                .lock()
+                .unwrap()
+                .remove(&pooled.connection_id);
+            self.runtime.close(&pooled.connection_id);
+        }
+    }
+
+    /// Cancel the member turn currently using this conversation's pooled
+    /// connection. Returns false when the member is not connected.
+    pub fn cancel_role(&self, conversation_id: &str, role_id: &str) -> bool {
+        let key = (conversation_id.to_string(), role_id.to_string());
+        let connection_id = self
+            .pool
+            .lock()
+            .unwrap()
+            .get(&key)
+            .map(|pooled| pooled.connection_id.clone());
+        connection_id.is_some_and(|id| self.runtime.cancel(&id).is_ok())
+    }
+
+    /// Close member connections that have been idle longer than `ttl`.
+    pub fn reap_idle(&self, ttl: Duration) -> usize {
+        let now = Instant::now();
+        let stale = self
+            .pool
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, pooled)| now.duration_since(pooled.last_used) >= ttl)
+            .map(|(key, pooled)| (key.clone(), pooled.connection_id.clone()))
+            .collect::<Vec<_>>();
+        for ((conversation_id, role_id), connection_id) in &stale {
+            self.pool
+                .lock()
+                .unwrap()
+                .remove(&(conversation_id.clone(), role_id.clone()));
+            self.connections.lock().unwrap().remove(connection_id);
+            self.runtime.close(connection_id);
+        }
+        stale.len()
+    }
+
+    async fn wait_for_turn(
+        &self,
+        connection_id: &str,
+        mut events: Box<dyn EventSubscription>,
+        timeout_seconds: u64,
+    ) -> (bool, String, String, String, Value, u64) {
+        timeout(Duration::from_secs(timeout_seconds), async {
             let mut text = String::new();
             let mut usage = Value::Null;
             let mut events_seen = 0u64;
@@ -255,7 +429,7 @@ impl SessionService {
                 let Some(event) = events.recv().await else {
                     return (
                         false,
-                        "protocol",
+                        "protocol".to_string(),
                         "event stream closed".to_string(),
                         text,
                         usage,
@@ -276,7 +450,7 @@ impl SessionService {
                     "permission_request" => {
                         return (
                             false,
-                            "permission",
+                            "permission".to_string(),
                             "the prompt raised a permission request".to_string(),
                             text,
                             usage,
@@ -293,34 +467,54 @@ impl SessionService {
                         if stopped.contains("cancel") {
                             return (
                                 false,
-                                "cancelled",
+                                "cancelled".to_string(),
                                 "the turn was cancelled".to_string(),
                                 text,
                                 usage,
                                 events_seen,
                             );
                         }
-                        return (true, "complete", String::new(), text, usage, events_seen);
+                        return (
+                            true,
+                            "complete".to_string(),
+                            String::new(),
+                            text,
+                            usage,
+                            events_seen,
+                        );
                     }
                     _ => {}
                 }
             }
         })
-        .await;
-
-        self.runtime.close(&connection_id);
-
-        let (ok, phase, error, text, usage, events_seen) = match outcome {
-            Ok(outcome) => outcome,
-            Err(_) => (
+        .await
+        .unwrap_or_else(|_| {
+            (
                 false,
-                "timeout",
+                "timeout".to_string(),
                 format!("the prompt did not finish within {timeout_seconds} seconds"),
                 String::new(),
                 Value::Null,
                 0,
-            ),
-        };
+            )
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn turn_result(
+        &self,
+        ok: bool,
+        phase: String,
+        error: String,
+        text: String,
+        usage: Value,
+        events_seen: u64,
+        model: Option<String>,
+        elapsed: Duration,
+        connection_id: Option<String>,
+        conversation_id: Option<&str>,
+        speaker_role_id: Option<&str>,
+    ) -> Value {
         if ok {
             if let Some(conversation_id) = conversation_id {
                 let _ = self.conversations.append_turn_with_speaker(
@@ -333,16 +527,16 @@ impl SessionService {
         }
         let mut value = test_result(
             ok,
-            phase,
+            &phase,
             error,
             model,
-            started.elapsed(),
+            elapsed,
             Some(usage),
-            Some(connection_id),
+            connection_id,
         );
         value["text"] = json!(text);
         value["events"] = json!(events_seen);
-        Ok(value)
+        value
     }
 
     /// Start a throwaway ACP session with the Agent's full configuration.
@@ -448,6 +642,18 @@ impl SessionService {
     }
 
     pub fn disconnect(&self, connection_id: &str) {
+        let keys = self
+            .pool
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, pooled)| pooled.connection_id == connection_id)
+            .map(|(key, _)| key.clone())
+            .collect::<Vec<_>>();
+        for key in keys {
+            self.pool.lock().unwrap().remove(&key);
+        }
+        self.connections.lock().unwrap().remove(connection_id);
         self.runtime.close(connection_id);
     }
 
@@ -473,6 +679,15 @@ impl SessionService {
     ) -> Result<()> {
         self.engines.save_preferences(agent_type, enabled, env)
     }
+}
+
+fn connection_id_of(value: &Value) -> String {
+    value
+        .get("connectionId")
+        .or_else(|| value.get("connection_id"))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string()
 }
 
 fn model_label(agent: &Agent) -> Option<String> {

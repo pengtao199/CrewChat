@@ -122,7 +122,7 @@ src/
     models.rs      model 代理用例
     engines.rs     引擎列表 / 偏好 / 安装 / 诊断
     sessions.rs    ACP 会话用例 / 事件回放 / test run
-    team.rs        团队快照 / 成员状态 / Leader 委派
+    team.rs        团队快照 / 成员状态 / Leader 委派 / 取消
   config.rs        环境与数据目录
   domain/
     agent.rs       类型化 Agent（含版本）

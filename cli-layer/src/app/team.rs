@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
 use serde_json::{json, Value};
@@ -118,9 +119,54 @@ impl TeamService {
     }
 
     pub fn status(&self, conversation_id: &str) -> Result<Value> {
+        self.sessions.reap_idle(Duration::from_secs(1800));
         Ok(json!({
             "members": self.teams.conversation_agents(conversation_id)?,
             "delegations": self.teams.delegations(conversation_id)?,
+        }))
+    }
+
+    /// Cancel a queued/running delegation. The member connection receives an
+    /// ACP cancel; the running delegation then records the cancelled stop
+    /// reason. This is idempotent for already-finished delegations.
+    pub fn cancel(&self, delegation_id: &str) -> Result<Value> {
+        let delegation = self
+            .teams
+            .delegation(delegation_id)?
+            .ok_or_else(|| anyhow!("delegation not found"))?;
+        let status = delegation
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if matches!(status, "done" | "failed" | "cancelled") {
+            return Ok(json!({
+                "delegationId": delegation_id,
+                "cancelled": status == "cancelled",
+                "status": status,
+            }));
+        }
+        let conversation_id = delegation
+            .get("conversation_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("delegation has no conversation"))?;
+        let member_role_id = delegation
+            .get("member_role_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("delegation has no member"))?;
+        let connection_cancelled = self.sessions.cancel_role(conversation_id, member_role_id);
+        self.teams.update_delegation(
+            delegation_id,
+            "cancelled",
+            Some(&json!({"cancelled": true})),
+            None,
+            None,
+        )?;
+        self.teams
+            .set_conversation_agent(conversation_id, member_role_id, "idle", None)?;
+        Ok(json!({
+            "delegationId": delegation_id,
+            "cancelled": true,
+            "connectionCancelled": connection_cancelled,
         }))
     }
 
@@ -184,12 +230,11 @@ impl TeamService {
             .map(std::path::PathBuf::from);
         let outcome = match self
             .sessions
-            .run_agent(
+            .run_member(
                 &member.agent,
                 &prompt,
-                cwd,
-                Some(conversation_id),
-                Some(member_role_id),
+                cwd.unwrap_or_else(|| std::path::PathBuf::from("/")),
+                conversation_id,
                 300,
             )
             .await
@@ -221,7 +266,14 @@ impl TeamService {
         let usage = outcome.get("usage").cloned().unwrap_or(Value::Null);
         let error = outcome.get("error").cloned().unwrap_or(Value::Null);
         let phase = outcome.get("phase").and_then(Value::as_str).unwrap_or("");
-        let status = if ok {
+        let current_status = self
+            .teams
+            .delegation(&delegation.id)?
+            .and_then(|value| value.get("status").cloned())
+            .and_then(|value| value.as_str().map(str::to_string));
+        let status = if current_status.as_deref() == Some("cancelled") {
+            "cancelled"
+        } else if ok {
             "done"
         } else if phase == "cancelled" {
             "cancelled"
@@ -239,7 +291,11 @@ impl TeamService {
         self.teams.set_conversation_agent(
             conversation_id,
             member_role_id,
-            if ok { "done" } else { "failed" },
+            match status {
+                "done" => "done",
+                "cancelled" => "cancelled",
+                _ => "failed",
+            },
             None,
         )?;
 
@@ -336,6 +392,7 @@ mod tests {
 
     struct FakeRuntime {
         events: Mutex<Vec<EventEnvelope>>,
+        connects: Mutex<usize>,
     }
 
     struct VecSubscription(std::collections::VecDeque<EventEnvelope>);
@@ -350,6 +407,7 @@ mod tests {
     #[async_trait]
     impl SessionRuntime for FakeRuntime {
         async fn connect(&self, _request: ConnectRequest) -> anyhow::Result<Value> {
+            *self.connects.lock().unwrap() += 1;
             Ok(json!({"connectionId": "test-connection"}))
         }
 
@@ -539,6 +597,7 @@ mod tests {
             Arc::new(FakeSkills),
         );
         let runtime = Arc::new(FakeRuntime {
+            connects: Mutex::new(0),
             events: Mutex::new(vec![
                 EventEnvelope {
                     kind: "content_delta".to_string(),
@@ -557,7 +616,7 @@ mod tests {
         let sessions = SessionService::new(
             agent_repo,
             conversations.clone(),
-            runtime,
+            runtime.clone(),
             model,
             engine_service,
         );
@@ -583,6 +642,28 @@ mod tests {
             store.conversation_agents(&conversation).unwrap()[1]["state"],
             "done"
         );
+
+        // The second delegation reuses the member connection.
+        runtime.events.lock().unwrap().extend([
+            EventEnvelope {
+                kind: "content_delta".to_string(),
+                connection_id: "test-connection".to_string(),
+                seq: 3,
+                payload: json!({"text": "again"}),
+            },
+            EventEnvelope {
+                kind: "turn_complete".to_string(),
+                connection_id: "test-connection".to_string(),
+                seq: 4,
+                payload: json!({"stop_reason": "end_turn"}),
+            },
+        ]);
+        let second = team
+            .delegate(&conversation, "leader", "member", "second", None, None)
+            .await
+            .unwrap();
+        assert_eq!(second["status"], "done");
+        assert_eq!(*runtime.connects.lock().unwrap(), 1);
 
         // A non-member cannot be delegated to.
         assert!(team

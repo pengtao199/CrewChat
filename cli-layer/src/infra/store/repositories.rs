@@ -158,6 +158,10 @@ impl TeamRepository for Store {
         self.update_delegation(id, status, result, usage, child_conversation_id)
     }
 
+    fn delegation(&self, id: &str) -> Result<Option<Value>> {
+        self.delegation(id)
+    }
+
     fn delegations(&self, conversation_id: &str) -> Result<Vec<Value>> {
         self.delegations(conversation_id)
     }
