@@ -518,7 +518,15 @@ ACP update
 `infra/store` 与 `api/http` 的内部再拆分（agents/conversations/turns、handlers）
 放在 Step 2/3，和 domain/ports 抽取一起做。
 
-### Step 2：引入 domain + ports
+### Step 2a：拆 store 与 API handler ✅ 2026-10-23
+
+- `infra/store/mod.rs` 拆成 `agents / conversations / folders / events /
+  engine_settings / import`；`Store` 仍是唯一连接持有者。
+- `api/http.rs` 从 962 行降到 ~192 行；`api/handlers/` 按
+  `acp / models / roster / skills / workspace` 拆分。
+- `cargo test` 18 passed、clippy、smoke 通过。
+
+### Step 2b：引入 domain + ports
 
 - 把 `AgentRole` / Conversation / Team / Delegation 从 JSON Value 提升为类型。
 - 给 store 定义 repository trait。

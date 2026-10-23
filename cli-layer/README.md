@@ -109,14 +109,17 @@ model / skill / MCP 是独立资源域，cli-layer 只代理，不拥有它们�
 
 ```
 src/
-  api/             AgentOS HTTP / WS 适配
+  api/
+    http.rs        AppState / router / auth / WS 入口
+    handlers/      按域拆分的 HTTP handler
+    ws.rs          /ws/events
   app/             用例编排（后续逐步抽出）
   config.rs        环境与数据目录
   domain/          领域类型与 port（后续逐步抽出）
   infra/
     model_layer.rs ccr_* → model-layer
     skill_layer.rs skill-layer 客户端（技能库 / materialize）
-    store/         SQLite：folders/conversations/turns/roster
+    store/         SQLite：agents / conversations / events / import ...
   runtime/
     acp/           ACP host / events
     engine/        CLI 注册表 / 安装 / 版本
