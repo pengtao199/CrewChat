@@ -22,10 +22,12 @@ use tokio::net::TcpListener;
 use tracing::{info, warn};
 
 use crate::api::http::AppState;
+use crate::app::engines::EngineService;
 use crate::app::roster::RosterService;
 use crate::app::skills::SkillService;
 use crate::app::workspace::WorkspaceService;
 use crate::config::Config;
+use crate::domain::ports::{AgentRepository, ConversationRepository, EngineSettingsRepository};
 use crate::infra::model_layer::ModelLayerClient;
 use crate::infra::skill_layer::SkillLayerClient;
 use crate::infra::store::Store;
@@ -67,9 +69,13 @@ async fn main() -> Result<()> {
     let skill = Arc::new(SkillLayerClient::new());
     let host = AcpHost::new(config.clone(), store.clone(), skill.clone());
     let model = Arc::new(ModelLayerClient::new(&config));
-    let roster = RosterService::new(store.clone(), model.clone(), host.engines().clone());
-    let workspace = WorkspaceService::new(store.clone());
+    let agent_repo: Arc<dyn AgentRepository> = Arc::new(store.clone());
+    let conversation_repo: Arc<dyn ConversationRepository> = Arc::new(store.clone());
+    let settings_repo: Arc<dyn EngineSettingsRepository> = Arc::new(store.clone());
+    let roster = RosterService::new(agent_repo, model.clone(), host.engines().clone());
+    let workspace = WorkspaceService::new(conversation_repo);
     let skills = SkillService::new(roster.clone(), skill.clone());
+    let engines = EngineService::new(settings_repo, host.engines().clone());
     let state = AppState {
         config: config.clone(),
         store,
@@ -78,6 +84,7 @@ async fn main() -> Result<()> {
         roster,
         workspace,
         skills,
+        engines,
     };
 
     let router = crate::api::http::router(state);

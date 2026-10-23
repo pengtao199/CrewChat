@@ -117,13 +117,16 @@ src/
     roster.rs      Agent 用例（list/save/delete/model_face）
     workspace.rs   folder / conversation 用例
     skills.rs      skill 代理 + Agent 技能绑定
+    engines.rs     引擎列表 / 偏好
   config.rs        环境与数据目录
   domain/
     agent.rs       类型化 Agent（后续扩展 readiness/团队）
+    ports.rs       Agent / Conversation / EngineSettings 仓储端口
   infra/
     model_layer.rs ccr_* → model-layer
     skill_layer.rs skill-layer 客户端（技能库 / materialize）
-    store/         SQLite：agents / conversations / events / import ...
+    store/         SQLite：agents / conversations / events / import /
+                   repositories（port 实现）
   runtime/
     acp/           ACP host / events
     engine/        CLI 注册表 / 安装 / 版本

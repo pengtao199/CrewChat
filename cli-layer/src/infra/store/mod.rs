@@ -125,6 +125,7 @@ mod engine_settings;
 mod events;
 mod folders;
 mod import;
+mod repositories;
 
 #[cfg(test)]
 mod tests {

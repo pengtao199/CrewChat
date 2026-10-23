@@ -16,16 +16,7 @@ pub(crate) async fn acp_list_agents(State(state): State<AppState>, headers: Head
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    let mut agents = state.host.engines().list();
-    for agent in &mut agents {
-        if let Some(agent_type) = agent.get("agent_type").and_then(Value::as_str) {
-            if let Ok(preferences) = state.store.engine_preferences(agent_type) {
-                agent["enabled"] = json!(preferences.enabled);
-                agent["env"] = json!(preferences.env);
-            }
-        }
-    }
-    Json(agents).into_response()
+    Json(state.engines.list()).into_response()
 }
 
 pub(crate) async fn acp_connect(
@@ -37,10 +28,7 @@ pub(crate) async fn acp_connect(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
-    let preferences = state
-        .store
-        .engine_preferences(agent_type)
-        .unwrap_or_default();
+    let preferences = state.engines.preferences(agent_type);
     if !preferences.enabled {
         return api_error(StatusCode::BAD_REQUEST, "this engine is disabled");
     }
@@ -185,10 +173,7 @@ pub(crate) async fn acp_update_agent_preferences(
                 .collect()
         })
         .unwrap_or_default();
-    match state
-        .store
-        .save_engine_preferences(agent_type, enabled, &env)
-    {
+    match state.engines.save_preferences(agent_type, enabled, &env) {
         Ok(()) => Json(Value::Null).into_response(),
         Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
     }

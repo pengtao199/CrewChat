@@ -6,45 +6,44 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
 use crate::domain::agent::Agent;
+use crate::domain::ports::AgentRepository;
 use crate::infra::model_layer::ModelLayerClient;
-use crate::infra::store::Store;
 use crate::runtime::engine::registry::{Engines, OverlayKind};
 
 #[derive(Clone)]
 pub struct RosterService {
-    store: Store,
+    repo: Arc<dyn AgentRepository>,
     model: Arc<ModelLayerClient>,
     engines: Engines,
 }
 
 impl RosterService {
-    pub fn new(store: Store, model: Arc<ModelLayerClient>, engines: Engines) -> Self {
+    pub fn new(
+        repo: Arc<dyn AgentRepository>,
+        model: Arc<ModelLayerClient>,
+        engines: Engines,
+    ) -> Self {
         Self {
-            store,
+            repo,
             model,
             engines,
         }
     }
 
     pub fn list(&self) -> Result<Vec<Agent>> {
-        self.store
-            .list_roles()?
-            .into_iter()
-            .map(Agent::from_value)
-            .collect()
+        self.repo.list()
     }
 
     pub fn get(&self, id: &str) -> Result<Option<Agent>> {
-        self.store.role(id)?.map(Agent::from_value).transpose()
+        self.repo.get(id)
     }
 
     pub fn save(&self, agent: &Agent) -> Result<Agent> {
-        let value = self.store.save_role(&agent.to_value()?)?;
-        Agent::from_value(value)
+        self.repo.save(agent)
     }
 
     pub fn delete(&self, id: &str) -> Result<()> {
-        self.store.delete_role(id)
+        self.repo.delete(id)
     }
 
     pub async fn model_face(&self, agent_type: &str) -> Result<Value> {

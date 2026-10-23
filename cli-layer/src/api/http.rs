@@ -16,6 +16,7 @@ use axum::{
 use base64::Engine;
 
 use crate::api::handlers::*;
+use crate::app::engines::EngineService;
 use crate::app::roster::RosterService;
 use crate::app::skills::SkillService;
 use crate::app::workspace::WorkspaceService;
@@ -36,6 +37,7 @@ pub struct AppState {
     pub roster: RosterService,
     pub workspace: WorkspaceService,
     pub skills: SkillService,
+    pub engines: EngineService,
 }
 
 pub fn router(state: AppState) -> Router {

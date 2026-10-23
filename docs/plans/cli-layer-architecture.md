@@ -542,7 +542,15 @@ ACP update
   handler 保持薄层。
 - `cargo test` 18 passed、clippy、smoke 通过。
 
-### Step 2c：引入完整 ports
+### Step 2c.1：Repository ports + engine service ✅ 2026-10-23
+
+- 新增 `domain/ports.rs`：`AgentRepository` / `ConversationRepository` /
+  `EngineSettingsRepository`；`infra/store/repositories.rs` 实现。
+- `RosterService` / `WorkspaceService` 改为依赖 `Arc<dyn ...>`，不再直接持有
+  `Store`；`EngineService` 统一引擎列表与偏好。
+- `cargo test` 18 passed、clippy、smoke 通过。
+
+### Step 2c.2：SessionRuntime port
 
 - 把 `AgentRole` / Conversation / Team / Delegation 从 JSON Value 提升为类型。
 - 给 store 定义 repository trait。
