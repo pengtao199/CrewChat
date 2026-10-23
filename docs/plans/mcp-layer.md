@@ -1,425 +1,517 @@
-# MCP 层：统一管理、默认链接、按 Agent 授权
+# MCP 层：完整网关 + 按 Agent 授权
 
 Updated: 2026-10-23
-Status: Research（只做调研与方案，不写实现）
-关系：`cli-layer`（ACP 宿主 / 花名册）、`mcp-layer`（拟建）、`AgentOS`（MCP / Agents 页）、`model-layer`（Keychain 机制可复用）。
-参考：`AGENTS/agent-model.md`、`AGENTS/truth-sources.md`、`AgentOS/engine-api.md`、`cli-layer/src/http.rs`、`cli-layer/src/engines.rs`、`cli-layer/src/roles.rs`。
+Status: Research / Decision Draft（方案已收敛，未实现）
+关系：`cli-layer`（ACP 宿主 / 花名册）、`mcp-layer`（薄控制面）、`AgentOS`（MCP / Agents 页）、`model-layer`（Keychain 机制可复用）。
+参考：`AGENTS/agent-model.md`、`AGENTS/truth-sources.md`、`AgentOS/engine-api.md`、`cli-layer/src/http.rs`、`cli-layer/src/engines.rs`、`cli-layer/src/acp/host.rs`。
 
 ---
 
-## 0. 先确认理解
+## 0. 结论（先看）
 
-我理解的目标是：
+1. **最终能力是完整网关，不是“给每个 CLI 各写一份 MCP 配置”。**
+   所有 MCP server 注册到网关；CLI 只连网关。Agent 选择哪些 MCP，由网关按 Agent token / allowlist 收窄。
+2. **不自己造网关。** 直接复用开源实现 **MCPJungle**（Go，单二进制，SQLite/Postgres，stdio/HTTP/SSE，Tool Groups，per-client token）。以 vendor/fork 的方式固定版本，作为独立 sidecar 运行。
+3. **`mcp-layer` 只做薄控制面**：规范化注册表、把配置同步给 MCPJungle、为每个 Agent 创建 client token / allowlist、把网关地址注入 ACP 会话、给前端提供 API。**不做 tool 聚合、协议转发、进程管理。**
+4. **每个 Agent 一个网关身份**：Agent 的 `mcps` 是显式 allowlist；空 = 没有 MCP，不继承全部。两个 Agent 即使使用同一个 CLI，也拿不同的 token / allowlist，天然隔离。
+5. **会话注入优先走 ACP `session/new.mcpServers`**：
+   - CLI 支持 HTTP MCP：直接注入网关的 HTTP endpoint + token。
+   - CLI 只支持 stdio：注入 `mcp-remote`（开源）作为桥，连网关。
+   - CLI adapter 不消费 `mcpServers`：标为不支持 Agent 级 MCP，不做全局配置兜底。
+6. **不做旧数据兼容。** 不迁移 `~/.agents/mcp.json`、不扫描/改写旧 CLI 配置；新库从零开始。旧配置最多作为用户手工参考，不进入产品路径。
+7. **保证边界**：对“支持矩阵内 + ACP 注入通过 + MCP 本身兼容”的组合，保证 Agent 选中的 MCP 可用；不满足的组合显式标 `unsupported`，不静默、不假装支持。
 
-1. **MCP 服务统一管理**：一份全局 MCP 库，不再让 Claude / Codex / OpenCode 各存一份分叉配置。
-2. **所有 CLI 默认可用、可链接**：安装一个 MCP 后，默认同步到所有**兼容**的 CLI；不兼容的 CLI 要显式标出来，不能静默失败。
-3. **使用权由 Agent 管理**：MCP 服务本身是资源；Agent 的 `mcps` 是 allowlist。会话启动时只把该 Agent 选中的 MCP 暴露给它。
-4. **和 skill 同构，但不能照搬 skill 的软链实现**：skill 是文件，MCP 是运行时进程或远端连接；MCP 需要处理 transport、生命周期、工具发现、密钥、健康检查。
-5. **先调研，不实现**：这一轮只产出兼容性矩阵、方案取舍和分阶段计划。
-
-一句话：**“可用性”按 CLI 默认铺开，“使用权”按 Agent 收窄。** 这两件事必须分开，否则“所有 CLI 默认启用”会变成“所有 Agent 默认拿到全部工具”。
+一句话：**MCP 的最终形态是“一个本地网关 + 每个 Agent 一张门禁卡”，不是“每个 CLI 一套 MCP 配置”。**
 
 ---
 
-## 1. 当前现状
+## 1. 为什么最终是网关
 
-### 1.1 代码与数据
+### 1.1 配置式方案的天花板
 
-| 位置 | 现状 |
+如果只做“全局库 + 给每个 CLI 写配置”：
+
+- 每个 CLI 的配置格式、路径、合并规则都不同（15 个引擎，JSON/TOML/嵌套 key 各不相同）。
+- 无法保证 Agent 级隔离：CLI 可能把全局配置和项目配置合并。
+- 无法做工具级 allow/deny、审计、健康检查、统一日志。
+- 每接一个 CLI 就要维护一套配置适配器，长期成本高。
+- “所有 CLI 默认启用”会变成“每个 CLI 都要单独验证一遍 MCP 配置”，不可控。
+
+### 1.2 网关带来的确定性
+
+网关把差异收敛到一处：
+
+- **MCP server 只注册一次**：stdio / HTTP / SSE 由网关统一持有。
+- **CLI 只认一个 MCP endpoint**：不再关心每个 server 的 command/args/env/url。
+- **Agent 权限由 token + allowlist 决定**：不是靠“CLI 有没有读到某个文件”。
+- **工具聚合、命名空间、健康、日志、OAuth、冷启动**都由网关处理。
+- **同一 CLI 的多个 Agent 并发**：每个会话拿不同 token，互不串味。
+
+---
+
+## 2. 最终架构
+
+```
+AgentOS / Agents 页
+  │  选择 Agent 的 MCP（server ids）
+  ▼
+cli-layer（花名册 + ACP host）
+  │  session/new.mcpServers
+  ▼
+mcp-layer（Rust，薄控制面）
+  ├── ~/.agents/mcp/servers/<id>.json      # 规范化定义（唯一可写入口）
+  ├── ~/.agents/mcp/registry.sqlite        # 元数据 / token 引用 / 健康 / 工具缓存
+  ├── 启动、健康检查、reconcile
+  └── 调 MCPJungle API
+        │
+        ▼
+MCPJungle sidecar（Go，复用上游）
+  ├── /mcp                                # 主网关
+  ├── /v0/groups/<agent>/mcp              # 可选：按 Agent 的工具组
+  ├── per-client token + allowlist
+  ├── stdio / streamable HTTP / SSE upstream
+  └── SQLite/Postgres 运行时库（可重建）
+        │
+        ▼
+Claude / Codex / OpenCode / ...（ACP adapter）
+```
+
+### 2.1 组件职责
+
+| 组件 | 职责 | 不做什么 |
+| --- | --- | --- |
+| `mcp-layer` | 规范化 server 定义；同步到 MCPJungle；为 Agent 建 token/allowlist；启动/健康检查 sidecar；给 cli-layer/AgentOS 提供 API；记录映射与审计 | 不实现 MCP 协议、不做 tool 路由、不自己管 stdio 进程 |
+| MCPJungle | MCP gateway：注册 server、聚合 tools/prompts/resources、per-client token、Tool Groups、stdio/HTTP/SSE、会话模式、指标 | 不知道 CrewChat 的 Agent/CLI 语义；不直接面向 AgentOS |
+| `cli-layer` | 花名册、`agent_mcps_set`、ACP `session/new` 注入、会话生命周期 | 不拼 MCP 配置、不解析 MCP 协议 |
+| `AgentOS` | MCP 库 / Agent 选择器 / 健康与错误展示 | 不直接连 MCPJungle、不写配置 |
+
+### 2.2 为什么把 MCPJungle 放在独立进程
+
+- **许可证边界**：MCPJungle 是 MPL-2.0（文件级 copyleft）。独立进程 + vendor 目录可以清楚隔离；不把 MPL 代码翻译进闭源 Rust 文件。
+- **故障隔离**：网关崩溃不拖垮 cli-layer；可单独重启。
+- **升级简单**：固定上游 tag/commit；升级只替换 sidecar。
+- **复用最大化**：tool 聚合、transport、token、group、健康、指标全部直接用上游，不重写。
+
+### 2.3 “所有 CLI 默认启用”怎么落
+
+- **不是**把每个 MCP 分别写进每个 CLI 的配置；那是旧方案。
+- **是**所有支持矩阵内的 CLI 默认拿到同一个网关入口；新增 MCP 只在网关注册一次，CLI 不需要改配置。
+- Agent 会话由 `cli-layer` 在 `session/new` 注入网关 endpoint + 该 Agent 的 token。
+- 终端裸跑是可选 fallback：给每个 CLI 配一个 “terminal” gateway client（all servers），不参与 Agent 会话。
+- 因此“所有 CLI 默认启用”与“Agent 只拿到选中的 MCP”不矛盾：CLI 只连网关，权限在 token。
+
+---
+
+## 3. 复用决策：为什么是 MCPJungle
+
+### 3.1 候选对比
+
+| 项目 | 技术栈 / 许可 | 能力 | 结论 |
+| --- | --- | --- | --- |
+| [MCPJungle](https://github.com/mcpjungle/MCPJungle) | Go，MPL-2.0 | 单二进制；SQLite/Postgres；stdio/HTTP/SSE；Tool Groups；per-client token + allowlist；stateless/stateful；指标 | **首选**；最贴合“本地网关 + Agent 门禁” |
+| [MetaMCP](https://github.com/metatool-ai/metamcp) | TS，MIT | Namespace / Endpoint / middleware；idle session | 备选；MIT 更宽松，但 Node + Postgres，桌面打包重 |
+| [MCPHub（samanhappy）](https://github.com/samanhappy/mcphub) | TS，Apache-2.0 | 控制面；group；per-user credentials；健康/日志 | 备选；功能全但体量大，Web 控制面偏服务端 |
+| [MCP Hub（ravitemer）](https://github.com/ravitemer/mcp-hub) | TS，MIT | 生命周期、健康、热更新、单端点 | 适合做进程管理参考；缺少 per-client allowlist |
+| [ContextForge](https://github.com/IBM/mcp-context-forge) | Python，Apache-2.0 | 联邦、Virtual Server、RBAC、限流、OTel | 过重；Python 服务端，不适合桌面 sidecar |
+| [ToolHive](https://github.com/stacklok/toolhive) | Go，Apache-2.0 | 容器隔离、registry、gateway、K8s | 安全隔离参考；v1 不强制 Docker |
+| [Docker MCP Gateway](https://github.com/docker/mcp-gateway) | Go，MIT | Profile、tool allowlist、容器、secrets | 依赖 Docker；不适合作为唯一运行时 |
+| [mcpm](https://github.com/pathintegral-institute/mcpm.sh) | Python，MIT | 全局安装、profile、client config | 只有配置管理，没有网关；不满足最终形态 |
+| [MCP Router](https://github.com/mcp-router/mcp-router) | TS，Sustainable Use | 桌面 UX、项目/工作区、tool 开关 | 2026-09-18 EOL；许可证非 OSI；只做 UX 参考 |
+| [官方 MCP Registry](https://github.com/modelcontextprotocol/registry) | Go | server 发现/发布 | 后续市场来源；不是运行时 |
+
+### 3.2 采用方式：vendor / fork，不重写
+
+建议：
+
+1. 在仓库放 `vendor/mcpjungle/`（或 `mcp-layer/upstream/mcpjungle/`），固定 tag/commit。
+2. 保留上游 `LICENSE`、`NOTICE`、来源说明；对 MPL 文件的修改继续按 MPL 发布。
+3. 构建成独立二进制 `crewchat-mcp-gateway`，由 `mcp-layer` 拉起。
+4. 只通过 MCPJungle 的 HTTP API / CLI 操作，不复制它的内部逻辑到 Rust。
+5. 需要补的能力（例如 CrewChat 特有的 Agent 映射）放在 `mcp-layer`，不塞进 MCPJungle。
+
+**“直接复制拷贝”的正确含义**：复制/固定上游源码并复用其能力，而不是把网关重新实现一遍。若团队不接受 MPL-2.0，再评估 MetaMCP（MIT）作为备选；不要先写自研网关。
+
+### 3.3 MCPJungle 的关键能力映射
+
+| 需求 | MCPJungle 能力 |
 | --- | --- |
-| `cli-layer/src/http.rs` | `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` 仍返回 501 |
-| `cli-layer/src/store.rs` | `agent_roles.mcp_json` 已存在；Agent 角色可存 MCP id 列表 |
-| `cli-layer/src/engines.rs` | 15 个引擎；`supports_mcp` 目前只有 OpenClaw 为 `false` |
-| `cli-layer/src/roles.rs` | 10 个引擎有 per-role home / 模型 overlay；Gemini、CodeBuddy、Cursor、Qoder、Antigravity 为 `OverlayKind::None` |
-| `cli-layer/src/acp/host.rs` | `session/new` 只传 `cwd`，**没有传 `mcp_servers`** |
-| `AgentOS` | MCP 页已能展示 `spec` + `apps`（哪些 CLI 写入），但数据来自尚未实现的 501 命令 |
-| `codeg/`（冻结只读） | 有 15 个 CLI 的 MCP 扫描/写入适配器，可作为配置格式参考，不能作为运行时 |
-| `AGENTS/truth-sources.md` | 当前写的是“各 CLI 自己的 MCP 配置 + 共享 `~/.agents/mcp.json`” |
+| Agent 只能用选中的 server | enterprise mode 的 per-client token + `allowed_servers` |
+| Agent 只能用选中的 tool | Tool Group：`included_tools` / `included_servers` / `excluded_tools` |
+| 一个 Agent 一个 endpoint | Tool Group endpoint `/v0/groups/<agent>/mcp`（可选） |
+| 同一 CLI 多 Agent 隔离 | 每个 Agent 不同 token；会话注入不同 endpoint/token |
+| stdio server | 上游 stdio 支持；网关持有子进程 |
+| 远程 server | streamable HTTP / SSE |
+| 冷启动 | stateless 默认；stateful + idle timeout 可选 |
+| 健康/指标 | 内置健康与 Prometheus/OTel 指标（企业模式） |
+| 工具发现 | `tools/list` 聚合；CrewChat 只读缓存给 UI |
 
-### 1.2 已经确认的协议能力
+已知限制：
 
-当前 `cli-layer` 使用的 ACP SDK 2.2（schema 1.9.1）里，`session/new` 的 `NewSessionRequest` 已经有：
+- Tool Group 目前只覆盖 tools，不覆盖 prompts/resources；需要 prompts/resources 的 Agent 用主 `/mcp` + per-client allowlist，不用 group。
+- 企业模式目前只有 admin 能建 group；`mcp-layer` 本地持有 admin token，用户不直接操作。
+- 下游客户端认证是静态 token，不支持 OAuth/SSO；本地桌面够用。
+- 上游 OAuth 是 gateway-scoped，不是 per-Agent；需要 per-Agent 凭据的 server 要单独评估。
 
-```rust
-pub struct NewSessionRequest {
-    pub cwd: PathBuf,
-    pub additional_directories: Vec<PathBuf>,
-    pub mcp_servers: Vec<McpServer>,
-    ...
+---
+
+## 4. “任何 Agent 选了 CLI 就保证能调用”怎么定义
+
+不能承诺“任意 CLI 都行”。承诺的是**支持矩阵内**：
+
+```
+Agent 选择：CLI X + MCP [A, B]
+  → CLI X 在支持矩阵内
+  → X 的 ACP adapter 消费 session/new.mcpServers
+  → mcp-layer 为 Agent 创建 token（allowlist=[A,B]）
+  → 会话注入 gateway endpoint + token（HTTP 或 stdio bridge）
+  → 网关只暴露 A、B
+  → 保证 A、B 的 tools 可被发现/调用
+```
+
+### 4.1 保证条件
+
+1. CLI 支持 MCP，且在支持矩阵内。
+2. CLI adapter 真的消费 `session/new.mcpServers`（P0 实测）。
+3. 网关健康；Agent 的 token/allowlist 已 reconcile。
+4. MCP server 本身能被网关连接（transport/凭据/启动成功）。
+5. 如果 MCP 需要 prompts/resources，且使用了 Tool Group，则不在保证范围（group 限制）。
+
+任何一条不满足：
+
+- UI 标 `unsupported` / `unavailable`，并给出原因；
+- 不静默回退到全局配置，不让 Agent 误以为自己有某个 MCP；
+- 不做“旧数据兼容”或“猜一个配置”。
+
+### 4.2 注入方式
+
+**优先：HTTP**
+
+ACP `McpServer::Http`：
+
+```json
+{
+  "type": "http",
+  "name": "crewchat-mcp",
+  "url": "http://127.0.0.1:<port>/mcp",
+  "headers": [
+    { "name": "Authorization", "value": "Bearer <agent-token>" }
+  ]
 }
 ```
 
-`McpServer` 支持：
+适合支持 streamable HTTP 的 adapter。
 
-- `stdio`：`name` / `command`（绝对路径）/ `args` / `env`；所有 Agent 必须支持。
-- `http`：`name` / `url` / `headers`；需要 Agent capability 声明支持。
-- `sse`：`name` / `url` / `headers`；需要 Agent capability 声明支持。
+**兜底：stdio bridge**
 
-这意味着：**如果各 CLI 的 ACP adapter 真的消费 `session/new.mcp_servers`，MCP 可以像 skill 一样按会话精确注入，不需要依赖全局配置文件。** 这是本轮调研最重要的发现，也是 P0 必须实测的点。
+ACP 所有 Agent 必须支持 stdio MCP。对只支持 stdio 的 adapter，注入：
 
-### 1.3 当前缺口
+```json
+{
+  "type": "stdio",
+  "name": "crewchat-mcp",
+  "command": "/absolute/path/to/npx",
+  "args": [
+    "-y",
+    "mcp-remote",
+    "http://127.0.0.1:<port>/mcp",
+    "--allow-http",
+    "--header",
+    "Authorization: Bearer <agent-token>"
+  ],
+  "env": []
+}
+```
 
-- 没有全局 MCP 注册表、版本/哈希、来源、健康状态、工具缓存。
-- 没有“哪些 CLI 兼容 / 哪些不兼容”的权威矩阵。
-- 没有 Agent → MCP 的专用命令（目前只能整份 `agent_roles_save`）。
-- 没有 per-session MCP 注入，也没有 per-role MCP 配置过滤。
-- 没有工具级 allow/deny、审计、密钥引用、进程生命周期管理。
-- 全局配置与用户手改配置的边界未定义，直接写会覆盖用户内容。
+- 复用开源 `mcp-remote`，不自己写桥。
+- 需要 Node/npx；应用本来就在用 npx 引擎，可接受。
+- 如果不想依赖 Node，再评估 Rust/Python 的现成 bridge；仍不自己写。
+
+**不支持：adapter 不消费 `mcpServers`**
+
+- 标 `unsupported`；不做全局配置文件兜底。
+- 这类 CLI 仍可在终端手动连网关，但不属于 Agent 级保证。
 
 ---
 
-## 2. 开源实现调研
+## 5. Agent 授权模型
 
-### 2.1 项目对比
+### 5.1 绑定
 
-| 项目 | 形态 / 技术栈 | 关键机制 | 可借鉴 | 不直接采用 |
-| --- | --- | --- | --- | --- |
-| [MCPJungle](https://github.com/mcpjungle/MCPJungle) | 自托管 MCP gateway，Go，MPL-2.0 | 一个 `/mcp` 端点；server 注册表；`server__tool` 命名空间；Tool Groups 按组暴露；stateless / stateful 连接；per-client token | **Tool Group 映射 Agent**；冷启动用 stateful + idle timeout；统一端点 | 它是中心网关，不是桌面侧配置管理器；MPL 代码不宜直接拼进闭源核心 |
-| [MetaMCP](https://github.com/metatool-ai/metamcp) | MCP aggregator / orchestrator，TS，MIT | Namespace 聚合多个 server；Endpoint 绑定 namespace；middleware；tool override；idle session 预热 | **Namespace = Agent 可见集合**；middleware 做过滤/日志；预热降低冷启动 | 需要 Docker/Postgres；偏服务端多租户 |
-| [MCPHub（samanhappy）](https://github.com/samanhappy/mcphub) | 自托管控制面，TS，Apache-2.0 | server/group 路由；per-user credentials；隔离 stdio runtime；日志、健康检查、OAuth | **per-Agent 凭据 + 隔离 runtime**；健康/日志；group 可见性 | 体量大；Web 控制面不是桌面应用需要 |
-| [MCP Hub（ravitemer）](https://github.com/ravitemer/mcp-hub) | 本地 MCP 协调器，TS，MIT | start/stop/enable/disable；健康监控、自动重连；配置热更新；统一 `/mcp` | **进程生命周期与健康恢复**；配置热更新；SSE 事件 | 单端点聚合，不做 Agent 权限 |
-| [ContextForge](https://github.com/IBM/mcp-context-forge) | 企业级 registry + proxy，Python，Apache-2.0 | 联邦 MCP/REST/gRPC；Virtual Server 组合工具；auth/RBAC/限流/OTel；Admin UI | **Virtual Server** 作为“按 Agent/团队暴露的工具集”；策略、审计、可观测性 | 过重；Python 服务端；不适合直接嵌桌面 sidecar |
-| [ToolHive](https://github.com/stacklok/toolhive) | MCP 平台 / 容器运行时，Go，Apache-2.0 | 每个 server 跑容器；registry + gateway + K8s operator；OIDC、审计、工具过滤 | **隔离与最小权限**；容器化 stdio server；registry 治理 | 需要 Docker/K8s；v1 不引入容器依赖 |
-| [Docker MCP Gateway](https://github.com/docker/mcp-gateway) | Docker MCP 插件 / gateway，Go，MIT | Profile 组合 server；tool allowlist；client connect；secrets/OAuth；容器运行 | **Profile = Agent/角色**；工具 allowlist；客户端连接管理；密钥管理 | 依赖 Docker Desktop；不适合作为唯一运行时 |
-| [mcpm](https://github.com/pathintegral-institute/mcpm.sh) | MCP 管理器 CLI，Python，MIT | 全局安装一次；Profile 标签；client config 集成；server 更新；直接运行 stdio/HTTP | **最接近 skill 的“全局库 + profile + client link”模型** | 没有运行时网关/权限；Python CLI 不适合嵌入 Rust 核心 |
-| [MCP Router](https://github.com/mcp-router/mcp-router) | 桌面 MCP 管理器，TS，Sustainable Use License | Projects / Workspaces；server 与 tool 开关；请求日志；一键连接客户端 | **桌面 UX**：项目/工作区、工具开关、日志 | 2026-09-18 已 EOL；许可证不是 OSI；不采用 |
-| [官方 MCP Registry](https://github.com/modelcontextprotocol/registry) | 官方 server registry，Go | 发布/发现 server；`server.json` 元数据；命名空间校验 | 后续市场/来源校验；`server.json` 字段 | 只做发现，不做本地调度 |
+- Agent 的 `mcps` 存 **server id 列表**，在 `cli-layer.db` 的 `agent_roles.mcp_json`。
+- **空列表 = 没有 MCP**，不继承全部。不做旧数据兼容，所以不需要 `all` 模式。
+- UI 可以提供“全选”按钮，但保存的是显式 id 列表。
+- `agent_mcps_set` 专用命令，避免整份角色覆盖。
 
-### 2.2 从开源实现提炼出的模式
+### 5.2 每个 Agent 一个网关身份
 
-**模式 A：配置管理器（mcpm、skill 式）**
+- `mcp-layer` 为每个 Agent 创建一个 MCPJungle client：
+  - `allowed_servers = Agent.mcps`
+  - token 存 Keychain（service `com.crewchat.mcp-layer`），registry 只存引用。
+- 可选：为 Agent 创建 Tool Group（工具级 allow/deny），endpoint 替代主 `/mcp`。
+- Agent 修改 MCP 选择：
+  - 更新 client allowlist / group；
+  - 新会话拿新 token/endpoint；
+  - 活跃会话不热改（避免中途工具集变化），重连后生效。
 
-- 全局安装一次，生成各 CLI 的配置片段。
-- 优点：简单、贴近现有 CLI；不需要新进程。
-- 缺点：无法真正按 Agent 收窄；无法工具级过滤；配置漂移和覆盖风险高。
+### 5.3 两个 Agent 用同一个 CLI
 
-**模式 B：统一网关（MCPJungle、MetaMCP、MCPHub、ContextForge）**
+```
+Agent A (Claude) → token A → allowlist [backend]
+Agent B (Claude) → token B → allowlist [ios]
+```
 
-- 所有 server 由网关持有，客户端只连一个端点；网关做命名空间、鉴权、工具过滤、健康、日志。
-- 优点：权限和生命周期集中；多客户端复用；可审计。
-- 缺点：多一层进程/端口；stdio 需要桥接；客户端仍要配置网关地址；冷启动和故障隔离要自己做。
+- 两个 Claude 会话各自 `CLAUDE_CONFIG_DIR`，各自 `session/new.mcpServers`；
+- 全局 `~/.claude` 不参与；
+- 不存在“先启动的 Agent 改全局配置，后启动的串味”。
 
-**模式 C：容器/沙箱运行时（ToolHive、Docker Gateway）**
+### 5.4 工具级权限
 
-- 每个 server 隔离运行，最小权限，镜像/密钥/网络策略。
-- 优点：安全边界最好。
-- 缺点：重；桌面 v1 不应强制 Docker。
-
-**模式 D：ACP 会话注入（本项目最相关的空白）**
-
-- 客户端在 `session/new` 里直接声明本次会话可用的 MCP server。
-- 优点：天然 per-Agent；不需要改全局配置；不需要网关；stdio/http/sse 都能表达。
-- 缺点：依赖 adapter 实现；如果 CLI 同时读全局配置，可能“注入的 + 全局的”合并，需要实测。
-
-### 2.3 对本项目的结论
-
-**不要一开始就做完整网关。** 先验证 ACP 注入；如果 Claude / Codex / OpenCode 这三个主力 CLI 能按 `session/new.mcp_servers` 工作，v1 就能用很低成本实现“按 Agent 授权”。网关只在两种情况下才值得做：
-
-1. 关键 CLI 不支持 per-session MCP，且无法用 per-role home 隔离；
-2. 需要工具级 allow/deny、统一审计、跨 Agent 复用长连接/凭据。
+- v1 先做 **server 级** allowlist（Agent 选 server）。
+- 需要工具级时，用 MCPJungle Tool Group：
+  - `included_servers` + `excluded_tools`，或 `included_tools`；
+  - group endpoint 只暴露 tools；
+  - prompts/resources 仍走主 endpoint + server allowlist。
+- 不在 v1 自研工具过滤层。
 
 ---
 
-## 3. Skill 与 MCP 的关键差异
+## 6. 数据与真相源
 
-| 维度 | Skill | MCP |
-| --- | --- | --- |
-| 内容形态 | Markdown + 资源文件 | 进程（stdio）或远端服务（HTTP/SSE） |
-| 发现方式 | 文件系统目录 | 协议握手 + `tools/list` |
-| 会话隔离 | 软链到 session home | `session/new.mcpServers` 或 per-role 配置文件 |
-| 生命周期 | 安装/更新/删除文件 | 启动/停止/重启/健康检查/空闲回收 |
-| 密钥 | 一般没有 | env / headers / OAuth / Keychain |
-| 权限粒度 | 技能级（文件） | server 级，最好到 tool 级 |
-| 兼容性 | 目录约定 | transport + adapter 能力 + 配置格式 |
-| 失败模式 | 文件缺失/损坏 | 启动失败、握手失败、工具调用失败、超时 |
-
-因此 MCP 层不能只是“skill-layer 加一个 MCP 表”。它需要独立的 **registry + link ledger + 兼容矩阵 + 可选的 runtime/gateway**。
-
----
-
-## 4. 四种接入方案与取舍
-
-### 方案 A：只写各 CLI 配置（skill 式）
-
-```
-mcp-layer registry
-  └── 写 ~/.claude.json / ~/.codex/config.toml / opencode.json ...
-```
-
-- 全局默认：所有兼容 CLI 都写入。
-- Agent 级：写 per-role home 的配置（仅对有 overlay 的引擎）。
-- 优点：实现最快；和现有 CLI 行为一致。
-- 缺点：没有 overlay 的 CLI 无法按 Agent 隔离；配置合并/覆盖风险；没有工具级权限；没有生命周期。
-
-### 方案 B：ACP `session/new.mcpServers` 注入
-
-```
-cli-layer acp_connect
-  └── NewSessionRequest { cwd, mcp_servers: [选中 MCP] }
-```
-
-- 优点：per-Agent 精确；不需要全局配置；stdio/http/sse 都能表达；最符合“Agent 使用权”。
-- 缺点：必须实测 adapter；如果 adapter 还读全局配置，可能合并出多余 server；需要处理 command 绝对路径、env、密钥。
-- 适用：所有 ACP 引擎，尤其是没有 per-role home 的引擎。
-
-### 方案 C：中心 MCP gateway
-
-```
-CLI / Agent → crewchat-mcp gateway (per-Agent endpoint/token)
-                  ├── server A
-                  ├── server B
-                  └── tool filter / audit / health
-```
-
-- 优点：强制权限；工具级过滤；进程复用；审计；健康检查。
-- 缺点：最复杂；stdio 桥接；端口/认证；冷启动；故障隔离；客户端仍需配置网关。
-- 适用：关键 CLI 不支持注入/隔离；或需要 tool-level 权限与审计。
-
-### 方案 D：混合（推荐）
-
-1. **全局可用性**：`mcp-layer` 注册表 + 兼容矩阵 + 各 CLI 全局链接（默认所有兼容 CLI）。
-2. **Agent 授权**：优先用 ACP `session/new.mcpServers` 注入；对已验证支持 per-role home 的引擎，用 per-role 配置作为回退。
-3. **终端裸跑**：读全局 CLI 配置，看到所有兼容 MCP；这是“终端 fallback”，不是 Agent 路径。
-4. **不兼容的 CLI**：UI 明确标 `unsupported`；只保留终端全局链接，不承诺 Agent 级隔离。
-5. **网关后置**：只有 P0 证明注入不可行，或需要 tool-level 权限/审计时，再做最小 gateway。
-
----
-
-## 5. 推荐的数据模型与真相源
-
-### 5.1 目录
+### 6.1 目录
 
 ```
 ~/.agents/mcp/
-  servers/<id>.json          # 规范化 server 定义（可读、可手改；不含明文密钥）
-  registry.sqlite            # 元数据、链接 ledger、工具缓存、健康、来源
-  runtime/                   # 可选：pid / socket / 日志 / 临时配置
-  trash/                     # 删除后的定义/版本
+  servers/<id>.json          # 规范化定义；唯一可写入口；不含明文密钥
+  registry.sqlite            # 元数据、Agent token 引用、健康、工具缓存
+  runtime/mcpjungle.db       # MCPJungle 运行时库；可删除重建
+  logs/                      # sidecar 日志
 ```
 
-- `servers/<id>.json` 是**唯一定义**；各 CLI 配置只是生成/链接结果。
-- `registry.sqlite` 不复制定义正文，只存索引、哈希、状态。
-- 可选生成 `~/.agents/mcp.json` 作为兼容导出，但不能成为第二个可写入口。
-- Agent 绑定仍放 `cli-layer.db` 的 `agent_roles.mcp_json`；`mcp-layer` 不感知 Agent。
+- **`servers/<id>.json` 是唯一定义**。
+- `registry.sqlite` 只存索引/映射/状态，不复制定义正文。
+- `runtime/mcpjungle.db` 是运行时缓存：启动时由 `mcp-layer` 从规范化定义 reconcile；丢了可以重建。
+- Agent 绑定仍只在 `cli-layer.db`；`mcp-layer` 不存 Agent 定义。
+- **不读取、不迁移旧 `~/.agents/mcp.json` / 旧 CLI 配置。**
 
-### 5.2 Server 定义
+### 6.2 Server 定义
 
 ```json
 {
   "id": "playwright",
   "name": "Playwright",
   "transport": "stdio",
-  "command": "npx",
+  "command": "/absolute/path/to/npx",
   "args": ["-y", "@playwright/mcp@latest"],
   "env": {
     "API_KEY": { "keychain": "com.crewchat.mcp-layer/playwright/api-key" }
   },
-  "cwd": null,
   "url": null,
   "headers": {},
   "enabled": true,
-  "compatibility": {
-    "unsupported": ["openclaw"]
-  },
-  "tools": {
-    "allow": [],
-    "deny": []
-  },
-  "source": {
-    "kind": "manual",
-    "url": null
-  }
+  "tools": { "allow": [], "deny": [] },
+  "source": { "kind": "manual", "url": null }
 }
 ```
 
-原则：
+- 密钥不落 JSON；env/headers 用 Keychain 引用。
+- 命令不经过 shell；stdio command 用绝对路径（ACP 要求）。
+- 不覆盖用户手写配置：新库从零开始，不存在旧条目；MCPJungle 运行时库由我们独占。
 
-- **密钥不落 JSON**：env / headers 里的 secret 用 Keychain 引用；导入的明文配置迁移到 Keychain，迁移前标 `containsSecret`。
-- **命令不经过 shell**：`command` 与 `args` 直接 exec；禁止 `sh -c` 拼接。
-- **stdio command 用绝对路径**（ACP schema 要求绝对路径）；`npx` / `uvx` 解析后存绝对路径或明确记录依赖 PATH。
-- **不覆盖用户条目**：每个 CLI 配置里的托管条目要有 ledger；只改 `managed=1` 的 id；同名 foreign 条目标冲突，不静默覆盖。
+### 6.3 同步流程
 
-### 5.3 链接 ledger
-
-`registry.sqlite` 至少需要：
-
-```sql
-servers(id, name, transport, hash, enabled, source_kind, source_url, updated_at)
-links(server_id, agent_type, path, state, managed, linked_at)
-tools(server_id, tool_name, schema_hash, enabled, last_seen)
-health(server_id, state, checked_at, latency_ms, error)
+```
+mcp-layer 启动
+  → 读取 servers/*.json
+  → 启动 MCPJungle sidecar（若未运行）
+  → 等 /health
+  → upsert servers 到 MCPJungle
+  → 为每个 Agent reconcile client token / allowlist / group
+  → 标记 health/tools
 ```
 
-- `links.state`: `linked` / `unsupported` / `foreign` / `broken` / `disabled`。
-- `links.managed`: 只对我们写入的条目负责；用户手改的条目永不被删除。
-- `tools` 用于 UI 展示与工具级 allow/deny；v1 可只缓存 `tools/list`。
+- `mcp-layer` 是唯一写入方；MCPJungle dashboard/CLI 不作为用户入口。
+- Agent 修改 → 只 reconcile 该 Agent 的 client/group。
+- 删除 server → 从 MCPJungle 删除；同时清理引用它的 Agent allowlist（UI 标 missing）。
 
 ---
 
-## 6. 兼容性矩阵（待 P0 实测）
+## 7. 支持矩阵（P0 实测后定稿）
 
-`supports_mcp` 是当前 `cli-layer` 的引擎标志，不等于“支持按 Agent 隔离”。最后一列是建议的 v1 结论。
+不再维护“15 个 CLI × 每种配置格式”的矩阵；只问三个问题：
 
-| 引擎 | `supports_mcp` | per-role home | ACP `mcp_servers` | 配置来源（参考 codeg） | v1 建议 |
-| --- | --- | --- | --- | --- | --- |
-| `claude_code` | ✅ | ✅ Claude overlay | 待实测（P0 重点） | `~/.claude.json` `mcpServers` + `~/.claude/settings.json` | 注入通过则 Agent 级支持；否则 per-role 配置 |
-| `codex` | ✅ | ✅ Codex overlay | 待实测（P0 重点） | `~/.codex/config.toml` `[mcp_servers.*]`；仅 stdio + streamable HTTP | 注入通过则 Agent 级支持；注意 SSE 不支持 |
-| `open_code` | ✅ | ✅ OpenCode overlay | 待实测（P0 重点） | `opencode.json` | 注入通过则 Agent 级支持 |
-| `gemini` | ✅ | ❌ `OverlayKind::None` | 待实测 | `~/.gemini/settings.json` | 仅注入通过才支持 Agent 级；否则全局终端 only |
-| `openclaw` | ❌ | ✅ OpenClaw bridge | 待实测 | `~/.openclaw/openclaw.json` | 暂不支持，先从 Agent 选择器排除 |
-| `cline` | ✅ | ✅ Cline overlay | 待实测 | `~/.cline/data/settings/cline_mcp_settings.json` | P1 验证；配置回退可用 |
-| `hermes` | ✅ | ✅ Hermes overlay | 待实测 | 见 codeg 适配器 | P1 验证 |
-| `codebuddy` | ✅ | ❌ `OverlayKind::None` | 待实测 | `~/.codebuddy.json` / `~/.codebuddy/settings.json` | 仅注入通过才支持 Agent 级 |
-| `kimi_code` | ✅ | ✅ Kimi overlay | 待实测 | 见 codeg 适配器 | P1 验证 |
-| `pi` | ✅ | ✅ Pi overlay | 待实测 | 见 codeg 适配器 | P1 验证 |
-| `grok` | ✅ | ✅ Grok overlay | 待实测 | `~/.grok/config.toml` | P1 验证 |
-| `cursor` | ✅ | ❌ `OverlayKind::None` | 待实测 | `~/.cursor/mcp.json` | 仅注入通过才支持 Agent 级 |
-| `deepseek` | ✅ | ✅ DeepSeek overlay | 待实测 | 见 codeg 适配器 | P1 验证 |
-| `qoder` | ✅ | ❌ `OverlayKind::None` | 待实测 | `~/.qoder/settings.json` | 仅注入通过才支持 Agent 级 |
-| `antigravity` | ✅ | ❌ `OverlayKind::None` | 待实测 | 共享 `mcp_config.json` | 仅注入通过才支持 Agent 级 |
+1. CLI 是否支持 MCP？
+2. ACP adapter 是否消费 `session/new.mcpServers`？
+3. 能否用 HTTP，或至少用 stdio bridge？
 
-**矩阵的用法：**
-
-- “全局默认链接”只看 transport / 配置格式兼容，不看 per-role home。
-- “Agent 级授权”必须同时满足：能按会话注入，或能写 per-role home 且 CLI 不合并全局配置。
-- 不满足的 CLI 在 Agents 页显示“该引擎不支持按 Agent 隔离 MCP”，不要假装支持。
-
----
-
-## 7. 调度与生命周期
-
-### 7.1 先区分三种“调度”
-
-1. **链接调度**：一个 MCP 应该写入哪些 CLI、哪些会话。
-2. **进程调度**：stdio server 由谁启动、何时回收、失败如何重启。
-3. **工具调度**：一个会话能看到哪些 tool，调用如何路由/审计。
-
-v1 建议只做 1，2 交给 CLI 原生行为，3 只做 server 级；不要一开始就做中心 runtime。
-
-### 7.2 生命周期模式
-
-| 模式 | 谁启动 stdio server | 优点 | 缺点 |
+| CLI | MCP | ACP 注入 | 结论 |
 | --- | --- | --- | --- |
-| `external`（v1 默认） | CLI / ACP adapter | 简单、贴近原生；不引入新进程 | 每会话可能重复启动；无法集中健康/审计 |
-| `supervised`（P2） | `mcp-layer` | 复用、健康、日志、统一 env | 需要 stdio↔HTTP 桥接；客户端要支持远端 MCP |
-| `remote` | 远端服务 | 无本地进程 | 需要 OAuth/网络/超时/重试 |
+| `claude_code` | ✅ | 待实测（P0 重点） | 通过则支持 |
+| `codex` | ✅ | 待实测（P0 重点） | 通过则支持；注意上游 SSE 限制 |
+| `open_code` | ✅ | 待实测（P0 重点） | 通过则支持 |
+| `gemini` | ✅ | 待实测 | 通过则支持；否则 unsupported |
+| `openclaw` | ❌（当前 `supports_mcp=false`） | — | 暂不支持 |
+| `cline` | ✅ | 待实测 | 通过则支持 |
+| `hermes` | ✅ | 待实测 | 通过则支持 |
+| `codebuddy` | ✅ | 待实测 | 通过则支持 |
+| `kimi_code` | ✅ | 待实测 | 通过则支持 |
+| `pi` | ✅ | 待实测 | 通过则支持 |
+| `grok` | ✅ | 待实测 | 通过则支持 |
+| `cursor` | ✅ | 待实测 | 通过则支持 |
+| `deepseek` | ✅ | 待实测 | 通过则支持 |
+| `qoder` | ✅ | 待实测 | 通过则支持 |
+| `antigravity` | ✅ | 待实测 | 通过则支持 |
 
-### 7.3 如果做 supervisor/gateway，参考这些规则
+原则：
 
-- **状态机**：`stopped → starting → ready → degraded → failed`；启动超时、握手失败、`tools/list` 失败分别有错误码。
-- **冷启动**：MCPJungle 的 stateless 默认 + stateful 可选；MetaMCP 的 idle session 预热。v1 不需要，P2 再按需。
-- **空闲回收**：按 server 配置 `idle_timeout`；有活跃调用时不回收。
-- **并发**：只读/无凭据 server 可共享；带 per-Agent env/凭据的 stdio server 要按凭据作用域隔离（MCPHub 的 per-user runtime 思路）。
-- **失败隔离**：单个 server 失败不阻塞其他 server；会话继续，UI 显示 degraded；是否 fail-closed 由产品决定。
-- **工具命名**：`server__tool` 命名空间，避免冲突；工具列表变化发事件，UI 刷新。
-- **审计**：记录 server、tool、耗时、结果状态；参数默认不落库（可能含密钥）。
-
-### 7.4 进程归属建议
-
-- v1：**CLI 拥有 stdio 进程**，`mcp-layer` 只做 registry/链接/健康探测/工具缓存。这样不会改变现有 CLI 行为，风险最低。
-- P2：如果要做 gateway，再引入 `mcp-layer` 的 supervisor；此时才需要处理端口、认证、stdio 桥接、空闲回收。
-
----
-
-## 8. API 与 UI 影响
-
-### 8.1 建议命令
-
-保留现有命令名与 wire 形状，新增能力用可选字段，避免 AgentOS 大改：
-
-| 命令 | 作用 | 备注 |
-| --- | --- | --- |
-| `mcp_scan_local` | 扫描/导入本机各 CLI 的 MCP | 返回 `servers` + `warnings`；新增 `transport` / `compatibleApps` / `unsupportedApps` / `health` 可选字段 |
-| `mcp_list` | 全局 MCP 库 | 新增；返回规范化 server + link 状态 |
-| `mcp_read` | 单个 server 详情 | 新增；spec + tools + health |
-| `mcp_upsert_local_server` | 新建/更新 | 保留 `{serverId,spec,apps}`；`apps` 可省略 = 所有兼容 CLI |
-| `mcp_remove_server` | 删除 | 保留；只删托管条目，保留 foreign |
-| `mcp_link_status` | 全局链接状态 | 新增；可按 `agentType` 过滤 |
-| `mcp_sync_links` | 同步全局链接 | 新增；默认所有兼容 CLI |
-| `agent_mcps_set` | 保存 Agent MCP 绑定 | 新增；`{roleId, serverIds}` |
-| `agent_mcp_status` | Agent 可用性 | 新增；`{servers:[{id,name,available,compatible,health}], missing, unsupported}` |
-
-`agent_roles_save` 已经能存 `mcp`，但建议新增 `agent_mcps_set`，避免前端为了改 MCP 而整份覆盖角色。
-
-### 8.2 MCP 页
-
-- 列表：全局 server、transport、来源、健康、工具数、链接的 CLI。
-- 详情：spec、env/header 的 secret 引用（不显示明文）、工具列表、链接状态、冲突。
-- “链接的 CLI”：默认展示所有兼容 CLI；不兼容置灰并说明原因；高级模式允许按 CLI 关闭。
-- 不要再用“手动勾选 15 个 CLI”作为主交互；默认全兼容，例外才手动改。
-- 删除/更新：只处理托管条目；foreign 条目提示“这是用户自己写的，不覆盖”。
-
-### 8.3 Agents 页
-
-- MCP 多选：显示名称、transport、健康、是否与当前引擎兼容。
-- 当前引擎不兼容的 server 标黄/红，不允许静默保存成“可用”。
-- 保存走 `agent_mcps_set`；显示“已选 N 个 / 不可用 M 个”。
-- 空选择语义必须在 UI 写清楚（见 §10）。
+- **P0 只验证 Claude / Codex / OpenCode**；这三个通过就先上线。
+- 其余 CLI 通过一个接一个加，不阻塞主线。
+- 不通过的 CLI 在 Agents 页标“该引擎不支持 Agent 级 MCP”，不做配置兜底。
+- “某些 MCP 不支持某些 CLI”由网关/transport/工具组能力决定，单独记录，不强求。
 
 ---
 
-## 9. 分阶段计划
+## 8. 调度与生命周期
 
-### P0：调研 spike（不写产品代码）
+### 8.1 谁管什么
 
-1. 用 Claude / Codex / OpenCode 三个 ACP adapter 实测 `session/new.mcpServers`：
-   - stdio 一个（如 `npx -y @modelcontextprotocol/server-everything`）；
-   - HTTP 一个；
-   - 观察是否只拿到注入的 server，是否仍合并全局配置。
-2. 实测 per-role home 是否真的隔离全局 MCP：
-   - Claude `CLAUDE_CONFIG_DIR`；
-   - Codex `CODEX_HOME`；
-   - OpenCode `OPENCODE_CONFIG`。
-3. 实测无 overlay 的 Gemini / Cursor 等是否支持注入；不支持就标 `unsupported`。
-4. 产出最终兼容矩阵和“v1 支持引擎列表”。
+| 事项 | 负责方 |
+| --- | --- |
+| MCPJungle sidecar 启动/停止/健康 | `mcp-layer` |
+| 端口分配、SQLite 路径、admin 初始化 | `mcp-layer` |
+| MCP server 注册/删除 | `mcp-layer` → MCPJungle API |
+| stdio 子进程、连接、stateless/stateful、idle timeout | MCPJungle |
+| per-Agent token / allowlist / Tool Group | `mcp-layer` → MCPJungle API |
+| 会话注入 gateway endpoint/token | `cli-layer`（ACP `session/new`） |
+| 工具发现缓存、健康展示 | `mcp-layer` 读 MCPJungle |
+| 审计/指标 | MCPJungle（企业模式）+ `mcp-layer` 映射 |
+
+### 8.2 启动顺序
+
+```
+AgentOS 启动
+  → cli-layer 启动
+  → mcp-layer 启动
+      → 启动 MCPJungle（127.0.0.1:<random/3461>）
+      → 等 /health
+      → reconcile servers + agents
+  → 会话建立时注入
+```
+
+- 网关只监听回环，禁止 LAN/公网。
+- 端口冲突：由 `mcp-layer` 选空闲端口；MCPJungle 配置写入 runtime。
+- 网关崩溃：`mcp-layer` 重启并 reconcile；正在进行的 MCP 调用失败，UI 显示错误。
+
+### 8.3 失败语义
+
+- 网关不可用：Agent 会话可以继续聊天，但 MCP 标 `unavailable`，UI 明确提示；不静默假装可用。
+- 单个 upstream MCP 不可用：MCPJungle 标记该 server；其他 server 不受影响；Agent 调用该 server 的 tool 返回错误。
+- Agent 选择的 MCP 已删除：会话启动/状态显示 `missing`；不自动替换成别的 server。
+- 是否让会话启动直接失败：建议 **不失败**，但 UI 必须显式提示“该 Agent 的 MCP 不可用”；严格 fail-closed 可作为设置项后置。
+
+---
+
+## 9. API 与 UI
+
+### 9.1 命令
+
+旧 `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` 不再兼容旧配置语义；前端改用新命令：
+
+| 命令 | 作用 |
+| --- | --- |
+| `mcp_list` | 全局 MCP 库 + 健康 + 工具数 + 被哪些 Agent 使用 |
+| `mcp_read` | 单个 server 详情（spec、tools、health、gateway 状态） |
+| `mcp_upsert` | 新建/更新 server（写入 `servers/<id>.json` 并同步网关） |
+| `mcp_remove` | 删除 server（同步网关 + 清理引用） |
+| `mcp_health` | 网关 / server 健康 |
+| `mcp_tools` | 工具列表/刷新 |
+| `mcp_sync` | 手动 reconcile（排障用） |
+| `agent_mcps_set` | 保存 Agent MCP allowlist |
+| `agent_mcp_status` | Agent 选中 MCP 的 available / missing / unsupported / health |
+
+- `mcp_upsert` 的 body 直接是规范化 spec；不再有 `apps` 多选。
+- 旧的 `apps`（写入哪些 CLI）概念删除：所有 Agent 都走网关，CLI 差异由支持矩阵处理。
+
+### 9.2 MCP 页
+
+- 全局 server 列表：名称、transport、来源、健康、工具数、使用中的 Agent。
+- 详情：spec、工具列表、健康、网关 client/group 状态。
+- 新建：手工 JSON / 模板 / 市场（后置）。
+- 删除：提示哪些 Agent 在用；删除后这些 Agent 标 missing。
+- **不再有“选择写入哪些 CLI”**；只有“这个 MCP 是否启用/可用”。
+
+### 9.3 Agents 页
+
+- MCP 多选：显示 server 名称、transport、健康、是否支持当前 CLI。
+- 空 = 没有 MCP；提供“全选”按钮但保存显式列表。
+- 当前 CLI 不支持 Agent 级 MCP：置灰并说明。
+- 保存走 `agent_mcps_set`；显示“已选 N / 不可用 M”。
+
+---
+
+## 10. 分阶段计划
+
+### P0：方案验证（不写产品代码）
+
+1. 运行 MCPJungle（enterprise mode + SQLite）：
+   - 注册一个 stdio server（如 `server-everything`）；
+   - 创建 client token + allowlist；
+   - 验证 token 只能看到 allowlist 内的 server；
+   - 验证 Tool Group endpoint。
+2. 用 Claude / Codex / OpenCode 实测 ACP `session/new.mcpServers`：
+   - HTTP endpoint + token；
+   - stdio `mcp-remote` bridge；
+   - 确认没有合并全局配置。
+3. 确认 MCPJungle 企业模式在 SQLite 下可用；若必须 Postgres，再决定是否内置/外置。
+4. 产出最终支持矩阵；不通过的直接标 unsupported。
 
 ### P1：核心闭环
 
-- `mcp-layer` daemon：registry、`servers/<id>.json`、scan/import、link ledger、健康/工具缓存。
-- `cli-layer` 代理：`mcp_*` + `agent_mcps_set` / `agent_mcp_status`。
-- 全局链接：所有兼容 CLI 默认同步；foreign 保留。
-- Agent 注入：对 P0 通过的引擎用 `session/new.mcpServers`；对 per-role home 引擎用配置回退。
-- UI：MCP 页 + Agents 页 MCP 选择器；不兼容显式提示。
+- vendor/fork MCPJungle，构建 sidecar。
+- `mcp-layer`：registry、reconcile、sidecar 生命周期、Agent token/allowlist。
+- `cli-layer`：`agent_mcps_set` / `agent_mcp_status`，`session/new.mcpServers` 注入。
+- AgentOS：MCP 页 + Agents 页 MCP 选择器。
+- 只支持 P0 通过的 CLI（先 Claude / Codex / OpenCode）。
 
-### P2：运行时增强
+### P2：增强
 
-- 健康检查、工具列表缓存/刷新、错误态。
-- 工具级 allow/deny（先做 server 级，后做 tool 级）。
-- 可选 supervisor（stdio 生命周期/空闲回收）。
-- 审计日志（脱敏）。
+- 更多 CLI 接入。
+- Tool Group / 工具级 allow-deny。
+- 健康、工具缓存、审计、错误态。
+- 终端 fallback：一个 gateway client token + 各 CLI 的 gateway 配置（可选）。
+- Token 轮换 / 失效处理。
 
-### P3：网关/市场/安全
+### P3：市场与安全
 
-- 最小 gateway：per-Agent endpoint/token、工具过滤、审计；只在 P1 证明必要时做。
-- 官方 MCP Registry / 市场搜索与安装。
-- Keychain 密钥引用、OAuth、导入明文迁移。
-- 容器/沙箱隔离（ToolHive 思路）作为可选高级模式。
-
----
-
-## 10. 待决策问题
-
-1. **Agent 空选择语义**：`mcp=[]` 是“没有任何 MCP”，还是“继承全部”？
-   - 现状 codeg 旧逻辑是空 = 继承全部。
-   - 建议新增 `mcp_mode: "all" | "selected"`：迁移旧角色为 `all`，新建角色默认 `selected` 且空 = 无；UI 明确显示“全部可用 / 仅选中的 / 无”。
-2. **ACP 注入是否被三个主力 adapter 真正支持**：P0 必须先回答；不能假设。
-3. **全局配置与注入的合并行为**：如果 CLI 同时读全局配置，Agent 会拿到多余 server；需要 per-role home 或禁用全局。
-4. **全局链接的 ownership**：同名 foreign 条目怎么处理？建议不覆盖、标冲突、让用户选择。
-5. **密钥**：MCP env/headers 里的 token 是否全部迁 Keychain？导入明文配置是否强制迁移？
-6. **是否 v1 就做 gateway**：建议不做；只有 P0 证明注入不可行或需要工具级权限时再做。
-7. **stdio 进程归属**：v1 CLI 拥有；P2 是否引入 supervisor？
-8. **工具级权限**：v1 只到 server 级，还是直接做 tool allow/deny？
-9. **远程 MCP 的 OAuth**：v1 只支持静态 header/token，OAuth 后置？
-10. **市场来源**：官方 MCP Registry、Smithery、Docker Catalog 先接哪个？
+- 官方 MCP Registry / 市场搜索安装。
+- 上游 OAuth、Keychain 密钥引用。
+- 容器/沙箱隔离（ToolHive 思路）作为高级选项。
+- 团队/多用户网关（非桌面 v1）。
 
 ---
 
-## 11. 参考
+## 11. 待决策问题
+
+1. **MPL-2.0 是否接受**：MCPJungle 是 MPL-2.0。若不可接受，改用 MetaMCP（MIT）还是自研最小网关？建议先接受 MPL，独立进程 + vendor。
+2. **MCPJungle 企业模式 + SQLite** 是否满足本地单用户；若不行，是否接受内置 Postgres（不推荐）或换实现。
+3. **`mcp-remote` 依赖 Node** 是否可接受；是否需要 Rust/Python 的现成 bridge。
+4. **哪些 CLI 的 ACP adapter 真正消费 `mcpServers`**：P0 必须实测。
+5. **空 `mcps` = 无 MCP** 是否确认；建议确认，不做继承全部。
+6. **网关不可用时是否 fail-closed**：建议先 fail-open + 显式提示，严格模式后置。
+7. **Tool Group 不支持 prompts/resources**：哪些 MCP 依赖 prompts/resources？这些 Agent 走主 endpoint + server allowlist。
+8. **per-Agent token vs per-session token**：建议 per-Agent；会话级轮换后置。
+9. **旧数据**：确认完全不做迁移；旧 `~/.agents/mcp.json` 和 CLI 配置不读取。
+10. **市场来源**：官方 MCP Registry 优先，还是 Smithery/Docker Catalog。
+
+---
+
+## 12. 参考
 
 - ACP 协议（session/new / MCP servers）：https://agentclientprotocol.com/protocol/session-setup#mcp-servers
 - MCP 规范：https://modelcontextprotocol.io/specification
-- 官方 MCP Registry：https://github.com/modelcontextprotocol/registry
 - MCPJungle：https://github.com/mcpjungle/MCPJungle
+- MCPJungle 文档：https://docs.mcpjungle.com
+- MCPJungle Tool Groups：https://docs.mcpjungle.com/guides/tool-groups
+- MCPJungle Access Control：https://docs.mcpjungle.com/governance/access-control
 - MetaMCP：https://github.com/metatool-ai/metamcp
 - MCPHub（samanhappy）：https://github.com/samanhappy/mcphub
 - MCP Hub（ravitemer）：https://github.com/ravitemer/mcp-hub
@@ -427,4 +519,6 @@ v1 建议只做 1，2 交给 CLI 原生行为，3 只做 server 级；不要一�
 - ToolHive：https://github.com/stacklok/toolhive
 - Docker MCP Gateway：https://github.com/docker/mcp-gateway
 - mcpm：https://github.com/pathintegral-institute/mcpm.sh
+- mcp-remote：https://github.com/geelen/mcp-remote
+- 官方 MCP Registry：https://github.com/modelcontextprotocol/registry
 - MCP Router（已 EOL，仅 UX 参考）：https://github.com/mcp-router/mcp-router
