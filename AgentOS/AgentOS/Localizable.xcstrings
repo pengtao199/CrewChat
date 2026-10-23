@@ -674,6 +674,7 @@
       }
     },
     "settings.agents.capabilitiesMissing" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -785,6 +786,7 @@
       }
     },
     "settings.agents.edit" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -854,6 +856,16 @@
         }
       }
     },
+    "settings.agents.engineStatus" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引擎状态"
+          }
+        }
+      }
+    },
     "settings.agents.identity" : {
       "localizations" : {
         "zh-Hans" : {
@@ -904,6 +916,36 @@
         }
       }
     },
+    "settings.agents.modelInjection" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型注入"
+          }
+        }
+      }
+    },
+    "settings.agents.modelInjection.supported" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "支持"
+          }
+        }
+      }
+    },
+    "settings.agents.modelInjection.unsupported" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不支持"
+          }
+        }
+      }
+    },
     "settings.agents.modelInvalid" : {
       "localizations" : {
         "zh-Hans" : {
@@ -930,6 +972,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名字"
+          }
+        }
+      }
+    },
+    "settings.agents.noneSelected" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未选择"
           }
         }
       }
@@ -1024,7 +1076,18 @@
         }
       }
     },
+    "settings.agents.persona.empty" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有内容。"
+          }
+        }
+      }
+    },
     "settings.agents.preview" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1044,82 +1107,52 @@
         }
       }
     },
-    "settings.agents.runtime" : {
+    "common.done" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "运行"
+            "value" : "完成"
           }
         }
       }
     },
-    "settings.agents.engineStatus" : {
+    "settings.agents.engine.noneAvailable" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引擎状态"
+            "value" : "没有可用 CLI，请先在 CLI 页安装。"
           }
         }
       }
     },
-    "settings.agents.modelInjection" : {
+    "settings.agents.engine.unavailableCurrent" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "模型注入"
+            "value" : "当前引擎不可用，请重新选择。"
           }
         }
       }
     },
-    "settings.agents.modelInjection.supported" : {
+    "settings.agents.mcp.disabled" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "支持"
+            "value" : "MCP 选择暂未接入。"
           }
         }
       }
     },
-    "settings.agents.modelInjection.unsupported" : {
+    "settings.agents.model.default" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "不支持"
-          }
-        }
-      }
-    },
-    "settings.agents.select" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择"
-          }
-        }
-      }
-    },
-    "settings.agents.noneSelected" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未选择"
-          }
-        }
-      }
-    },
-    "settings.agents.persona.empty" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "还没有内容。"
+            "value" : "使用 CLI 默认模型"
           }
         }
       }
@@ -1144,7 +1177,18 @@
         }
       }
     },
+    "settings.agents.runtime" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行"
+          }
+        }
+      }
+    },
     "settings.agents.search" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1170,6 +1214,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "搜索技能"
+          }
+        }
+      }
+    },
+    "settings.agents.select" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择"
           }
         }
       }

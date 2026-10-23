@@ -9,16 +9,13 @@ struct AgentsSettingsView: View {
     @State private var draftBaseline = AgentRole.empty
     @State private var isSaving = false
     @State private var saveError: String?
-    @State private var pendingChange: PendingChange?
+    @State private var saveTask: Task<Void, Never>?
     @State private var pendingDelete: AgentRole?
+    @State private var soulExpanded = false
+    @State private var rulesExpanded = false
+    @State private var editingDocument: AgentDocument?
 
     private var model: AgentsSettingsViewModel { environment.roster }
-
-    private enum PendingChange: Equatable {
-        case select(String?)
-        case create
-        case duplicate(AgentRole)
-    }
 
     var body: some View {
         MasterDetailLayout {
@@ -30,7 +27,7 @@ struct AgentsSettingsView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    request(.create)
+                    Task { await createAgent() }
                 } label: {
                     Label("common.add", systemImage: "plus")
                 }
@@ -43,42 +40,50 @@ struct AgentsSettingsView: View {
                 } label: {
                     Label("common.delete", systemImage: "trash")
                 }
-                .disabled(selection == nil || isCreating)
+                .disabled(selection == nil || isCreating || isSaving)
                 .help("common.delete")
             }
         }
-        .onChange(of: selection) { _, _ in
-            loadSelection()
+        .onChange(of: role) { _, _ in
+            scheduleAutoSave()
         }
         .onChange(of: role.agentType) { _, _ in
             Task { await reloadForDraft() }
-        }
-        .onChange(of: isDirty, initial: true) { _, dirty in
-            model.hasUnsavedChanges = dirty
-        }
-        .onDisappear {
-            model.hasUnsavedChanges = false
         }
         .task {
             await model.load()
             selectFirstIfNeeded()
         }
+        .onDisappear {
+            saveTask?.cancel()
+            Task { await saveDraft() }
+        }
+        .sheet(item: $editingDocument) { document in
+            AgentDocumentSheet(
+                title: document.titleKey,
+                text: document == .soul ? $role.soul : $role.rules,
+                onDone: {
+                    saveTask?.cancel()
+                    Task { await saveDraft() }
+                }
+            )
+        }
         .alert(
-            "settings.agents.discard.title",
+            "settings.agents.delete.title",
             isPresented: Binding(
-                get: { pendingChange != nil },
-                set: { if !$0 { pendingChange = nil } }
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
             ),
-            presenting: pendingChange
-        ) { change in
-            Button("settings.agents.discard", role: .destructive) {
-                apply(change)
+            presenting: pendingDelete
+        ) { agent in
+            Button("common.delete", role: .destructive) {
+                Task { await performDelete(agent) }
             }
             Button("common.cancel", role: .cancel) {
-                pendingChange = nil
+                pendingDelete = nil
             }
-        } message: { _ in
-            Text("settings.agents.discard.message")
+        } message: { agent in
+            Text(String(format: String(localized: "settings.agents.delete.message"), agent.name))
         }
     }
 
@@ -103,7 +108,7 @@ struct AgentsSettingsView: View {
             .tag(agent.id)
             .contextMenu {
                 Button("settings.agents.copy") {
-                    request(.duplicate(agent))
+                    Task { await duplicate(agent) }
                 }
                 Divider()
                 Button("common.delete", role: .destructive) {
@@ -134,7 +139,7 @@ struct AgentsSettingsView: View {
                 Text("settings.agents.empty.description")
             } actions: {
                 Button("common.add") {
-                    startCreating()
+                    Task { await createAgent() }
                 }
             }
         } else {
@@ -144,6 +149,13 @@ struct AgentsSettingsView: View {
 
     private var editor: some View {
         Form {
+            if let saveError {
+                Section {
+                    Text(saveError)
+                        .foregroundStyle(.red)
+                }
+            }
+
             Section("settings.agents.identity") {
                 TextField("settings.agents.name", text: $role.name)
             }
@@ -151,48 +163,27 @@ struct AgentsSettingsView: View {
             Section("settings.agents.runtime") {
                 engineField
 
-                if let engine = selectedEngine {
-                    LabeledContent("settings.agents.engineStatus") {
-                        Text(engineStatus(engine))
-                            .foregroundStyle(engine.available ? .primary : .secondary)
-                    }
-                }
-
                 if let enginesError = model.enginesError {
                     Text(enginesError)
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
 
-                providerField
-                modelField
-
-                if let face = model.face {
-                    LabeledContent("settings.agents.modelInjection") {
-                        Text(
-                            face.supported
-                                ? LocalizedStringKey("settings.agents.modelInjection.supported")
-                                : LocalizedStringKey("settings.agents.modelInjection.unsupported")
-                        )
-                        .foregroundStyle(face.supported ? .green : .orange)
-                    }
-
-                    if let hint = faceHint {
-                        Text(hint)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                modelFields
             }
 
             Section("settings.agents.persona") {
-                markdownPreview(
+                personaGroup(
                     title: "settings.agents.soul",
-                    text: role.soul
+                    text: role.soul,
+                    expanded: $soulExpanded,
+                    document: .soul
                 )
-                markdownPreview(
+                personaGroup(
                     title: "settings.agents.rules",
-                    text: role.rules
+                    text: role.rules,
+                    expanded: $rulesExpanded,
+                    document: .rules
                 )
             }
 
@@ -205,17 +196,19 @@ struct AgentsSettingsView: View {
                     isLoading: model.isLoadingCapabilities,
                     error: model.skillsError,
                     searchPrompt: "settings.agents.searchSkills",
+                    isEnabled: true,
                     onRetry: reloadCapabilities
                 )
 
                 CapabilityMultiSelect(
                     title: "settings.agents.mcp",
                     options: model.mcpServers,
-                    knownIDs: Set(model.mcpServers.map(\.id)),
+                    knownIDs: Set(model.mcpServers.map(\.id)).union(role.mcp),
                     selection: $role.mcp,
                     isLoading: model.isLoadingCapabilities,
                     error: model.mcpError,
                     searchPrompt: "settings.agents.searchMCP",
+                    isEnabled: false,
                     onRetry: reloadCapabilities
                 )
             }
@@ -239,109 +232,77 @@ struct AgentsSettingsView: View {
                         .foregroundStyle(.orange)
                 }
             }
-
-            Section {
-                if let saveError {
-                    Text(saveError)
-                        .foregroundStyle(.red)
-                }
-
-                HStack(spacing: 10) {
-                    Spacer()
-
-                    if isDirty {
-                        Text("settings.agents.unsaved")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-
-                    if isDirty {
-                        Button("common.cancel") {
-                            cancelEditing()
-                        }
-                    }
-
-                    Button("common.save") {
-                        Task { await save() }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canSave)
-                }
-            }
         }
         .formStyle(.grouped)
-        .alert(
-            "settings.agents.delete.title",
-            isPresented: Binding(
-                get: { pendingDelete != nil },
-                set: { if !$0 { pendingDelete = nil } }
-            ),
-            presenting: pendingDelete
-        ) { agent in
-            Button("common.delete", role: .destructive) {
-                Task { await performDelete(agent) }
-            }
-            Button("common.cancel", role: .cancel) {
-                pendingDelete = nil
-            }
-        } message: { agent in
-            Text(String(format: String(localized: "settings.agents.delete.message"), agent.name))
-        }
     }
 
     @ViewBuilder
     private var engineField: some View {
-        if model.engines.isEmpty {
-            TextField("settings.agents.engine", text: $role.agentType)
+        if runnableEngines.isEmpty {
+            Text("settings.agents.engine.noneAvailable")
+                .font(.callout)
+                .foregroundStyle(.secondary)
         } else {
             Picker("settings.agents.engine", selection: $role.agentType) {
                 if role.agentType.isEmpty {
                     Text("settings.agents.engine.none").tag("")
                 }
-                ForEach(model.engines) { engine in
-                    Text(engineLabel(engine)).tag(engine.agentType)
+                ForEach(runnableEngines) { engine in
+                    Text(engine.name).tag(engine.agentType)
                 }
-                if !role.agentType.isEmpty, !model.engines.contains(where: { $0.agentType == role.agentType }) {
-                    Text(role.agentType).tag(role.agentType)
+            }
+
+            if !role.agentType.isEmpty,
+               !runnableEngines.contains(where: { $0.agentType == role.agentType }) {
+                Text("settings.agents.engine.unavailableCurrent")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var modelFields: some View {
+        if model.isLoadingFace {
+            ProgressView().controlSize(.small)
+        } else if let faceError = model.faceError {
+            errorLine(faceError, retry: reloadFace)
+        } else if let face = model.face {
+            if face.supported {
+                providerField
+                modelField
+
+                if let hint = faceHint {
+                    Text(hint)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+            } else if let hint = faceHint {
+                Text(hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
 
     private var providerField: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Picker("settings.agents.provider", selection: providerBinding) {
-                if role.modelProvider.isEmpty {
-                    Text("settings.agents.model.none").tag("")
-                }
-                ForEach(providerChoices) { choice in
-                    Text(choice.name).tag(choice.id)
-                }
-                if !role.modelProvider.isEmpty, !providerChoices.contains(where: { $0.id == resolvedProviderID }) {
-                    Text(role.modelProvider).tag(role.modelProvider)
-                }
+        Picker("settings.agents.provider", selection: providerBinding) {
+            if role.modelProvider.isEmpty {
+                Text("settings.agents.model.default").tag("")
             }
-            .disabled(providerChoices.isEmpty)
-
-            if model.isLoadingFace {
-                ProgressView().controlSize(.small)
-            } else if let faceError = model.faceError {
-                errorLine(faceError, retry: reloadFace)
+            ForEach(providerChoices) { choice in
+                Text(choice.name).tag(choice.id)
             }
         }
+        .disabled(providerChoices.isEmpty)
     }
 
     private var modelField: some View {
         VStack(alignment: .leading, spacing: 4) {
             Picker("settings.agents.model", selection: $role.model) {
-                if role.model.isEmpty {
-                    Text("settings.agents.model.none").tag("")
-                }
+                Text("settings.agents.model.default").tag("")
                 ForEach(modelOptions, id: \.self) { name in
                     Text(name).tag(name)
-                }
-                if !role.model.isEmpty, !modelOptions.contains(role.model) {
-                    Text(role.model).tag(role.model)
                 }
             }
             .disabled(modelOptions.isEmpty)
@@ -361,15 +322,13 @@ struct AgentsSettingsView: View {
         }
     }
 
-    private func markdownPreview(
+    private func personaGroup(
         title: LocalizedStringKey,
-        text: String
+        text: String,
+        expanded: Binding<Bool>,
+        document: AgentDocument
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
+        DisclosureGroup(isExpanded: expanded) {
             if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text("settings.agents.persona.empty")
                     .font(.callout)
@@ -383,31 +342,27 @@ struct AgentsSettingsView: View {
                 }
                 .frame(minHeight: 80, maxHeight: 180)
             }
-        }
-    }
+        } label: {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
 
-    @ViewBuilder
-    private var selectedEngine: Engine? {
-        model.engines.first { $0.agentType == role.agentType }
-    }
+                    if let summary = firstLine(text) {
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
 
-    private func engineStatus(_ engine: Engine) -> String {
-        if let version = engine.installedVersion {
-            return "v\(version)"
-        }
-        return engine.available
-            ? String(localized: "settings.engines.available")
-            : String(localized: "settings.engines.missing")
-    }
+                Spacer()
 
-    private func errorLine(_ message: String, retry: @escaping () -> Void) -> some View {
-        HStack(spacing: 6) {
-            Text(message)
+                Button("settings.agents.edit") {
+                    editingDocument = document
+                }
+                .buttonStyle(.borderless)
                 .font(.caption)
-                .foregroundStyle(.red)
-            Button("settings.agents.retry", action: retry)
-                .buttonStyle(.link)
-                .font(.caption)
+            }
         }
     }
 
@@ -437,9 +392,8 @@ struct AgentsSettingsView: View {
             get: { resolvedProviderID },
             set: { providerID in
                 role.modelProvider = providerID
-                let options = modelOptions(for: providerID)
-                if !options.contains(role.model) {
-                    role.model = options.first ?? ""
+                if !modelOptions(for: providerID).contains(role.model) {
+                    role.model = ""
                 }
             }
         )
@@ -482,14 +436,19 @@ struct AgentsSettingsView: View {
         }
     }
 
-    private func engineLabel(_ engine: Engine) -> String {
-        var parts = [engine.name]
-        if !engine.available {
-            parts.append(String(localized: "settings.agents.engine.missing"))
-        } else if !engine.enabled {
-            parts.append(String(localized: "settings.agents.engine.disabled"))
+    private var runnableEngines: [Engine] {
+        model.engines.filter(\.available)
+    }
+
+    private func errorLine(_ message: String, retry: @escaping () -> Void) -> some View {
+        HStack(spacing: 6) {
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+            Button("settings.agents.retry", action: retry)
+                .buttonStyle(.link)
+                .font(.caption)
         }
-        return parts.joined(separator: " · ")
     }
 
     private func subtitle(_ agent: AgentRole) -> String {
@@ -503,134 +462,194 @@ struct AgentsSettingsView: View {
     private var selectionBinding: Binding<String?> {
         Binding(
             get: { selection },
-            set: { request(.select($0)) }
+            set: { id in
+                Task { await switchSelection(to: id) }
+            }
         )
     }
 
     private var isDirty: Bool {
-        role != (isCreating ? draftBaseline : (savedRole ?? .empty))
+        role != (savedRole ?? draftBaseline)
     }
 
-    private var canSave: Bool {
-        isDirty
-            && !isSaving
-            && !role.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private var isValidDraft: Bool {
+        !role.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !role.agentType.isEmpty
     }
 
-    private func request(_ change: PendingChange) {
-        if isDirty {
-            pendingChange = change
+    private func firstLine(_ text: String) -> String? {
+        text.split(separator: "\n", omittingEmptySubsequences: false)
+            .lazy
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+    }
+
+    private func scheduleAutoSave() {
+        guard isDirty, isValidDraft, !isSaving else { return }
+
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            await saveDraft()
+        }
+    }
+
+    private func saveDraft() async {
+        guard isDirty, isValidDraft, !isSaving else { return }
+
+        isSaving = true
+        saveError = nil
+        let snapshot = role
+
+        do {
+            let saved = try await model.save(snapshot)
+            savedRole = saved
+            draftBaseline = saved
+
+            if isCreating {
+                isCreating = false
+                selection = saved.id
+            }
+
+            if role == snapshot {
+                role = saved
+            } else if role.id.isEmpty {
+                role.id = saved.id
+            }
+        } catch {
+            saveError = error.localizedDescription
+        }
+
+        isSaving = false
+
+        if isDirty, isValidDraft {
+            scheduleAutoSave()
+        }
+    }
+
+    private func switchSelection(to id: String?) async {
+        guard id != selection else { return }
+
+        saveTask?.cancel()
+        await waitForSave()
+        await saveDraft()
+
+        isCreating = false
+        selection = id
+
+        if let id, let agent = model.agents.first(where: { $0.id == id }) {
+            role = agent
+            savedRole = agent
+            draftBaseline = agent
+            saveError = nil
         } else {
-            apply(change)
+            role = .empty
+            savedRole = nil
+            draftBaseline = .empty
         }
     }
 
-    private func apply(_ change: PendingChange) {
-        pendingChange = nil
-        switch change {
-        case let .select(id):
-            isCreating = false
-            selection = id
-        case .create:
-            startCreating()
-        case let .duplicate(agent):
-            beginDuplicate(agent)
-        }
-    }
+    private func createAgent() async {
+        saveTask?.cancel()
+        await waitForSave()
+        await saveDraft()
 
-    private func startCreating() {
+        var draft = AgentRole.empty
+        draft.agentType = runnableEngines.first?.agentType ?? ""
+
         isCreating = true
         selection = nil
-        var draft = AgentRole.empty
-        draft.agentType = model.engines.first(where: { $0.available && $0.enabled })?.agentType
-            ?? model.engines.first?.agentType
-            ?? ""
         role = draft
         draftBaseline = draft
         savedRole = nil
         saveError = nil
     }
 
-    private func beginDuplicate(_ agent: AgentRole) {
+    private func duplicate(_ agent: AgentRole) async {
+        saveTask?.cancel()
+        await waitForSave()
+        await saveDraft()
+
         var copy = agent
         copy.id = ""
         copy.name = String(format: String(localized: "settings.agents.copyName"), agent.name)
+
         isCreating = true
         selection = nil
         role = copy
-        draftBaseline = copy
+        draftBaseline = .empty
         savedRole = nil
         saveError = nil
-    }
-
-    private func cancelEditing() {
-        saveError = nil
-        if isCreating {
-            isCreating = false
-            selection = nil
-            role = .empty
-            draftBaseline = .empty
-            savedRole = nil
-            selectFirstIfNeeded()
-        } else if let savedRole {
-            role = savedRole
-        }
-    }
-
-    private func selectFirstIfNeeded() {
-        guard selection == nil, !isCreating, let first = model.agents.first else { return }
-        selection = first.id
-        loadSelection()
-    }
-
-    private func loadSelection() {
-        guard !isCreating, let selection, let agent = model.agents.first(where: { $0.id == selection }) else {
-            return
-        }
-        role = agent
-        savedRole = agent
-        draftBaseline = agent
-        saveError = nil
+        scheduleAutoSave()
     }
 
     private func reloadForDraft() async {
         await model.loadFace(agentType: role.agentType)
         await model.loadCapabilities(agentType: role.agentType)
+        normalizeModelSelection()
     }
 
     private func reloadFace() {
-        Task { await model.loadFace(agentType: role.agentType) }
+        Task {
+            await model.loadFace(agentType: role.agentType)
+            normalizeModelSelection()
+        }
     }
 
     private func reloadCapabilities() {
         Task { await model.loadCapabilities(agentType: role.agentType) }
     }
 
-    private func save() async {
-        isSaving = true
-        saveError = nil
+    private func normalizeModelSelection() {
+        guard let face = model.face else { return }
 
-        do {
-            let saved = try await model.save(role)
-            isCreating = false
-            role = saved
-            savedRole = saved
-            draftBaseline = saved
-            selection = saved.id
-        } catch {
-            saveError = error.localizedDescription
+        if !face.supported {
+            role.modelProvider = ""
+            role.model = ""
+            return
         }
 
-        isSaving = false
+        let providers = providerChoices
+        if !providers.contains(where: { $0.id == resolvedProviderID }) {
+            role.modelProvider = providers.first?.id ?? ""
+        } else if role.modelProvider != resolvedProviderID {
+            role.modelProvider = resolvedProviderID
+        }
+
+        if !role.model.isEmpty, !modelOptions.contains(role.model) {
+            role.model = ""
+        }
+    }
+
+    private func waitForSave() async {
+        while isSaving {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    private func selectFirstIfNeeded() {
+        guard selection == nil, !isCreating, let first = model.agents.first else { return }
+        selection = first.id
+        role = first
+        savedRole = first
+        draftBaseline = first
     }
 
     private func performDelete(_ agent: AgentRole) async {
         pendingDelete = nil
+        saveTask?.cancel()
+        await waitForSave()
+
         do {
             try await model.delete(agent.id)
+
             if selection == agent.id {
                 selection = nil
+                isCreating = false
+                role = .empty
+                savedRole = nil
+                draftBaseline = .empty
                 selectFirstIfNeeded()
             }
         } catch {
@@ -639,178 +658,21 @@ struct AgentsSettingsView: View {
     }
 }
 
+private enum AgentDocument: String, Identifiable {
+    case soul
+    case rules
+
+    var id: String { rawValue }
+
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .soul: "settings.agents.soul"
+        case .rules: "settings.agents.rules"
+        }
+    }
+}
+
 private struct ProviderChoice: Identifiable, Hashable {
     let id: String
     let name: String
-}
-
-private struct CapabilityMultiSelect: View {
-    let title: LocalizedStringKey
-    let options: [CapabilityOption]
-    let knownIDs: Set<String>
-    @Binding var selection: [String]
-    let isLoading: Bool
-    let error: String?
-    let searchPrompt: LocalizedStringKey
-    let onRetry: () -> Void
-
-    @State private var showPicker = false
-    @State private var query = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text(title)
-
-                Spacer()
-
-                Text("\(selection.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Button {
-                    showPicker.toggle()
-                } label: {
-                    Label("settings.agents.select", systemImage: "chevron.down")
-                }
-                .controlSize(.small)
-                .popover(isPresented: $showPicker, arrowEdge: .bottom) {
-                    picker
-                }
-            }
-
-            if selection.isEmpty {
-                Text("settings.agents.noneSelected")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(selectedOptions) { option in
-                    HStack(spacing: 6) {
-                        Text(option.name)
-
-                        if !knownIDs.contains(option.id) {
-                            Text("settings.agents.capabilityMissingShort")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-
-                        Spacer()
-
-                        Button {
-                            selection.removeAll { $0 == option.id }
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.caption2)
-                        }
-                        .buttonStyle(.borderless)
-                        .help("common.delete")
-                    }
-                    .font(.callout)
-                }
-            }
-        }
-    }
-
-    private var picker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("", text: $query, prompt: Text(searchPrompt))
-                .labelsHidden()
-                .textFieldStyle(.roundedBorder)
-
-            HStack(spacing: 12) {
-                Button("settings.agents.selectAll") {
-                    for option in filtered where !selection.contains(option.id) {
-                        selection.append(option.id)
-                    }
-                }
-                Button("settings.agents.clearAll") {
-                    selection.removeAll()
-                }
-                Spacer()
-                Text("\(selection.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.link)
-            .font(.caption)
-
-            Divider()
-
-            if isLoading, options.isEmpty {
-                ProgressView().controlSize(.small)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let error {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                    Button("settings.agents.retry", action: onRetry)
-                        .buttonStyle(.link)
-                        .font(.caption)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else if filtered.isEmpty {
-                Text("settings.agents.capabilities.empty")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(filtered) { option in
-                            Toggle(isOn: binding(for: option.id)) {
-                                HStack(spacing: 4) {
-                                    Text(option.name)
-                                    if !knownIDs.contains(option.id) {
-                                        Text("settings.agents.capabilityMissingShort")
-                                            .font(.caption2)
-                                            .foregroundStyle(.orange)
-                                    }
-                                }
-                            }
-                            .toggleStyle(.checkbox)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(12)
-        .frame(width: 360, height: 380)
-    }
-
-    private var allOptions: [CapabilityOption] {
-        var rows = options
-        for id in selection where !rows.contains(where: { $0.id == id }) {
-            rows.append(CapabilityOption(id: id, name: id, detail: nil))
-        }
-        return rows
-    }
-
-    private var selectedOptions: [CapabilityOption] {
-        allOptions.filter { selection.contains($0.id) }
-    }
-
-    private var filtered: [CapabilityOption] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return allOptions }
-        return allOptions.filter {
-            $0.name.localizedCaseInsensitiveContains(needle)
-                || $0.id.localizedCaseInsensitiveContains(needle)
-        }
-    }
-
-    private func binding(for id: String) -> Binding<Bool> {
-        Binding(
-            get: { selection.contains(id) },
-            set: { isOn in
-                if isOn {
-                    if !selection.contains(id) {
-                        selection.append(id)
-                    }
-                } else {
-                    selection.removeAll { $0 == id }
-                }
-            }
-        )
-    }
 }
