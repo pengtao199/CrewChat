@@ -59,6 +59,9 @@ impl Store {
                 title TEXT NOT NULL,
                 agent_type TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'active',
+                kind TEXT NOT NULL DEFAULT 'single',
+                leader_role_id TEXT,
+                team_json TEXT,
                 external_id TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
@@ -68,6 +71,7 @@ impl Store {
                 id TEXT PRIMARY KEY,
                 conversation_id TEXT NOT NULL,
                 role TEXT NOT NULL,
+                speaker_role_id TEXT,
                 blocks_json TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
@@ -83,6 +87,7 @@ impl Store {
                 mcp_json TEXT NOT NULL DEFAULT '[]',
                 permission_mode TEXT NOT NULL DEFAULT 'default',
                 auto_approve INTEGER NOT NULL DEFAULT 0,
+                version INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -99,10 +104,66 @@ impl Store {
                 envelope_json TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS conversation_agents (
+                conversation_id TEXT NOT NULL,
+                role_id TEXT NOT NULL,
+                seat TEXT NOT NULL,
+                state TEXT NOT NULL,
+                connection_id TEXT,
+                joined_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (conversation_id, role_id)
+            );
+            CREATE TABLE IF NOT EXISTS delegations (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                leader_role_id TEXT NOT NULL,
+                member_role_id TEXT NOT NULL,
+                child_conversation_id TEXT,
+                task TEXT NOT NULL,
+                context TEXT,
+                expected_output TEXT,
+                status TEXT NOT NULL,
+                result_json TEXT,
+                usage_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_delegations_conversation
+                ON delegations(conversation_id, created_at);
             "#,
+        )?;
+        ensure_column(
+            &conn,
+            "conversations",
+            "kind",
+            "TEXT NOT NULL DEFAULT 'single'",
+        )?;
+        ensure_column(&conn, "conversations", "leader_role_id", "TEXT")?;
+        ensure_column(&conn, "conversations", "team_json", "TEXT")?;
+        ensure_column(&conn, "turns", "speaker_role_id", "TEXT")?;
+        ensure_column(
+            &conn,
+            "agent_roles",
+            "version",
+            "INTEGER NOT NULL DEFAULT 1",
         )?;
         Ok(())
     }
+}
+
+fn ensure_column(conn: &Connection, table: &str, column: &str, declaration: &str) -> Result<()> {
+    let mut statement = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let names = statement
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    if !names.iter().any(|name| name == column) {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {declaration}"),
+            [],
+        )?;
+    }
+    Ok(())
 }
 
 mod agents;
@@ -112,12 +173,16 @@ mod events;
 mod folders;
 mod import;
 mod repositories;
+#[allow(dead_code)]
+mod team;
 
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
+    use crate::domain::agent::Agent;
+    use crate::domain::team::{Delegation, TeamSnapshot};
     use serde_json::json;
 
     fn store() -> (tempfile::TempDir, Store) {
@@ -175,6 +240,85 @@ mod tests {
         assert!(store.role(id).unwrap().is_some());
         store.delete_role(id).unwrap();
         assert_eq!(store.list_roles().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn team_conversation_freezes_snapshot_and_tracks_members() {
+        let (_dir, store) = store();
+        let leader = Agent {
+            id: "leader".to_string(),
+            name: "Manager".to_string(),
+            agent_type: "claude_code".to_string(),
+            version: 3,
+            ..Agent::default()
+        };
+        let member = Agent {
+            id: "member".to_string(),
+            name: "Builder".to_string(),
+            agent_type: "codex".to_string(),
+            version: 2,
+            ..Agent::default()
+        };
+        let snapshot =
+            TeamSnapshot::new(&leader, std::slice::from_ref(&member), crate::config::now());
+        let id = store
+            .create_team_conversation(None, "claude_code", Some("Team"), &snapshot)
+            .unwrap();
+
+        let detail = store.get_conversation(&id).unwrap().unwrap();
+        assert_eq!(detail["summary"]["kind"], "team");
+        assert_eq!(detail["summary"]["team"]["leader_role_id"], "leader");
+        assert_eq!(detail["summary"]["members"][0]["role_id"], "member");
+        assert_eq!(detail["summary"]["members"][0]["state"], "idle");
+        assert_eq!(detail["summary"]["team"]["members"][0]["version"], 2);
+
+        store
+            .append_turn_with_speaker(
+                &id,
+                "assistant",
+                Some("member"),
+                &json!([{"type": "text", "text": "done"}]),
+            )
+            .unwrap();
+        let detail = store.get_conversation(&id).unwrap().unwrap();
+        assert_eq!(detail["turns"][0]["speaker_role_id"], "member");
+
+        let delegation = Delegation::new(
+            &id,
+            "leader",
+            "member",
+            "build it",
+            None,
+            None,
+            crate::config::now(),
+        );
+        store.create_delegation(&delegation).unwrap();
+        store
+            .update_delegation(
+                &delegation.id,
+                "done",
+                Some(&json!({"summary": "ok"})),
+                Some(&json!({"input": 1})),
+                None,
+            )
+            .unwrap();
+        let saved = store.delegation(&delegation.id).unwrap().unwrap();
+        assert_eq!(saved["status"], "done");
+        assert_eq!(saved["result"]["summary"], "ok");
+        assert_eq!(store.delegations(&id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn saving_a_role_bumps_its_version() {
+        let (_dir, store) = store();
+        let first = store
+            .save_role(&json!({"name": "A", "agent_type": "claude_code"}))
+            .unwrap();
+        assert_eq!(first["version"], 1);
+        let mut second = first.clone();
+        second["name"] = json!("B");
+        let saved = store.save_role(&second).unwrap();
+        assert_eq!(saved["version"], 2);
     }
 
     #[test]

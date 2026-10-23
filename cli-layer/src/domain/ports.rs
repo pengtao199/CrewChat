@@ -13,6 +13,7 @@ use serde_json::Value;
 use crate::domain::agent::Agent;
 use crate::domain::engine::EnginePreferences;
 use crate::domain::event::EventEnvelope;
+use crate::domain::team::{Delegation, TeamSnapshot};
 
 pub trait AgentRepository: Send + Sync {
     fn list(&self) -> Result<Vec<Agent>>;
@@ -35,7 +36,44 @@ pub trait ConversationRepository: Send + Sync {
     fn get_conversation(&self, id: &str) -> Result<Option<Value>>;
     fn delete_conversation(&self, id: &str) -> Result<()>;
     fn append_turn(&self, conversation_id: &str, role: &str, blocks: &Value) -> Result<()>;
+    fn append_turn_with_speaker(
+        &self,
+        conversation_id: &str,
+        role: &str,
+        speaker_role_id: Option<&str>,
+        blocks: &Value,
+    ) -> Result<()>;
     fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>>;
+}
+
+/// Team-specific persistence. Kept separate from `ConversationRepository` so
+/// single-conversation callers do not grow team concerns.
+pub trait TeamRepository: Send + Sync {
+    fn create_team_conversation(
+        &self,
+        folder_id: Option<&str>,
+        agent_type: &str,
+        title: Option<&str>,
+        snapshot: &TeamSnapshot,
+    ) -> Result<String>;
+    fn conversation_agents(&self, conversation_id: &str) -> Result<Vec<Value>>;
+    fn set_conversation_agent(
+        &self,
+        conversation_id: &str,
+        role_id: &str,
+        state: &str,
+        connection_id: Option<&str>,
+    ) -> Result<()>;
+    fn create_delegation(&self, delegation: &Delegation) -> Result<()>;
+    fn update_delegation(
+        &self,
+        id: &str,
+        status: &str,
+        result: Option<&Value>,
+        usage: Option<&Value>,
+        child_conversation_id: Option<&str>,
+    ) -> Result<()>;
+    fn delegations(&self, conversation_id: &str) -> Result<Vec<Value>>;
 }
 
 pub trait EventRepository: Send + Sync {
@@ -67,6 +105,15 @@ pub struct ConnectRequest {
     pub api_key: Option<String>,
     pub conversation_id: Option<String>,
     pub engine_env: BTreeMap<String, String>,
+    /// Present only for a team Leader. The runtime injects the internal
+    /// `delegate_to_agent` / `team_status` MCP server for this connection.
+    pub leader_control: Option<LeaderControl>,
+}
+
+#[derive(Clone, Debug)]
+pub struct LeaderControl {
+    pub conversation_id: String,
+    pub leader_role_id: String,
 }
 
 #[async_trait]

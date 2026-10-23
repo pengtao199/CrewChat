@@ -7,6 +7,7 @@ use axum::{
 use serde_json::{json, Value};
 
 use crate::api::http::{api_error, authorized, field, unauthorized, AppState};
+use crate::domain::team::TeamRef;
 
 pub(crate) async fn list_folders(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if !authorized(&state, &headers) {
@@ -82,8 +83,23 @@ pub(crate) async fn create_conversation(
         return unauthorized();
     }
     let folder = field(&body, &["folderId", "folder_id"]);
-    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
     let title = field(&body, &["title"]);
+    if let Some(team) = body.get("team").filter(|value| !value.is_null()) {
+        let team = match TeamRef::from_value(team) {
+            Ok(team) => team,
+            Err(error) => return api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+        };
+        return match state.team.create(folder, agent_type, title, &team).await {
+            Ok(id) => Json(json!(id)).into_response(),
+            Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+        };
+    }
+    let agent_type = if agent_type.is_empty() {
+        "claude_code"
+    } else {
+        agent_type
+    };
     match state
         .workspace
         .create_conversation(folder, agent_type, title)

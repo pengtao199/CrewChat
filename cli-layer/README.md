@@ -122,22 +122,25 @@ src/
     models.rs      model 代理用例
     engines.rs     引擎列表 / 偏好 / 安装 / 诊断
     sessions.rs    ACP 会话用例 / 事件回放 / test run
+    team.rs        团队快照 / 成员状态 / Leader 委派
   config.rs        环境与数据目录
   domain/
-    agent.rs       类型化 Agent（后续扩展 readiness/团队）
+    agent.rs       类型化 Agent（含版本）
+    team.rs        TeamRef / TeamSnapshot / Delegation
     engine.rs      引擎偏好
     event.rs       事件 envelope
-    ports.rs       Repository / Event / SessionRuntime / ModelCatalog / SkillCatalog 端口
+    ports.rs       Repository / Team / Event / SessionRuntime / Catalog 端口
   infra/
     model_layer.rs ccr_* → model-layer
     skill_layer.rs skill-layer 客户端（技能库 / materialize）
-    store/         SQLite：agents / conversations / events / import /
+    store/         SQLite：agents / conversations / team / events / import /
                    repositories（port 实现）
     ports.rs       model / skill 客户端的 port 实现
   runtime/
     acp/           ACP host / events
     engine/        CLI 注册表 / 安装 / 版本
     overlay/       per-role home / 原生配置
+  team_mcp.rs      Leader 内部控制 MCP（delegate_to_agent / team_status）
   main.rs          只做 wiring
 ```
 

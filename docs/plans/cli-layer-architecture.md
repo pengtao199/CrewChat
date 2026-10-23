@@ -586,12 +586,24 @@ ACP update
 - Agents 页 UI 接线、启动会话/建团队强制 readiness 仍在后续。
 - `cargo test` 22 passed、clippy、smoke 通过。
 
-### Step 4：团队
+### Step 4：团队（核心首版）✅ 2026-10-23
 
-- schema + team snapshot
-- `app/team.rs`
-- internal control MCP
-- member lifecycle
+- schema：`conversations.kind/leader_role_id/team_json`、`turns.speaker_role_id`、
+  `conversation_agents`、`delegations`；`agent_roles.version`。
+- `domain/team.rs` 定义 `TeamRef` / `TeamMemberSnapshot` / `TeamSnapshot` /
+  `Delegation`；快照存完整 Agent，不按当前花名册热更新。
+- `app/team.rs`：创建团队会话（2–5 人、Leader 不在成员列表、逐个 readiness）、
+  成员状态、单成员并发的委派状态机。
+- `create_conversation` 接收 `team: {leader_role_id, member_role_ids}`；团队写入
+  在同一 SQLite 事务。
+- Leader 连接自动注入内部 stdio MCP（`crewchat-cli team-mcp`），只暴露
+  `delegate_to_agent` / `team_status`，回调 `/api/internal/team_delegate`；
+  成员连接不注入控制工具，委派深度固定 1。
+- 成员委派使用自己的冻结快照、模型、技能；成功/失败写 `delegations` 和带
+  `speaker_role_id` 的 turn。
+- 未完成：`cancel_delegation` 公开命令、成员连接复用/空闲回收、权限自动审批、
+  `session/load`、团队 UI 的委派卡与成员状态条。
+
 
 ---
 

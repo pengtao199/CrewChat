@@ -5,4 +5,5 @@ pub mod readiness;
 pub mod roster;
 pub mod sessions;
 pub mod skills;
+pub mod team;
 pub mod workspace;

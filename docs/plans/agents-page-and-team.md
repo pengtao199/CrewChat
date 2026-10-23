@@ -608,15 +608,15 @@ UI：
 
 ### Phase B：团队持久化 + Leader 委派
 
-1. `conversations` 补 kind/leader/team 快照。
-2. `conversation_agents`、`delegations`。
-3. `turns.speaker_role_id`。
-4. `create_conversation` 真正保存 team。
-5. Leader 团队帧。
-6. `delegate_to_agent` broker。
-7. 成员懒启动、独立 overlay、独立模型。
-8. 成员状态 / 委派卡 / 汇总。
-9. 取消、超时、最大轮数、最大成员数。
+1. ✅ `conversations` 补 kind/leader/team 快照。
+2. ✅ `conversation_agents`、`delegations`。
+3. ✅ `turns.speaker_role_id`。
+4. ✅ `create_conversation` 真正保存 team。
+5. ✅ Leader 团队帧：内部 stdio MCP。
+6. ✅ `delegate_to_agent` broker。
+7. ✅ 成员懒启动、独立 overlay、独立模型；连接复用/回收待补。
+8. 🟡 成员状态 / 委派卡 / 汇总：核心状态与 turn 已落库，UI 待接。
+9. 🟡 取消、超时、最大轮数、最大成员数：超时与最大成员数已实现，取消待补。
 
 **验收**：一次真实任务由 Leader + 2 名成员完成；每个成员使用自己的模型；
 越界委派被拒绝；刷新后团队和状态不丢。

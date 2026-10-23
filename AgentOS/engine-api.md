@@ -62,8 +62,8 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `remove_folder_from_workspace` | 移出工作区 | `CoreWorkspaces` | body `{folder_id}`（**snake_case**）；只把 `is_open` 置 false，不删库不删磁盘；返回 `null` |
 | `list_all_conversations` | 工作区内的会话 | `CoreConversations` | body `{folderIds, includeChildren}`（camelCase）；返回 `DbConversationSummary[]`（snake_case：`folder_id/title/agent_type/status/kind/message_count/child_count/updated_at/...`） |
 | `delete_conversation` | 归档（软删除）会话 | `CoreConversations` | body `{conversationId}`（camelCase）；只置 `deleted_at`，列表不再返回，数据仍保留（实测 1 → 0，`deleted_at` 非空） |
-| `create_conversation` | 在项目内新建会话 | `CoreConversations` | body `{folderId, agentType, title?}`（**camelCase**；snake_case 会 400 `missing field folderId`）；返回新会话 id |
-| `get_folder_conversation` | 会话详情 | `CoreConversations` | body `{conversationId, tailTurns}`（camelCase）；返回 `{summary, turns:[{id,role,timestamp,blocks:[{type,…}]}]}`。`role`=user/assistant/system；`blocks.type` 见代码（text/thinking/tool_use/tool_result/turn_error，其余走 `other` 不报错） |
+| `create_conversation` | 在项目内新建会话 | `CoreConversations` | body `{folderId, agentType, title?, team?}`（**camelCase**；snake_case 会 400 `missing field folderId`）。`team={leader_role_id, member_role_ids}` 时冻结团队快照、校验 readiness，并在同一事务写成员；返回新会话 id |
+| `get_folder_conversation` | 会话详情 | `CoreConversations` | body `{conversationId, tailTurns}`（camelCase）；返回 `{summary, turns:[{id,role,speaker_role_id?,timestamp,blocks:[{type,…}]}]}`。团队会话的 `summary` 带 `kind=team`、`leader_role_id`、`team` 冻结快照和 `members[].state`；`role`=user/assistant/system；`blocks.type` 见代码（text/thinking/tool_use/tool_result/turn_error，其余走 `other` 不报错） |
 
 | `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?, sessionId?}`（camelCase）。`sessionId` 传会话的 `external_id` 以续接历史；返回 `connection_id`。首次 initialize 可能 8–10s，超时按 60s |
 | `acp_prompt` | 发送一轮消息 | `CoreSession` | body `{connectionId, blocks:[{type:"text",text}], folderId, conversationId}`（camelCase）。立即返回，流式结果走 `/ws/events` |

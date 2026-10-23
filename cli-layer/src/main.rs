@@ -13,6 +13,7 @@ mod config;
 mod domain;
 mod infra;
 mod runtime;
+mod team_mcp;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -29,11 +30,12 @@ use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
 use crate::app::skills::SkillService;
+use crate::app::team::TeamService;
 use crate::app::workspace::WorkspaceService;
 use crate::config::Config;
 use crate::domain::ports::{
     AgentRepository, ConversationRepository, EngineSettingsRepository, EventRepository, McpCatalog,
-    ModelCatalog, SessionRuntime, SkillCatalog,
+    ModelCatalog, SessionRuntime, SkillCatalog, TeamRepository,
 };
 use crate::infra::mcp_layer::McpLayerClient;
 use crate::infra::model_layer::ModelLayerClient;
@@ -43,6 +45,11 @@ use crate::runtime::acp::host::AcpHost;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("team-mcp") {
+        return crate::team_mcp::run().await;
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -54,7 +61,6 @@ async fn main() -> Result<()> {
     let store = Store::open(&config.db_path())?;
     store.init_schema()?;
 
-    let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "--import-codeg") {
         let path = args
             .windows(2)
@@ -89,6 +95,7 @@ async fn main() -> Result<()> {
     let runtime: Arc<dyn SessionRuntime> = host.clone();
     let agent_repo: Arc<dyn AgentRepository> = Arc::new(store.clone());
     let conversation_repo: Arc<dyn ConversationRepository> = Arc::new(store.clone());
+    let team_repo: Arc<dyn TeamRepository> = Arc::new(store.clone());
     let settings_repo: Arc<dyn EngineSettingsRepository> = Arc::new(store.clone());
     let roster = RosterService::new(agent_repo.clone(), model.clone(), host.engines().clone());
     let workspace = WorkspaceService::new(conversation_repo.clone());
@@ -103,10 +110,17 @@ async fn main() -> Result<()> {
     );
     let sessions = SessionService::new(
         agent_repo,
-        conversation_repo,
+        conversation_repo.clone(),
         runtime,
         model_catalog,
         engines.clone(),
+    );
+    let team = TeamService::new(
+        roster.clone(),
+        conversation_repo,
+        team_repo,
+        readiness.clone(),
+        sessions.clone(),
     );
     let state = AppState {
         config: config.clone(),
@@ -118,6 +132,7 @@ async fn main() -> Result<()> {
         readiness,
         engines,
         sessions,
+        team,
     };
 
     let router = crate::api::http::router(state);

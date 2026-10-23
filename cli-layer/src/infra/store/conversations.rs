@@ -4,31 +4,32 @@ use serde_json::{json, Value};
 
 use super::Store;
 use crate::config::now;
+use crate::domain::team::TeamSnapshot;
+
+const SUMMARY_COLUMNS: &str =
+    "id, folder_id, title, agent_type, status, updated_at, kind, leader_role_id, team_json";
 
 impl Store {
     pub fn list_conversations(&self, folder_ids: &[String]) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
         let mut out = Vec::new();
         if folder_ids.is_empty() {
-            let mut stmt = conn.prepare(
-                "SELECT id, folder_id, title, agent_type, status, updated_at
-                 FROM conversations WHERE deleted_at IS NULL ORDER BY updated_at DESC",
-            )?;
-            let rows = stmt.query_map([], conversation_json)?;
-            for row in rows {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {SUMMARY_COLUMNS} FROM conversations
+                 WHERE deleted_at IS NULL ORDER BY updated_at DESC"
+            ))?;
+            for row in stmt.query_map([], conversation_json)? {
                 out.push(row?);
             }
             return Ok(out);
         }
         for folder_id in folder_ids {
-            let mut stmt = conn.prepare(
-                "SELECT id, folder_id, title, agent_type, status, updated_at
-                 FROM conversations
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {SUMMARY_COLUMNS} FROM conversations
                  WHERE folder_id = ?1 AND deleted_at IS NULL
-                 ORDER BY updated_at DESC",
-            )?;
-            let rows = stmt.query_map(params![folder_id], conversation_json)?;
-            for row in rows {
+                 ORDER BY updated_at DESC"
+            ))?;
+            for row in stmt.query_map(params![folder_id], conversation_json)? {
                 out.push(row?);
             }
         }
@@ -62,17 +63,32 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let summary: Option<Value> = conn
             .query_row(
-                "SELECT id, folder_id, title, agent_type, status, updated_at
-                 FROM conversations WHERE id = ?1 AND deleted_at IS NULL",
+                &format!(
+                    "SELECT {SUMMARY_COLUMNS} FROM conversations
+                     WHERE id = ?1 AND deleted_at IS NULL"
+                ),
                 params![id],
                 conversation_json,
             )
             .optional()?;
-        let Some(summary) = summary else {
+        let Some(mut summary) = summary else {
             return Ok(None);
         };
+
+        let team_json = conn
+            .query_row(
+                "SELECT team_json FROM conversations WHERE id = ?1",
+                params![id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?
+            .flatten();
+        let snapshot = team_json
+            .as_deref()
+            .and_then(|raw| TeamSnapshot::from_json(raw).ok());
+
         let mut stmt = conn.prepare(
-            "SELECT id, role, blocks_json, created_at FROM turns
+            "SELECT id, role, blocks_json, created_at, speaker_role_id FROM turns
              WHERE conversation_id = ?1 ORDER BY created_at",
         )?;
         let turns = stmt
@@ -82,10 +98,57 @@ impl Store {
                     "id": row.get::<_, String>(0)?,
                     "role": row.get::<_, String>(1)?,
                     "timestamp": row.get::<_, String>(3)?,
+                    "speaker_role_id": row.get::<_, Option<String>>(4)?,
                     "blocks": serde_json::from_str::<Value>(&blocks).unwrap_or(Value::Null),
                 }))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        let agents = {
+            let mut stmt = conn.prepare(
+                "SELECT role_id, seat, state, connection_id, joined_at, updated_at
+                 FROM conversation_agents WHERE conversation_id = ?1
+                 ORDER BY seat = 'leader' DESC, joined_at",
+            )?;
+            let rows = stmt
+                .query_map(params![id], |row| {
+                    Ok(json!({
+                        "role_id": row.get::<_, String>(0)?,
+                        "seat": row.get::<_, String>(1)?,
+                        "state": row.get::<_, String>(2)?,
+                        "connection_id": row.get::<_, Option<String>>(3)?,
+                        "joined_at": row.get::<_, String>(4)?,
+                        "updated_at": row.get::<_, String>(5)?,
+                    }))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            rows
+        };
+
+        if let Some(snapshot) = &snapshot {
+            summary["team"] = serde_json::to_value(snapshot)?;
+            let members = snapshot
+                .members
+                .iter()
+                .map(|member| {
+                    let row = agents.iter().find(|row| row["role_id"] == member.role_id);
+                    json!({
+                        "role_id": member.role_id,
+                        "name": member.agent.name,
+                        "version": member.version,
+                        "agent_type": member.agent.agent_type,
+                        "model": member.agent.model,
+                        "permission_mode": member.agent.permission_mode,
+                        "auto_approve": member.agent.auto_approve,
+                        "state": row.and_then(|row| row["state"].as_str()).unwrap_or("idle"),
+                        "connection_id": row.map(|row| row["connection_id"].clone()),
+                    })
+                })
+                .collect::<Vec<_>>();
+            summary["members"] = json!(members);
+        }
+        summary["delegations"] = json!(self_delegations(&conn, id)?);
+
         Ok(Some(json!({"summary": summary, "turns": turns})))
     }
 
@@ -99,14 +162,26 @@ impl Store {
     }
 
     pub fn append_turn(&self, conversation_id: &str, role: &str, blocks: &Value) -> Result<()> {
+        self.append_turn_with_speaker(conversation_id, role, None, blocks)
+    }
+
+    pub fn append_turn_with_speaker(
+        &self,
+        conversation_id: &str,
+        role: &str,
+        speaker_role_id: Option<&str>,
+        blocks: &Value,
+    ) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO turns (id, conversation_id, role, blocks_json, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO turns
+             (id, conversation_id, role, speaker_role_id, blocks_json, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![
                 uuid::Uuid::new_v4().to_string(),
                 conversation_id,
                 role,
+                speaker_role_id,
                 serde_json::to_string(blocks)?,
                 now()
             ],
@@ -119,7 +194,39 @@ impl Store {
     }
 }
 
+fn self_delegations(conn: &rusqlite::Connection, conversation_id: &str) -> Result<Vec<Value>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, conversation_id, leader_role_id, member_role_id,
+                child_conversation_id, task, context, expected_output,
+                status, result_json, usage_json, created_at, updated_at
+         FROM delegations WHERE conversation_id = ?1 ORDER BY created_at",
+    )?;
+    let rows = stmt
+        .query_map(params![conversation_id], |row| {
+            let result = row.get::<_, Option<String>>(9)?;
+            let usage = row.get::<_, Option<String>>(10)?;
+            Ok(json!({
+                "id": row.get::<_, String>(0)?,
+                "conversation_id": row.get::<_, String>(1)?,
+                "leader_role_id": row.get::<_, String>(2)?,
+                "member_role_id": row.get::<_, String>(3)?,
+                "child_conversation_id": row.get::<_, Option<String>>(4)?,
+                "task": row.get::<_, String>(5)?,
+                "context": row.get::<_, Option<String>>(6)?,
+                "expected_output": row.get::<_, Option<String>>(7)?,
+                "status": row.get::<_, String>(8)?,
+                "result": result.as_deref().and_then(|raw| serde_json::from_str::<Value>(raw).ok()),
+                "usage": usage.as_deref().and_then(|raw| serde_json::from_str::<Value>(raw).ok()),
+                "created_at": row.get::<_, String>(11)?,
+                "updated_at": row.get::<_, String>(12)?,
+            }))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 fn conversation_json(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
+    let leader_role_id = row.get::<_, Option<String>>(7)?;
     Ok(json!({
         "id": row.get::<_, String>(0)?,
         "folder_id": row.get::<_, Option<String>>(1)?,
@@ -127,6 +234,9 @@ fn conversation_json(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
         "agent_type": row.get::<_, String>(3)?,
         "status": row.get::<_, String>(4)?,
         "updated_at": row.get::<_, String>(5)?,
+        "kind": row.get::<_, String>(6)?,
+        "leader_role_id": leader_role_id,
+        "team": leader_role_id.map(|id| json!({"leader_role_id": id})),
         "message_count": 0,
         "child_count": 0,
     }))

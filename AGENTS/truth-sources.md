@@ -19,7 +19,7 @@
 | 旧 CCR 配置（回退用，冻结） | `~/.claude-code-router/` | SQLite（`config.sqlite`） | 否 | 否 |
 | 项目列表（工作区/一等公民） | `.data/projects.json` | JSON | 否 | 否 |
 | 界面偏好 | `.data/crewchat.db` | SQLite | 否 | 否 |
-| 会话与消息 | `~/Library/Application Support/AgentOS/cli/cli-layer.db`（`conversations` / `turns` / `events`） | SQLite | 否 | 否 |
+| 会话与消息 | `~/Library/Application Support/AgentOS/cli/cli-layer.db`（`conversations` / `turns` / `events` / `conversation_agents` / `delegations`） | SQLite | 否 | 否 |
 | 用量统计（经本 app 的 CLI 身体） | `.data/crewchat.db`（`usage_events`） | SQLite | 否 | 否 |
 | 技能 | 全局库：`~/.agents/skills`（current 软链）+ `~/.agents/skill-store/<id>/<hash>`，注册表 `~/.agents/skill-layer/registry.sqlite`；Agent 绑定：cli-layer `agent_roles.skills_json`；会话级 materialize：role home 的 `skills/` | Markdown + symlink + SQLite | **是**（内容跨 CLI） | — |
 | MCP 服务 | `mcp-layer` 控制面：`~/.agents/mcp/servers/<id>.json` + `registry.sqlite`；运行时：每 Agent 一个 proxy 实例，配置在 `~/.agents/mcp/runtime/proxies/<agent>/` | JSON + SQLite + TOML | **是** | — |

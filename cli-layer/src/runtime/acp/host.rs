@@ -12,10 +12,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, McpServer,
-    NewSessionRequest, PromptRequest, RequestPermissionOutcome, RequestPermissionRequest,
-    RequestPermissionResponse, SelectedPermissionOutcome, SessionId, SessionNotification,
-    TextContent,
+    CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, InitializeRequest,
+    McpServer, McpServerStdio, NewSessionRequest, PromptRequest, RequestPermissionOutcome,
+    RequestPermissionRequest, RequestPermissionResponse, SelectedPermissionOutcome, SessionId,
+    SessionNotification, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -184,6 +184,7 @@ impl AcpHost {
     }
 
     /// Spawn one ACP adapter, initialize, create a session, and keep it alive.
+    #[allow(clippy::too_many_arguments)]
     pub async fn connect(
         &self,
         agent_type: &str,
@@ -192,6 +193,7 @@ impl AcpHost {
         api_key: Option<String>,
         conversation_id: Option<String>,
         engine_env: BTreeMap<String, String>,
+        leader_control: Option<crate::domain::ports::LeaderControl>,
     ) -> Result<Value> {
         let spec = self
             .engines
@@ -226,7 +228,7 @@ impl AcpHost {
             }
         }
 
-        let mcp_servers = match role.as_ref() {
+        let mut mcp_servers = match role.as_ref() {
             Some(role) => {
                 let mcp_ids = role_mcp_ids(role);
                 if mcp_ids.is_empty() {
@@ -263,6 +265,26 @@ impl AcpHost {
             }
             None => Vec::new(),
         };
+        if let Some(control) = leader_control {
+            let command = std::env::current_exe()
+                .map_err(|error| anyhow!("resolve cli-layer executable: {error}"))?;
+            mcp_servers.push(McpServer::Stdio(
+                McpServerStdio::new("crewchat-team", command)
+                    .args(vec![
+                        "team-mcp".to_string(),
+                        "--conversation".to_string(),
+                        control.conversation_id,
+                        "--leader".to_string(),
+                        control.leader_role_id,
+                        "--core-url".to_string(),
+                        self.config.base_url(),
+                    ])
+                    .env(vec![EnvVariable::new(
+                        "CREWCHAT_CORE_TOKEN",
+                        self.config.token.clone(),
+                    )]),
+            ));
+        }
 
         let mut env = engine_env;
         if let Some(overlay) = &overlay {
@@ -529,6 +551,7 @@ impl crate::domain::ports::SessionRuntime for AcpHost {
             request.api_key,
             request.conversation_id,
             request.engine_env,
+            request.leader_control,
         )
         .await
     }

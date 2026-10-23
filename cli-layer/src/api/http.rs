@@ -23,6 +23,7 @@ use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
 use crate::app::skills::SkillService;
+use crate::app::team::TeamService;
 use crate::app::workspace::WorkspaceService;
 use serde_json::{json, Value};
 
@@ -40,6 +41,7 @@ pub struct AppState {
     pub readiness: ReadinessService,
     pub engines: EngineService,
     pub sessions: SessionService,
+    pub team: TeamService,
 }
 
 pub fn router(state: AppState) -> Router {
@@ -71,6 +73,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/create_conversation", post(create_conversation))
         .route("/api/get_folder_conversation", post(get_conversation))
         .route("/api/get_conversation", post(get_conversation))
+        .route("/api/team_status", post(team_status))
+        .route("/api/internal/team_delegate", post(team_delegate))
         .route("/api/delete_conversation", post(delete_conversation))
         .route("/api/skill_list", post(skill_list))
         .route("/api/skill_read", post(skill_read))

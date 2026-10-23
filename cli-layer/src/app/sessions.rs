@@ -12,8 +12,8 @@ use tokio::time::timeout;
 use crate::app::engines::EngineService;
 use crate::domain::agent::Agent;
 use crate::domain::ports::{
-    AgentRepository, ConnectRequest, ConversationRepository, EventSubscription, ModelCatalog,
-    SessionRuntime,
+    AgentRepository, ConnectRequest, ConversationRepository, EventSubscription, LeaderControl,
+    ModelCatalog, SessionRuntime,
 };
 
 #[derive(Clone)]
@@ -31,6 +31,8 @@ pub enum SessionError {
     BadGateway(String),
     NotFound(String),
 }
+
+impl std::error::Error for SessionError {}
 
 impl std::fmt::Display for SessionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -61,6 +63,26 @@ impl SessionService {
 
     pub fn subscribe(&self) -> Box<dyn EventSubscription> {
         self.runtime.subscribe()
+    }
+
+    fn leader_control(
+        &self,
+        conversation_id: Option<&str>,
+        role: Option<&Value>,
+    ) -> Option<LeaderControl> {
+        let conversation_id = conversation_id?;
+        let role_id = role?.get("id").and_then(Value::as_str)?;
+        let detail = self
+            .conversations
+            .get_conversation(conversation_id)
+            .ok()??;
+        let leader_role_id = detail
+            .pointer("/summary/team/leader_role_id")
+            .and_then(Value::as_str)?;
+        (leader_role_id == role_id).then(|| LeaderControl {
+            conversation_id: conversation_id.to_string(),
+            leader_role_id: leader_role_id.to_string(),
+        })
     }
 
     pub async fn connect(
@@ -107,6 +129,7 @@ impl SessionService {
         }
 
         let api_key = self.model.local_gateway_key().await;
+        let leader_control = self.leader_control(conversation_id.as_deref(), role.as_ref());
         self.runtime
             .connect(ConnectRequest {
                 agent_type: agent_type.to_string(),
@@ -115,6 +138,7 @@ impl SessionService {
                 api_key,
                 conversation_id,
                 engine_env: preferences.env,
+                leader_control,
             })
             .await
             .map_err(|error| SessionError::BadGateway(error.to_string()))
@@ -128,17 +152,21 @@ impl SessionService {
             .map_err(|error| SessionError::BadRequest(error.to_string()))
     }
 
-    /// Start a throwaway ACP session with the Agent's full configuration.
-    /// It never writes a conversation or delegation; failures are returned as
-    /// structured test results so the UI can show the failing phase.
-    pub async fn test_run(&self, role_id: &str) -> std::result::Result<Value, SessionError> {
-        let agent = self
-            .agents
-            .get(role_id)
-            .map_err(|error| SessionError::BadRequest(error.to_string()))?
-            .ok_or_else(|| SessionError::NotFound("role not found".to_string()))?;
+    /// Run one prompt against an already-resolved Agent snapshot.
+    ///
+    /// This is shared by Test Run and team delegation. `conversation_id` is
+    /// optional: Test Run passes `None` so no history is written; delegated
+    /// member turns pass the team conversation and a speaker id.
+    pub async fn run_agent(
+        &self,
+        agent: &Agent,
+        prompt: &str,
+        conversation_id: Option<&str>,
+        speaker_role_id: Option<&str>,
+        timeout_seconds: u64,
+    ) -> std::result::Result<Value, SessionError> {
         let started = Instant::now();
-        let model = model_label(&agent);
+        let model = model_label(agent);
         let mut events = self.runtime.subscribe();
 
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
@@ -151,7 +179,7 @@ impl SessionService {
                         .to_value()
                         .map_err(|error| SessionError::BadRequest(error.to_string()))?,
                 ),
-                None,
+                conversation_id.map(str::to_string),
             )
             .await
         {
@@ -175,10 +203,7 @@ impl SessionService {
             .unwrap_or_default()
             .to_string();
 
-        if let Err(error) = self
-            .runtime
-            .prompt(&connection_id, "Reply with OK.".to_string())
-        {
+        if let Err(error) = self.runtime.prompt(&connection_id, prompt.to_string()) {
             self.runtime.close(&connection_id);
             return Ok(test_result(
                 false,
@@ -191,7 +216,7 @@ impl SessionService {
             ));
         }
 
-        let outcome = timeout(Duration::from_secs(90), async {
+        let outcome = timeout(Duration::from_secs(timeout_seconds), async {
             let mut text = String::new();
             let mut usage = Value::Null;
             let mut events_seen = 0u64;
@@ -221,7 +246,7 @@ impl SessionService {
                         return (
                             false,
                             "permission",
-                            "the test prompt raised a permission request".to_string(),
+                            "the prompt raised a permission request".to_string(),
                             text,
                             usage,
                             events_seen,
@@ -243,12 +268,22 @@ impl SessionService {
             Err(_) => (
                 false,
                 "timeout",
-                "the test prompt did not finish within 90 seconds".to_string(),
+                format!("the prompt did not finish within {timeout_seconds} seconds"),
                 String::new(),
                 Value::Null,
                 0,
             ),
         };
+        if ok {
+            if let Some(conversation_id) = conversation_id {
+                let _ = self.conversations.append_turn_with_speaker(
+                    conversation_id,
+                    "assistant",
+                    speaker_role_id,
+                    &json!([{"type": "text", "text": text}]),
+                );
+            }
+        }
         let mut value = test_result(
             ok,
             phase,
@@ -261,6 +296,18 @@ impl SessionService {
         value["text"] = json!(text);
         value["events"] = json!(events_seen);
         Ok(value)
+    }
+
+    /// Start a throwaway ACP session with the Agent's full configuration.
+    /// It never writes a conversation or delegation.
+    pub async fn test_run(&self, role_id: &str) -> std::result::Result<Value, SessionError> {
+        let agent = self
+            .agents
+            .get(role_id)
+            .map_err(|error| SessionError::BadRequest(error.to_string()))?
+            .ok_or_else(|| SessionError::NotFound("role not found".to_string()))?;
+        self.run_agent(&agent, "Reply with OK.", None, None, 90)
+            .await
     }
 
     pub fn prompt(
@@ -399,6 +446,7 @@ mod tests {
     #[derive(Default)]
     struct FakeConversations {
         turns: Mutex<Vec<(String, String)>>,
+        team: Option<Value>,
     }
 
     impl ConversationRepository for FakeConversations {
@@ -428,7 +476,7 @@ mod tests {
         }
 
         fn get_conversation(&self, _id: &str) -> anyhow::Result<Option<Value>> {
-            Ok(None)
+            Ok(self.team.clone())
         }
 
         fn delete_conversation(&self, _id: &str) -> anyhow::Result<()> {
@@ -439,6 +487,20 @@ mod tests {
             &self,
             conversation_id: &str,
             role: &str,
+            _blocks: &Value,
+        ) -> anyhow::Result<()> {
+            self.turns
+                .lock()
+                .unwrap()
+                .push((conversation_id.to_string(), role.to_string()));
+            Ok(())
+        }
+
+        fn append_turn_with_speaker(
+            &self,
+            conversation_id: &str,
+            role: &str,
+            _speaker_role_id: Option<&str>,
             _blocks: &Value,
         ) -> anyhow::Result<()> {
             self.turns
@@ -639,6 +701,34 @@ mod tests {
         );
         assert_eq!(runtime.prompts.lock().unwrap().as_slice(), ["hello"]);
     }
+    #[tokio::test]
+    async fn team_leader_gets_control_channel_but_other_roles_do_not() {
+        let runtime = Arc::new(FakeRuntime::default());
+        let conversations = Arc::new(FakeConversations {
+            team: Some(json!({
+                "summary": {"team": {"leader_role_id": "role-1"}},
+                "turns": [],
+            })),
+            ..FakeConversations::default()
+        });
+        let service = service(runtime.clone(), conversations);
+
+        service
+            .connect(
+                "claude_code",
+                PathBuf::from("/tmp"),
+                Some("role-1"),
+                Some("team-conversation".to_string()),
+            )
+            .await
+            .unwrap();
+
+        let request = runtime.request.lock().unwrap().clone().unwrap();
+        let control = request.leader_control.expect("leader control");
+        assert_eq!(control.conversation_id, "team-conversation");
+        assert_eq!(control.leader_role_id, "role-1");
+    }
+
     #[tokio::test]
     async fn test_run_uses_ephemeral_session_and_does_not_write_history() {
         let runtime = Arc::new(FakeRuntime {

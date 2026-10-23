@@ -32,6 +32,10 @@ pub struct Agent {
     pub permission_mode: String,
     #[serde(default)]
     pub auto_approve: bool,
+    /// Roster revision, bumped on every save. Team snapshots store this so a
+    /// running team can tell that its frozen member config has drifted.
+    #[serde(default)]
+    pub version: u64,
 }
 
 impl Agent {

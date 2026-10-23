@@ -10,7 +10,7 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, name, soul, rules, agent_type, model, model_provider,
-                    skills_json, mcp_json, permission_mode, auto_approve
+                    skills_json, mcp_json, permission_mode, auto_approve, version
              FROM agent_roles ORDER BY name",
         )?;
         let rows = stmt
@@ -29,6 +29,7 @@ impl Store {
                         .unwrap_or(Value::Null),
                     "permission_mode": row.get::<_, String>(9)?,
                     "auto_approve": row.get::<_, i64>(10)? != 0,
+                    "version": row.get::<_, i64>(11)?,
                 }))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -40,7 +41,7 @@ impl Store {
         Ok(conn
             .query_row(
                 "SELECT id, name, soul, rules, agent_type, model, model_provider,
-                    skills_json, mcp_json, permission_mode, auto_approve
+                    skills_json, mcp_json, permission_mode, auto_approve, version
              FROM agent_roles WHERE id = ?1",
                 params![id],
                 |row| {
@@ -58,6 +59,7 @@ impl Store {
                             .unwrap_or(Value::Null),
                         "permission_mode": row.get::<_, String>(9)?,
                         "auto_approve": row.get::<_, i64>(10)? != 0,
+                        "version": row.get::<_, i64>(11)?,
                     }))
                 },
             )
@@ -73,11 +75,20 @@ impl Store {
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let timestamp = now();
         let conn = self.conn.lock().unwrap();
+        let current_version: Option<i64> = conn
+            .query_row(
+                "SELECT version FROM agent_roles WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let version = current_version.map(|value| value + 1).unwrap_or(1);
         conn.execute(
             "INSERT INTO agent_roles
              (id, name, soul, rules, agent_type, model, model_provider,
-              skills_json, mcp_json, permission_mode, auto_approve, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)
+              skills_json, mcp_json, permission_mode, auto_approve, version,
+              created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 soul = excluded.soul,
@@ -89,6 +100,7 @@ impl Store {
                 mcp_json = excluded.mcp_json,
                 permission_mode = excluded.permission_mode,
                 auto_approve = excluded.auto_approve,
+                version = excluded.version,
                 updated_at = excluded.updated_at",
             params![
                 id,
@@ -110,6 +122,7 @@ impl Store {
                 role.get("auto_approve")
                     .and_then(Value::as_bool)
                     .unwrap_or(false) as i64,
+                version,
                 timestamp
             ],
         )?;
@@ -118,6 +131,7 @@ impl Store {
             saved = json!({});
         }
         saved["id"] = json!(id);
+        saved["version"] = json!(version);
         saved["created_at"] = json!(timestamp);
         saved["updated_at"] = json!(timestamp);
         Ok(saved)
