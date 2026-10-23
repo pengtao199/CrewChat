@@ -36,11 +36,7 @@ final class AppEnvironment {
         )
         self.models = ModelsSettingsViewModel(ccr: CoreCCRClient(provider: provider))
         self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient, capabilities: capabilitiesClient)
-        self.skills = SkillsSettingsViewModel(
-            skills: skillsClient,
-            engines: enginesClient,
-            workspaces: workspacesClient
-        )
+        self.skills = SkillsSettingsViewModel(skills: skillsClient)
         self.mcp = MCPSettingsViewModel(mcp: mcpClient)
         self.engines = EnginesSettingsViewModel(engines: enginesClient)
         self.workbench = WorkbenchViewModel(

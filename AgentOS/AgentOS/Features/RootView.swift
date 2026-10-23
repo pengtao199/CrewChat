@@ -70,7 +70,7 @@ struct RootView: View {
     }
 
     private func requestExit(_ exit: SettingsExit) {
-        if environment.roster.hasUnsavedChanges || environment.skills.hasUnsavedChanges {
+        if environment.roster.hasUnsavedChanges {
             pendingExit = exit
             showExitAlert = true
         } else {
@@ -87,7 +87,6 @@ struct RootView: View {
             settingsPage = page
         case .workbench:
             environment.roster.hasUnsavedChanges = false
-            environment.skills.hasUnsavedChanges = false
             environment.mode = .workbench
         }
     }

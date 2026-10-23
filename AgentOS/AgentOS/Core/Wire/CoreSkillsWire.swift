@@ -1,43 +1,21 @@
 import Foundation
 
-struct CoreSkillCatalog: Decodable, Sendable {
+// [crewchat] Legacy bridge DTOs for codeg's per-engine skill commands. The
+// skill-layer `skill_list` / `skill_read` commands replace these; until they
+// land, the client reads the shared `~/.agents/skills` tree through the first
+// engine that can see it. The UI never shows the engine.
+
+struct CoreLegacySkillCatalog: Decodable, Sendable {
     let supported: Bool
     let message: String?
-    let locations: [CoreSkillLocation]
-    let skills: [CoreSkillDetail]
-
-    enum CodingKeys: String, CodingKey {
-        case supported
-        case message
-        case locations
-        case skills
-    }
-
-    var domain: SkillCatalog {
-        SkillCatalog(
-            supported: supported,
-            message: message,
-            locations: locations.map(\.domain),
-            skills: skills.map(\.domain)
-        )
-    }
+    let skills: [CoreLegacySkill]
 }
 
-struct CoreSkillLocation: Decodable, Sendable {
-    let scope: SkillScope
-    let path: String
-    let exists: Bool
-
-    var domain: SkillLocation {
-        SkillLocation(scope: scope, path: path, exists: exists)
-    }
-}
-
-struct CoreSkillDetail: Decodable, Sendable {
+struct CoreLegacySkill: Decodable, Sendable {
     let id: String
     let name: String
-    let scope: SkillScope
-    let layout: SkillLayout
+    let scope: String
+    let layout: String
     let path: String
     let description: String?
     let readOnly: Bool
@@ -52,26 +30,29 @@ struct CoreSkillDetail: Decodable, Sendable {
         case readOnly = "read_only"
     }
 
-    var domain: SkillItem {
-        SkillItem(
+    var domain: Skill {
+        Skill(
             id: id,
             name: name,
-            scope: scope,
-            layout: layout,
-            path: path,
             description: description,
-            readOnly: readOnly
+            sourceKind: nil,
+            sourceURL: nil,
+            currentHash: nil,
+            license: nil,
+            sizeBytes: nil,
+            hasScripts: nil,
+            installedAt: nil,
+            updatedAt: nil,
+            agentsUsing: [],
+            globalLinks: [],
+            hasUpdate: false
         )
     }
 }
 
-struct CoreSkillContent: Decodable, Sendable {
-    let skill: CoreSkillDetail
+struct CoreLegacySkillContent: Decodable, Sendable {
+    let skill: CoreLegacySkill
     let content: String
-
-    var domain: SkillContent {
-        SkillContent(skill: skill.domain, content: content)
-    }
 }
 
 struct CoreAgentSkillListBody: Encodable {
@@ -80,38 +61,6 @@ struct CoreAgentSkillListBody: Encodable {
 }
 
 struct CoreSkillReadBody: Encodable {
-    let agentType: String
-    let scope: String
-    let skillID: String
-    let workspacePath: String?
-
-    enum CodingKeys: String, CodingKey {
-        case agentType
-        case scope
-        case skillID = "skillId"
-        case workspacePath
-    }
-}
-
-struct CoreSkillSaveBody: Encodable {
-    let agentType: String
-    let scope: String
-    let skillID: String
-    let content: String
-    let workspacePath: String?
-    let layout: String?
-
-    enum CodingKeys: String, CodingKey {
-        case agentType
-        case scope
-        case skillID = "skillId"
-        case content
-        case workspacePath
-        case layout
-    }
-}
-
-struct CoreSkillDeleteBody: Encodable {
     let agentType: String
     let scope: String
     let skillID: String

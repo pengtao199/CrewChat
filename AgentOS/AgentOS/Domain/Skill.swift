@@ -1,50 +1,30 @@
 import Foundation
 
-enum SkillScope: String, Codable, CaseIterable, Identifiable, Sendable {
-    case global
-    case project
-
-    var id: String { rawValue }
-}
-
-enum SkillLayout: String, Codable, Sendable {
-    case markdownFile = "markdown_file"
-    case skillDirectory = "skill_directory"
-}
-
-struct SkillItem: Identifiable, Sendable, Equatable {
+struct Skill: Identifiable, Sendable, Equatable {
     let id: String
     let name: String
-    let scope: SkillScope
-    let layout: SkillLayout
-    let path: String
     let description: String?
-    let readOnly: Bool
+    let sourceKind: String?
+    let sourceURL: String?
+    let currentHash: String?
+    let license: String?
+    let sizeBytes: UInt64?
+    let hasScripts: Bool?
+    let installedAt: String?
+    let updatedAt: String?
+    let agentsUsing: [String]
+    let globalLinks: [SkillGlobalLink]
+    let hasUpdate: Bool
 }
 
-struct SkillLocation: Identifiable, Sendable, Equatable {
-    let scope: SkillScope
-    let path: String
-    let exists: Bool
+struct SkillGlobalLink: Identifiable, Sendable, Equatable {
+    let agentType: String
+    let state: String
 
-    var id: String { "\(scope.rawValue):\(path)" }
-}
-
-struct SkillCatalog: Sendable, Equatable {
-    let supported: Bool
-    let message: String?
-    let locations: [SkillLocation]
-    let skills: [SkillItem]
-
-    static let empty = SkillCatalog(
-        supported: true,
-        message: nil,
-        locations: [],
-        skills: []
-    )
+    var id: String { agentType }
 }
 
 struct SkillContent: Sendable, Equatable {
-    let skill: SkillItem
+    let skill: Skill
     let content: String
 }
