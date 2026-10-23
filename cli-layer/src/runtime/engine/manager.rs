@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use tokio::process::Command;
 
 use crate::config::Config;
-use crate::engines::{current_platform, find, Distribution, EngineSpec};
+use crate::runtime::engine::registry::{current_platform, find, Distribution, EngineSpec};
 
 const INSTALL_TIMEOUT: Duration = Duration::from_secs(600);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(20);

@@ -109,15 +109,19 @@ model / skill / MCP 是独立资源域，cli-layer 只代理，不拥有它们�
 
 ```
 src/
-  acp/        ACP host（events + host）
-  config.rs   环境与数据目录
-  engines.rs  CLI 注册表（Claude/Codex/OpenCode）
-  http.rs     AgentOS 的 45 命令兼容层
-  model_proxy.rs  ccr_* → model-layer
-  roles.rs    per-role home / 原生配置（10 个引擎的模型注入）
-  skill_proxy.rs  skill-layer 客户端（技能库 / materialize）
-  store.rs    SQLite：folders/conversations/turns/roster
-  ws.rs       /ws/events
+  api/             AgentOS HTTP / WS 适配
+  app/             用例编排（后续逐步抽出）
+  config.rs        环境与数据目录
+  domain/          领域类型与 port（后续逐步抽出）
+  infra/
+    model_layer.rs ccr_* → model-layer
+    skill_layer.rs skill-layer 客户端（技能库 / materialize）
+    store/         SQLite：folders/conversations/turns/roster
+  runtime/
+    acp/           ACP host / events
+    engine/        CLI 注册表 / 安装 / 版本
+    overlay/       per-role home / 原生配置
+  main.rs          只做 wiring
 ```
 
 ## 来源与许可

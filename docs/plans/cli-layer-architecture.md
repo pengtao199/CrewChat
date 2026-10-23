@@ -505,15 +505,18 @@ ACP update
 
 ## 17. 迁移顺序
 
-### Step 1：无行为变化地拆目录
+### Step 1：无行为变化地拆目录 ✅ 2026-10-23
 
-1. `store.rs` → `infra/store/*`
-2. `roles.rs` → `runtime/overlay/*`
-3. `engines.rs` + `engine_manager.rs` → `runtime/engine/*` + `infra/engine_install.rs`
-4. `model_proxy.rs` / `skill_proxy.rs` → `infra/*`
-5. `http.rs` → `api/http.rs` + 逐步抽 `app/*`
+1. `store.rs` → `infra/store/mod.rs`
+2. `roles.rs` → `runtime/overlay/mod.rs`
+3. `engines.rs` + `engine_manager.rs` → `runtime/engine/{registry,manager}.rs`
+4. `model_proxy.rs` / `skill_proxy.rs` → `infra/{model_layer,skill_layer}.rs`
+5. `http.rs` / `ws.rs` → `api/{http,ws}.rs`
+6. `acp/{host,events}.rs` → `runtime/acp/`
 
-每步只移动代码 + 修 import，测试必须保持绿色。
+每步只移动代码 + 修 import；`cargo test` 18 passed、clippy 通过。
+`infra/store` 与 `api/http` 的内部再拆分（agents/conversations/turns、handlers）
+放在 Step 2/3，和 domain/ports 抽取一起做。
 
 ### Step 2：引入 domain + ports
 

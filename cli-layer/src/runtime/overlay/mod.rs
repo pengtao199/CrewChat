@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 
-use crate::engines::OverlayKind;
+use crate::runtime::engine::registry::OverlayKind;
 
 pub struct RoleOverlay {
     pub home: PathBuf,

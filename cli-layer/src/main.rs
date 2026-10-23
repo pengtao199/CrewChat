@@ -3,20 +3,14 @@
 //! A small Rust sidecar that replaces codeg's ACP/workbench core:
 //! - `:3081` HTTP compatibility surface for AgentOS
 //! - `/ws/events` streaming
-//! - ACP host (Claude/Codex/OpenCode)
+//! - ACP host (15 CLI engines)
 //! - SQLite projects/conversations/turns/roster
 //! - thin `ccr_*` proxy to the model layer
 
-mod acp;
+mod api;
 mod config;
-mod engine_manager;
-mod engines;
-mod http;
-mod model_proxy;
-mod roles;
-mod skill_proxy;
-mod store;
-mod ws;
+mod infra;
+mod runtime;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -25,12 +19,12 @@ use anyhow::Result;
 use tokio::net::TcpListener;
 use tracing::{info, warn};
 
-use crate::acp::host::AcpHost;
+use crate::api::http::AppState;
 use crate::config::Config;
-use crate::http::AppState;
-use crate::model_proxy::ModelLayerClient;
-use crate::skill_proxy::SkillLayerClient;
-use crate::store::Store;
+use crate::infra::model_layer::ModelLayerClient;
+use crate::infra::skill_layer::SkillLayerClient;
+use crate::infra::store::Store;
+use crate::runtime::acp::host::AcpHost;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -76,7 +70,7 @@ async fn main() -> Result<()> {
         skill,
     };
 
-    let router = http::router(state);
+    let router = crate::api::http::router(state);
     let listener = TcpListener::bind((config.host.as_str(), config.port)).await?;
     info!("cli-layer listening on {}", config.base_url());
     info!("model layer proxy -> {}", config.model_layer_url);

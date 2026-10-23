@@ -23,12 +23,12 @@ use serde_json::{json, Value};
 use tokio::process::{Child, Command as TokioCommand};
 use tokio::sync::{broadcast, mpsc, oneshot};
 
-use crate::acp::events::{self, EventBus, EventEnvelope};
 use crate::config::Config;
-use crate::engines::Engines;
-use crate::roles;
-use crate::skill_proxy::SkillLayerClient;
-use crate::store::Store;
+use crate::infra::skill_layer::SkillLayerClient;
+use crate::infra::store::Store;
+use crate::runtime::acp::events::{self, EventBus, EventEnvelope};
+use crate::runtime::engine::registry::Engines;
+use crate::runtime::overlay;
 
 #[derive(Clone)]
 pub struct EventSink {
@@ -173,7 +173,7 @@ impl AcpHost {
             .engines
             .find(agent_type)
             .ok_or_else(|| anyhow!("unsupported engine '{agent_type}'"))?;
-        if role.is_some() && spec.overlay == crate::engines::OverlayKind::None {
+        if role.is_some() && spec.overlay == crate::runtime::engine::registry::OverlayKind::None {
             return Err(anyhow!(
                 "{} does not expose a per-session API endpoint for model injection",
                 spec.name
@@ -181,7 +181,7 @@ impl AcpHost {
         }
 
         let overlay = match role.as_ref() {
-            Some(role) => Some(roles::prepare(
+            Some(role) => Some(overlay::prepare(
                 spec.overlay,
                 role,
                 &self.config.model_layer_gateway,

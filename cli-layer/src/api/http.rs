@@ -18,13 +18,13 @@ use axum::{
 use base64::Engine;
 use serde_json::{json, Value};
 
-use crate::acp::host::AcpHost;
+use crate::api::ws;
 use crate::config::Config;
-use crate::engine_manager;
-use crate::model_proxy::ModelLayerClient;
-use crate::skill_proxy::SkillLayerClient;
-use crate::store::Store;
-use crate::ws;
+use crate::infra::model_layer::ModelLayerClient;
+use crate::infra::skill_layer::SkillLayerClient;
+use crate::infra::store::Store;
+use crate::runtime::acp::host::AcpHost;
+use crate::runtime::engine::manager;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -379,7 +379,7 @@ async fn acp_fetch_agent_latest_release(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
-    match engine_manager::latest_version(&state.config, agent_type).await {
+    match manager::latest_version(&state.config, agent_type).await {
         Ok(Some(version)) => Json(json!({"version": version})).into_response(),
         Ok(None) => Json(Value::Null).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
@@ -401,7 +401,7 @@ async fn acp_prepare_npx_agent(
         .or_else(|| body.get("clean_first"))
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    match engine_manager::prepare_npx(&state.config, agent_type, version, clean_first).await {
+    match manager::prepare_npx(&state.config, agent_type, version, clean_first).await {
         Ok(version) => Json(json!(version)).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
@@ -417,7 +417,7 @@ async fn acp_download_agent_binary(
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
     let version = field(&body, &["version"]);
-    match engine_manager::download_binary(&state.config, agent_type, version).await {
+    match manager::download_binary(&state.config, agent_type, version).await {
         Ok(version) => Json(json!(version)).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
@@ -431,7 +431,7 @@ async fn acp_install_pi_binary(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match engine_manager::install_pi_binary().await {
+    match manager::install_pi_binary().await {
         Ok(_) => Json(Value::Null).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
@@ -446,7 +446,7 @@ async fn acp_env_diagnostics(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
-    Json(engine_manager::diagnostics(&state.config, agent_type).await).into_response()
+    Json(manager::diagnostics(&state.config, agent_type).await).into_response()
 }
 
 async fn agent_roles_list(State(state): State<AppState>, headers: HeaderMap) -> Response {
@@ -499,7 +499,7 @@ async fn agent_role_model_face(
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
     if let Some(spec) = state.host.engines().find(agent_type) {
-        if spec.overlay == crate::engines::OverlayKind::None {
+        if spec.overlay == crate::runtime::engine::registry::OverlayKind::None {
             return Json(json!({
                 "supported": false,
                 "reason": format!(

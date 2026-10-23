@@ -5,7 +5,7 @@ use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
-use crate::http::AppState;
+use crate::api::http::AppState;
 
 pub async fn serve(state: AppState, socket: WebSocket) {
     let (mut sender, mut receiver) = socket.split();
