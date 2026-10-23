@@ -78,7 +78,7 @@ final class CoreEventStream: @unchecked Sendable {
         AsyncStream { continuation in
             var request = URLRequest(url: endpoint.eventsURL)
             request.setValue("Bearer \(endpoint.token)", forHTTPHeaderField: "Authorization")
-            request.setValue("codeg-events", forHTTPHeaderField: "Sec-WebSocket-Protocol")
+            request.setValue("crewchat-events", forHTTPHeaderField: "Sec-WebSocket-Protocol")
 
             let session = URLSession(configuration: .default)
             let task = session.webSocketTask(with: request)

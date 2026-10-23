@@ -19,15 +19,6 @@ struct AboutSettingsView: View {
                 LabeledContent("settings.about.core", value: environment.connection.coreVersion ?? "settings.about.core.none")
             }
 
-            Section("settings.about.licenses") {
-                LabeledContent("settings.about.codeg") {
-                    Link("Apache-2.0", destination: URL(string: "https://github.com/spacering-net/codeg")!)
-                }
-                LabeledContent("settings.about.ccr") {
-                    Link("MIT", destination: URL(string: "https://github.com/musistudio/claude-code-router")!)
-                }
-            }
-
             Section {
                 Button("settings.about.openLog") {
                     NSWorkspace.shared.activateFileViewerSelecting([CoreBinaryLocator.logFile()])

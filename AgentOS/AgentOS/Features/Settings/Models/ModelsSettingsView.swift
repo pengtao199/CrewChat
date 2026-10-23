@@ -4,7 +4,7 @@ import SwiftUI
 struct ModelsSettingsView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var selection: String?
-    @State private var accounts: [CCRAccount] = []
+    @State private var accounts: [ModelAccount] = []
     @State private var isLoadingAccounts = false
     @State private var accountsError: String?
     @State private var togglingModel: String?
@@ -15,7 +15,7 @@ struct ModelsSettingsView: View {
 
     private var model: ModelsSettingsViewModel { environment.models }
 
-    private var selected: CCRProvider? {
+    private var selected: ModelProvider? {
         guard let selection else { return nil }
         return model.providers.first { $0.id == selection }
     }
@@ -106,12 +106,12 @@ struct ModelsSettingsView: View {
     private var detail: some View {
         if let message = model.errorMessage {
             ContentUnavailableView {
-                Label("settings.models.ccrDown", systemImage: "exclamationmark.triangle")
+                Label("settings.models.modelDown", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(message)
             } actions: {
-                Button("settings.models.startCCR") {
-                    Task { await model.startCCR() }
+                Button("settings.models.startModel") {
+                    Task { await model.startModel() }
                 }
                 .disabled(model.isStarting)
 
@@ -139,7 +139,7 @@ struct ModelsSettingsView: View {
         }
     }
 
-    private func providerDetail(_ provider: CCRProvider) -> some View {
+    private func providerDetail(_ provider: ModelProvider) -> some View {
         Form {
             if let actionError {
                 Section {
@@ -277,11 +277,11 @@ struct ModelsSettingsView: View {
         .formStyle(.grouped)
     }
 
-    private func listedModels(for provider: CCRProvider) -> [String] {
+    private func listedModels(for provider: ModelProvider) -> [String] {
         Array(Set(provider.models + provider.disabledModels)).sorted()
     }
 
-    private func accountRow(_ account: CCRAccount) -> some View {
+    private func accountRow(_ account: ModelAccount) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(account.label)
@@ -301,14 +301,14 @@ struct ModelsSettingsView: View {
         .padding(.vertical, 2)
     }
 
-    private func meterLabel(_ meter: CCRMeter) -> String {
+    private func meterLabel(_ meter: ModelMeter) -> String {
         guard let window = meter.window, !window.isEmpty else {
             return meter.label
         }
         return "\(meter.label) (\(window))"
     }
 
-    private func meterText(_ meter: CCRMeter) -> String {
+    private func meterText(_ meter: ModelMeter) -> String {
         let unit = meter.unit
         let text: String
 
@@ -334,7 +334,7 @@ struct ModelsSettingsView: View {
     }
 
     private func setModelEnabled(
-        _ provider: CCRProvider,
+        _ provider: ModelProvider,
         modelID: String,
         _ enabled: Bool
     ) async {
@@ -356,8 +356,8 @@ struct ModelsSettingsView: View {
     }
 
     private func setCredentialEnabled(
-        _ provider: CCRProvider,
-        _ credential: CCRCredential,
+        _ provider: ModelProvider,
+        _ credential: ModelCredential,
         _ enabled: Bool
     ) async {
         togglingCredential = credential.id
@@ -405,7 +405,7 @@ struct ModelsSettingsView: View {
         isLoadingAccounts = false
     }
 
-    private func delete(_ provider: CCRProvider) async {
+    private func delete(_ provider: ModelProvider) async {
         actionError = nil
         do {
             try await model.deleteProvider(id: provider.id)
@@ -419,7 +419,7 @@ struct ModelsSettingsView: View {
 
 private enum EditorTarget: Identifiable {
     case create
-    case edit(CCRProvider)
+    case edit(ModelProvider)
 
     var id: String {
         switch self {

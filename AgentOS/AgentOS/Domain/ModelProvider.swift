@@ -1,24 +1,24 @@
 import Foundation
 
-struct CCRHealth: Sendable, Equatable {
+struct ModelHealth: Sendable, Equatable {
     let url: String
     let tokenConfigured: Bool
 }
 
-struct CCRProvider: Identifiable, Sendable, Equatable {
+struct ModelProvider: Identifiable, Sendable, Equatable {
     let id: String
     let name: String
     let type: String
     let baseURL: String
     let enabled: Bool
     let models: [String]
-    let credentials: [CCRCredential]
-    /// Models the user switched off: out of `models` (CCR's routable list) but
+    let credentials: [ModelCredential]
+    /// Models the user switched off: out of `models` (Model's routable list) but
     /// kept here so the row stays visible and can be switched back on.
     let disabledModels: [String]
 }
 
-struct CCRCredential: Identifiable, Sendable, Equatable {
+struct ModelCredential: Identifiable, Sendable, Equatable {
     let id: String
     let name: String
     let apiKey: String
@@ -27,10 +27,10 @@ struct CCRCredential: Identifiable, Sendable, Equatable {
     let weight: Double?
     let limits: JSONValue?
     /// Provider-level `api_key` surfaced as a row: it has no `enabled` flag in
-    /// CCR, so the switch on this row stays disabled.
+    /// Model, so the switch on this row stays disabled.
     let isSynthetic: Bool
 
-    /// Short tail the codeg model page shows next to the row (`…abc123`).
+    /// Short tail the model page shows next to the row (`…abc123`).
     var keyTail: String {
         let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "—" }
@@ -46,14 +46,14 @@ struct CCRCredential: Identifiable, Sendable, Equatable {
     }
 }
 
-struct CCRAccount: Identifiable, Sendable, Equatable {
+struct ModelAccount: Identifiable, Sendable, Equatable {
     let id: String
     let label: String
     let status: String
-    let meters: [CCRMeter]
+    let meters: [ModelMeter]
 }
 
-struct CCRMeter: Identifiable, Sendable, Equatable {
+struct ModelMeter: Identifiable, Sendable, Equatable {
     let id: String
     let label: String
     let unit: String
@@ -64,17 +64,17 @@ struct CCRMeter: Identifiable, Sendable, Equatable {
     let resetAt: String?
 }
 
-struct CCRProviderDraft: Sendable {
+struct ModelProviderDraft: Sendable {
     let originalID: String?
     let name: String
     let baseURL: String
     let protocolName: String
     let enabled: Bool
     let models: [String]
-    let credentials: [CCRCredentialDraft]
+    let credentials: [ModelCredentialDraft]
 }
 
-struct CCRCredentialDraft: Sendable, Equatable {
+struct ModelCredentialDraft: Sendable, Equatable {
     var id: String?
     var name: String
     var apiKey: String
@@ -106,19 +106,19 @@ struct CCRCredentialDraft: Sendable, Equatable {
     }
 }
 
-struct CCRProviderPreset: Identifiable, Sendable, Equatable {
+struct ModelProviderPreset: Identifiable, Sendable, Equatable {
     let id: String
     let name: String
-    let endpoints: [CCRPresetEndpoint]
+    let endpoints: [ModelPresetEndpoint]
     let defaultModels: [String]
 }
 
-struct CCRPresetEndpoint: Sendable, Equatable {
+struct ModelPresetEndpoint: Sendable, Equatable {
     let baseURL: String
     let protocols: [String]
 }
 
-struct CCRProbeResult: Sendable {
+struct ModelProbeResult: Sendable {
     let models: [String]
     let baseURL: String?
     let protocolName: String?

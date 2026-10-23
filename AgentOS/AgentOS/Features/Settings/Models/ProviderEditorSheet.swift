@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct ProviderEditorSheet: View {
-    let existing: CCRProvider?
+    let existing: ModelProvider?
     let model: ModelsSettingsViewModel
-    let onFinish: (CCRProvider?) -> Void
+    let onFinish: (ModelProvider?) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
@@ -32,9 +32,9 @@ struct ProviderEditorSheet: View {
     ]
 
     init(
-        existing: CCRProvider?,
+        existing: ModelProvider?,
         model: ModelsSettingsViewModel,
-        onFinish: @escaping (CCRProvider?) -> Void
+        onFinish: @escaping (ModelProvider?) -> Void
     ) {
         self.existing = existing
         self.model = model
@@ -661,7 +661,7 @@ struct ProviderEditorSheet: View {
         error = nil
         isSaving = true
 
-        let drafts = credentials.enumerated().compactMap { index, row -> CCRCredentialDraft? in
+        let drafts = credentials.enumerated().compactMap { index, row -> ModelCredentialDraft? in
             let key = row.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             // A blank row the user added but never filled in is not a credential.
             if key.isEmpty && row.credentialID == nil {
@@ -669,7 +669,7 @@ struct ProviderEditorSheet: View {
             }
 
             let trimmedName = row.name.trimmingCharacters(in: .whitespacesAndNewlines)
-            return CCRCredentialDraft(
+            return ModelCredentialDraft(
                 id: row.credentialID,
                 name: trimmedName.isEmpty ? "Key \(index + 1)" : trimmedName,
                 apiKey: key,
@@ -680,7 +680,7 @@ struct ProviderEditorSheet: View {
             )
         }
 
-        let draft = CCRProviderDraft(
+        let draft = ModelProviderDraft(
             originalID: existing?.id,
             name: name.trimmingCharacters(in: .whitespacesAndNewlines),
             baseURL: baseURL.trimmingCharacters(in: .whitespacesAndNewlines),

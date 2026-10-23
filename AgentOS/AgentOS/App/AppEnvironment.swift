@@ -34,7 +34,7 @@ final class AppEnvironment {
             settings: CoreSettingsClient(provider: provider),
             lifecycle: supervisor
         )
-        self.models = ModelsSettingsViewModel(ccr: CoreCCRClient(provider: provider))
+        self.models = ModelsSettingsViewModel(model: CoreModelClient(provider: provider))
         self.roster = AgentsSettingsViewModel(roster: rosterClient, engines: enginesClient, capabilities: capabilitiesClient)
         self.skills = SkillsSettingsViewModel(skills: skillsClient)
         self.mcp = MCPSettingsViewModel(mcp: mcpClient, roster: rosterClient)

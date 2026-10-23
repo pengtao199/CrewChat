@@ -3,45 +3,28 @@ import SwiftUI
 
 struct CoreSettingsView: View {
     @Environment(AppEnvironment.self) private var environment
-    @State private var needsRestart = false
 
     var body: some View {
         Form {
             Section {
-                LabeledContent("settings.core.binary") {
-                    HStack(spacing: 8) {
-                        Text(Preferences.coreBinaryPath ?? "settings.core.binary.auto")
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .foregroundStyle(.secondary)
-                        Button("settings.core.choose") { chooseBinary() }
-                    }
-                }
-
+                LabeledContent("settings.core.binary", value: "cli-layer")
                 LabeledContent("settings.core.data") {
-                    Text(CoreBinaryLocator.dataDirectory().path)
+                    Text(CoreBinaryLocator.cliLayerDirectory().path)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
-
                 LabeledContent("settings.core.database") {
-                    Text(CoreBinaryLocator.dataDirectory().appending(path: "codeg.db").path)
+                    Text(CoreBinaryLocator.cliLayerDirectory().appending(path: "cli-layer.db").path)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
-
                 LabeledContent("settings.core.port", value: String(localized: "settings.core.port.auto"))
             } header: {
                 Text("settings.core.section")
-            } footer: {
-                if needsRestart {
-                    Text("settings.core.restartHint")
-                        .foregroundStyle(.orange)
-                }
             }
 
             Section {
@@ -70,10 +53,7 @@ struct CoreSettingsView: View {
             Section("settings.core.actions") {
                 HStack(spacing: 12) {
                     Button("settings.core.restart") {
-                        Task {
-                            await environment.coreSettings.restartCore()
-                            needsRestart = false
-                        }
+                        Task { await environment.coreSettings.restartCore() }
                     }
                     .disabled(environment.coreSettings.isRestarting)
 
@@ -82,7 +62,7 @@ struct CoreSettingsView: View {
                     }
 
                     Button("settings.core.openData") {
-                        NSWorkspace.shared.open(CoreBinaryLocator.dataDirectory())
+                        NSWorkspace.shared.open(CoreBinaryLocator.cliLayerDirectory())
                     }
 
                     Spacer()
@@ -97,16 +77,5 @@ struct CoreSettingsView: View {
         .task {
             await environment.coreSettings.load()
         }
-    }
-
-    private func chooseBinary() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.treatsFilePackagesAsDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        Preferences.coreBinaryPath = url.path
-        needsRestart = true
     }
 }

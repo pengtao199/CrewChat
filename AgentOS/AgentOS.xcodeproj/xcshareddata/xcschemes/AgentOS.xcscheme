@@ -52,11 +52,6 @@
       </BuildableProductRunnable>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "AGENTOS_CORE_BINARY"
-            value = "$(SRCROOT)/../codeg/src-tauri/target/debug/codeg-server"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
             key = "AGENTOS_MODEL_BINARY"
             value = "$(SRCROOT)/../model-layer/target/debug/crewchat-model"
             isEnabled = "YES">
@@ -74,16 +69,6 @@
          <EnvironmentVariable
             key = "AGENTOS_MCP_BINARY"
             value = "$(SRCROOT)/../mcp-layer/target/debug/crewchat-mcp"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "CCR_BIN"
-            value = "$(SRCROOT)/../.data/ccr/node_modules/.bin/ccr"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-         <EnvironmentVariable
-            key = "CREWCHAT_AGENTS_DIR"
-            value = "$(SRCROOT)/../.data/agents"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

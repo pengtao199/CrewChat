@@ -117,7 +117,7 @@ final class EnginesSettingsViewModel {
                     taskID: taskID
                 )
 
-                // Pi is two installs in codeg: the pi-acp adapter (npx) and
+                // Pi is two installs: the pi-acp adapter (npx) and
                 // the `pi` coding-agent binary it resolves from PATH.
                 if engine.agentType == "pi" {
                     try await client.installPiBinary(taskID: UUID().uuidString)

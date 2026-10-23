@@ -47,11 +47,6 @@ final class SidecarProcess: @unchecked Sendable {
             environment["PATH"] = loginPath
         }
 
-        environment["CODEG_HOST"] = endpoint.host
-        environment["CODEG_PORT"] = String(endpoint.port)
-        environment["CODEG_TOKEN"] = endpoint.token
-        environment["CODEG_DATA_DIR"] = dataDirectory.path
-        environment["CODEG_HOME"] = dataDirectory.path
         environment.merge(extraEnvironment) { _, new in new }
         process.environment = environment
 

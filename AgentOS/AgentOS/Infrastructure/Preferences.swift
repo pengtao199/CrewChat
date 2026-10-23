@@ -3,11 +3,6 @@ import Foundation
 enum Preferences {
     private static var defaults: UserDefaults { .standard }
 
-    static var coreBinaryPath: String? {
-        get { defaults.string(forKey: "core.binaryPath") }
-        set { defaults.set(newValue, forKey: "core.binaryPath") }
-    }
-
     static var autoStartCore: Bool {
         get { defaults.object(forKey: "core.autoStart") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "core.autoStart") }
