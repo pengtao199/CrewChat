@@ -13,6 +13,7 @@ struct CapabilityMultiSelect: View {
 
     @State private var showPicker = false
     @State private var query = ""
+    @State private var isExpanded = false
 
     init(
         title: LocalizedStringKey,
@@ -37,7 +38,15 @@ struct CapabilityMultiSelect: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            if !selectedOptions.isEmpty {
+                FlowLayout(spacing: 6, lineSpacing: 6) {
+                    ForEach(selectedOptions) { option in
+                        chip(option)
+                    }
+                }
+            }
+        } label: {
             HStack(spacing: 8) {
                 Text(title)
 
@@ -59,26 +68,11 @@ struct CapabilityMultiSelect: View {
                     }
                 }
             }
-
-            if !isEnabled {
-                Text("settings.agents.mcp.disabled")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if selectedOptions.isEmpty {
-                if isEnabled {
-                    Text("settings.agents.noneSelected")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                FlowLayout(spacing: 6, lineSpacing: 6) {
-                    ForEach(selectedOptions) { option in
-                        chip(option)
-                    }
-                }
-            }
+            .help(
+                isEnabled
+                    ? LocalizedStringKey("settings.agents.select")
+                    : LocalizedStringKey("settings.agents.mcp.disabled")
+            )
         }
     }
 
