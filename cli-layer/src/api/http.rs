@@ -17,12 +17,13 @@ use base64::Engine;
 
 use crate::api::handlers::*;
 use crate::app::roster::RosterService;
+use crate::app::skills::SkillService;
+use crate::app::workspace::WorkspaceService;
 use serde_json::{json, Value};
 
 use crate::api::ws;
 use crate::config::Config;
 use crate::infra::model_layer::ModelLayerClient;
-use crate::infra::skill_layer::SkillLayerClient;
 use crate::infra::store::Store;
 use crate::runtime::acp::host::AcpHost;
 
@@ -32,8 +33,9 @@ pub struct AppState {
     pub store: Store,
     pub host: AcpHost,
     pub model: Arc<ModelLayerClient>,
-    pub skill: Arc<SkillLayerClient>,
     pub roster: RosterService,
+    pub workspace: WorkspaceService,
+    pub skills: SkillService,
 }
 
 pub fn router(state: AppState) -> Router {

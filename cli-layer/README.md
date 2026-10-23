@@ -115,6 +115,8 @@ src/
     ws.rs          /ws/events
   app/
     roster.rs      Agent 用例（list/save/delete/model_face）
+    workspace.rs   folder / conversation 用例
+    skills.rs      skill 代理 + Agent 技能绑定
   config.rs        环境与数据目录
   domain/
     agent.rs       类型化 Agent（后续扩展 readiness/团队）

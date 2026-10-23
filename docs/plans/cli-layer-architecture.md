@@ -534,7 +534,15 @@ ACP update
 - `agent_skills_set` / `agent_skill_status` 也改走 roster service。
 - `cargo test` 18 passed、clippy、smoke 通过。
 
-### Step 2b.2：引入完整 ports
+### Step 2b.2：workspace / skills 用例层 ✅ 2026-10-23
+
+- 新增 `app/workspace.rs`、`app/skills.rs`；folder/conversation 和 skill/agent
+  技能绑定不再写在 handler。
+- `AppState` 只暴露 `roster/workspace/skills` 服务与 ACP/model 运行时；
+  handler 保持薄层。
+- `cargo test` 18 passed、clippy、smoke 通过。
+
+### Step 2c：引入完整 ports
 
 - 把 `AgentRole` / Conversation / Team / Delegation 从 JSON Value 提升为类型。
 - 给 store 定义 repository trait。

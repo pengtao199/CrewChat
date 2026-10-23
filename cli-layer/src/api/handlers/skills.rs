@@ -4,7 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::api::http::{api_error, authorized, field, unauthorized, AppState};
 
@@ -12,24 +12,9 @@ pub(crate) async fn skill_list(State(state): State<AppState>, headers: HeaderMap
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    let skills = state.skill.list().await;
-    let collections = state.skill.collections().await;
-    let links = state.skill.global_links().await;
-    match (skills, collections, links) {
-        (Ok(skills), Ok(collections), Ok(links)) => Json(json!({
-            "skills": skills.get("skills").cloned().unwrap_or_else(|| json!([])),
-            "collections": collections.get("collections").cloned().unwrap_or_else(|| json!([])),
-            "globalLinks": links.get("links").cloned().unwrap_or_else(|| json!([])),
-        }))
-        .into_response(),
-        (skills, collections, links) => api_error(
-            StatusCode::BAD_GATEWAY,
-            &skills
-                .err()
-                .or_else(|| collections.err())
-                .or_else(|| links.err())
-                .unwrap_or_else(|| "skill-layer request failed".to_string()),
-        ),
+    match state.skills.catalog().await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error.to_string()),
     }
 }
 
@@ -42,9 +27,9 @@ pub(crate) async fn skill_read(
         return unauthorized();
     }
     let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
-    match state.skill.detail(id).await {
+    match state.skills.read(id).await {
         Ok(value) => Json(value).into_response(),
-        Err(error) => api_error(StatusCode::NOT_FOUND, &error),
+        Err(error) => api_error(StatusCode::NOT_FOUND, &error.to_string()),
     }
 }
 
@@ -56,9 +41,9 @@ pub(crate) async fn skill_install(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match state.skill.install(&body).await {
+    match state.skills.install(&body).await {
         Ok(value) => Json(value).into_response(),
-        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
 }
 
@@ -71,9 +56,9 @@ pub(crate) async fn skill_check(
         return unauthorized();
     }
     let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
-    match state.skill.check(id).await {
+    match state.skills.check(id).await {
         Ok(value) => Json(value).into_response(),
-        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
 }
 
@@ -86,9 +71,9 @@ pub(crate) async fn skill_update(
         return unauthorized();
     }
     let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
-    match state.skill.update(id).await {
+    match state.skills.update(id).await {
         Ok(value) => Json(value).into_response(),
-        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
 }
 
@@ -101,9 +86,9 @@ pub(crate) async fn skill_remove(
         return unauthorized();
     }
     let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
-    match state.skill.remove(id).await {
+    match state.skills.remove(id).await {
         Ok(value) => Json(value).into_response(),
-        Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
 }
 
@@ -116,25 +101,8 @@ pub(crate) async fn skill_link_status(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]);
-    match state.skill.global_links().await {
-        Ok(value) => {
-            let links = value
-                .get("links")
-                .and_then(Value::as_array)
-                .cloned()
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|link| {
-                    agent_type.is_none_or(|agent| {
-                        link.get("agentType")
-                            .or_else(|| link.get("agent_type"))
-                            .and_then(Value::as_str)
-                            == Some(agent)
-                    })
-                })
-                .collect::<Vec<_>>();
-            Json(json!({"links": links})).into_response()
-        }
-        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
+    match state.skills.link_status(agent_type).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error.to_string()),
     }
 }

@@ -80,46 +80,17 @@ pub(crate) async fn agent_skills_set(
         return unauthorized();
     }
     let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
-    let Some(mut role) = state.roster.get(role_id).ok().flatten() else {
-        return api_error(StatusCode::NOT_FOUND, "role not found");
-    };
-    let mut ids = string_array(body.get("skillIds").or_else(|| body.get("skill_ids")));
+    let skill_ids = string_array(body.get("skillIds").or_else(|| body.get("skill_ids")));
     let collection_ids = string_array(
         body.get("collectionIds")
             .or_else(|| body.get("collection_ids")),
     );
-    if !collection_ids.is_empty() {
-        match state.skill.collections().await {
-            Ok(value) => {
-                if let Some(collections) = value.get("collections").and_then(Value::as_array) {
-                    for collection in collections {
-                        let id = collection
-                            .get("id")
-                            .and_then(Value::as_str)
-                            .unwrap_or_default();
-                        if !collection_ids.iter().any(|wanted| wanted == id) {
-                            continue;
-                        }
-                        ids.extend(string_array(
-                            collection
-                                .get("skillIds")
-                                .or_else(|| collection.get("skill_ids")),
-                        ));
-                    }
-                }
-            }
-            Err(error) => return api_error(StatusCode::BAD_GATEWAY, &error),
-        }
-    }
-    ids.sort();
-    ids.dedup();
-    role.skills = ids;
-    match state.roster.save(&role) {
-        Ok(role) => Json(json!({
-            "roleId": role.id,
-            "skillIds": role.skills,
-        }))
-        .into_response(),
+    match state
+        .skills
+        .set_agent_skills(role_id, skill_ids, collection_ids)
+        .await
+    {
+        Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
 }
@@ -133,36 +104,10 @@ pub(crate) async fn agent_skill_status(
         return unauthorized();
     }
     let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
-    let Some(role) = state.roster.get(role_id).ok().flatten() else {
-        return api_error(StatusCode::NOT_FOUND, "role not found");
-    };
-    let selected = role.skills;
-    let available = state
-        .skill
-        .list()
-        .await
-        .ok()
-        .and_then(|value| value.get("skills").and_then(Value::as_array).cloned())
-        .unwrap_or_default();
-    let mut rows = Vec::new();
-    let mut missing = Vec::new();
-    for id in selected {
-        let found = available
-            .iter()
-            .find(|skill| skill.get("id").and_then(Value::as_str) == Some(id.as_str()));
-        if found.is_none() {
-            missing.push(id.clone());
-        }
-        rows.push(json!({
-            "id": id,
-            "name": found
-                .and_then(|skill| skill.get("name"))
-                .and_then(Value::as_str)
-                .unwrap_or(&id),
-            "available": found.is_some(),
-        }));
+    match state.skills.agent_status(role_id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::NOT_FOUND, &error.to_string()),
     }
-    Json(json!({"skills": rows, "missing": missing})).into_response()
 }
 
 fn string_array(value: Option<&Value>) -> Vec<String> {
