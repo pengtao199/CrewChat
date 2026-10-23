@@ -19,8 +19,8 @@ skill-layer (127.0.0.1:3460)
 ```
 
 - 正式形态：**前端不直接连 skill-layer**，只调 core 的 `skill_*` / `agent_skills_set`。
-- 开发形态：core 代理还没接时，前端可以临时直连 `3460` 联调；token 在
-  `~/.agents/skill-layer/runtime.json`（0600）。这层直连只用于开发，不要写进产品路径。
+- 开发形态：core 代理已接；直连 `3460` 只用于排障或独立验证。token 在
+  `~/.agents/skill-layer/runtime.json`（0600）。直连不要写进产品路径。
 
 ---
 
@@ -242,7 +242,7 @@ cli-layer 已接以下命令；现有 Skills 页已改为 `skill_list` / `skill_
 { "agentType": "claude_code" }
 ```
 
-返回终端裸跑用的全局链接状态（`linked/disabled/missing/broken/foreign`）；Agent 会话不使用它。
+返回终端裸跑用的全局链接状态（当前实现为 `linked` / `foreign`；`disabled/missing/broken` 为后续状态）；Agent 会话不使用它。
 
 ---
 
@@ -265,7 +265,7 @@ cli-layer 已接以下命令；现有 Skills 页已改为 `skill_list` / `skill_
 - 列表：全部技能、来源、版本 hash、许可、脚本标记、更新时间。
 - 详情：`SKILL.md` 预览、文件列表、来源、许可。
 - 「被哪些 Agent 使用」：由 core 补；没有 core 数据时先显示空。
-- 安装：本地目录/（以后 Git、市场）；安装后不自动绑定。
+- 安装：本地/Git/归档/URL；市场未接。安装后不自动绑定。
 - 全局 CLI 链接：终端裸跑用，与 Agent 选择分开。
 - 冲突/缺失/只读：单独状态。
 

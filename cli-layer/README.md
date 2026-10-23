@@ -96,8 +96,8 @@ AgentOS 仍默认启动 codeg。要试新运行时：
    `AGENTOS_CLI_LAYER=1`（或创建 `~/Library/Application Support/AgentOS/cli/required`）。
 3. 启动 App：壳会先拉模型层，再拉 `crewchat-cli`，并把核心连接指向 3081，跳过 codeg。
 
-当前 `cli-layer` 已覆盖会话 / 模型页 / 花名册 / 项目 / 会话列表；
-技能、MCP、引擎安装、委派仍是 501，所以设置页不完整。切换前先只测聊天。
+当前 `cli-layer` 已覆盖会话 / 模型页 / 花名册 / 项目 / 会话列表 / 技能；
+MCP、委派仍是 501，所以设置页还不完整。切换前先只测聊天。
 
 ## 目录
 

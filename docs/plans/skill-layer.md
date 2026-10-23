@@ -1,7 +1,7 @@
 # Skill 层：全局一份库，按 Agent 启用
 
 Updated: 2026-10-23
-Status: In Progress（后端核心已落地；前端/CLI 待接）
+Status: Paused（后端核心完成；等待 CLI 真实会话验证）
 关系：`cli-layer-migration.md` 的 capabilities/skills；`model-layer` 不感知技能；`AgentOS` 只渲染。
 
 ---
@@ -504,5 +504,62 @@ remove:  删除全局链接 / session 链接由会话结束清理
 - 集合 CRUD（含删除）。
 - 7 个测试、clippy、HTTP 冒烟（本地/Git/归档安装、全局链接、update、remove）。
 
-未做：市场、按技能 × CLI 的全局开关、cli-layer/codeg 代理、AgentOS 接线、真实对话调用验收。
-下一步由其他 Agent 做前端；等 CLI 收口后再测真实会话。
+未做（当时）：市场、按技能 × CLI 的全局开关、cli-layer/codeg 代理、AgentOS 接线、真实对话调用验收。
+后续状态与计划见 §18。
+
+---
+
+## 18. 现状与后续计划（2026-10-23，skill 暂停）
+
+### 18.1 当前现状
+
+**已落地**
+
+- `skill-layer` daemon：全局库、版本库、注册表、安装/检查/更新/删除、集合、全局 per-CLI 链接、session materialize。
+- `cli-layer`：已接 `skill_list` / `skill_read` / `skill_install` / `skill_check` / `skill_update` / `skill_remove` / `skill_link_status` / `agent_skills_set` / `agent_skill_status`；`acp_connect` 前把 Agent 选中的技能 materialize 到该角色的私有 home。
+- Agent 绑定：`cli-layer.db` 的 `agent_roles.skills_json`；集合在 `agent_skills_set` 时展开成 skill IDs。
+- AgentOS：Skills 页已通过 `skill_list` 读取；Agents 页技能选择器由前端 Agent 继续收口。
+- 数据：本机已导入 81 个技能；`gstack` 因 3519 个文件 / 70MB 超过 `skill-layer` 限制未导入。
+- 验证：`skill-layer` 7 个测试、`cli-layer` 18 个测试通过；Claude / Codex / OpenCode 真实会话已跑通。**真实对话中让 Agent 调用 skill 还没验收**。
+
+**已知限制**
+
+- 市场搜索/安装未接。
+- 全局链接只能整体 sync，不能按「技能 × CLI」单独关闭；状态目前主要是 `linked` / `foreign`。
+- 没有垃圾回收、备份、审计、技能脚本执行策略。
+- 没有「这个技能被哪些 Agent 使用」的反向查询。
+- 大技能（数千文件 / 数十 MB）会被安装限制挡住；`gstack` 是现成案例。
+- 两个同 CLI Agent 的技能隔离有单元/集成覆盖，但还没有真实并发对话验收。
+
+### 18.2 后续计划
+
+**P0（CLI 收口后立刻做）：真实对话验收**
+
+1. Claude / Codex / OpenCode 各选一个 Agent，只挂 1 个技能，确认对话里能发现并调用。
+2. 两个 Claude Agent 并发，技能集不同，确认 `CLAUDE_CONFIG_DIR` 隔离、互不串味。
+3. 缺失技能：Agent 会话应明确报错/降级，不静默拿到别的技能。
+4. 全局 `~/.claude/skills` 等终端链接不参与 Agent 会话。
+
+**P1：前端收口（其他 Agent）**
+
+- Skills 页：列表/详情/安装/更新/删除/全局链接状态。
+- Agents 页：技能多选、集合、不可用标记、数量。
+- 错误态：skill-layer 未启动、409 missing、foreign link、超限技能。
+
+**P2：工程化**
+
+- 按技能 × CLI 的全局链接开关。
+- 删除后的版本 GC / trash 清理；备份/恢复。
+- 大技能分片/流式安装，或明确上限与提示。
+- 市场（skills.sh / Claude 市场）与来源校验。
+- 「被哪些 Agent 使用」查询与审计。
+
+**P3：可选**
+
+- 项目级技能、插件包（agents/commands/hooks）、语义搜索。
+
+### 18.3 暂停规则
+
+- 在 P0 通过前，`skill-layer` 不再加新功能；只修真实会话暴露的 bug。
+- 任何 API/行为变更同步更新 `docs/plans/skill-layer-api.md` 与 `skill-layer/README.md`。
+- MCP 作为独立层推进，不把 MCP 逻辑塞进 `skill-layer`。
