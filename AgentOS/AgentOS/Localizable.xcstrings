@@ -1430,22 +1430,22 @@
         }
       }
     },
-    "settings.engines.diagnostics.rediagnose" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重新诊断"
-          }
-        }
-      }
-    },
     "settings.engines.diagnostics.ok" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "通过"
+          }
+        }
+      }
+    },
+    "settings.engines.diagnostics.rediagnose" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新诊断"
           }
         }
       }
@@ -1587,7 +1587,6 @@
       }
     },
     "settings.engines.env.empty" : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1608,6 +1607,7 @@
       }
     },
     "settings.engines.env.formatHint" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1730,6 +1730,46 @@
         }
       }
     },
+    "settings.engines.refreshAll" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新"
+          }
+        }
+      }
+    },
+    "settings.engines.refreshAll.help" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新所有 CLI 的版本与环境变量"
+          }
+        }
+      }
+    },
+    "settings.engines.refreshAll.discard.title" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新会丢弃未保存的环境变量？"
+          }
+        }
+      }
+    },
+    "settings.engines.refreshAll.discard.message" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刷新会重新读取所有 CLI 的版本与环境变量，当前未保存的修改会丢失。"
+          }
+        }
+      }
+    },
     "settings.engines.platformUnsupported" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1746,6 +1786,86 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重新检测"
+          }
+        }
+      }
+    },
+    "settings.engines.runtime" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "运行状态"
+          }
+        }
+      }
+    },
+    "settings.engines.localAvailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本地可用"
+          }
+        }
+      }
+    },
+    "settings.engines.unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不可用"
+          }
+        }
+      }
+    },
+    "settings.engines.acpConnection" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ACP 连接"
+          }
+        }
+      }
+    },
+    "settings.engines.acpConnection.hint" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核心暂未提供 ACP 连接检测"
+          }
+        }
+      }
+    },
+    "settings.engines.installPath" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安装位置"
+          }
+        }
+      }
+    },
+    "settings.engines.installPath.hint" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "核心暂未提供安装位置"
+          }
+        }
+      }
+    },
+    "settings.engines.notDetected" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测"
           }
         }
       }
@@ -1771,6 +1891,16 @@
         }
       }
     },
+    "settings.engines.update" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新"
+          }
+        }
+      }
+    },
     "settings.engines.updateAvailable" : {
       "localizations" : {
         "zh-Hans" : {
@@ -1791,17 +1921,18 @@
         }
       }
     },
-    "settings.engines.update" : {
+    "settings.engines.updateBadge" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "更新"
+            "value" : "可更新"
           }
         }
       }
     },
     "settings.engines.updateTo" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {

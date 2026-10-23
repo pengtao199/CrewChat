@@ -9,6 +9,9 @@ struct EnginesSettingsView: View {
     @State private var actionError: String?
     @State private var pendingSelection: String?
     @State private var diagnosticsExpanded = false
+    @State private var isRefreshingAll = false
+    @State private var confirmRefreshAll = false
+    @SceneStorage("settings.engines.showUninstalled") private var showUninstalled = false
 
     private var model: EnginesSettingsViewModel { environment.engines }
 
@@ -29,7 +32,7 @@ struct EnginesSettingsView: View {
                 }
 
                 if !model.notInstalled.isEmpty {
-                    Section {
+                    Section(isExpanded: $showUninstalled) {
                         ForEach(model.notInstalled) { engineRow($0) }
                     } header: {
                         Text(verbatim: "\(String(localized: "settings.engines.missing")) (\(model.notInstalled.count))")
@@ -41,6 +44,25 @@ struct EnginesSettingsView: View {
             detail
         }
         .navigationTitle("settings.engines")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    if envDirty {
+                        confirmRefreshAll = true
+                    } else {
+                        Task { await refreshAll() }
+                    }
+                } label: {
+                    if isRefreshingAll {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label("settings.engines.refreshAll", systemImage: "arrow.clockwise")
+                    }
+                }
+                .disabled(isRefreshingAll || model.isLoading)
+                .help("settings.engines.refreshAll.help")
+            }
+        }
         .task {
             await model.load()
             selectFirstIfNeeded()
@@ -81,6 +103,18 @@ struct EnginesSettingsView: View {
         } message: {
             Text("settings.engines.env.discard.message")
         }
+        .confirmationDialog(
+            "settings.engines.refreshAll.discard.title",
+            isPresented: $confirmRefreshAll,
+            titleVisibility: .visible
+        ) {
+            Button("settings.engines.refreshAll", role: .destructive) {
+                Task { await refreshAll() }
+            }
+            Button("common.cancel", role: .cancel) {}
+        } message: {
+            Text("settings.engines.refreshAll.discard.message")
+        }
     }
 
     @ViewBuilder
@@ -113,133 +147,141 @@ struct EnginesSettingsView: View {
     }
 
     private func engineDetail(_ engine: Engine) -> some View {
-        VStack(spacing: 0) {
-            detailHeader(engine)
-            Divider()
-
-            Form {
-                if let actionError {
-                    Section {
-                        Text(actionError).foregroundStyle(.red)
-                    }
-                }
-
-                if let installError = model.installError {
-                    Section {
-                        Text(installError).foregroundStyle(.red)
-                    }
-                }
-
+        Form {
+            if let actionError {
                 Section {
-                    LabeledContent("settings.engines.version") {
-                        HStack(spacing: 6) {
-                            Text(versionText(engine))
-                                .monospacedDigit()
-                                .textSelection(.enabled)
+                    Text(actionError).foregroundStyle(.red)
+                }
+            }
 
-                            if model.isCheckingLatest(engine) {
-                                ProgressView().controlSize(.mini)
-                            }
+            if let installError = model.installError {
+                Section {
+                    Text(installError).foregroundStyle(.red)
+                }
+            }
+
+            Section {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(engine.name)
+                            .font(.title3.weight(.semibold))
+                        if !engine.summary.isEmpty {
+                            Text(engine.summary)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
                         }
                     }
 
-                    actionRow(engine)
+                    Spacer(minLength: 12)
 
-                    if !engine.available {
-                        Text("settings.engines.platformUnsupported")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
+                    statusLabel(engine)
                 }
 
-                envSection(engine)
+                versionRow(engine)
 
-                Section {
-                    diagnosticsGroup(engine)
-                }
-            }
-            .formStyle(.grouped)
-            .contentMargins(.top, 12, for: .scrollContent)
-            .scrollIndicators(.hidden)
-        }
-    }
-
-    private func detailHeader(_ engine: Engine) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(engine.name)
-                    .font(.title3.weight(.semibold))
-                if !engine.summary.isEmpty {
-                    Text(engine.summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-
-            Spacer(minLength: 12)
-
-            Label(
-                engine.isInstalled
-                    ? LocalizedStringKey("settings.engines.installed")
-                    : LocalizedStringKey("settings.engines.missing"),
-                systemImage: engine.isInstalled ? "checkmark.circle.fill" : "circle.dashed"
-            )
-            .font(.callout)
-            .foregroundStyle(engine.isInstalled ? .green : .secondary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-
-    @ViewBuilder
-    private func actionRow(_ engine: Engine) -> some View {
-        HStack(spacing: 8) {
-            if model.installing == engine.agentType {
-                ProgressView().controlSize(.small)
-                Text("settings.engines.installing")
-                    .foregroundStyle(.secondary)
-            } else {
-                if !engine.isInstalled {
-                    Button {
-                        Task { await install(engine) }
-                    } label: {
-                        Label("settings.engines.install", systemImage: "arrow.down.circle")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!engine.available)
-                } else if let latest = model.latest(for: engine) {
-                    Text(verbatim: "\(String(localized: "settings.engines.updateAvailable")) v\(latest)")
+                if !engine.available {
+                    Text("settings.engines.platformUnsupported")
                         .font(.callout)
-                        .foregroundStyle(.orange)
-                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                }
+            }
 
-                    Button {
-                        Task { await install(engine) }
-                    } label: {
-                        Label("settings.engines.update", systemImage: "arrow.down.circle")
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else if model.latestChecked.contains(engine.agentType) {
-                    Text(
-                        model.latestCheckFailed.contains(engine.agentType)
-                            ? LocalizedStringKey("settings.engines.updateCheckFailed")
-                            : LocalizedStringKey("settings.engines.upToDate")
-                    )
+            runtimeSection(engine)
+            envSection(engine)
+
+            Section {
+                diagnosticsGroup(engine)
+            }
+        }
+        .formStyle(.grouped)
+        .scrollIndicators(.hidden)
+    }
+
+    private func versionRow(_ engine: Engine) -> some View {
+        HStack(spacing: 6) {
+            Text("settings.engines.version")
+                .foregroundStyle(.secondary)
+
+            Text(versionText(engine))
+                .monospacedDigit()
+                .textSelection(.enabled)
+
+            if model.installing == engine.agentType {
+                ProgressView().controlSize(.mini)
+                Text("settings.engines.installing")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                } else if model.isCheckingLatest(engine) {
-                    Text("settings.engines.checkingUpdate")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+            } else if !engine.isInstalled {
+                Button("settings.engines.install") {
+                    Task { await install(engine) }
                 }
-
-                Spacer(minLength: 8)
-
-                Button("settings.engines.refresh") {
-                    Task { await refresh(engine) }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .disabled(!engine.available)
+            } else if let latest = model.latest(for: engine) {
+                Image(systemName: "arrow.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Text(verbatim: "v\(latest)")
+                    .monospacedDigit()
+                    .foregroundStyle(.orange)
+                Button("settings.engines.update") {
+                    Task { await install(engine) }
                 }
-                .disabled(model.isLoading || model.installing != nil)
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            } else if model.latestChecked.contains(engine.agentType) {
+                Text(
+                    model.latestCheckFailed.contains(engine.agentType)
+                        ? LocalizedStringKey("settings.engines.updateCheckFailed")
+                        : LocalizedStringKey("settings.engines.upToDate")
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            } else if model.isCheckingLatest(engine) {
+                ProgressView().controlSize(.mini)
+            }
+
+            Spacer(minLength: 8)
+
+            Button("settings.engines.refresh") {
+                Task { await refresh(engine) }
+            }
+            .controlSize(.small)
+            .disabled(model.isLoading || model.installing != nil)
+        }
+    }
+
+    private func runtimeSection(_ engine: Engine) -> some View {
+        Section("settings.engines.runtime") {
+            LabeledContent("settings.engines.localAvailable") {
+                Text(availabilityText(engine))
+                    .foregroundStyle(availabilityColor(engine))
+            }
+
+            LabeledContent("settings.engines.adapter") {
+                Text(
+                    engine.isAdapter
+                        ? String(localized: "common.yes")
+                        : String(localized: "common.no")
+                )
+            }
+
+            LabeledContent("settings.engines.acpConnection") {
+                Text(
+                    engine.isInstalled
+                        ? LocalizedStringKey("settings.engines.notDetected")
+                        : LocalizedStringKey("settings.engines.missing")
+                )
+                .foregroundStyle(.secondary)
+                .help("settings.engines.acpConnection.hint")
+            }
+
+            LabeledContent("settings.engines.installPath") {
+                Text(verbatim: "—")
+                    .foregroundStyle(.secondary)
+                    .help("settings.engines.installPath.hint")
             }
         }
     }
@@ -389,15 +431,6 @@ struct EnginesSettingsView: View {
                     .monospaced()
                     .foregroundStyle(.secondary)
             }
-
-            Spacer(minLength: 4)
-
-            if model.latest(for: engine) != nil {
-                Image(systemName: "arrow.down.circle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.caption)
-                    .help("settings.engines.updateAvailable")
-            }
         }
         .padding(.vertical, 2)
         .tag(engine.agentType)
@@ -410,6 +443,10 @@ struct EnginesSettingsView: View {
         guard let version = engine.installedVersion else {
             return String(localized: "settings.engines.missing")
         }
+
+        if model.latest(for: engine) != nil {
+            return "v\(version) · \(String(localized: "settings.engines.updateBadge"))"
+        }
         return "v\(version)"
     }
 
@@ -418,6 +455,31 @@ struct EnginesSettingsView: View {
             return String(localized: "settings.engines.missing")
         }
         return "v\(version)"
+    }
+
+    private func statusLabel(_ engine: Engine) -> some View {
+        Label(
+            engine.isInstalled
+                ? LocalizedStringKey("settings.engines.installed")
+                : LocalizedStringKey("settings.engines.missing"),
+            systemImage: engine.isInstalled ? "checkmark.circle.fill" : "circle.dashed"
+        )
+        .font(.callout)
+        .foregroundStyle(engine.isInstalled ? .green : .secondary)
+    }
+
+    private func availabilityText(_ engine: Engine) -> LocalizedStringKey {
+        guard engine.isInstalled else {
+            return "settings.engines.missing"
+        }
+        return engine.available
+            ? "settings.engines.available"
+            : "settings.engines.unavailable"
+    }
+
+    private func availabilityColor(_ engine: Engine) -> Color {
+        guard engine.isInstalled else { return .secondary }
+        return engine.available ? .green : .red
     }
 
     private func sortedSections(_ sections: [EngineDiagnosticsSection]) -> [EngineDiagnosticsSection] {
@@ -509,6 +571,23 @@ struct EnginesSettingsView: View {
             }
             await model.checkLatest(for: refreshed, force: true)
         }
+    }
+
+    private func refreshAll() async {
+        isRefreshingAll = true
+        actionError = nil
+
+        await model.load()
+
+        if let selected {
+            syncEnv(selected, force: true)
+        } else {
+            envText = ""
+            envEngineID = nil
+        }
+
+        isRefreshingAll = false
+        Task { await model.refreshAllLatest() }
     }
 
     private func saveEnv(_ engine: Engine) async {
