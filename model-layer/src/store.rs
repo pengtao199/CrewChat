@@ -164,8 +164,8 @@ impl Store {
 
     // ---------------------------------------------------------------- import
 
-    /// Replace the catalog with one CCR config. Full replace keeps the store
-    /// and CCR from disagreeing; `legacy_config.raw` preserves unknown fields.
+    /// Replace the catalog with one model config. Full replace keeps the store
+    /// and the layer from disagreeing; `legacy_config.raw` preserves unknown fields.
     pub fn apply_config(&self, config: &Value) -> Result<()> {
         let mut conn = self.conn.lock().unwrap();
         let tx = conn.transaction()?;
@@ -423,7 +423,7 @@ impl Store {
         }
 
         // The provider JSON has no `[1m]` flag; a re-import (e.g. from SQLite
-        // while CCR is offline) must not forget it.
+        // while the gateway is offline) must not forget it.
         for (provider_id, model) in existing_one_million {
             tx.execute(
                 "UPDATE provider_models SET one_million = 1
@@ -640,9 +640,10 @@ impl Store {
         Ok(views)
     }
 
-    /// Mark the models CCR advertises to Claude with the `[1m]` suffix. This is
+    /// Mark the models advertised to Claude with the `[1m]` suffix. This is
     /// the only reliable source for the flag: the provider JSON does not carry
     /// it, and inventing it from a name would break Claude's catalog check.
+    #[cfg(test)]
     pub fn mark_one_million(&self, claude_ids: &[String]) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         for id in claude_ids {
@@ -936,7 +937,7 @@ impl Store {
         Ok(value)
     }
 
-    /// Build the CCR-shaped config codeg consumes.
+    /// Build the model config consumed by cli-layer.
     pub fn build_config(&self) -> Result<Value> {
         let mut config = self.legacy_raw().unwrap_or_else(|| json!({}));
         if !config.is_object() {
@@ -1343,7 +1344,7 @@ mod tests {
         let store = Store::open_in_memory().unwrap();
         store.apply_config(&config()).unwrap();
         let id = format!(
-            "anthropic/claude-ccr-h{}[1m]",
+            "anthropic/claude-crewchat-h{}[1m]",
             crate::model_id::virtual_hex("OpenCode Go", "mimo-v2.6-flash")
         );
         store.mark_one_million(&[id]).unwrap();

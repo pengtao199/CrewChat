@@ -2,7 +2,7 @@
 # Point the global Claude Code settings at the running model layer.
 #
 # This is the explicit "terminal claude should use the new gateway" step. Agent
-# sessions do not need it — they get a per-role home from codeg.
+# sessions do not need it — they get a per-role home from cli-layer.
 set -euo pipefail
 
 DATA="${MODEL_LAYER_DATA_DIR:-$HOME/Library/Application Support/AgentOS/model}"
@@ -17,8 +17,8 @@ fi
 URL="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["controlUrl"])' "$RUNTIME")"
 TOKEN="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["controlToken"])' "$RUNTIME")"
 
-curl -sS "$URL/api/ccr/rpc" \
+curl -sS "$URL/api/model/rpc" \
   -H "content-type: application/json" \
-  -H "x-ccr-web-auth: $TOKEN" \
+  -H "x-model-web-auth: $TOKEN" \
   -d '{"method":"applyProfile","args":[]}' \
   | python3 -m json.tool

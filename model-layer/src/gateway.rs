@@ -55,9 +55,9 @@ async fn models(State(app): State<App>, headers: HeaderMap) -> Response {
             let id = if claude {
                 let hex = model_id::virtual_hex(&view.name, model);
                 if view.one_million.iter().any(|m| m == model) {
-                    format!("anthropic/claude-ccr-h{hex}[1m]")
+                    format!("anthropic/claude-crewchat-h{hex}[1m]")
                 } else {
-                    format!("anthropic/claude-ccr-h{hex}")
+                    format!("anthropic/claude-crewchat-h{hex}")
                 }
             } else {
                 format!("{}/{}", view.name, model)

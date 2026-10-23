@@ -2,17 +2,16 @@
 //!
 //! Two loopback listeners:
 //! - `:3456` gateway (`/v1/models`, `/v1/messages`, Chat / Responses)
-//! - `:3458` CCR-compatible control plane (`/api/ccr/rpc`)
+//! - `:3458` model-layer control plane (`/api/model/rpc`)
 //!
-//! The process is a sidecar: AgentOS starts it, codeg keeps talking to
-//! `CCR_WEB_URL`, and every agent session injects its own model through its
+//! The process is a sidecar: AgentOS starts it, cli-layer talks to the
+//! control plane, and every agent session injects its own model through its
 //! per-role CLI home.
 
 mod app;
 mod config;
 mod control;
 mod gateway;
-mod import;
 mod keystore;
 mod model_id;
 mod profile;
@@ -45,29 +44,6 @@ async fn main() -> Result<()> {
     let store = Store::open(&config.db_path())?;
     store.init_schema()?;
     store.migrate_keys()?;
-
-    if config.import_on_start {
-        match import::run(&config, &store).await {
-            Ok(imported) => {
-                info!(
-                    "imported {} providers from {} ({} claude-visible models)",
-                    imported
-                        .config
-                        .get("Providers")
-                        .and_then(|value| value.as_array())
-                        .map(|list| list.len())
-                        .unwrap_or(0),
-                    imported.source,
-                    imported.claude_models.len()
-                );
-            }
-            Err(error) => {
-                warn!("import skipped: {error}");
-            }
-        }
-    } else {
-        info!("import disabled (MODEL_LAYER_IMPORT_ON_START=0)");
-    }
 
     config.write_runtime_file()?;
 

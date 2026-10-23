@@ -9,7 +9,7 @@
 
 | 项目 | 许可 | 参考内容 |
 | --- | --- | --- |
-| [musistudio/claude-code-router](https://github.com/musistudio/claude-code-router)（本仓库 `ccr/`） | MIT | CCR 的 RPC 形状、`Providers` / `APIKEYS` / `configRevision` 契约、Claude 虚拟 ID 与 OpenCode quirk |
+| [musistudio/claude-code-router](https://github.com/musistudio/claude-code-router) | MIT | CCR 的 RPC 形状、`Providers` / `APIKEYS` / `configRevision` 契约、Claude 虚拟 ID 与 OpenCode quirk |
 | [raine/claude-code-proxy](https://github.com/raine/claude-code-proxy) | MIT | Anthropic Messages ↔ OpenAI 的边界（工具调用、SSE、`x-opencode-session`、OpenCode Go Responses/Chat 端点） |
 
 ## 第三方依赖

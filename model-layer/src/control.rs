@@ -1,6 +1,5 @@
-//! CCR-compatible control plane. codeg's model page, `body_model_face` and the
-//! per-role overlays read the catalog through this RPC, so the shapes matter
-//! more than the implementation.
+//! Model-layer control plane. The model page, model face and per-role overlays
+//! read the catalog through this RPC.
 
 use axum::{
     extract::State,
@@ -17,7 +16,7 @@ use crate::upstream::Upstream;
 
 pub fn router(app: App) -> Router {
     Router::new()
-        .route("/api/ccr/rpc", post(rpc))
+        .route("/api/model/rpc", post(rpc))
         .with_state(app)
 }
 
@@ -25,7 +24,7 @@ async fn rpc(State(app): State<App>, headers: HeaderMap, Json(body): Json<Value>
     if !authorized(&app, &headers) {
         return (
             StatusCode::UNAUTHORIZED,
-            Json(json!({"ok": false, "error": {"message": "invalid x-ccr-web-auth"}})),
+            Json(json!({"ok": false, "error": {"message": "invalid x-model-web-auth"}})),
         )
             .into_response();
     }
@@ -99,7 +98,7 @@ async fn rpc(State(app): State<App>, headers: HeaderMap, Json(body): Json<Value>
 }
 
 fn authorized(app: &App, headers: &HeaderMap) -> bool {
-    let Some(value) = headers.get("x-ccr-web-auth") else {
+    let Some(value) = headers.get("x-model-web-auth") else {
         return false;
     };
     let Ok(value) = value.to_str() else {

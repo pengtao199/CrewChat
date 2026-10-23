@@ -7,7 +7,7 @@
 //!
 //! `InlineStore` is the non-persistent fallback for tests/Linux and for an
 //! explicit `MODEL_LAYER_KEYSTORE=db`; in that mode the store keeps the secret
-//! in SQLite (0600), matching CCR's old behavior.
+//! in SQLite (0600).
 
 use std::collections::HashMap;
 use std::process::Command;
@@ -67,14 +67,6 @@ impl KeychainStore {
     pub fn new() -> Self {
         Self {
             service: "com.crewchat.model-layer".to_string(),
-            cache: Mutex::new(HashMap::new()),
-        }
-    }
-
-    #[cfg(test)]
-    pub fn with_service(service: &str) -> Self {
-        Self {
-            service: service.to_string(),
             cache: Mutex::new(HashMap::new()),
         }
     }

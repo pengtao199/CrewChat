@@ -1,6 +1,6 @@
 //! Provider account / quota snapshots from `account.connectors`.
 //!
-//! CCR's `http-json` connector is a mapping description, not code: an endpoint,
+//! The upstream `http-json` connector is a mapping description, not code: an endpoint,
 //! an auth mode, and per-meter expressions such as
 //! `"100 - $.usage.rolling.percent"`. We evaluate that small grammar instead of
 //! hard-coding OpenCode Go's shape. A fetch failure returns the cache with an

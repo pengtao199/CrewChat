@@ -50,7 +50,7 @@ impl Upstream {
             .context("build reqwest client")?;
         Ok(Self {
             client,
-            opencode_session: format!("ccr-{}", uuid::Uuid::new_v4().simple()),
+            opencode_session: format!("crewchat-{}", uuid::Uuid::new_v4().simple()),
         })
     }
 

@@ -1,4 +1,4 @@
-//! Model id parsing: CCR's Claude virtual ids, human `Provider/model` labels,
+//! Model id parsing: CrewChat's Claude virtual ids, human `Provider/model` labels,
 //! OpenCode's `crewchat/<model>` namespace, and bare model names.
 //!
 //! The gateway has no "current model" and no CLI binding: every request names
@@ -59,14 +59,14 @@ impl fmt::Display for ResolveError {
 
 impl std::error::Error for ResolveError {}
 
-/// The lowercase hex CCR encodes into `anthropic/claude-ccr-h<hex>`.
+/// The lowercase hex encoded into `anthropic/claude-crewchat-h<hex>`.
 pub fn virtual_hex(provider: &str, model: &str) -> String {
     hex::encode(format!("{provider}/{model}").as_bytes())
 }
 
-/// Decode `anthropic/claude-ccr-h<hex>[1m]` into `(provider, model, one_million)`.
+/// Decode a CrewChat virtual id into `(provider, model, one_million)`.
 pub fn decode_virtual(id: &str) -> Option<(String, String, bool)> {
-    let (_, rest) = id.split_once("claude-ccr-h")?;
+    let (_, rest) = id.split_once("claude-crewchat-h")?;
     let (hex_part, one_million) = match rest.strip_suffix("[1m]") {
         Some(value) => (value, true),
         None => (rest, false),
@@ -90,7 +90,7 @@ pub fn resolve(raw: &str, providers: &[ProviderView]) -> Result<Target, ResolveE
     }
 
     // 1. Claude's virtual id.
-    if raw.contains("claude-ccr-h") {
+    if raw.contains("claude-crewchat-h") {
         let (provider_name, model, one_million) =
             decode_virtual(raw).ok_or_else(|| ResolveError::BadVirtualId(raw.to_string()))?;
         let provider = providers
@@ -102,8 +102,8 @@ pub fn resolve(raw: &str, providers: &[ProviderView]) -> Result<Target, ResolveE
         return Ok(target(provider, canonical, one_million));
     }
 
-    // 2. OpenCode's local provider namespace. `crewchat` is not a CCR
-    //    provider; strip it before any provider lookup.
+    // 2. OpenCode's local provider namespace. `crewchat` is not an
+    //    upstream provider; strip it before any provider lookup.
     let stripped = raw.strip_prefix("crewchat/").unwrap_or(raw);
     let (stripped, suffix_one_million) = match stripped.strip_suffix("[1m]") {
         Some(value) => (value, true),
@@ -204,7 +204,7 @@ mod tests {
     #[test]
     fn decodes_the_claude_virtual_id() {
         let hex = virtual_hex("OpenCode Go", "mimo-v2.6-flash");
-        let id = format!("anthropic/claude-ccr-h{hex}[1m]");
+        let id = format!("anthropic/claude-crewchat-h{hex}[1m]");
         assert_eq!(
             decode_virtual(&id),
             Some(("OpenCode Go".into(), "mimo-v2.6-flash".into(), true))
@@ -215,7 +215,7 @@ mod tests {
     fn resolves_a_virtual_id_to_one_provider() {
         let target = resolve(
             &format!(
-                "anthropic/claude-ccr-h{}[1m]",
+                "anthropic/claude-crewchat-h{}[1m]",
                 virtual_hex("OpenCode Go", "mimo-v2.6-flash")
             ),
             &catalog(),

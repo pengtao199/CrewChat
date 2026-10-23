@@ -32,5 +32,5 @@ chmod +x "$APP/Contents/MacOS/crewchat-model"
 echo "==> re-signing (ad-hoc, local only)"
 codesign --force --deep --sign - "$APP" >/dev/null
 
-echo "done. Restart AgentOS; the model layer will start before codeg-server."
+echo "done. Restart AgentOS; the model layer will start before cli-layer."
 echo "Logs: ~/Library/Logs/AgentOS/model-layer.log"

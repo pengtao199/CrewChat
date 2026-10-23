@@ -3,7 +3,7 @@
 //! This is the only global CLI file we touch. Agent sessions never depend on
 //! it: `agent_host/overlay` gives each session its own home. It exists so a
 //! `claude` started in a terminal still reaches the same model catalog after
-//! CCR is gone.
+//! the legacy router is gone.
 
 use std::path::{Path, PathBuf};
 
@@ -100,13 +100,7 @@ pub fn apply_claude(app: &App) -> Result<Value, String> {
         env.insert(name.into(), Value::String(value.into()));
     }
     if let Some(model) = &model {
-        for name in [
-            "ANTHROPIC_MODEL",
-            "CCR_CLAUDE_CODE_MODEL",
-            "CODEXL_CLAUDE_CODE_MODEL",
-        ] {
-            env.insert(name.into(), Value::String(model.clone()));
-        }
+        env.insert("ANTHROPIC_MODEL".into(), Value::String(model.clone()));
     }
 
     write_settings(&settings_path, &settings)?;

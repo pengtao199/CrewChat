@@ -2,7 +2,7 @@
 name = "crewchat-model"
 version = "0.1.0"
 edition = "2021"
-description = "CrewChat model layer: CCR-compatible control plane + local model gateway"
+description = "CrewChat model layer: local model gateway and control plane"
 license = "MIT"
 
 [[bin]]

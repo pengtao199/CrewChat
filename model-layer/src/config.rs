@@ -2,7 +2,7 @@
 //!
 //! The service is deliberately configured by env only: AgentOS (or a test
 //! harness) is the only launcher, and the same env can point it at a scratch
-//! data directory while the real CCR keeps running.
+//! data directory while another model layer keeps running.
 
 use std::path::PathBuf;
 
@@ -16,15 +16,8 @@ pub struct Config {
     pub gateway_port: u16,
     pub control_port: u16,
     pub control_token: String,
-    /// `~/.claude-code-router` by default; the import source.
-    pub ccr_home: PathBuf,
-    pub ccr_web_url: Option<String>,
-    pub ccr_web_token: Option<String>,
-    /// `ccr-disabled-models.json` owned by codeg, if it exists.
-    pub disabled_models_path: Option<PathBuf>,
-    pub import_on_start: bool,
     /// Rewrite `~/.claude/settings.json` on every model-page save. Off by
-    /// default so side-by-side testing does not move the user's global CLI.
+    /// default so a model edit does not move the user's global CLI.
     pub apply_profile_on_save: bool,
 }
 
@@ -40,22 +33,7 @@ impl Config {
         let gateway_port = env_u16("MODEL_LAYER_GATEWAY_PORT").unwrap_or(3456);
         let control_port = env_u16("MODEL_LAYER_CONTROL_PORT").unwrap_or(3458);
 
-        let ccr_home = env_path("CCR_HOME").unwrap_or_else(|| home.join(".claude-code-router"));
-        let (ccr_web_url, ccr_web_token) = discover_ccr(&ccr_home);
-
-        let control_token = env_string("MODEL_LAYER_CONTROL_TOKEN")
-            .or_else(|| env_string("CCR_WEB_AUTH_TOKEN"))
-            .unwrap_or_else(random_token);
-
-        let disabled_models_path = env_path("MODEL_LAYER_DISABLED_MODELS")
-            .or_else(|| env_path("CODEG_DATA_DIR").map(|dir| dir.join("ccr-disabled-models.json")))
-            .or_else(|| {
-                let legacy =
-                    home.join("Library/Application Support/codeg/ccr-disabled-models.json");
-                legacy.is_file().then_some(legacy)
-            });
-
-        let import_on_start = env_bool("MODEL_LAYER_IMPORT_ON_START").unwrap_or(true);
+        let control_token = env_string("MODEL_LAYER_CONTROL_TOKEN").unwrap_or_else(random_token);
         let apply_profile_on_save = env_bool("MODEL_LAYER_APPLY_PROFILE").unwrap_or(false);
         Ok(Self {
             data_dir,
@@ -63,24 +41,12 @@ impl Config {
             gateway_port,
             control_port,
             control_token,
-            ccr_home,
-            ccr_web_url,
-            ccr_web_token,
-            disabled_models_path,
-            import_on_start,
             apply_profile_on_save,
         })
     }
 
     pub fn db_path(&self) -> PathBuf {
         self.data_dir.join("model.db")
-    }
-
-    /// The last Claude-visible catalog. `[1m]` is not in the provider JSON, so
-    /// a stopped CCR would otherwise make the next import forget which models
-    /// carry the suffix.
-    pub fn claude_models_path(&self) -> PathBuf {
-        self.data_dir.join("claude-models.json")
     }
 
     pub fn runtime_path(&self) -> PathBuf {
@@ -95,8 +61,8 @@ impl Config {
         format!("http://{}:{}", self.host, self.control_port)
     }
 
-    /// Persist the endpoint + token so AgentOS can pass `CCR_WEB_URL` /
-    /// `CCR_WEB_AUTH_TOKEN` to codeg without knowing our defaults.
+    /// Persist the endpoint + token so AgentOS and cli-layer do not need to
+    /// guess our defaults.
     pub fn write_runtime_file(&self) -> Result<()> {
         std::fs::create_dir_all(&self.data_dir)
             .with_context(|| format!("create {}", self.data_dir.display()))?;
@@ -143,39 +109,6 @@ fn env_bool(key: &str) -> Option<bool> {
     }
 }
 
-/// CCR writes `service.json` with the management URL and its web token in the
-/// query string. We read it only to import while CCR is still alive; we never
-/// overwrite it.
-fn discover_ccr(ccr_home: &std::path::Path) -> (Option<String>, Option<String>) {
-    let env_url = env_string("CCR_WEB_URL");
-    let env_token = env_string("CCR_WEB_TOKEN");
-    if env_url.is_some() {
-        return (env_url, env_token);
-    }
-    let raw = std::fs::read_to_string(ccr_home.join("service.json")).ok();
-    let Some(raw) = raw else {
-        return (None, env_token);
-    };
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(&raw) else {
-        return (None, env_token);
-    };
-    let Some(url) = value.get("url").and_then(|v| v.as_str()) else {
-        return (None, env_token);
-    };
-    let mut base = url.to_string();
-    let mut token = env_token;
-    if let Ok(mut parsed) = reqwest::Url::parse(url) {
-        for (key, value) in parsed.query_pairs() {
-            if key == "ccr_web_token" && token.is_none() {
-                token = Some(value.to_string());
-            }
-        }
-        parsed.set_query(None);
-        base = parsed.as_str().trim_end_matches('/').to_string();
-    }
-    (Some(base), token)
-}
-
 fn random_token() -> String {
     use rand::RngCore;
     let mut bytes = [0u8; 24];
@@ -201,11 +134,6 @@ mod tests {
             gateway_port: 3456,
             control_port: 3458,
             control_token: "t".into(),
-            ccr_home: PathBuf::from("/tmp/ccr"),
-            ccr_web_url: None,
-            ccr_web_token: None,
-            disabled_models_path: None,
-            import_on_start: false,
             apply_profile_on_save: false,
         };
         assert_eq!(cfg.db_path(), PathBuf::from("/tmp/x/model.db"));
