@@ -11,8 +11,8 @@ Status: Proposed（设计定稿后进入实现）
 这份文档定义 AgentOS 的 **Agent 组装页**，以及核心 **cli-layer** 如何把配置好的 Agent
 用于单 Agent 会话和多 Agent 团队会话。
 
-它取代 `docs/plans/agents-core-collaboration.md` 中面向 Codeg 的运行时方案；
-Codeg 只作为只读参考和历史实现，不再作为产品核心。
+它取代 `docs/plans/agents-core-collaboration.md` 中面向旧核心的运行时方案；
+旧核心只作为历史实现，不再作为产品核心。
 
 一句话：
 
@@ -48,7 +48,7 @@ cli-layer (Rust, 当前核心 / BFF)
 
 ### 2.2 为什么 Agent/团队不单独做 sidecar
 
-这是本文最重要的架构取舍：**cli-layer 会变“重”，但不应该变成 codeg 那样的单体；
+这是本文最重要的架构取舍：**cli-layer 会变“重”，但不应该变成旧核心那样的单体；
 也不应该为了“每层一个进程”再拆一个 agent-layer。**
 
 | 方案 | 优点 | 缺点 | 结论 |
@@ -68,7 +68,7 @@ cli-layer (Rust, 当前核心 / BFF)
 
 ### 2.3 cli-layer 的硬边界
 
-为了避免重新长成 codeg，给 cli-layer 划死边界：
+为了避免重新长成旧单体，给 cli-layer 划死边界：
 
 允许：
 
@@ -585,7 +585,7 @@ UI：
 | [AutoGen](https://github.com/microsoft/autogen) | MIT | `SelectorGroupChat`、终止条件、发言选择、最大消息数 | 作为首版团队模型 |
 | [Agentrove](https://github.com/Mng-dev-ai/agentrove) | Apache-2.0 | Channels、sub-threads、persona、每 Agent 模型、成员状态、内联审批 | Python/React 技术栈 |
 | [claw-orchestrator](https://github.com/Enderfga/claw-orchestrator) | MIT | persistent session、session handoff、fanout/council、预算/ledger、验证平面 | 全套运行时 |
-| Codeg delegation | Apache-2.0 | team JSON、Leader 团队帧、成员状态条、broker 门禁、成员模型隔离 | 整个 codeg UI/核心 |
+| 旧核心 delegation | Apache-2.0 | team JSON、Leader 团队帧、成员状态条、broker 门禁、成员模型隔离 | 整个旧核心 UI/运行时 |
 | [OpenAB](https://github.com/openabdev/openab) | MIT | ACP session pool、进程生命周期 | Chat 平台假设 |
 | [Agent Client Protocol](https://agentclientprotocol.com) | Apache-2.0 | session/update、permission、cancel、load | 团队语义（协议本身不提供） |
 
@@ -676,7 +676,7 @@ UI：
 - `cli-layer-migration.md`：本文件是 Phase 3 之后 Agents/团队部分的细化。
 - `skill-layer-api.md`：技能选择、readiness、materialize 的契约来源。
 - `agentos-shell.md`：AgentOS 只负责 UI 和命令调用。
-- `agents-core-collaboration.md`：Codeg 时代的历史方案，保留作实现参考，
+- `archive/agents-core-collaboration.md`：旧核心时代的历史方案，保留作实现参考，
   不再作为产品运行时依据。
 
 后续实现若改变本文的 API 或数据表，必须同步更新本文件。

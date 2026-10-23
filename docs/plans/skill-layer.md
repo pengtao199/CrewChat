@@ -74,7 +74,7 @@ Agent = CLI 身体 + Model 大脑 + SkillSet 能力 + MCP + 记忆 + 规则
 
 - 同名技能多份，内容可能分叉；
 - 没有统一来源/版本/哈希，更新靠手工；
-- codeg 的 `acp_*_agent_skill` 按引擎操作文件，AgentOS Skills 页按引擎看；
+- 旧核心的 `acp_*_agent_skill` 按引擎操作文件，AgentOS Skills 页按引擎看；
 - 没有「技能被哪些 Agent 使用」的视图；
 - `cli-layer` 的 skills 仍是 501。
 
@@ -147,7 +147,7 @@ Claude Code / Codex / OpenCode / Gemini
 
 ### 5.1 为什么是 daemon
 
-- 会同时存在 **codeg（过渡）、cli-layer、未来 Swift runtime** 多个宿主；技能库/注册表必须单写入者。
+- 会同时存在旧核心（过渡）、cli-layer 多个宿主；技能库/注册表必须单写入者。
 - 未来 Swift 不能直接调用 Rust library；HTTP 是唯一稳定的跨语言面。
 - 安装/更新/软链是共享资源，daemon 统一加锁，避免多进程写 registry/links。
 - 它不处理模型、不做协议转换、不常驻长连接；只是一个本地控制面。
@@ -457,7 +457,7 @@ remove:  删除全局链接 / session 链接由会话结束清理
 7. 技能脚本执行策略：只展示 + 用户确认，还是禁止？（建议只展示）
 8. 许可：NOASSERTION/source-available 是否允许安装？（建议警告 + 确认）
 9. 是否识别 `npx skills` 的 lock file 以便导入？（建议只读识别）
-10. codeg 过渡期：继续用 `acp_*_agent_skill`，还是代理到 skill-layer？（建议 codeg 保持原样，cli-layer 切换后统一）
+10. 旧核心过渡期：继续用 `acp_*_agent_skill`，还是代理到 skill-layer？（已统一到 cli-layer）
 
 ---
 
@@ -504,7 +504,7 @@ remove:  删除全局链接 / session 链接由会话结束清理
 - 集合 CRUD（含删除）。
 - 7 个测试、clippy、HTTP 冒烟（本地/Git/归档安装、全局链接、update、remove）。
 
-未做（当时）：市场、按技能 × CLI 的全局开关、cli-layer/codeg 代理、AgentOS 接线、真实对话调用验收。
+未做（当时）：市场、按技能 × CLI 的全局开关、AgentOS 接线、真实对话调用验收。
 后续状态与计划见 §18。
 
 ---
