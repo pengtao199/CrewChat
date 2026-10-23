@@ -526,7 +526,15 @@ ACP update
   `acp / models / roster / skills / workspace` 拆分。
 - `cargo test` 18 passed、clippy、smoke 通过。
 
-### Step 2b：引入 domain + ports
+### Step 2b.1：Agent 领域类型 + roster 服务 ✅ 2026-10-23
+
+- 新增 `domain/agent.rs`：类型化 Agent，API 不再直接操作 `Value` 字段。
+- 新增 `app/roster.rs`：list/get/save/delete/model_face 用例；handler 只做
+  DTO 和错误映射。
+- `agent_skills_set` / `agent_skill_status` 也改走 roster service。
+- `cargo test` 18 passed、clippy、smoke 通过。
+
+### Step 2b.2：引入完整 ports
 
 - 把 `AgentRole` / Conversation / Team / Delegation 从 JSON Value 提升为类型。
 - 给 store 定义 repository trait。

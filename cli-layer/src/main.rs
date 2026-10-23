@@ -8,7 +8,9 @@
 //! - thin `ccr_*` proxy to the model layer
 
 mod api;
+mod app;
 mod config;
+mod domain;
 mod infra;
 mod runtime;
 
@@ -20,6 +22,7 @@ use tokio::net::TcpListener;
 use tracing::{info, warn};
 
 use crate::api::http::AppState;
+use crate::app::roster::RosterService;
 use crate::config::Config;
 use crate::infra::model_layer::ModelLayerClient;
 use crate::infra::skill_layer::SkillLayerClient;
@@ -62,12 +65,14 @@ async fn main() -> Result<()> {
     let skill = Arc::new(SkillLayerClient::new());
     let host = AcpHost::new(config.clone(), store.clone(), skill.clone());
     let model = Arc::new(ModelLayerClient::new(&config));
+    let roster = RosterService::new(store.clone(), model.clone(), host.engines().clone());
     let state = AppState {
         config: config.clone(),
         store,
         host,
         model,
         skill,
+        roster,
     };
 
     let router = crate::api::http::router(state);

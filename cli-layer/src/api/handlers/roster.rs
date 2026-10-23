@@ -7,6 +7,7 @@ use axum::{
 use serde_json::{json, Value};
 
 use crate::api::http::{api_error, authorized, field, unauthorized, AppState};
+use crate::domain::agent::Agent;
 
 pub(crate) async fn agent_roles_list(
     State(state): State<AppState>,
@@ -15,7 +16,7 @@ pub(crate) async fn agent_roles_list(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match state.store.list_roles() {
+    match state.roster.list() {
         Ok(roles) => Json(roles).into_response(),
         Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
     }
@@ -30,7 +31,11 @@ pub(crate) async fn agent_roles_save(
         return unauthorized();
     }
     let role = body.get("role").cloned().unwrap_or(body);
-    match state.store.save_role(&role) {
+    let agent = match Agent::from_value(role) {
+        Ok(agent) => agent,
+        Err(error) => return api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    };
+    match state.roster.save(&agent) {
         Ok(role) => Json(role).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
@@ -45,7 +50,7 @@ pub(crate) async fn agent_roles_delete(
         return unauthorized();
     }
     let id = field(&body, &["id"]).unwrap_or_default();
-    match state.store.delete_role(id) {
+    match state.roster.delete(id) {
         Ok(()) => Json(json!(true)).into_response(),
         Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
     }
@@ -60,21 +65,9 @@ pub(crate) async fn agent_role_model_face(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
-    if let Some(spec) = state.host.engines().find(agent_type) {
-        if spec.overlay == crate::runtime::engine::registry::OverlayKind::None {
-            return Json(json!({
-                "supported": false,
-                "reason": format!(
-                    "{} does not expose a per-session API endpoint for model injection",
-                    spec.name
-                ),
-            }))
-            .into_response();
-        }
-    }
-    match state.model.model_face(agent_type).await {
+    match state.roster.model_face(agent_type).await {
         Ok(value) => Json(value).into_response(),
-        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error.to_string()),
     }
 }
 
@@ -87,7 +80,7 @@ pub(crate) async fn agent_skills_set(
         return unauthorized();
     }
     let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
-    let Some(mut role) = state.store.role(role_id).ok().flatten() else {
+    let Some(mut role) = state.roster.get(role_id).ok().flatten() else {
         return api_error(StatusCode::NOT_FOUND, "role not found");
     };
     let mut ids = string_array(body.get("skillIds").or_else(|| body.get("skill_ids")));
@@ -120,11 +113,11 @@ pub(crate) async fn agent_skills_set(
     }
     ids.sort();
     ids.dedup();
-    role["skills"] = json!(ids);
-    match state.store.save_role(&role) {
+    role.skills = ids;
+    match state.roster.save(&role) {
         Ok(role) => Json(json!({
-            "roleId": role.get("id").cloned().unwrap_or(Value::Null),
-            "skillIds": role.get("skills").cloned().unwrap_or_else(|| json!([])),
+            "roleId": role.id,
+            "skillIds": role.skills,
         }))
         .into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
@@ -140,10 +133,10 @@ pub(crate) async fn agent_skill_status(
         return unauthorized();
     }
     let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
-    let Some(role) = state.store.role(role_id).ok().flatten() else {
+    let Some(role) = state.roster.get(role_id).ok().flatten() else {
         return api_error(StatusCode::NOT_FOUND, "role not found");
     };
-    let selected = string_array(role.get("skills"));
+    let selected = role.skills;
     let available = state
         .skill
         .list()

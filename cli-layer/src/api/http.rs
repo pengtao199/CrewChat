@@ -16,6 +16,7 @@ use axum::{
 use base64::Engine;
 
 use crate::api::handlers::*;
+use crate::app::roster::RosterService;
 use serde_json::{json, Value};
 
 use crate::api::ws;
@@ -32,6 +33,7 @@ pub struct AppState {
     pub host: AcpHost,
     pub model: Arc<ModelLayerClient>,
     pub skill: Arc<SkillLayerClient>,
+    pub roster: RosterService,
 }
 
 pub fn router(state: AppState) -> Router {

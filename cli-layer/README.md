@@ -113,9 +113,11 @@ src/
     http.rs        AppState / router / auth / WS 入口
     handlers/      按域拆分的 HTTP handler
     ws.rs          /ws/events
-  app/             用例编排（后续逐步抽出）
+  app/
+    roster.rs      Agent 用例（list/save/delete/model_face）
   config.rs        环境与数据目录
-  domain/          领域类型与 port（后续逐步抽出）
+  domain/
+    agent.rs       类型化 Agent（后续扩展 readiness/团队）
   infra/
     model_layer.rs ccr_* → model-layer
     skill_layer.rs skill-layer 客户端（技能库 / materialize）
