@@ -9,7 +9,7 @@ CrewChat 的 **Skill 层**：全局技能库、版本注册表，以及按 Agent
 - 版本原件：`~/.agents/skill-store/<id>/<hash>`。
 - 注册表：`~/.agents/skill-layer/registry.sqlite`。
 - Agent → 技能的绑定在 `cli-layer`；本服务只接收 `skill_ids`，为 session home 建链。
-- 全局 per-CLI 链接（终端裸跑）是后续功能；Agent 会话不使用全局目录。
+- 全局 per-CLI 链接（终端裸跑）由 `POST /v1/global-links/sync` 同步；Agent 会话不使用全局目录。
 
 ## 构建与运行
 
@@ -39,10 +39,16 @@ cargo run
 | `GET` | `/v1/health` | 存活 |
 | `GET` | `/v1/skills` | 全局库列表 |
 | `GET` | `/v1/skills/{id}` | 技能详情 + `SKILL.md` + 文件列表 |
-| `POST` | `/v1/skills/install` | 从本地目录安装/更新：`{ "path": "..." }` |
+| `POST` | `/v1/skills/install` | 从本地/Git/归档/URL 安装：`{ "path" }` 或 `{ "source", "gitRef?", "subdir?" }` |
+| `POST` | `/v1/skills/{id}/check` | 检查上游是否有新版本 |
+| `POST` | `/v1/skills/{id}/update` | 拉取新版本并移动 current |
+| `DELETE` | `/v1/skills/{id}` | 删除（版本移入 trash） |
 | `POST` | `/v1/sessions/materialize` | 在 session home 建选中技能软链 |
 | `GET` | `/v1/collections` | 集合列表（Backend/Frontend/iOS） |
 | `POST` | `/v1/collections` | 新建集合：`{ "name", "description?", "skills": [] }` |
+| `DELETE` | `/v1/collections/{id}` | 删除集合 |
+| `GET` | `/v1/global-links` | 终端裸跑用的全局链接状态 |
+| `POST` | `/v1/global-links/sync` | 同步全局链接：`{ "agents": ["claude_code", ...]? }` |
 
 所有请求都要 `Authorization: Bearer <runtime.json token>`。错误体：
 
@@ -73,20 +79,22 @@ cargo run
 
 已完成：
 
-- SQLite registry（skills / versions / collections）。
+- SQLite registry（skills / versions / collections / global links）。
 - 全局库 + 版本原件 + `current` 软链。
-- 本地目录安装/更新；`SKILL.md` frontmatter 校验；目录树 SHA-256；软链/大小/文件数限制。
-- `materialize`：按 session home 只链选中的技能；支持 hash pin；session root 限制。
-- 集合 CRUD（最小）。
-- 7 个单元/集成测试；clippy 通过；HTTP 冒烟通过。
+- 安装源：本地目录、Git/GitHub/GitLab/Azure、zip/tar.gz/tar、直链 `SKILL.md`。
+- `SKILL.md` frontmatter 校验；目录树 SHA-256；软链/大小/文件数限制；归档路径穿越/软链拒绝。
+- `check` / `update` / `remove`；版本 pin；旧版本移入 trash。
+- `materialize`：按 session home 只链选中的技能；session root 与 skills dir 限制。
+- 全局 per-CLI 链接同步（claude_code / codex / open_code / gemini）。
+- 集合 CRUD（含删除）。
+- 7 个单元/集成测试；clippy 通过；HTTP 冒烟（本地/Git/归档安装、全局链接、update、remove）。
 
 未完成：
 
-- Git/GitHub/归档/URL 安装、市场搜索/安装。
-- 全局 per-CLI 链接同步（终端裸跑）。
-- 删除/垃圾回收/备份/审计。
+- 市场搜索/安装（skills.sh / Claude 市场）。
+- 按技能 × CLI 的全局链接开关（目前是同步全部）。
 - `cli-layer` / codeg 代理与 AgentOS 接线。
-- 技能脚本执行策略与更细的漏洞扫描。
+- 技能脚本执行策略、垃圾回收、备份/审计。
 
 ## 测试
 

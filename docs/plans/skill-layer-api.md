@@ -35,9 +35,15 @@ Base：`http://127.0.0.1:3460`
 | GET | `/v1/skills` | `{skills: SkillSummary[]}` |
 | GET | `/v1/skills/{id}` | `{skill, content, files}` |
 | POST | `/v1/skills/install` | `{skill}` |
+| POST | `/v1/skills/{id}/check` | `{id, currentHash, latestHash, updateAvailable}` |
+| POST | `/v1/skills/{id}/update` | `{skill}` |
+| DELETE | `/v1/skills/{id}` | `{removed}` |
 | POST | `/v1/sessions/materialize` | `{home, skillsDir, links}` |
 | GET | `/v1/collections` | `{collections}` |
 | POST | `/v1/collections` | `{collection}` |
+| DELETE | `/v1/collections/{id}` | `{deleted}` |
+| GET | `/v1/global-links` | `{links}` |
+| POST | `/v1/global-links/sync` | `{links}` |
 
 ### 2.1 类型
 
@@ -48,8 +54,10 @@ type SkillSummary = {
   description: string;
   currentHash: string;     // 当前版本 hash
   license: string | null;
-  sourceKind: string;      // local（以后 git / archive / url / marketplace）
+  sourceKind: string;      // local | git | url（marketplace 以后）
   sourceUrl: string | null;
+  sourceRef: string | null;
+  sourceSubdir: string | null;
   hasScripts: boolean;
   sizeBytes: number;
   installedAt: string;     // RFC3339
@@ -66,13 +74,25 @@ type MaterializedLink = { id: string; path: string; target: string };
 type Materialized = { home: string; skillsDir: string; links: MaterializedLink[] };
 ```
 
-### 2.2 安装（本地目录）
+### 2.2 安装
 
 ```http
 POST /v1/skills/install
 { "path": "/Users/me/src/backend-api" }
 ```
 
+或：
+
+```http
+POST /v1/skills/install
+{
+  "source": "owner/repo",
+  "gitRef": "main",
+  "subdir": "skills/backend-api"
+}
+```
+
+- 支持本地目录、Git/GitHub/GitLab/Azure、zip/tar.gz/tar、直链 `SKILL.md`。
 - 目录必须包含 `SKILL.md`；frontmatter 必须有 `name`、`description`。
 - 同名同内容幂等；同名新内容 = 新版本，`currentHash` 更新。
 - 安装**不会**自动绑定 Agent；绑定在 Agents 页。
@@ -108,7 +128,22 @@ POST /v1/sessions/materialize
 - 任一技能缺失 → `409 skill_missing`，不部分建链。
 - 同名真实目录/文件 → `400`，不删除用户内容。
 
-### 2.4 集合
+### 2.4 更新 / 删除 / 全局链接
+
+```http
+POST /v1/skills/{id}/check
+POST /v1/skills/{id}/update
+DELETE /v1/skills/{id}
+GET  /v1/global-links
+POST /v1/global-links/sync   { "agents": ["claude_code", "codex"]? }
+```
+
+- `check` 只比较 hash，不落盘。
+- `update` 拉取新版本并移动 `current`；已 materialize 的 session 仍 pin 旧 hash。
+- `remove` 删全局/current 链接，版本移入 `skill-layer/trash`。
+- `global-links` 是终端裸跑用的 per-CLI 链接；Agent 会话不用它。
+
+### 2.5 集合
 
 ```http
 GET /v1/collections
@@ -258,16 +293,16 @@ POST /v1/collections
 
 **可用（可以直接联调）**
 
-- skill-layer daemon 的 health/list/get/install(local)/materialize/collections。
+- skill-layer daemon 的 health/list/get/install（本地/Git/归档/URL）、check/update/remove、materialize、collections、global-links。
 - 全局库 + 版本 hash + session home 软链。
 - 错误形状、409 missing。
 
 **不可用（先做 UI 空态或 mock）**
 
 - core 的 `skill_*` / `agent_skills_set` 代理。
-- Git/归档/URL/市场安装。
-- 全局 per-CLI 链接同步。
-- 删除/更新检查/审计。
+- 市场搜索/安装。
+- 按技能 × CLI 的全局链接开关（目前 sync 全部）。
+- 审计/垃圾回收/脚本执行策略。
 - 「被哪些 Agent 使用」的数据（需要 core 绑定表）。
 
 ---

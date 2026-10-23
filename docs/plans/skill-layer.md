@@ -1,7 +1,7 @@
 # Skill 层：全局一份库，按 Agent 启用
 
 Updated: 2026-10-23
-Status: Proposed（调研完成；方案已修正为「全局库 + Agent 选择 + 会话级 home」）
+Status: In Progress（后端核心已落地；前端/CLI 待接）
 关系：`cli-layer-migration.md` 的 capabilities/skills；`model-layer` 不感知技能；`AgentOS` 只渲染。
 
 ---
@@ -267,7 +267,7 @@ agent_collections(role_id, collection_id, PRIMARY KEY(role_id, collection_id));
   - `~/.codex/skills/<id>` → `~/.agents/skills/<id>`
   - OpenCode/Gemini 同理。
 - 这些链接只给终端直接运行 CLI 用；Agent 会话使用自己的 home，不受影响。
-- 新技能安装后默认同步全局链接；可按 CLI 关闭。
+- 首版由显式 `POST /v1/global-links/sync` 同步；安装后自动同步、按 CLI 关闭后置。
 - Codex `.system` 不碰；整目录已是软链时识别并标 `foreign`，不重复建。
 
 ---
@@ -488,3 +488,21 @@ remove:  删除全局链接 / session 链接由会话结束清理
 - 自托管资源 registry：https://github.com/Observal/Observal
 - 发现聚合：https://github.com/davepoon/buildwithclaude
 - 技能目录：https://skills.sh
+
+
+---
+
+## 17. 后端核心进展（2026-10-23）
+
+`skill-layer/` 已落地第一版 daemon（`crewchat-skill`，`:3460`）：
+
+- SQLite registry：skills / versions / collections / global links。
+- 全局库 `~/.agents/skills` + 版本原件 `~/.agents/skill-store/<id>/<hash>`。
+- 安装源：本地目录、Git/GitHub/GitLab/Azure、zip/tar.gz/tar、直链 `SKILL.md`。
+- `check` / `update` / `remove`；`materialize`（只链选中技能、hash pin、session root）。
+- 全局 per-CLI 链接同步（claude_code / codex / open_code / gemini）。
+- 集合 CRUD（含删除）。
+- 7 个测试、clippy、HTTP 冒烟（本地/Git/归档安装、全局链接、update、remove）。
+
+未做：市场、按技能 × CLI 的全局开关、cli-layer/codeg 代理、AgentOS 接线、真实对话调用验收。
+下一步由其他 Agent 做前端；等 CLI 收口后再测真实会话。

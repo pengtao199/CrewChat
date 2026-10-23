@@ -1,9 +1,10 @@
 use crate::config::Config;
-use crate::registry::{Collection, Registry, SkillRow, SkillSummary, VersionRow};
+use crate::registry::{Collection, GlobalLink, Registry, SkillRow, SkillSummary, VersionRow};
 use crate::skill::{
     collect_files, copy_tree, has_script_files, hash_tree, list_files, now_rfc3339, parse_skill,
     slugify, FileInfo,
 };
+use crate::source;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -41,6 +42,15 @@ pub struct SkillDetail {
     pub skill: SkillSummary,
     pub content: String,
     pub files: Vec<FileInfo>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateCheck {
+    pub id: String,
+    pub current_hash: String,
+    pub latest_hash: String,
+    pub update_available: bool,
 }
 
 #[derive(Debug)]
@@ -94,26 +104,35 @@ impl Store {
         }))
     }
 
-    /// Install or update one skill from a local directory. The directory must
-    /// contain `SKILL.md`; a new content hash becomes the current version.
     pub fn install_local(&mut self, source: &Path) -> Result<SkillSummary> {
-        let source = source
-            .canonicalize()
-            .with_context(|| format!("resolve skill source {}", source.display()))?;
-        if !source.is_dir() {
-            bail!("skill source is not a directory: {}", source.display());
-        }
+        let path = source
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("skill path is not valid UTF-8"))?;
+        self.install_source(Some(path), None, None, None)
+    }
 
-        let header = parse_skill(&source)?;
+    pub fn install_source(
+        &mut self,
+        path: Option<&str>,
+        source: Option<&str>,
+        git_ref: Option<&str>,
+        subdir: Option<&str>,
+    ) -> Result<SkillSummary> {
+        let prepared = source::prepare(path, source, git_ref, subdir)?;
+        self.install_prepared(&prepared)
+    }
+
+    fn install_prepared(&mut self, prepared: &source::PreparedSource) -> Result<SkillSummary> {
+        let header = parse_skill(&prepared.path)?;
         let id = slugify(&header.name)?;
-        let hash = hash_tree(&source)?;
+        let hash = hash_tree(&prepared.path)?;
         let version = self.config.store_dir.join(&id).join(&hash);
 
         if !version.exists() {
             let parent = self.config.store_dir.join(&id);
             fs::create_dir_all(&parent)?;
             let temp = parent.join(format!(".tmp-{}", uuid::Uuid::new_v4()));
-            if let Err(error) = copy_tree(&source, &temp) {
+            if let Err(error) = copy_tree(&prepared.path, &temp) {
                 let _ = fs::remove_dir_all(&temp);
                 return Err(error);
             }
@@ -141,8 +160,10 @@ impl Store {
             description: header.description,
             current_hash: hash.clone(),
             license: header.license,
-            source_kind: "local".to_string(),
-            source_url: Some(source.to_string_lossy().to_string()),
+            source_kind: prepared.kind.to_string(),
+            source_url: Some(prepared.location.clone()),
+            source_ref: prepared.reference.clone(),
+            source_subdir: prepared.subdir.clone(),
             has_scripts,
             size_bytes,
             installed_at: now.clone(),
@@ -155,6 +176,8 @@ impl Store {
             path: version.to_string_lossy().to_string(),
             source_kind: row.source_kind.clone(),
             source_url: row.source_url.clone(),
+            source_ref: row.source_ref.clone(),
+            source_subdir: row.source_subdir.clone(),
             license: row.license.clone(),
             created_at: now,
         })?;
@@ -165,8 +188,135 @@ impl Store {
             .ok_or_else(|| anyhow::anyhow!("installed skill {id} disappeared from the registry"))
     }
 
-    /// Create the per-session skill directory and symlink only the selected
-    /// versions into it. The caller creates the CLI config home.
+    pub fn check_update(&self, id: &str) -> Result<UpdateCheck> {
+        let summary = self
+            .registry
+            .get(id)?
+            .ok_or_else(|| anyhow::anyhow!("skill not found: {id}"))?;
+        let prepared = prepare_from_summary(&summary)?;
+        let latest_hash = hash_tree(&prepared.path)?;
+        Ok(UpdateCheck {
+            id: id.to_string(),
+            current_hash: summary.current_hash.clone(),
+            latest_hash: latest_hash.clone(),
+            update_available: latest_hash != summary.current_hash,
+        })
+    }
+
+    pub fn update(&mut self, id: &str) -> Result<SkillSummary> {
+        let summary = self
+            .registry
+            .get(id)?
+            .ok_or_else(|| anyhow::anyhow!("skill not found: {id}"))?;
+        let prepared = prepare_from_summary(&summary)?;
+        let header = parse_skill(&prepared.path)?;
+        let new_id = slugify(&header.name)?;
+        if new_id != id {
+            bail!("source now declares skill {new_id}; expected {id}");
+        }
+        self.install_prepared(&prepared)
+    }
+
+    pub fn remove(&mut self, id: &str) -> Result<bool> {
+        let Some(summary) = self.registry.get(id)? else {
+            return Ok(false);
+        };
+
+        for link in self
+            .registry
+            .list_global_links()?
+            .into_iter()
+            .filter(|link| link.skill_id == id)
+        {
+            let path = PathBuf::from(&link.path);
+            if let Ok(metadata) = fs::symlink_metadata(&path) {
+                if metadata.file_type().is_symlink() {
+                    let _ = fs::remove_file(&path);
+                }
+            }
+        }
+
+        let current = self.config.skills_dir.join(id);
+        if let Ok(metadata) = fs::symlink_metadata(&current) {
+            if metadata.file_type().is_symlink() {
+                fs::remove_file(&current)?;
+            } else {
+                bail!("refusing to remove non-symlink at {}", current.display());
+            }
+        }
+
+        let version_dir = self.config.store_dir.join(id);
+        if version_dir.exists() {
+            let trash = self
+                .config
+                .root
+                .join("skill-layer")
+                .join("trash")
+                .join(now_rfc3339().replace(':', "-"))
+                .join(id);
+            if let Some(parent) = trash.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::rename(&version_dir, &trash)
+                .with_context(|| format!("move {} to trash", version_dir.display()))?;
+        }
+
+        self.registry.delete_skill(id)?;
+        let _ = summary;
+        Ok(true)
+    }
+
+    pub fn sync_global_links(&mut self, agents: Option<&[String]>) -> Result<Vec<GlobalLink>> {
+        let skills = self.registry.list()?;
+        let now = now_rfc3339();
+
+        for (agent_type, dir) in global_dirs() {
+            if let Some(agents) = agents {
+                if !agents.iter().any(|agent| agent == agent_type) {
+                    continue;
+                }
+            }
+            fs::create_dir_all(&dir)?;
+
+            for skill in &skills {
+                let target = self.config.skills_dir.join(&skill.id);
+                if !target.exists() {
+                    continue;
+                }
+                let link_path = dir.join(&skill.id);
+                let mut state = "linked";
+
+                if let Ok(metadata) = fs::symlink_metadata(&link_path) {
+                    if metadata.file_type().is_symlink() {
+                        let existing = fs::read_link(&link_path)?;
+                        if existing != target {
+                            fs::remove_file(&link_path)?;
+                            symlink(&target, &link_path)?;
+                        }
+                    } else {
+                        state = "foreign";
+                    }
+                } else {
+                    symlink(&target, &link_path)?;
+                }
+
+                self.registry.upsert_global_link(&GlobalLink {
+                    skill_id: skill.id.clone(),
+                    agent_type: agent_type.to_string(),
+                    path: link_path.to_string_lossy().to_string(),
+                    state: state.to_string(),
+                    linked_at: now.clone(),
+                })?;
+            }
+        }
+
+        self.registry.list_global_links()
+    }
+
+    pub fn list_global_links(&self) -> Result<Vec<GlobalLink>> {
+        self.registry.list_global_links()
+    }
+
     pub fn materialize(
         &self,
         home: &Path,
@@ -317,6 +467,10 @@ impl Store {
         self.registry.list_collections()
     }
 
+    pub fn delete_collection(&mut self, id: &str) -> Result<bool> {
+        self.registry.delete_collection(id)
+    }
+
     fn update_current_link(&self, id: &str, hash: &str) -> Result<()> {
         let link = self.config.skills_dir.join(id);
         if let Ok(metadata) = fs::symlink_metadata(&link) {
@@ -335,4 +489,43 @@ impl Store {
             .with_context(|| format!("link {} to the current version", link.display()))?;
         Ok(())
     }
+}
+
+fn prepare_from_summary(summary: &SkillSummary) -> Result<source::PreparedSource> {
+    let location = summary
+        .source_url
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("skill {} has no source URL", summary.id))?;
+    let path = if summary.source_kind == "local" {
+        Some(location)
+    } else {
+        None
+    };
+    let source = if summary.source_kind == "local" {
+        None
+    } else {
+        Some(location)
+    };
+    source::prepare(
+        path,
+        source,
+        summary.source_ref.as_deref(),
+        summary.source_subdir.as_deref(),
+    )
+}
+
+fn global_dirs() -> Vec<(&'static str, PathBuf)> {
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let config_home = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".config"));
+
+    vec![
+        ("claude_code", home.join(".claude").join("skills")),
+        ("codex", home.join(".codex").join("skills")),
+        ("open_code", config_home.join("opencode").join("skills")),
+        ("gemini", home.join(".gemini").join("skills")),
+    ]
 }

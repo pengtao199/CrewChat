@@ -2,6 +2,7 @@ pub mod config;
 pub mod http;
 pub mod registry;
 pub mod skill;
+pub mod source;
 pub mod store;
 
 pub use config::Config;

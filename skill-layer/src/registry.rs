@@ -13,6 +13,8 @@ pub struct SkillSummary {
     pub license: Option<String>,
     pub source_kind: String,
     pub source_url: Option<String>,
+    pub source_ref: Option<String>,
+    pub source_subdir: Option<String>,
     pub has_scripts: bool,
     pub size_bytes: u64,
     pub installed_at: String,
@@ -28,6 +30,16 @@ pub struct Collection {
     pub skill_ids: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GlobalLink {
+    pub skill_id: String,
+    pub agent_type: String,
+    pub path: String,
+    pub state: String,
+    pub linked_at: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct SkillRow {
     pub id: String,
@@ -37,6 +49,8 @@ pub struct SkillRow {
     pub license: Option<String>,
     pub source_kind: String,
     pub source_url: Option<String>,
+    pub source_ref: Option<String>,
+    pub source_subdir: Option<String>,
     pub has_scripts: bool,
     pub size_bytes: u64,
     pub installed_at: String,
@@ -50,6 +64,8 @@ pub struct VersionRow {
     pub path: String,
     pub source_kind: String,
     pub source_url: Option<String>,
+    pub source_ref: Option<String>,
+    pub source_subdir: Option<String>,
     pub license: Option<String>,
     pub created_at: String,
 }
@@ -64,12 +80,12 @@ impl Registry {
             Connection::open(path).with_context(|| format!("open registry {}", path.display()))?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
-        let mut registry = Self { conn };
+        let registry = Self { conn };
         registry.init()?;
         Ok(registry)
     }
 
-    fn init(&mut self) -> Result<()> {
+    fn init(&self) -> Result<()> {
         self.conn.execute_batch(
             r#"
             CREATE TABLE IF NOT EXISTS skills (
@@ -80,6 +96,8 @@ impl Registry {
                 current_hash TEXT NOT NULL,
                 source_kind TEXT NOT NULL,
                 source_url TEXT,
+                source_ref TEXT,
+                source_subdir TEXT,
                 has_scripts INTEGER NOT NULL DEFAULT 0,
                 size_bytes INTEGER NOT NULL DEFAULT 0,
                 installed_at TEXT NOT NULL,
@@ -91,6 +109,8 @@ impl Registry {
                 path TEXT NOT NULL,
                 source_kind TEXT NOT NULL,
                 source_url TEXT,
+                source_ref TEXT,
+                source_subdir TEXT,
                 license TEXT,
                 created_at TEXT NOT NULL,
                 PRIMARY KEY (skill_id, hash),
@@ -107,8 +127,37 @@ impl Registry {
                 PRIMARY KEY (collection_id, skill_id),
                 FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
             );
+            CREATE TABLE IF NOT EXISTS global_links (
+                skill_id TEXT NOT NULL,
+                agent_type TEXT NOT NULL,
+                path TEXT NOT NULL,
+                state TEXT NOT NULL,
+                linked_at TEXT NOT NULL,
+                PRIMARY KEY (skill_id, agent_type),
+                FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+            );
             "#,
         )?;
+
+        // Upgrade databases created by the first cut.
+        self.ensure_column("skills", "source_ref", "TEXT")?;
+        self.ensure_column("skills", "source_subdir", "TEXT")?;
+        self.ensure_column("skill_versions", "source_ref", "TEXT")?;
+        self.ensure_column("skill_versions", "source_subdir", "TEXT")?;
+        Ok(())
+    }
+
+    fn ensure_column(&self, table: &str, column: &str, declaration: &str) -> Result<()> {
+        let mut statement = self.conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        let names = statement
+            .query_map([], |row| row.get::<_, String>(1))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        if !names.iter().any(|name| name == column) {
+            self.conn.execute(
+                &format!("ALTER TABLE {table} ADD COLUMN {column} {declaration}"),
+                [],
+            )?;
+        }
         Ok(())
     }
 
@@ -117,8 +166,9 @@ impl Registry {
             r#"
             INSERT INTO skills (
                 id, name, description, license, current_hash, source_kind,
-                source_url, has_scripts, size_bytes, installed_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                source_url, source_ref, source_subdir, has_scripts, size_bytes,
+                installed_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 description = excluded.description,
@@ -126,6 +176,8 @@ impl Registry {
                 current_hash = excluded.current_hash,
                 source_kind = excluded.source_kind,
                 source_url = excluded.source_url,
+                source_ref = excluded.source_ref,
+                source_subdir = excluded.source_subdir,
                 has_scripts = excluded.has_scripts,
                 size_bytes = excluded.size_bytes,
                 updated_at = excluded.updated_at
@@ -138,6 +190,8 @@ impl Registry {
                 row.current_hash,
                 row.source_kind,
                 row.source_url,
+                row.source_ref,
+                row.source_subdir,
                 i64::from(row.has_scripts),
                 row.size_bytes as i64,
                 row.installed_at,
@@ -151,8 +205,9 @@ impl Registry {
         self.conn.execute(
             r#"
             INSERT OR IGNORE INTO skill_versions (
-                skill_id, hash, path, source_kind, source_url, license, created_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                skill_id, hash, path, source_kind, source_url, source_ref,
+                source_subdir, license, created_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
             "#,
             params![
                 row.skill_id,
@@ -160,6 +215,8 @@ impl Registry {
                 row.path,
                 row.source_kind,
                 row.source_url,
+                row.source_ref,
+                row.source_subdir,
                 row.license,
                 row.created_at,
             ],
@@ -171,7 +228,8 @@ impl Registry {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT id, name, description, current_hash, license, source_kind,
-                   source_url, has_scripts, size_bytes, installed_at, updated_at
+                   source_url, source_ref, source_subdir, has_scripts, size_bytes,
+                   installed_at, updated_at
             FROM skills ORDER BY name COLLATE NOCASE
             "#,
         )?;
@@ -187,7 +245,8 @@ impl Registry {
         let mut stmt = self.conn.prepare(
             r#"
             SELECT id, name, description, current_hash, license, source_kind,
-                   source_url, has_scripts, size_bytes, installed_at, updated_at
+                   source_url, source_ref, source_subdir, has_scripts, size_bytes,
+                   installed_at, updated_at
             FROM skills WHERE id = ?1
             "#,
         )?;
@@ -281,6 +340,70 @@ impl Registry {
         }
         Ok(result)
     }
+
+    pub fn delete_collection(&mut self, id: &str) -> Result<bool> {
+        let changed = self
+            .conn
+            .execute("DELETE FROM collections WHERE id = ?1", params![id])?;
+        Ok(changed > 0)
+    }
+
+    pub fn delete_skill(&mut self, id: &str) -> Result<bool> {
+        let tx = self.conn.transaction()?;
+        tx.execute(
+            "DELETE FROM collection_skills WHERE skill_id = ?1",
+            params![id],
+        )?;
+        tx.execute("DELETE FROM global_links WHERE skill_id = ?1", params![id])?;
+        tx.execute(
+            "DELETE FROM skill_versions WHERE skill_id = ?1",
+            params![id],
+        )?;
+        let changed = tx.execute("DELETE FROM skills WHERE id = ?1", params![id])?;
+        tx.commit()?;
+        Ok(changed > 0)
+    }
+
+    pub fn upsert_global_link(&mut self, link: &GlobalLink) -> Result<()> {
+        self.conn.execute(
+            r#"
+            INSERT INTO global_links (skill_id, agent_type, path, state, linked_at)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ON CONFLICT(skill_id, agent_type) DO UPDATE SET
+                path = excluded.path,
+                state = excluded.state,
+                linked_at = excluded.linked_at
+            "#,
+            params![
+                link.skill_id,
+                link.agent_type,
+                link.path,
+                link.state,
+                link.linked_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_global_links(&self) -> Result<Vec<GlobalLink>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT skill_id, agent_type, path, state, linked_at FROM global_links ORDER BY agent_type, skill_id",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(GlobalLink {
+                skill_id: row.get(0)?,
+                agent_type: row.get(1)?,
+                path: row.get(2)?,
+                state: row.get(3)?,
+                linked_at: row.get(4)?,
+            })
+        })?;
+        let mut result = Vec::new();
+        for row in rows {
+            result.push(row?);
+        }
+        Ok(result)
+    }
 }
 
 fn map_summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
@@ -292,9 +415,11 @@ fn map_summary(row: &rusqlite::Row<'_>) -> rusqlite::Result<SkillSummary> {
         license: row.get(4)?,
         source_kind: row.get(5)?,
         source_url: row.get(6)?,
-        has_scripts: row.get::<_, i64>(7)? != 0,
-        size_bytes: row.get::<_, i64>(8)?.max(0) as u64,
-        installed_at: row.get(9)?,
-        updated_at: row.get(10)?,
+        source_ref: row.get(7)?,
+        source_subdir: row.get(8)?,
+        has_scripts: row.get::<_, i64>(9)? != 0,
+        size_bytes: row.get::<_, i64>(10)?.max(0) as u64,
+        installed_at: row.get(11)?,
+        updated_at: row.get(12)?,
     })
 }
