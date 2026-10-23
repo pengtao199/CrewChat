@@ -1,8 +1,9 @@
 # CrewChat 项目规则
 
-多 Agent 协作桌面应用。三条腿：核心 **Codeg**（`codeg/`，Rust 后端 + Next.js 界面，二次开发）、
-模型层 **model-layer/**（Rust，统一模型管理、本地网关与控制面；`ccr/` 仅作回退保留）、macOS 壳 **AgentOS**（`AgentOS/`，Swift）。
-v1 的 Python 编排层已冻结归档在 `archive/`，不参与运行时。
+多 Agent 协作桌面应用。当前运行时：macOS 壳 **AgentOS**（`AgentOS/`，Swift）、
+核心 **cli-layer/**（Rust，ACP 宿主 / 会话 / 花名册 / 引擎管理）、模型层 **model-layer/**（Rust，
+统一模型管理、本地网关与控制面）、技能层 **skill-layer/**（Rust，全局技能库与会话 materialize）。
+`codeg/` 与 `ccr/` 已冻结为只读回退；v1 的 Python 编排层归档在 `archive/`，均不参与当前运行时。
 
 花名册里只有两份预置 Agent 了解本应用：`agent-helper`（改别人的 Agent 配置）和 `crewchat-manager`（群聊 Leader）。其余 Agent 是通用角色，不绑定本仓库。细节见 `AGENTS/agent-model.md`。
 
