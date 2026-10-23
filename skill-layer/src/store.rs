@@ -183,6 +183,13 @@ impl Store {
         })?;
         self.update_current_link(&id, &hash)?;
 
+        // A fresh install should be visible to terminal CLIs immediately; the
+        // per-Agent session path is materialized separately. Link failures
+        // must not roll back an otherwise valid install.
+        if let Err(error) = self.sync_global_links(None) {
+            eprintln!("[skill-layer] global link sync after install {id} failed: {error}");
+        }
+
         self.registry
             .get(&id)?
             .ok_or_else(|| anyhow::anyhow!("installed skill {id} disappeared from the registry"))
