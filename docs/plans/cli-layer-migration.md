@@ -533,3 +533,79 @@ enum ModelInjection {
   Antigravity）有明确、可移植的机制；其余 7 个待验证。
 - **不自己写配置模板**：优先 copy `cc-switch`（MIT）的 writer，参数化到 per-session 根目录。
 - 下一刀：先移植 Gemini / Grok / Hermes / Kimi / Antigravity 五套注入，再用真实登录各跑一轮。
+
+### 12.7 API 优先：能走 API 的就不走登录
+
+原则：**CLI 支持自定义 base URL + API key 的，统一指向 `model-layer` 的 `:3456`，
+用 `local-gateway` caller key。** 不触发 OAuth，也不需要每家厂商的 API key。
+
+| 引擎 | 协议 | 能用 model-layer | 测试成本 | 结论 |
+| --- | --- | --- | --- | --- |
+| Claude Code | Anthropic Messages | ✅ | 已有 | 已做 |
+| Codex | OpenAI Responses | ✅ | 已有 | 已做 |
+| OpenCode | OpenAI Chat | ✅ | 已有 | 已做 |
+| Hermes | OpenAI / Anthropic custom provider | ✅ | 一个 gateway key | A |
+| Kimi Code | `openai` / `openai_responses` / `anthropic` | ✅ | 一个 gateway key | A |
+| OpenClaw | `models.providers` + `api` | ✅（待确认 api 字段） | 一个 gateway key | A |
+| Grok | OpenAI Responses + `env_key` | ✅ | 一个 gateway key | A |
+| Pi | `models.json` / `settings.json` | ✅（待确认 Pi 的 provider 类型） | 一个 gateway key | A |
+| Cline | 待查 | ? | 待查 | B |
+| DeepSeek Harness | 待查 | ? | 待查 | B |
+| CodeBuddy | 腾讯登录/API | ? | 需账号 | B/C |
+| Qoder | 阿里登录/API | ? | 需账号 | B/C |
+| Cursor | Cursor 账号 | ❌ 无自定义端点 | 需账号 | C |
+| Gemini CLI | Gemini `generateContent` | ❌ model-layer 没有 Gemini 协议 | 需 Gemini key | C |
+| Google Antigravity | Gemini `generateContent` | ❌ | 需 Gemini key | C |
+
+**关键：不需要 15 个 API key。** Tier A 的 CLI 都可以用同一个
+`local-gateway` key + 同一个模型（如 `OpenCode Go/mimo-v2.6-flash`）做冒烟。
+
+### 12.8 接入与测试顺序
+
+**Tier A（现在就能测，建议先做）**
+
+1. **Grok**：`~/.grok/config.toml` 写 `base_url` / `api_backend = "responses"` /
+   `env_key`，模型用 root `--model`；不需要 per-session home。
+2. **Hermes**：每会话 `HERMES_HOME`，`config.yaml` 的 `custom_providers` 指向
+   `:3456`；copy `cc-switch/hermes_config.rs`。
+3. **Kimi**：每会话 `KIMI_CODE_HOME`，`config.toml` 的 provider 用
+   `type = "openai" | "anthropic"`，指向 `:3456`；copy `cc-switch/kimi_config.rs`。
+4. **OpenClaw**：每会话 `HOME`（或确认 `OPENCLAW_HOME`），`openclaw.json` 的
+   `models.providers` 指向 `:3456`；copy `cc-switch/openclaw_config.rs`。
+5. **Pi**：每会话 `PI_CODING_AGENT_DIR`，`models.json` / `settings.json` 指向
+   `:3456`；copy `cc-switch/pi_config/`，再确认 `pi-acp` 透传模型。
+
+**Tier B（先调研，不写）**
+
+- Cline / DeepSeek / CodeBuddy / Qoder / Cursor：先查官方文档是否支持
+  `OPENAI_BASE_URL` / `*_API_KEY` / `--model`；不支持就 `supported:false`。
+- 不要为了“补齐”给它们硬塞一个假的 provider。
+
+**Tier C（需要 Gemini 协议）**
+
+- Gemini CLI / Antigravity 要的是 Gemini `generateContent`，不是 OpenAI。
+- 要么给 model-layer 加一个 Gemini 兼容端点（OpenAI → Gemini 翻译），
+  要么用厂商 Gemini key；当前两个都没有，所以先不承诺。
+- 这也意味着它们不需要现在测。
+
+### 12.9 测试策略（没有很多 API key 也能测）
+
+- **一个 key 测所有 API-mode CLI**：`model-layer` 的 `local-gateway` key；
+  上游用现有 `OpenCode Go` 或 `OpenRouter` 任意一个模型。
+- 每个 CLI 的 smoke：临时 home + 指向 `:3456` 的配置 + `acp_connect` →
+  prompt `Reply with exactly: <engine>-ok` → `turn_complete`。
+- 不碰登录：配置里走“custom provider / API key”分支，不走 OAuth。
+- 不能测的（Gemini/Antigravity/Cursor/CodeBuddy/Qoder）：
+  - 只做 config writer 的单元测试（temp dir 写/读）；
+  - 在 `acp_list_agents` 里保留行，但 `agent_role_model_face` 返回
+    `supported:false`，并注明原因。
+- 不在没 key 的情况下假装跑过；文档和界面都显示“未验证”。
+
+### 12.10 结论
+
+- **登录类 CLI 不是不能接，而是没必要优先接**：我们的 provider 是 API，
+  API-mode 的 CLI 统一指向 model-layer，一个 key 就能测。
+- **Tier A 五个**（Grok / Hermes / Kimi / OpenClaw / Pi）优先；用 cc-switch 的 writer，
+  不自己写配置模板。
+- **Gemini / Antigravity** 需要 Gemini 协议，**Cursor / CodeBuddy / Qoder** 可能只有
+  自家登录；这四个先不承诺，标记未验证。
