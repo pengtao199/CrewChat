@@ -34,6 +34,19 @@ VERBOSE=0 ./scripts/build-gateway.sh
 `MCP_LAYER_GATEWAY_BIN` 可覆盖 sidecar 路径；默认找
 `mcp-layer/bin/crewchat-mcp-gateway`。
 
+### 构建网络问题
+
+当前构建依赖 `proxy.golang.org`。如果下载大模块（例如 SQLite）时出现
+`i/o timeout` 或 `unexpected EOF`，这是网络传输问题，不是依赖冲突。
+
+优先在稳定网络下重跑；成功一次后 Go cache 会复用。若目标机器长期无法访问：
+
+1. 在有网络的机器上执行 `go mod download`，再执行 `go mod vendor`，把
+   `vendor/gateway/vendor/` 一起提交；构建时自动走离线 vendor。
+2. 或使用同版本预构建 sidecar，并校验来源/哈希。
+3. 不建议为此重写整个网关；如确需 Rust 实现，只做覆盖 CrewChat 需求的最小
+   gateway，而不是复刻上游全部能力。
+
 ## 运行
 
 ```sh
