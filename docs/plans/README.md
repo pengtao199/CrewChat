@@ -4,7 +4,7 @@
 
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
-| [Agents 页面与团队会话](agents-page-and-team.md) | Proposed | **核心设计**：Agents 页组装 / readiness / Test Run；单 Agent + Leader 中介团队、委派、团队快照、权限与事件归属 |
+| [Agents 页面与团队会话](agents-page-and-team.md) | Proposed | **核心设计**：Agents 页组装 / readiness / Test Run；单 Agent + Leader 中介团队、委派、团队快照、权限与事件归属；团队留在 cli-layer 的模块化单体，MCP 独立成层 |
 | [Agents 核心协作](agents-core-collaboration.md) | Superseded | Codeg 时代的历史方案；保留作实现参考，不再作为运行时依据 |
 | [AgentOS 壳（macOS 前端）](agentos-shell.md) | In Progress | `AgentOS/` 下的 SwiftUI 壳：拉起并消费 `codeg-server` 的 HTTP/WS 契约，落地会话 / 流式 / 委派可见性 / 审批 / 花名册与打包 |
 | [Swift 原生运行时迁移](swift-runtime-migration.md) | Proposed | 去掉 `codeg-server` / CCR：Swift 自己拥有 ACP、持久化、模型网关、权限与编排；外部 CLI/adapter 保留。模型层已拆出，见下 |

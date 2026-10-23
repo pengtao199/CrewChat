@@ -29,7 +29,8 @@ Codeg 只作为只读参考和历史实现，不再作为产品核心。
 AgentOS (SwiftUI)
   │  只渲染、只发命令
   ▼
-cli-layer (Rust)
+cli-layer (Rust, 当前核心 / BFF)
+  ├─ API 适配（AgentOS 唯一入口）
   ├─ Agent 定义 / readiness / 测试运行
   ├─ 单 Agent 与团队会话
   ├─ ACP 进程、事件、权限
@@ -45,7 +46,74 @@ cli-layer (Rust)
 - skill-layer 不知道 Agent，只按 `skill_ids` 为 session home 建链。
 - Agent 的“引用关系”只存在 cli-layer。
 
-### 2.2 当前不做
+### 2.2 为什么 Agent/团队不单独做 sidecar
+
+这是本文最重要的架构取舍：**cli-layer 会变“重”，但不应该变成 codeg 那样的单体；
+也不应该为了“每层一个进程”再拆一个 agent-layer。**
+
+| 方案 | 优点 | 缺点 | 结论 |
+| --- | --- | --- | --- |
+| A. Agent / 团队留在 cli-layer，做模块化单体 | 团队与 ACP session/事件/权限天然同进程；一个 SQLite 写入方；打包/生命周期简单 | cli-layer 责任变多，需要严格模块边界 | **当前采用** |
+| B. 新建 `crew-layer` / `agent-layer` | 领域边界更纯；团队逻辑可独立演进 | 需要自己的 DB 或双写；session/event/permission 要跨进程代理；多一个 sidecar 的端口、健康、打包、故障面 | 暂不采用 |
+| C. 把团队逻辑放进 AgentOS | 少一个进程 | 壳承载业务状态，违背“壳只渲染” | 不采用 |
+
+判断标准不是“代码多不多”，而是**是否共享同一个生命周期和同一份状态**：
+
+- Agent 定义和团队快照必须和 conversations / turns / delegations 在同一个事务边界。
+- 委派必须直接操作 ACP connection、permission、cancel、事件流。
+- 这些都不是独立资源，拆出去只会制造 IPC 和状态复制。
+
+所以：**Agent / 团队是核心域，留在 cli-layer；model / skill / MCP 是独立资源域，
+各自一个 sidecar。** MCP 已决定用 `mcp-layer`，与本设计不冲突。
+
+### 2.3 cli-layer 的硬边界
+
+为了避免重新长成 codeg，给 cli-layer 划死边界：
+
+允许：
+
+- Agent 定义、readiness、test run
+- 单 Agent / 团队会话、委派、团队快照
+- ACP 进程、事件、权限、取消
+- conversations / turns / delegations / agent_roles 持久化
+- 作为 AgentOS 的唯一 HTTP/WS 入口，代理 model / skill / MCP 命令
+
+禁止：
+
+- 供应商密钥、模型路由、额度计算（归 model-layer）
+- 技能内容、版本库、安装/更新（归 skill-layer）
+- MCP server 生命周期、transport、工具发现（归 mcp-layer）
+- SwiftUI / 页面状态 / 文案布局（归 AgentOS）
+- 为每个外部 CLI 重写 adapter（adapter 是外部依赖）
+
+模块边界：
+
+```text
+cli-layer/src/
+├─ api/          AgentOS 命令适配；不写业务规则
+├─ roster/       Agent 定义 / readiness / test run
+├─ runtime/      ACP host / engines / overlay / permissions
+├─ sessions/     conversations / turns / events
+├─ team/         team snapshot / delegation broker / member lifecycle
+└─ store/        唯一 SQLite 写入方
+```
+
+如果未来团队演进成**跨机器、长时间调度、council/roundtable 平台**，再按稳定接口
+把 `team/` 抽成独立层；触发条件是“需要独立进程/独立部署/独立扩缩容”，不是
+“文件行数变多”。
+
+### 2.4 什么时候才拆
+
+只有满足以下任一条件才考虑拆 `crew-layer`：
+
+1. 团队编排需要在多台机器/远程 worker 上运行；
+2. 需要独立于 App 生命周期长期驻留；
+3. 需要独立的资源配额/多租户隔离；
+4. cli-layer 的团队模块开始反向依赖 UI 或 provider 逻辑，边界已经失控。
+
+否则保持一个进程、一个数据库、清晰模块。
+
+### 2.5 当前不做
 
 - MCP 的扫描/写入/按角色挂载（字段预留，核心命令后置）。
 - Agent 自由群聊 / roundtable（后续可选）。
