@@ -212,7 +212,7 @@ tool → permission → cancel；不接 AgentOS。
 
 ### Phase 2：Codex + OpenCode + 花名册（2–3 周）
 
-- 引擎 registry 裁剪到 3 个；per-role overlay 接 model-layer；
+- 引擎 registry 扩展到 15 个，per-role overlay 先接 Claude / Codex / OpenCode；
 - 花名册 `agent_roles_*` + `agent_role_model_face`；
 - 权限审批 `/ws/events` + `acp_respond_permission`。
 
@@ -270,7 +270,24 @@ tool → permission → cancel；不接 AgentOS。
 | `commands/{folders,conversations,agent_roles,mcp,skills,engines}.rs` | `http/`（只取 handler 形状，传输层重写） |
 | `acp/registry.rs` / `binary_cache.rs` / `latest_release.rs` / `mcp_scope.rs` | `engines/`、`capabilities/` |
 
-### 7.4 不 copy
+### 7.4 从 cc-switch（MIT）
+
+| 源 | 目标 |
+| --- | --- |
+| `src-tauri/src/gemini_config.rs` | `engines/config_writers/gemini.rs` |
+| `src-tauri/src/grok_config.rs` | `engines/config_writers/grok.rs` |
+| `src-tauri/src/hermes_config.rs` | `engines/config_writers/hermes.rs` |
+| `src-tauri/src/kimi_config.rs` | `engines/config_writers/kimi.rs` |
+| `src-tauri/src/openclaw_config.rs` | `engines/config_writers/openclaw.rs` |
+| `src-tauri/src/codex_config.rs` | 已有，参考其 provider/catalog 处理 |
+| `src-tauri/src/opencode_config.rs` | 已有，参考其 JSONC 处理 |
+| `src-tauri/src/agy_config.rs` | `engines/config_writers/antigravity.rs`（`--gemini_dir`） |
+| `src-tauri/src/pi_config/` | `engines/config_writers/pi.rs` |
+
+复制时把「写全局 `~/.xxx`」改成「写 `<data>/roles/<role>/xxx`」，保留
+`[from cc-switch]` 与 MIT 声明。
+
+### 7.5 不 copy
 
 - `acp/connection/mod.rs`、`acp/manager/mod.rs`（耦合太深）；
 - `acp/browser_tools.rs`、`computer_tools.rs`、`canvas`、`web/`、`parsers/`；
