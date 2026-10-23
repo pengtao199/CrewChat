@@ -37,7 +37,7 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 | `health` | ✅ |
 | `/ws/events`（attach / replay / event） | ✅ 骨架 |
 | `acp_connect` / `acp_prompt` / `acp_cancel` / `acp_respond_permission` | ✅ Claude 路径 |
-| `acp_list_agents` | ✅ Claude / Codex / OpenCode |
+| `acp_list_agents` | ✅ 15 个内置引擎（Claude / Codex / OpenCode / Gemini / OpenClaw / Cline / Hermes / CodeBuddy / Kimi / Pi / Grok / Cursor / DeepSeek / Qoder / Antigravity） |
 | `ccr_health` / `ccr_call` / provider save/delete/probe / disabled models | ✅ 薄代理到 model-layer |
 | `agent_roles_*` / `agent_role_model_face` | ✅ 基础 |
 | folders / conversations | ✅ 基础 |
@@ -64,13 +64,18 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 - `/ws/events`：ready → replay → attached → event。
 - 模型页代理：`getConfig` 返回 3 provider / 38 models。
 - CLI 管理后端：
-  - `acp_list_agents` 返回 installed/registry version、enabled、env；
+  - 引擎注册表 15 个（12 个 npx、3 个 binary），launch spec 对齐 codeg 的 pin；
+  只有 Claude / Codex / OpenCode 支持 per-role 模型注入，其余用 CLI 自己的模型配置。
+- `acp_list_agents` 返回 installed/registry version、enabled、env；
   - `acp_update_agent_preferences` 的 env 能进入子进程（fake agent 收到 `env:bar`）；
   - Claude 0.89.1 / Codex 2.2.2 / Pi 0.0.34 走 `acp_prepare_npx_agent`，OpenCode 1.18.35 走
     `acp_download_agent_binary`，本地安装后 `acp_connect` 可初始化；
   - `acp_fetch_agent_latest_release` 实测 Claude 0.94.0 / OpenCode 1.19.4 / Pi 0.0.34；
   - `acp_env_diagnostics` 返回 Node/npm/adapter/数据目录检查。
   - `acp_install_pi_binary` 路由已实现，但没在本机跑全局 npm 安装。
+- 其余 12 个需要登录的 CLI 未做真实 session；Antigravity 还需要
+  `$GEMINI_HOME/antigravity-acp/settings.json` 的 auth 配置，Cursor / Antigravity
+  没有可查的 latest 端点（返回 null）。
 
 ## 接到 AgentOS（开发开关，默认关闭）
 

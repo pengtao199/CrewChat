@@ -396,3 +396,23 @@ Phase 3 再默认打开。
 - `acp_env_diagnostics`：Node/npm/adapter/数据目录四段检查。
 
 前端未动；AgentOS 的 CLI 页接线后即可用。
+
+### 全量引擎注册（2026-10-23）
+
+按 codeg `acp/registry.rs` 的 pin 补齐 15 个内置引擎：
+
+- npx：Claude、Codex、Gemini、OpenClaw、Cline、Hermes、CodeBuddy、Kimi、Pi、
+  Grok、DeepSeek、Qoder；
+- binary：OpenCode、Cursor、Antigravity（Cursor/Antigravity 整树解压，
+  入口分别是 `dist-package/cursor-agent` 与 `agy_acp_server.par`）；
+- `acp_list_agents` 返回 15 行；`agent_role_model_face` 对非 overlay 引擎返回
+  `supported:false`，避免 Agent 页绑定一个注入不了的模型。
+
+限制：
+
+- per-role 模型注入仍只有 Claude / Codex / OpenCode；其他引擎用 CLI 自己的全局配置。
+- 12 个需要登录的 CLI 未逐一真跑 session；launch spec 来自 codeg 的已验证 pin。
+- Antigravity 需要 `$GEMINI_HOME/antigravity-acp/settings.json` 的 auth；
+  当前没有自动写该文件。
+- Cursor / Antigravity 没有稳定的 latest 端点，`acp_fetch_agent_latest_release`
+  返回 null；OpenCode 走 GitHub、npx 走 npm。

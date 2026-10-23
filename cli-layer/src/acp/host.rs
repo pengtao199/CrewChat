@@ -143,14 +143,20 @@ impl AcpHost {
         conversation_id: Option<String>,
         engine_env: BTreeMap<String, String>,
     ) -> Result<Value> {
-        let kind = self
+        let spec = self
             .engines
-            .kind(agent_type)
+            .find(agent_type)
             .ok_or_else(|| anyhow!("unsupported engine '{agent_type}'"))?;
+        if role.is_some() && spec.overlay == crate::engines::OverlayKind::None {
+            return Err(anyhow!(
+                "{} does not support per-role model injection yet",
+                spec.name
+            ));
+        }
 
         let overlay = match role.as_ref() {
             Some(role) => Some(roles::prepare(
-                kind,
+                spec.overlay,
                 role,
                 &self.config.model_layer_gateway,
                 api_key.as_deref(),
@@ -162,7 +168,7 @@ impl AcpHost {
         if let Some(overlay) = &overlay {
             env.extend(overlay.env.clone());
         }
-        let agent = self.engines.acp_agent(kind, &env)?;
+        let agent = self.engines.acp_agent(spec, &env)?;
 
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel();
@@ -297,7 +303,7 @@ impl AcpHost {
 
         let info = ConnectionInfo {
             id: connection_id.clone(),
-            agent_type: kind.agent_type().to_string(),
+            agent_type: spec.agent_type.to_string(),
             session_id: session_id.to_string(),
             conversation_id,
             model_label: overlay

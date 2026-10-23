@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
-use crate::engines::EngineKind;
+use crate::engines::OverlayKind;
 
 pub struct RoleOverlay {
     pub env: BTreeMap<String, String>,
@@ -17,7 +17,7 @@ pub struct RoleOverlay {
 /// Build a disposable home for one role. `api_key` is only needed by the
 /// Codex/OpenCode overlays; Claude reads the key through `apiKeyHelper`.
 pub fn prepare(
-    kind: EngineKind,
+    kind: OverlayKind,
     role: &Value,
     gateway: &str,
     api_key: Option<&str>,
@@ -63,9 +63,10 @@ pub fn prepare(
         .with_context(|| format!("create role home {}", home.display()))?;
 
     match kind {
-        EngineKind::ClaudeCode => prepare_claude(&home, &model_label, gateway),
-        EngineKind::Codex => prepare_codex(&home, &model_label, gateway, api_key),
-        EngineKind::OpenCode => prepare_opencode(&home, &model_label, gateway, api_key),
+        OverlayKind::Claude => prepare_claude(&home, &model_label, gateway),
+        OverlayKind::Codex => prepare_codex(&home, &model_label, gateway, api_key),
+        OverlayKind::OpenCode => prepare_opencode(&home, &model_label, gateway, api_key),
+        OverlayKind::None => anyhow::bail!("this engine has no per-role model overlay"),
     }
 }
 
@@ -272,7 +273,7 @@ mod tests {
             "model_provider": "OpenCode Go"
         });
         let overlay = prepare(
-            EngineKind::ClaudeCode,
+            OverlayKind::Claude,
             &role,
             "http://127.0.0.1:3456",
             None,

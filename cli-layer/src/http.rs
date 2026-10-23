@@ -491,6 +491,18 @@ async fn agent_role_model_face(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
+    if let Some(spec) = state.host.engines().find(agent_type) {
+        if spec.overlay == crate::engines::OverlayKind::None {
+            return Json(json!({
+                "supported": false,
+                "reason": format!(
+                    "{} does not support per-role model injection yet",
+                    spec.name
+                ),
+            }))
+            .into_response();
+        }
+    }
     match state.model.model_face(agent_type).await {
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
