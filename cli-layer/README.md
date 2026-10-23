@@ -4,7 +4,8 @@ CrewChat 的 **CLI layer**：取代 codeg 的小型 Rust sidecar。只做 ACP �
 引擎管理、会话/流式、权限、花名册、持久化；模型路由归 `model-layer/`，
 UI 归 `AgentOS/`。
 
-状态：Phase 0/1 骨架（2026-10-22）。代码已落，尚未编译/联调。
+状态：Phase 0/1 已联调（2026-10-23）。15 个引擎注册，10 个支持 per-role
+模型注入；CLI 管理后端已接。
 
 ## 运行
 
@@ -36,19 +37,19 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 | --- | --- |
 | `health` | ✅ |
 | `/ws/events`（attach / replay / event） | ✅ 骨架 |
-| `acp_connect` / `acp_prompt` / `acp_cancel` / `acp_respond_permission` | ✅ Claude 路径 |
+| `acp_connect` / `acp_prompt` / `acp_cancel` / `acp_respond_permission` | ✅ Claude / Codex / OpenCode + 7 个 API-mode 引擎 |
 | `acp_list_agents` | ✅ 15 个内置引擎（Claude / Codex / OpenCode / Gemini / OpenClaw / Cline / Hermes / CodeBuddy / Kimi / Pi / Grok / Cursor / DeepSeek / Qoder / Antigravity） |
 | `ccr_health` / `ccr_call` / provider save/delete/probe / disabled models | ✅ 薄代理到 model-layer |
-| `agent_roles_*` / `agent_role_model_face` | ✅ 基础 |
+| `agent_roles_*` / `agent_role_model_face` | ✅ 10 个引擎支持 per-role 模型 |
 | folders / conversations | ✅ 基础 |
 | CLI 偏好 / env | ✅ `acp_update_agent_preferences` |
 | 引擎版本 / 安装 / 升级 | ✅ `acp_fetch_agent_latest_release`、`acp_prepare_npx_agent`、`acp_download_agent_binary`、`acp_install_pi_binary` |
 | 环境诊断 | ✅ `acp_env_diagnostics` |
 | skills / MCP / delegation | 501，Phase 3 |
 
-## 已验证（2026-10-22）
+## 已验证（2026-10-23）
 
-- `cargo check` / `cargo test`（5 个）/ `cargo clippy -D warnings` 通过。
+- `cargo test`（18 个）/ `cargo clippy --all-targets -D warnings` 通过。
 - `scripts/smoke.sh`：假 ACP agent → `content_delta` → `turn_complete`。
 - 假 ACP 权限：`permission_request` → `acp_respond_permission(allow_once)` → 工具继续。
 - 真实 Claude（`claude-agent-acp@0.89.1`，经 model-layer）：
@@ -65,7 +66,8 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 - 模型页代理：`getConfig` 返回 3 provider / 38 models。
 - CLI 管理后端：
   - 引擎注册表 15 个（12 个 npx、3 个 binary），launch spec 对齐 codeg 的 pin；
-  只有 Claude / Codex / OpenCode 支持 per-role 模型注入，其余用 CLI 自己的模型配置。
+    Claude / Codex / OpenCode / Grok / Hermes / Kimi / OpenClaw / Pi / Cline / DeepSeek
+    支持 per-role 模型注入，其余用 CLI 自己的模型配置。
 - `acp_list_agents` 返回 installed/registry version、enabled、env；
   - `acp_update_agent_preferences` 的 env 能进入子进程（fake agent 收到 `env:bar`）；
   - Claude 0.89.1 / Codex 2.2.2 / Pi 0.0.34 走 `acp_prepare_npx_agent`，OpenCode 1.18.35 走
@@ -73,7 +75,12 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
   - `acp_fetch_agent_latest_release` 实测 Claude 0.94.0 / OpenCode 1.19.4 / Pi 0.0.34；
   - `acp_env_diagnostics` 返回 Node/npm/adapter/数据目录检查。
   - `acp_install_pi_binary` 路由已实现，但没在本机跑全局 npm 安装。
-- 其余 12 个需要登录的 CLI 未做真实 session；Antigravity 还需要
+- 新增真实 session：Grok `grok-ok`、Hermes `hermes-ok`、Kimi `kimi_code-ok`、
+  OpenClaw `openclaw-ok`、Cline `cline-ok`、DeepSeek `deepseek-ok`、Pi `pi-ok`，
+  共用 model-layer 的 `local-gateway` key。
+- OpenClaw 的 ACP 是 Gateway bridge；host 为每个 role 启动独立
+  `openclaw gateway run`（独立 port/config/state），连接关闭时回收。
+- 其余未支持的 CLI：Antigravity 还需要
   `$GEMINI_HOME/antigravity-acp/settings.json` 的 auth 配置，Cursor / Antigravity
   没有可查的 latest 端点（返回 null）。
 
@@ -98,7 +105,7 @@ src/
   engines.rs  CLI 注册表（Claude/Codex/OpenCode）
   http.rs     AgentOS 的 45 命令兼容层
   model_proxy.rs  ccr_* → model-layer
-  roles.rs    per-role home（模型注入）
+  roles.rs    per-role home / 原生配置（10 个引擎的模型注入）
   store.rs    SQLite：folders/conversations/turns/roster
   ws.rs       /ws/events
 ```

@@ -212,11 +212,11 @@ tool → permission → cancel；不接 AgentOS。
 
 ### Phase 2：Codex + OpenCode + 花名册（2–3 周）
 
-- 引擎 registry 扩展到 15 个，per-role overlay 先接 Claude / Codex / OpenCode；
+- 引擎 registry 扩展到 15 个，per-role overlay 已接 10 个；
 - 花名册 `agent_roles_*` + `agent_role_model_face`；
 - 权限审批 `/ws/events` + `acp_respond_permission`。
 
-**Gate**：3 个引擎各一个 Agent，各自跑不同模型；权限批准/拒绝两条路径。
+**Gate**：10 个可用引擎各一个 Agent，各自跑不同模型；权限批准/拒绝两条路径。
 
 ### Phase 3：数据迁移 + 切换（2 周）
 
@@ -338,15 +338,17 @@ tool → permission → cancel；不接 AgentOS。
 
 ---
 
-## 11. 进展（2026-10-22）
+## 11. 进展（2026-10-23）
 
-`cli-layer/` 已落地 Phase 0/1 骨架（约 2.4k 行 Rust），按你的要求**暂不编译/测试**。
+`cli-layer/` 已落地 Phase 0/1/2 的可运行版本，编译、单测和真实 ACP 会话均通过。
 
 已实现：
 
 - `config` / `store`：folders、conversations、turns、agent_roles、events 的 schema 与基础 CRUD。
-- `engines`：Claude / Codex / OpenCode 注册表，`AcpAgentConfig` + per-session env。
-- `roles`：三种引擎的 per-role home；Claude 注入 gateway / model / `apiKeyHelper`。
+- `engines`：15 个引擎注册表（npx / binary），`AcpAgentConfig` + per-session env；
+  10 个引擎带 per-role overlay。
+- `roles`：10 种引擎的 per-role home / 原生配置；Claude 注入 gateway / model /
+  `apiKeyHelper`。
 - `acp/host`：spawn、initialize、`session/new`、prompt、cancel、permission broker，
   并把 `session/update` 转成 `content_delta` / `tool_call` / `turn_complete` envelope。
 - `http`：45 命令兼容面；skills / MCP / engine install / delegation 暂返回 501。
@@ -356,9 +358,8 @@ tool → permission → cancel；不接 AgentOS。
 
 未做：
 
-- 编译与单测（下一步 `cargo check` 修 SDK API 差异）。
-- Codex / OpenCode 的真实会话（Phase 2）。
-- 数据迁移、技能 / MCP / 引擎安装（Phase 3）。
+- Hermes / OpenClaw 的真实会话。
+- 技能 / MCP / 委派 / 打包。
 
 **Phase 0 Gate 不变**：`cargo check` 通过 + Claude 一条 turn。
 
@@ -387,6 +388,23 @@ skills / MCP / engine install、数据迁移、打包。
   provider id 与显示名混用（`opencode-go-chat-completions`、`75f800be`）时，
   按「provider 名/id → 模型唯一命中」归一化，会话模型标签正确。
 - 生产 `cli-layer.db` 已预置（AgentOS/cli），codeg 仍在运行，未切换。
+
+### 模型注入验证（2026-10-23）
+
+- 新增 7 个 per-session writer：Grok / Hermes / Kimi / OpenClaw / Pi / Cline /
+  DeepSeek；`cargo test` 18 passed，`cargo clippy --all-targets -D warnings` 通过。
+- 真实 ACP session（同一 `local-gateway` key + `OpenCode Go/mimo-v2.6-flash`）：
+  - Grok `grok-ok`
+  - Hermes `hermes-ok`
+  - Kimi `kimi_code-ok`
+  - OpenClaw `openclaw-ok`
+  - Pi `pi-ok`
+  - Cline `cline-ok`
+  - DeepSeek `deepseek-ok`
+- OpenClaw 使用全局已安装二进制 + 每 role 独立 gateway 验证；Hermes 使用全局
+  已安装二进制验证。两者都不依赖本次 npm 安装成功。
+- 未支持：Gemini / Antigravity（Gemini 协议）、CodeBuddy / Qoder（自有登录或目录）、
+  Cursor（Cursor 账号 + 固定端点）。
 
 剩余：AgentOS 切换（Phase 3）、skills/MCP/engine install、旧 transcript 导入、
 打包。
@@ -429,8 +447,10 @@ Phase 3 再默认打开。
 
 限制：
 
-- per-role 模型注入仍只有 Claude / Codex / OpenCode；其他引擎用 CLI 自己的全局配置。
-- 12 个需要登录的 CLI 未逐一真跑 session；launch spec 来自 codeg 的已验证 pin。
+- per-role 模型注入已覆盖 10 个引擎；Gemini / Antigravity / CodeBuddy / Qoder /
+  Cursor 仍用 CLI 自己的全局配置（原因见 §12.2）。
+- Hermes / OpenClaw 未真跑 session（安装体积/网络）；其余 5 个未支持。
+- launch spec 来自 codeg 的已验证 pin；Gemini / Cursor / Antigravity 等未逐个登录验证。
 - Antigravity 需要 `$GEMINI_HOME/antigravity-acp/settings.json` 的 auth；
   当前没有自动写该文件。
 - Cursor / Antigravity 没有稳定的 latest 端点，`acp_fetch_agent_latest_release`
@@ -446,8 +466,9 @@ Phase 3 再默认打开。
   不写 adapter。现在已注册 15 个。
 - **模型注入**：让**同一个 CLI 的不同会话**跑不同模型。这是 CLI 自己的配置问题，
   ACP 协议没有统一的“设置模型”字段。
-- 所以“15 个适配都装好了”不等于“15 个都能一个会话一个模型”。目前只有
-  Claude / Codex / OpenCode 做了 per-role 注入；其余 11 个默认读各自 CLI 的全局模型。
+- 所以“15 个适配都装好了”不等于“15 个都能一个会话一个模型”。目前 **10 个**
+  做了 per-role 注入（Claude / Codex / OpenCode / Grok / Hermes / Kimi / OpenClaw /
+  Pi / Cline / DeepSeek）；其余 5 个仍读各自 CLI 的全局配置。
 
 一句话：**Adapters 是别人的；注入胶水是我们的。胶水可以复用开源，不必自己写。**
 
@@ -458,18 +479,18 @@ Phase 3 再默认打开。
 | Claude Code | `claude-agent-acp` | `CLAUDE_CONFIG_DIR/settings.json` 的 `ANTHROPIC_MODEL` | ✅ 已实现 |
 | Codex | `codex-acp` | `CODEX_HOME/config.toml` 的 `model` | ✅ 已实现 |
 | OpenCode | 官方 `opencode acp` | `OPENCODE_CONFIG` 的 `model: crewchat/<model>` | ✅ 已实现 |
-| Gemini CLI | 官方 `gemini --acp --skip-trust` | `GEMINI_MODEL` env / `-m`（cc-switch 写 `.env`） | 🟡 可移植 |
-| Grok | 官方 `grok agent stdio` | root `--model` / `~/.grok/config.toml` | 🟡 可移植 |
-| Hermes | `hermes acp` | `HERMES_HOME` + `config.yaml` | 🟡 可移植 |
-| Kimi Code | `kimi acp` | `KIMI_CODE_HOME` + `config.toml` | 🟡 可移植 |
-| Antigravity | 官方 `agy_acp_server` | `--gemini_dir=<私有目录>` + `settings.json` | 🟡 可移植（cc-switch 已做） |
-| OpenClaw | `openclaw acp` | 可能靠 per-session `HOME` + `openclaw.json` | ⚪ 待验证 |
-| Cline | `cline --acp` | 待查 `--model` / 配置路径 | ⚪ 待验证 |
-| CodeBuddy | `codebuddy --acp` | 待查 | ⚪ 待验证 |
-| Qoder | `qoder --acp` | 待查 | ⚪ 待验证 |
-| DeepSeek | `deepseek-acp` | 待查 | ⚪ 待验证 |
-| Pi | `pi-acp` | `pi` 的配置/环境，adapter 是否透传待查 | ⚪ 待验证 |
-| Cursor | `cursor-agent acp` | 待查 `--model` | ⚪ 待验证 |
+| Grok | 官方 `grok agent stdio` | `GROK_HOME/config.toml` 的 `[models]` / `[model.*]` | ✅ 已实现，真实会话通过 |
+| Hermes | `hermes acp` | `HERMES_HOME/config.yaml` 的 `model` + `custom_providers` | ✅ 已实现，真实会话通过 |
+| Kimi Code | `kimi acp` | `KIMI_CODE_HOME/config.toml` 的 provider/model | ✅ 已实现，真实会话通过 |
+| OpenClaw | `openclaw acp` | 每会话 `OPENCLAW_CONFIG_PATH`/`OPENCLAW_STATE_DIR` + 独立 gateway | ✅ 已实现，真实会话通过 |
+| Cline | `cline --acp` | `CLINE_DIR`/`CLINE_DATA_DIR` + `providers.json`/`models.json` + `CLINE_*` env | ✅ 已实现，真实会话通过 |
+| DeepSeek | `deepseek-acp` | `DSH_HOME/settings.yaml` + `DEEPSEEK_ACP_PROVIDER/MODEL` | ✅ 已实现，真实会话通过 |
+| Pi | `pi-acp` | `PI_CODING_AGENT_DIR` + `models.json`/`settings.json` | ✅ 已实现，真实会话通过 |
+| Gemini CLI | 官方 `gemini --acp --skip-trust` | 需要 Gemini `generateContent` 端点 | ❌ 当前 model-layer 不支持 |
+| Antigravity | 官方 `agy_acp_server` | `--gemini_dir` + Gemini `settings.json` | ❌ 当前 model-layer 不支持 |
+| CodeBuddy | `codebuddy --acp` | 腾讯登录/自有 API，未发现自定义 base URL | ❌ 不做 |
+| Qoder | `qoder --acp` | BYOK 只在 `/model` 向导里选目录内 provider，无自定义 base URL | ❌ 不做 |
+| Cursor | `cursor-agent acp` | Cursor 账号 / `CURSOR_API_KEY`，端点固定为 Cursor 后端 | ❌ 不做 |
 
 ### 12.3 复用 `cc-switch`，不自己写模板
 
@@ -497,26 +518,24 @@ Phase 3 再默认打开。
 
 ### 12.4 注入模型抽象
 
-在 `cli-layer/src/roles.rs` 增加一个表驱动结构，而不是每个引擎写一段：
+实现落在 `cli-layer/src/roles.rs`：`OverlayKind` 在 `engines.rs` 里声明，
+`prepare()` 按 kind 分派到各自的 writer。每个 writer 只做三件事：
 
-```rust
-enum ModelInjection {
-    None,
-    Env(&'static str),                       // GEMINI_MODEL
-    Home { env: &'static str, kind: Writer }, // HERMES_HOME / KIMI_CODE_HOME / CODEX_HOME
-    Args { flag: &'static str, before: bool },// Grok --model, Gemini -m
-    PrivateDir { flag: &'static str, kind: Writer }, // agy --gemini_dir
-}
-```
+1. 在 `<data>/roles/<role>-<uuid>/` 下写 CLI 原生配置；
+2. 把配置目录 / key 环境变量放进 `RoleOverlay.env`；
+3. 返回实际模型标签。
 
-优先级：
+没有为每个引擎引入新的抽象层；新增一个 CLI 只是多一个 `OverlayKind` 和一个
+writer 函数。这比先设计通用 `ModelInjection` 枚举更直接，也更容易逐个真跑。
 
-1. **Gemini / Grok / Hermes / Kimi / Antigravity**：机制已确认，直接移植 cc-switch 的 writer，
-   1–2 天可完成。
-2. **OpenClaw / Cline / CodeBuddy / Qoder / DeepSeek / Pi / Cursor**：逐个看 `--help`/配置，
-   有 `--model` 的走 Args，有 `*_HOME` 的走 Home，没有可靠隔离的标 `supported:false`。
-3. **不追求 15 个全部注入**：一个会话一个模型的前提是 CLI 能接受 per-session 配置；
-   接受不了的，不假装支持。
+最终落地：
+
+- **已实现**：Grok / Hermes / Kimi / OpenClaw / Pi / Cline / DeepSeek；
+  加上原有 Claude / Codex / OpenCode，共 10 个。
+- **不做**：Gemini / Antigravity（当前 model-layer 无 Gemini 协议）、
+  CodeBuddy / Qoder（自有登录或目录）、Cursor（Cursor 账号 + 固定端点）。
+- **不追求 15 个全部注入**：一个会话一个模型的前提是 CLI 能接受 per-session 配置；
+  接受不了的，不假装支持。
 
 ### 12.5 长尾的官方来源
 
@@ -529,10 +548,13 @@ enum ModelInjection {
 ### 12.6 结论
 
 - **15 个 ACP 适配已注册，不等于 15 个都支持一个 Agent 一个模型。**
-- 现在 **3 个**（Claude / Codex / OpenCode）完成注入；**5 个**（Gemini / Grok / Hermes / Kimi /
-  Antigravity）有明确、可移植的机制；其余 7 个待验证。
-- **不自己写配置模板**：优先 copy `cc-switch`（MIT）的 writer，参数化到 per-session 根目录。
-- 下一刀：先移植 Gemini / Grok / Hermes / Kimi / Antigravity 五套注入，再用真实登录各跑一轮。
+- 现在 **10 个**完成 per-role 注入：Claude / Codex / OpenCode / Grok / Hermes / Kimi /
+  OpenClaw / Pi / Cline / DeepSeek。
+- **5 个不做**：Gemini / Antigravity（缺 Gemini 协议）、CodeBuddy / Qoder（自有登录/目录）、
+  Cursor（Cursor 账号 + 固定端点）。
+- **不自己写配置模板**：配置格式来自 `cc-switch`（MIT）和各家官方文档；实现只做
+  “写 per-session 文件 + 注入 env”这层胶水。
+- 下一刀：把未支持项写进界面提示；Hermes / OpenClaw / 其余 5 个已真实跑通。
 
 ### 12.7 API 优先：能走 API 的就不走登录
 
@@ -544,18 +566,18 @@ enum ModelInjection {
 | Claude Code | Anthropic Messages | ✅ | 已有 | 已做 |
 | Codex | OpenAI Responses | ✅ | 已有 | 已做 |
 | OpenCode | OpenAI Chat | ✅ | 已有 | 已做 |
-| Hermes | OpenAI / Anthropic custom provider | ✅ | 一个 gateway key | A |
-| Kimi Code | `openai` / `openai_responses` / `anthropic` | ✅ | 一个 gateway key | A |
-| OpenClaw | `models.providers` + `api` | ✅（待确认 api 字段） | 一个 gateway key | A |
-| Grok | OpenAI Responses + `env_key` | ✅ | 一个 gateway key | A |
-| Pi | `models.json` / `settings.json` | ✅（待确认 Pi 的 provider 类型） | 一个 gateway key | A |
-| Cline | 待查 | ? | 待查 | B |
-| DeepSeek Harness | 待查 | ? | 待查 | B |
-| CodeBuddy | 腾讯登录/API | ? | 需账号 | B/C |
-| Qoder | 阿里登录/API | ? | 需账号 | B/C |
-| Cursor | Cursor 账号 | ❌ 无自定义端点 | 需账号 | C |
-| Gemini CLI | Gemini `generateContent` | ❌ model-layer 没有 Gemini 协议 | 需 Gemini key | C |
-| Google Antigravity | Gemini `generateContent` | ❌ | 需 Gemini key | C |
+| Hermes | OpenAI / Anthropic custom provider | ✅ | 一个 gateway key | 已做，真实会话通过 |
+| Kimi Code | `openai` / `openai_responses` / `anthropic` | ✅ | 一个 gateway key | 已做，真实会话通过 |
+| OpenClaw | `models.providers` + `api` | ✅ | 一个 gateway key | 已做，真实会话通过（独立 gateway） |
+| Grok | OpenAI Responses + `env_key` | ✅ | 一个 gateway key | 已做，真实会话通过 |
+| Pi | `models.json` / `settings.json` | ✅ | 一个 gateway key | 已做，真实会话通过 |
+| Cline | OpenAI-compatible | ✅ | 一个 gateway key | 已做，真实会话通过 |
+| DeepSeek Harness | OpenAI-compatible via `llm-pi-ai` | ✅ | 一个 gateway key | 已做，真实会话通过 |
+| CodeBuddy | 腾讯登录/自有 API | ❌ 无自定义 base URL | 需账号 | 不做 |
+| Qoder | 自有 BYOK 目录 | ❌ 无自定义 base URL | 需账号 | 不做 |
+| Cursor | Cursor 账号 | ❌ 无自定义端点 | 需账号 | 不做 |
+| Gemini CLI | Gemini `generateContent` | ❌ model-layer 没有 Gemini 协议 | 需 Gemini key | 不做 |
+| Google Antigravity | Gemini `generateContent` | ❌ | 需 Gemini key | 不做 |
 
 **关键：不需要 15 个 API key。** Tier A 的 CLI 都可以用同一个
 `local-gateway` key + 同一个模型（如 `OpenCode Go/mimo-v2.6-flash`）做冒烟。
@@ -564,22 +586,29 @@ enum ModelInjection {
 
 **Tier A（现在就能测，建议先做）**
 
-1. **Grok**：`~/.grok/config.toml` 写 `base_url` / `api_backend = "responses"` /
-   `env_key`，模型用 root `--model`；不需要 per-session home。
+1. **Grok**：每会话 `GROK_HOME`，`config.toml` 写 `[models]` / `[model.crewchat]`
+   的 `base_url` / `api_backend = "responses"` / `env_key`。
 2. **Hermes**：每会话 `HERMES_HOME`，`config.yaml` 的 `custom_providers` 指向
-   `:3456`；copy `cc-switch/hermes_config.rs`。
+   `:3456`。
 3. **Kimi**：每会话 `KIMI_CODE_HOME`，`config.toml` 的 provider 用
-   `type = "openai" | "anthropic"`，指向 `:3456`；copy `cc-switch/kimi_config.rs`。
-4. **OpenClaw**：每会话 `HOME`（或确认 `OPENCLAW_HOME`），`openclaw.json` 的
-   `models.providers` 指向 `:3456`；copy `cc-switch/openclaw_config.rs`。
+   `type = "openai"`，指向 `:3456`。
+4. **OpenClaw**：每会话 `OPENCLAW_CONFIG_PATH`，`openclaw.json` 的
+   `models.providers` + `agents.defaults.model` 指向 `:3456`。
 5. **Pi**：每会话 `PI_CODING_AGENT_DIR`，`models.json` / `settings.json` 指向
-   `:3456`；copy `cc-switch/pi_config/`，再确认 `pi-acp` 透传模型。
+   `:3456`。
 
-**Tier B（先调研，不写）**
+**Tier B（已调研）**
 
-- Cline / DeepSeek / CodeBuddy / Qoder / Cursor：先查官方文档是否支持
-  `OPENAI_BASE_URL` / `*_API_KEY` / `--model`；不支持就 `supported:false`。
-- 不要为了“补齐”给它们硬塞一个假的 provider。
+- **Cline**：`CLINE_DIR`/`CLINE_DATA_DIR` + `providers.json`/`models.json`，
+  `CLINE_PROVIDER` / `CLINE_MODEL` / `CLINE_API_KEY`；自定义 provider 走
+  `openai-compatible`。
+- **DeepSeek**：`DSH_HOME/settings.yaml` 的 `llm-pi-ai.providers`，`DEEPSEEK_ACP_PROVIDER`
+  / `DEEPSEEK_ACP_MODEL`；`apiKeyEnv: CODEG_CCR_GATEWAY_KEY`。
+- **CodeBuddy**：文档只有腾讯登录与 `--model`，没有自定义 base URL；不做。
+- **Qoder**：BYOK 只能在 `/model` 的 Custom 向导里选目录内 provider，不能填任意
+  base URL；不做。
+- **Cursor**：`CURSOR_API_KEY` 是 Cursor 账号 key，`-e` 指向 Cursor 后端，不是
+  OpenAI 兼容端点；不做。
 
 **Tier C（需要 Gemini 协议）**
 
@@ -595,6 +624,11 @@ enum ModelInjection {
 - 每个 CLI 的 smoke：临时 home + 指向 `:3456` 的配置 + `acp_connect` →
   prompt `Reply with exactly: <engine>-ok` → `turn_complete`。
 - 不碰登录：配置里走“custom provider / API key”分支，不走 OAuth。
+- 2026-10-23 实测通过：Grok / Hermes / Kimi / OpenClaw / Pi / Cline / DeepSeek
+  均返回 `<engine>-ok`，共用一个 `local-gateway` key 和
+  `OpenCode Go/mimo-v2.6-flash`。
+- OpenClaw 的 ACP 是 Gateway bridge，不是独立 agent；host 会为每个 role 启动
+  独立 `openclaw gateway run`（独立 port/config/state），session 结束随连接回收。
 - 不能测的（Gemini/Antigravity/Cursor/CodeBuddy/Qoder）：
   - 只做 config writer 的单元测试（temp dir 写/读）；
   - 在 `acp_list_agents` 里保留行，但 `agent_role_model_face` 返回
@@ -605,7 +639,56 @@ enum ModelInjection {
 
 - **登录类 CLI 不是不能接，而是没必要优先接**：我们的 provider 是 API，
   API-mode 的 CLI 统一指向 model-layer，一个 key 就能测。
-- **Tier A 五个**（Grok / Hermes / Kimi / OpenClaw / Pi）优先；用 cc-switch 的 writer，
-  不自己写配置模板。
-- **Gemini / Antigravity** 需要 Gemini 协议，**Cursor / CodeBuddy / Qoder** 可能只有
-  自家登录；这四个先不承诺，标记未验证。
+- **Tier A 五个**（Grok / Hermes / Kimi / OpenClaw / Pi）与 **Tier B 两个**
+  （Cline / DeepSeek）全部实现，且 7 个新增都已真跑通。
+- **Gemini / Antigravity** 需要 Gemini 协议，**Cursor / CodeBuddy / Qoder** 只有
+  自家登录或目录；先不承诺，保留行并标 `supported:false`。
+
+### 12.11 实现记录（2026-10-23）
+
+代码：
+
+- `cli-layer/src/engines.rs`：`OverlayKind` 扩展到 10 个；`EngineSpec.overlay`
+  指向对应 writer；未支持的 5 个仍是 `None`。
+- `cli-layer/src/roles.rs`：新增 Grok / Hermes / Kimi / OpenClaw / Pi / Cline /
+  DeepSeek 的 per-session writer；OpenClaw 额外分配独立 gateway port。
+- `cli-layer/src/acp/host.rs`：连接 OpenClaw 前启动 per-role gateway，ACP 命令追加
+  `--url ws://127.0.0.1:<port>`，连接关闭时随 `ConnectionHandle` 回收。
+- `cli-layer/src/engine_manager.rs`：npx 安装加 `--legacy-peer-deps` /
+  `--include=optional`；DeepSeek 额外 `--force` 以跨过 `0.1.5-rc.1` /
+  `-rc.3` 的 peer 图。
+- `agent_role_model_face` 不再对这些引擎返回 `supported:false`。
+
+验证：
+
+- `cargo test`：18 passed（新增 7 个 writer 单测 + 1 个参数转义单测）。
+- `cargo clippy --all-targets -- -D warnings`：通过。
+- 真实 ACP session（同一 `local-gateway` key + `OpenCode Go/mimo-v2.6-flash`）：
+  - Grok `grok-ok`
+  - Hermes `hermes-ok`
+  - Kimi `kimi_code-ok`
+  - OpenClaw `openclaw-ok`（独立 gateway）
+  - Pi `pi-ok`
+  - Cline `cline-ok`
+  - DeepSeek `deepseek-ok`
+- 未支持：Gemini / Antigravity / CodeBuddy / Qoder / Cursor（协议或登录不支持）。
+
+文档依据：
+
+- Grok Build settings：`https://docs.x.ai/build/settings`（`GROK_HOME`、
+  `[models]` / `[model.*]`、`env_key`）。
+- Kimi Code configuration：`https://moonshotai.github.io/kimi-code/en/configuration/config-files.html`
+  （`KIMI_CODE_HOME`、`providers` / `models`）。
+- Hermes configuration：`https://hermes-agent.nousresearch.com/docs/user-guide/configuration`
+  （`HERMES_HOME`、`model`、`custom_providers`）。
+- OpenClaw custom providers：`https://docs.openclaw.ai/concepts/model-providers/custom-providers`
+  （`models.providers`、`${VAR}`、`agents.defaults.model`）。
+- Pi models：`https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/models-configuration.md`
+  （`models.json`、`$ENV`、`PI_CODING_AGENT_DIR`）。
+- Cline CLI / config：`https://docs.cline.bot/cli/cli-reference`、
+  `https://docs.cline.bot/getting-started/config`（`CLINE_DIR`、`providers.json`、
+  `models.json`）。
+- DeepSeek ACP：`https://github.com/xintaofei/deepseek-acp`（`DSH_HOME`、
+  `DEEPSEEK_ACP_PROVIDER/MODEL`、`llm-pi-ai` provider）。
+- Qoder custom models：`https://docs.qoder.com/cli/custom-models`（仅目录内 BYOK）。
+- Cursor ACP：`https://cursor.com/docs/cli/acp`（`cursor_login` / `CURSOR_API_KEY`）。
