@@ -34,9 +34,10 @@ pub(crate) async fn acp_connect(
         .unwrap_or_else(|| PathBuf::from("/"));
     let role_id = field(&body, &["roleId", "role_id"]);
     let conversation_id = field(&body, &["conversationId", "conversation_id"]).map(str::to_string);
+    let resume_session_id = field(&body, &["sessionId", "session_id"]);
     match state
         .sessions
-        .connect(agent_type, cwd, role_id, conversation_id)
+        .connect(agent_type, cwd, role_id, conversation_id, resume_session_id)
         .await
     {
         Ok(value) => Json(value).into_response(),

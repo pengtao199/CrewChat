@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, InitializeRequest,
-    McpServer, McpServerStdio, NewSessionRequest, PermissionOptionKind, PromptRequest,
-    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    LoadSessionRequest, McpServer, McpServerStdio, NewSessionRequest, PermissionOptionKind,
+    PromptRequest, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     SelectedPermissionOutcome, SessionId, SessionNotification, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
@@ -192,6 +192,7 @@ impl AcpHost {
         role: Option<Value>,
         api_key: Option<String>,
         conversation_id: Option<String>,
+        resume_session_id: Option<String>,
         engine_env: BTreeMap<String, String>,
         leader_control: Option<crate::domain::ports::LeaderControl>,
     ) -> Result<Value> {
@@ -410,11 +411,22 @@ impl AcpHost {
                         )
                         .block_task()
                         .await?;
-                    let session = connection
-                        .send_request(NewSessionRequest::new(cwd).mcp_servers(mcp_servers))
-                        .block_task()
-                        .await?;
-                    let session_id = session.session_id;
+                    let session_id = if let Some(existing) = resume_session_id {
+                        connection
+                            .send_request(
+                                LoadSessionRequest::new(existing.clone(), cwd)
+                                    .mcp_servers(mcp_servers),
+                            )
+                            .block_task()
+                            .await?;
+                        SessionId::new(existing)
+                    } else {
+                        let session = connection
+                            .send_request(NewSessionRequest::new(cwd).mcp_servers(mcp_servers))
+                            .block_task()
+                            .await?;
+                        session.session_id
+                    };
                     let _ = ready_tx.send(session_id.clone());
 
                     while let Some(command) = cmd_rx.recv().await {
@@ -586,6 +598,7 @@ impl crate::domain::ports::SessionRuntime for AcpHost {
             request.role,
             request.api_key,
             request.conversation_id,
+            request.resume_session_id,
             request.engine_env,
             request.leader_control,
         )

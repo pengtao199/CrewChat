@@ -626,9 +626,9 @@ UI：
 
 1. 🟡 `auto_approve` 已生效；`permission_mode` 到引擎参数仍待映射。
 2. ✅ 自动批准写 `permission_auto_approved` 审计事件。
-3. 每成员 usage / cost。
-4. `session/load`。
-5. 团队会话重启恢复。
+3. 🟡 委派 usage 已落 `delegations`，尚未汇总到会话/成员用量。
+4. ✅ `acp_connect` 接收 `sessionId` 时走 ACP `session/load`。
+5. 🟡 单 Agent/Leader 可恢复；团队成员的池化连接仍按需重建。
 
 ### Phase D：MCP 与其他协作模式
 

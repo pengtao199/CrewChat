@@ -107,9 +107,10 @@ impl SessionService {
         cwd: PathBuf,
         role_id: Option<&str>,
         conversation_id: Option<String>,
+        resume_session_id: Option<&str>,
     ) -> std::result::Result<Value, SessionError> {
         let role = self.load_role(role_id)?;
-        self.connect_with_role(agent_type, cwd, role, conversation_id)
+        self.connect_with_role(agent_type, cwd, role, conversation_id, resume_session_id)
             .await
     }
 
@@ -119,6 +120,7 @@ impl SessionService {
         cwd: PathBuf,
         mut role: Option<Value>,
         conversation_id: Option<String>,
+        resume_session_id: Option<&str>,
     ) -> std::result::Result<Value, SessionError> {
         let preferences = self.engines.preferences(agent_type);
         if !preferences.enabled {
@@ -146,6 +148,15 @@ impl SessionService {
 
         let api_key = self.model.local_gateway_key().await;
         let leader_control = self.leader_control(conversation_id.as_deref(), role.as_ref());
+        let owns_conversation = conversation_id.as_deref().is_some_and(|id| {
+            self.conversations
+                .get_conversation(id)
+                .ok()
+                .flatten()
+                .is_some_and(|detail| {
+                    detail.pointer("/summary/team").is_none() || leader_control.is_some()
+                })
+        });
         let role_id = role
             .as_ref()
             .and_then(|role| role.get("id"))
@@ -159,6 +170,7 @@ impl SessionService {
                 role,
                 api_key,
                 conversation_id: conversation_id.clone(),
+                resume_session_id: resume_session_id.map(str::to_string),
                 engine_env: preferences.env,
                 leader_control,
             })
@@ -172,10 +184,20 @@ impl SessionService {
             self.connections.lock().unwrap().insert(
                 connection_id.to_string(),
                 ConnectionMeta {
-                    conversation_id,
+                    conversation_id: conversation_id.clone(),
                     role_id,
                 },
             );
+            if owns_conversation {
+                if let (Some(conversation_id), Some(session_id)) = (
+                    conversation_id.as_deref(),
+                    value.get("session_id").and_then(Value::as_str),
+                ) {
+                    let _ = self
+                        .conversations
+                        .set_external_id(conversation_id, session_id);
+                }
+            }
         }
         Ok(value)
     }
@@ -217,6 +239,7 @@ impl SessionService {
                         .map_err(|error| SessionError::BadRequest(error.to_string()))?,
                 ),
                 conversation_id.map(str::to_string),
+                None,
             )
             .await
         {
@@ -356,6 +379,7 @@ impl SessionService {
                         .map_err(|error| SessionError::BadRequest(error.to_string()))?,
                 ),
                 Some(conversation_id.to_string()),
+                None,
             )
             .await?;
         let connection_id = connection_id_of(&value);
@@ -814,6 +838,14 @@ mod tests {
             Ok(())
         }
 
+        fn set_external_id(
+            &self,
+            _conversation_id: &str,
+            _external_id: &str,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+
         fn append_turn(
             &self,
             conversation_id: &str,
@@ -1003,12 +1035,14 @@ mod tests {
                 PathBuf::from("/tmp"),
                 Some("role-1"),
                 Some("conversation-1".to_string()),
+                Some("resume-1"),
             )
             .await
             .unwrap();
 
         assert_eq!(value["connectionId"], "fake");
         let request = runtime.request.lock().unwrap().clone().unwrap();
+        assert_eq!(request.resume_session_id.as_deref(), Some("resume-1"));
         assert_eq!(request.api_key.as_deref(), Some("test-key"));
         assert_eq!(
             request.role.as_ref().unwrap()["model_provider"],
@@ -1050,6 +1084,7 @@ mod tests {
                 PathBuf::from("/tmp"),
                 Some("role-1"),
                 Some("team-conversation".to_string()),
+                None,
             )
             .await
             .unwrap();

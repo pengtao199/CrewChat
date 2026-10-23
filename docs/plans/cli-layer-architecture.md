@@ -607,8 +607,10 @@ ACP update
   并写 `permission_auto_approved` 审计事件；未开启时仍走 UI 审批。
 - 普通 `acp_prompt` 也会在 `turn_complete` 后落 assistant turn；连接记录
   role/conversation，用于 speaker 归属。
+- `acp_connect` 接收 `sessionId` 时走 ACP `session/load`；连接成功后把
+  `session_id` 写回 `conversations.external_id`，会话可恢复。
 - 未完成：`permission_mode` 到引擎参数的映射、工具级 allow/ask/deny、
-  `session/load`、团队 UI 的委派卡与成员状态条、最大轮数/预算限制。
+  团队 UI 的委派卡与成员状态条、最大轮数/预算限制、团队重启后成员池恢复。
 
 
 ---

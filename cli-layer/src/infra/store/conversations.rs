@@ -7,7 +7,7 @@ use crate::config::now;
 use crate::domain::team::TeamSnapshot;
 
 const SUMMARY_COLUMNS: &str =
-    "id, folder_id, title, agent_type, status, updated_at, kind, leader_role_id, team_json";
+    "id, folder_id, title, agent_type, status, updated_at, kind, leader_role_id, team_json, external_id";
 
 impl Store {
     pub fn list_conversations(&self, folder_ids: &[String]) -> Result<Vec<Value>> {
@@ -152,6 +152,15 @@ impl Store {
         Ok(Some(json!({"summary": summary, "turns": turns})))
     }
 
+    pub fn set_external_id(&self, conversation_id: &str, external_id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE conversations SET external_id = ?1, updated_at = ?2 WHERE id = ?3",
+            params![external_id, now(), conversation_id],
+        )?;
+        Ok(())
+    }
+
     pub fn delete_conversation(&self, id: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
@@ -236,6 +245,7 @@ fn conversation_json(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
         "updated_at": row.get::<_, String>(5)?,
         "kind": row.get::<_, String>(6)?,
         "leader_role_id": leader_role_id,
+        "external_id": row.get::<_, Option<String>>(9)?,
         "team": leader_role_id.map(|id| json!({"leader_role_id": id})),
         "message_count": 0,
         "child_count": 0,

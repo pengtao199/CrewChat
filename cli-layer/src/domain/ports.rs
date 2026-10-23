@@ -35,6 +35,7 @@ pub trait ConversationRepository: Send + Sync {
     ) -> Result<String>;
     fn get_conversation(&self, id: &str) -> Result<Option<Value>>;
     fn delete_conversation(&self, id: &str) -> Result<()>;
+    fn set_external_id(&self, conversation_id: &str, external_id: &str) -> Result<()>;
     fn append_turn(&self, conversation_id: &str, role: &str, blocks: &Value) -> Result<()>;
     fn append_turn_with_speaker(
         &self,
@@ -106,6 +107,7 @@ pub struct ConnectRequest {
     pub role: Option<Value>,
     pub api_key: Option<String>,
     pub conversation_id: Option<String>,
+    pub resume_session_id: Option<String>,
     pub engine_env: BTreeMap<String, String>,
     /// Present only for a team Leader. The runtime injects the internal
     /// `delegate_to_agent` / `team_status` MCP server for this connection.

@@ -68,6 +68,10 @@ impl ConversationRepository for Store {
         self.delete_conversation(id)
     }
 
+    fn set_external_id(&self, conversation_id: &str, external_id: &str) -> Result<()> {
+        self.set_external_id(conversation_id, external_id)
+    }
+
     fn append_turn(&self, conversation_id: &str, role: &str, blocks: &Value) -> Result<()> {
         self.append_turn(conversation_id, role, blocks)
     }
