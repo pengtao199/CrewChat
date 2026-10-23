@@ -584,7 +584,7 @@ ACP update
   权限请求和超时作为结构化失败阶段返回。
 - fake runtime 测试覆盖 test run 不写历史。
 - Agents 页 UI 接线、启动会话/建团队强制 readiness 仍在后续。
-- `cargo test` 22 passed、clippy、smoke 通过。
+- `cargo test` 29 passed、clippy、smoke 通过。
 
 ### Step 4：团队（核心首版）✅ 2026-10-23
 

@@ -307,3 +307,292 @@ fn delegation_prompt(
     );
     prompt
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+    use std::path::{Path, PathBuf};
+    use std::sync::{Arc, Mutex};
+
+    use async_trait::async_trait;
+    use serde_json::{json, Value};
+
+    use super::TeamService;
+    use crate::app::engines::EngineService;
+    use crate::app::readiness::ReadinessService;
+    use crate::app::roster::RosterService;
+    use crate::app::sessions::SessionService;
+    use crate::config::Config;
+    use crate::domain::agent::Agent;
+    use crate::domain::engine::EnginePreferences;
+    use crate::domain::event::EventEnvelope;
+    use crate::domain::ports::{
+        AgentRepository, ConnectRequest, ConversationRepository, EngineSettingsRepository,
+        EventSubscription, ModelCatalog, SessionRuntime, SkillCatalog, TeamRepository,
+    };
+    use crate::domain::team::TeamSnapshot;
+    use crate::infra::store::Store;
+    use crate::runtime::engine::registry::Engines;
+
+    struct FakeRuntime {
+        events: Mutex<Vec<EventEnvelope>>,
+    }
+
+    struct VecSubscription(std::collections::VecDeque<EventEnvelope>);
+
+    #[async_trait]
+    impl EventSubscription for VecSubscription {
+        async fn recv(&mut self) -> Option<EventEnvelope> {
+            self.0.pop_front()
+        }
+    }
+
+    #[async_trait]
+    impl SessionRuntime for FakeRuntime {
+        async fn connect(&self, _request: ConnectRequest) -> anyhow::Result<Value> {
+            Ok(json!({"connectionId": "test-connection"}))
+        }
+
+        fn prompt(&self, _connection_id: &str, _text: String) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn cancel(&self, _connection_id: &str) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        fn close(&self, _connection_id: &str) {}
+
+        fn respond_permission(&self, _request_id: &str, _option_id: Option<String>) -> bool {
+            true
+        }
+
+        fn subscribe(&self) -> Box<dyn EventSubscription> {
+            Box::new(VecSubscription(
+                self.events.lock().unwrap().drain(..).collect(),
+            ))
+        }
+    }
+
+    struct FakeModel;
+
+    #[async_trait]
+    impl ModelCatalog for FakeModel {
+        fn health(&self) -> Value {
+            json!({})
+        }
+
+        async fn rpc(&self, _method: &str, _args: Value) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn provider_save(&self, _body: &Value) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn provider_delete(&self, _body: &Value) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn provider_probe(&self, _body: &Value) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn disabled_models(&self) -> Result<Value, String> {
+            Ok(json!([]))
+        }
+
+        async fn model_face(&self, _agent_type: &str) -> Result<Value, String> {
+            Ok(json!({"supported": true, "models": []}))
+        }
+
+        async fn normalize_provider(&self, _provider: &str, _model: &str) -> Option<String> {
+            Some("OpenAI".to_string())
+        }
+
+        async fn local_gateway_key(&self) -> Option<String> {
+            None
+        }
+    }
+
+    struct FakeSkills;
+
+    #[async_trait]
+    impl SkillCatalog for FakeSkills {
+        async fn list(&self) -> Result<Value, String> {
+            Ok(json!({"skills": []}))
+        }
+
+        async fn detail(&self, _id: &str) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn install(&self, _body: &Value) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn check(&self, _id: &str) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn update(&self, _id: &str) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn remove(&self, _id: &str) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+
+        async fn collections(&self) -> Result<Value, String> {
+            Ok(json!({"collections": []}))
+        }
+
+        async fn global_links(&self) -> Result<Value, String> {
+            Ok(json!({"links": []}))
+        }
+
+        async fn materialize(
+            &self,
+            _home: &Path,
+            _agent_type: &str,
+            _skill_ids: &[String],
+        ) -> Result<Value, String> {
+            Ok(json!({}))
+        }
+    }
+
+    struct FakeSettings;
+
+    impl EngineSettingsRepository for FakeSettings {
+        fn engine_preferences(&self, _agent_type: &str) -> anyhow::Result<EnginePreferences> {
+            Ok(EnginePreferences::default())
+        }
+
+        fn save_engine_preferences(
+            &self,
+            _agent_type: &str,
+            _enabled: bool,
+            _env: &BTreeMap<String, String>,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn config() -> Arc<Config> {
+        Arc::new(Config {
+            data_dir: PathBuf::from("/tmp"),
+            host: "127.0.0.1".to_string(),
+            port: 0,
+            token: "test".to_string(),
+            model_layer_url: "http://127.0.0.1:3458".to_string(),
+            model_layer_gateway: "http://127.0.0.1:3456".to_string(),
+            model_layer_token: None,
+            claude_command: "python3".to_string(),
+            codex_command: "python3".to_string(),
+            opencode_command: "python3".to_string(),
+        })
+    }
+
+    #[tokio::test]
+    async fn delegation_uses_snapshot_and_records_speaker() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("team.db")).unwrap();
+        store.init_schema().unwrap();
+
+        let leader = Agent {
+            id: "leader".to_string(),
+            name: "Manager".to_string(),
+            agent_type: "claude_code".to_string(),
+            model: "gpt-5".to_string(),
+            model_provider: "openai".to_string(),
+            ..Agent::default()
+        };
+        let member = Agent {
+            id: "member".to_string(),
+            name: "Builder".to_string(),
+            agent_type: "claude_code".to_string(),
+            model: "gpt-5".to_string(),
+            model_provider: "openai".to_string(),
+            ..Agent::default()
+        };
+        let leader =
+            Agent::from_value(store.save_role(&leader.to_value().unwrap()).unwrap()).unwrap();
+        let member =
+            Agent::from_value(store.save_role(&member.to_value().unwrap()).unwrap()).unwrap();
+        let snapshot =
+            TeamSnapshot::new(&leader, std::slice::from_ref(&member), crate::config::now());
+        let conversation = store
+            .create_team_conversation(None, "claude_code", Some("Team"), &snapshot)
+            .unwrap();
+
+        let model = Arc::new(FakeModel);
+        let engines = Engines::new(config());
+        let agent_repo: Arc<dyn AgentRepository> = Arc::new(store.clone());
+        let conversations: Arc<dyn ConversationRepository> = Arc::new(store.clone());
+        let teams: Arc<dyn TeamRepository> = Arc::new(store.clone());
+        let roster = RosterService::new(agent_repo.clone(), model.clone(), engines.clone());
+        let engine_service = EngineService::new(Arc::new(FakeSettings), engines, config());
+        let readiness = ReadinessService::new(
+            roster.clone(),
+            engine_service.clone(),
+            model.clone(),
+            Arc::new(FakeSkills),
+        );
+        let runtime = Arc::new(FakeRuntime {
+            events: Mutex::new(vec![
+                EventEnvelope {
+                    kind: "content_delta".to_string(),
+                    connection_id: "test-connection".to_string(),
+                    seq: 1,
+                    payload: json!({"text": "built"}),
+                },
+                EventEnvelope {
+                    kind: "turn_complete".to_string(),
+                    connection_id: "test-connection".to_string(),
+                    seq: 2,
+                    payload: json!({"stop_reason": "end_turn"}),
+                },
+            ]),
+        });
+        let sessions = SessionService::new(
+            agent_repo,
+            conversations.clone(),
+            runtime,
+            model,
+            engine_service,
+        );
+        let team = TeamService::new(roster, conversations, teams, readiness, sessions);
+
+        let result = team
+            .delegate(
+                &conversation,
+                "leader",
+                "member",
+                "build the page",
+                Some("keep it small"),
+                Some("summary"),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result["status"], "done");
+        let detail = store.get_conversation(&conversation).unwrap().unwrap();
+        assert_eq!(detail["turns"][0]["speaker_role_id"], "member");
+        assert_eq!(detail["summary"]["delegations"][0]["status"], "done");
+        assert_eq!(
+            store.conversation_agents(&conversation).unwrap()[1]["state"],
+            "done"
+        );
+
+        // A non-member cannot be delegated to.
+        assert!(team
+            .delegate(&conversation, "leader", "outsider", "x", None, None)
+            .await
+            .is_err());
+        // A non-leader cannot delegate.
+        assert!(team
+            .delegate(&conversation, "member", "leader", "x", None, None)
+            .await
+            .is_err());
+    }
+}
