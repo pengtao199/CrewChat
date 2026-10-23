@@ -26,6 +26,9 @@ cargo build
 
 # Gateway sidecar（首次需要 Go 依赖）
 ./scripts/build-gateway.sh
+
+# 默认打印阶段、模块下载命令和包编译进度；安静模式：
+VERBOSE=0 ./scripts/build-gateway.sh
 ```
 
 `MCP_LAYER_GATEWAY_BIN` 可覆盖 sidecar 路径；默认找
