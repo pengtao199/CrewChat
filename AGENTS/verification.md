@@ -4,54 +4,34 @@
 
 完成任何改动、准备汇报或提交之前。
 
-## 目标
-
-"已验证"只在这条检查跑过之后才允许说出口；未跑的项要明确列为未验证。
-
-## 最小自检（按改动类型选）
-
-**默认入口**：`cd codeg && node scripts/verify.mjs changed`——从 `git diff HEAD` 派生范围并打印计划（改了哪些文件、要跑哪几条命令）。改哪个模块只跑哪个模块：Rust 按该文件自己的 `#[cfg(test)] mod <name>` 精确过滤；无内联测试的业务文件算接线，只编译；`src/bin/**` 补 `cargo check --bins`；前端跑同名测试文件（没有同名测试则只 `tsc`）；locale JSON 跑键位对齐测试；Python 文件跑 `import` 冒烟。**不每步跑全量**：全量（`cargo test` / `pnpm test`）只在里程碑收口跑一次（用户 2026-10-17 拍板）。下表的检查项在此之上按改动类型补默认脚本覆盖不到的部分。
-
-| 改动类型 | 必须跑的最小验证 |
-| --- | --- |
-| Python 归档层 | 不参与运行时，无需验证；改动归档时跑 `archive/python-orchestrator/scripts/check_layers.py` 与 `check_imports.py` |
-| AgentOS（Swift 壳） | `xcodebuild -project AgentOS/AgentOS.xcodeproj -scheme AgentOS build` 通过；壳改动实际启动渲染确认 |
-| AgentOS 界面 | 每个新增界面至少覆盖空态 / 正常态 / 错误态；新增文案与 `Localizable.xcstrings` 在**同一次改动**里登记 |
-| AgentOS 对核心的调用（新增/改形状） | 起核心，`curl` 带 token 实调该命令，确认状态码与 JSON 形状 |
-| AgentOS 事件 / 流式 | 真实跑一轮：连接 → 发一句 → 观察流式与工具事件 → 取消 |
-| `/api/*` 或 `/ws` | 起服务后 curl 该路径，确认状态码与形状 |
-| Codeg 界面 | `cd codeg && npx -y pnpm@11.9.0 lint` / `npx -y pnpm@11.9.0 test` 通过；界面改动实际渲染确认 |
-| 后端结构调整（移动/重命名/删模块） | `archive/python-orchestrator/scripts/check_layers.py`（依赖方向）与 `check_imports.py`（导入可解析）均通过 + 重启后真实跑一轮对话 |
-| 界面交互 | Playwright 脚本走一遍真实流程（登录 → 操作 → 断言），输出文本证据 |
-| 执行器 | 真实跑一次该身体，确认 `text` 非空且 `error` 为空 |
-| 模型配置（模型层） | 经 `/v1/models` 确认别名存在，并确认目标 CLI 能经模型层完成一轮 |
-| 数据写入 | 检查目标文件确实被写入，并确认落盘路径与界面标注一致 |
-
 ## 原则
 
-- **先复现再修**：修 bug 前先拿到可复现的最小输入，修完用同一输入确认。
-- **端到端优先于单点**：能走完整链路时不只测模块。例如改流式帧要跑一次真实对话。
-- **证据要可指认**：汇报时给命令、状态码、文件路径或界面文本，不给"应该没问题"。
-- **诚实标注边界**：没跑的、跳过的、仅静态检查的，逐条写明。
+- 只跑与改动相关的最小检查，里程碑再跑全量。
+- 声称「已验证」必须给出实际命令和结果。
+- 不把旧运行时的验证命令带进新运行时。
 
-## 具体规则
+## 默认检查
 
-- 后端改动后必须重启服务再验证（避免验证到旧进程）；AgentOS 改动前确认核心是刚重建的二进制。
-- Codeg 改动后按它 `AGENTS.md` 的命令检查；桌面端用 `pnpm tauri dev` 实际跑一遍。
-- 不在壳侧改动后声称「核心行为已验证」——核心行为要单独实跑。
-- 涉及真实模型调用时，用最小提示（例如"用一句话回答"）控制成本与耗时。
-- 涉及外部端点时，验证失败先区分「网络」「凭证」「协议」三类，不要盲目重试。
-- 长耗时验证（构建、安装）放后台并轮询日志，不要阻塞对话。
+| 改动 | 命令 |
+| --- | --- |
+| `cli-layer/` | `cd cli-layer && cargo test`；必要时 `cargo clippy --all-targets -- -D warnings` |
+| `model-layer/` | `cd model-layer && cargo test`；`cargo clippy --all-targets -- -D warnings` |
+| `skill-layer/` | `cd skill-layer && cargo test`；`cargo clippy --all-targets -- -D warnings` |
+| `mcp-layer/` | `cd mcp-layer && cargo test`；`cargo clippy --all-targets -- -D warnings` |
+| `AgentOS/` | `cd AgentOS && xcodebuild -project AgentOS.xcodeproj -scheme AgentOS -configuration Debug -sdk macosx CODE_SIGNING_ALLOWED=NO build` |
+| 规则 / 文档 | 检查路径、命令、链接是否还存在；不跑无关构建 |
 
-## 禁止项
+## 真实会话
 
-- 不把静态检查（类型通过、构建成功）当作功能验证。
-- 不在未重启服务的情况下声称后端行为已验证。
-- 不在验证失败后用"应该是环境问题"收尾；给出具体错误与下一步。
-- 不为了"看起来通过"而放宽断言或跳过失败项。
+改 ACP / 模型注入 / 技能 / MCP 后至少跑一次：
 
-## 检查
+1. 启动 `crewchat-model`、`crewchat-skill`、`crewchat-mcp`、`crewchat-cli`。
+2. AgentOS 连接 cli-layer。
+3. Claude / Codex / OpenCode 中至少一个真实会话完成一轮 prompt。
+4. 涉及 Agent 能力时，验证会话实际拿到该 Agent 的模型 / 技能 / MCP。
 
-- 这次改动的可观测行为是什么？我跑了什么命令观察到它？
-- 失败路径也验证了吗（错误信息、空数据、缺 key）？
-- 有没有未验证却在汇报里含糊带过的部分？
+## 禁止
+
+- 用旧运行时的测试命令冒充当前验证。
+- 只看编译通过就声称运行时可用。
+- 跳过失败项不汇报。

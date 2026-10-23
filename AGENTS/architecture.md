@@ -6,11 +6,11 @@
 
 ## 定位（2026-10-23）
 
-当前运行时由四层组成：macOS 壳 **AgentOS**、核心 **cli-layer**、模型层 **model-layer**、
+当前运行时由五层组成：macOS 壳 **AgentOS**、核心 **cli-layer**、模型层 **model-layer**、
 技能层 **skill-layer**、MCP 层 **mcp-layer**。MCP 的最终形态是完整本地网关：控制面 + 每 Agent 一个 Rust proxy 实例，见
 [`docs/plans/mcp-layer.md`](../docs/plans/mcp-layer.md)。
 
-`codeg/` 与 `ccr/` 已冻结为只读回退，不参与当前运行时；`archive/` 是历史归档，不参与构建。
+`archive/` 是历史归档，不参与构建。
 
 | 层 | 路径 | 职责 | 真相源 |
 | --- | --- | --- | --- |
@@ -19,7 +19,6 @@
 | 技能层 | `skill-layer/` | 全局技能库、版本、安装/更新、会话 materialize | `~/.agents/skill-store` + `~/.agents/skill-layer/registry.sqlite` |
 | MCP 层 | `mcp-layer/` | MCP 注册表、Agent proxy 实例、会话配置 | `~/.agents/mcp` + 每 Agent proxy 运行时 |
 | 壳（macOS） | `AgentOS/` | Swift 客户端：只渲染与交互 | 无，只持自己的设置 |
-| 冻结回退 | `codeg/`、`ccr/` | 只读参考 / 回退，不参与当前运行时 | 历史库 |
 | 归档 | `archive/` | 冻结的 Python 编排层与历史，只读 | 无 |
 
 ## 边界
@@ -29,13 +28,13 @@
 - **技能归 `skill-layer/`**：全局库与版本由它管理；`cli-layer` 只做代理与 Agent 绑定。
 - **MCP 归 `mcp-layer/`**：注册表、每 Agent proxy 实例、会话配置；不把 MCP 逻辑塞进 `skill-layer`。
 - **壳只渲染**：`AgentOS/` 不复制真相、不解析协议（见 `AGENTS/agentos-boundary.md`）。
-- **归档不参与任何构建**：`codeg/`、`ccr/`、`AgentOS/` 都不得引用 `archive/`。
+- **归档不参与任何构建**：任何运行层都不得引用 `archive/`。
 
 ## 改动去向
 
 | 需求 | 去哪 |
 | --- | --- |
-| 会话 / 委派 / 权限 / 持久化 / 用量行为 | `cli-layer/src/`（自有代码；见本文件与 `AGENTS/api-contract.md`） |
+| 会话 / 委派 / 权限 / 持久化 / 用量行为 | `cli-layer/src/` |
 | macOS 原生壳 / 设置页 / Agents 页 | `AgentOS/`（见 `AGENTS/agentos-boundary.md`、`AGENTS/ui.md`） |
 | 模型接入 / 端点 / 模型注入 | `model-layer/`（见 `AGENTS/gateway.md`） |
 | 技能库 / 版本 / 安装 / materialize | `skill-layer/`（见 `docs/plans/skill-layer.md`） |
@@ -64,4 +63,4 @@
 
 - 这次改动落在哪一层？该层的规则读了吗？
 - 有没有把某个结论从核心挪到壳或界面？
-- 归档或冻结回退里的东西有没有被新代码引用（不该有）？
+- 归档里的东西有没有被新代码引用（不该有）？

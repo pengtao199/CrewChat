@@ -2,24 +2,11 @@
 
 ## 适用范围
 
-改动 `codeg/` 下的界面（Next.js + React + Tailwind + shadcn/ui），或 `AgentOS/` 下的界面（SwiftUI）及其交互、文案、样式时。
+改动 `AgentOS/` 下的界面（SwiftUI）及其交互、文案、样式时。
 
 ## 背景
 
-协作界面的两个面：`codeg/` 的 Next.js 工作台（现有产品界面，Codeg 二次开发）与 `AgentOS/` 的 macOS 原生壳（SwiftUI）。
-两边的共同边界是同一条：**界面只做展示与交互，判断归核心**。
-
-## Codeg 界面（`codeg/`）
-
-Codeg 自带开发规范：`codeg/AGENTS.md` 与 `codeg/CLAUDE.md`（构建、检查、测试命令以它们为准），下面只约束「我们的改动方式」。
-
-- **上游优先**：能用上游已有能力或配置解决的不改代码；必要改动带 `[crewchat]` 标记，并登记到 `codeg/NOTICE.md` 的改动表。
-- **国际化**：新增文案走它已有的 next-intl（`codeg/src/i18n/messages/*.json`）；改动时同步 zh-CN（默认中文界面）。
-- **业务不出界**：模型与路由归 `model-layer/`，会话与编排归 Codeg 自身的 Rust 后端；界面只做展示与交互。
-- **密钥零容忍**：不把密钥、端点写死进前端。
-- **可升级**：不整体重排上游目录与样式体系；不为单页另起一套视觉语言。
-
-检查：改动是否带 `[crewchat]` 标记、`codeg/NOTICE.md` 是否同步；`cd codeg && npx -y pnpm@11.9.0 lint && npx -y pnpm@11.9.0 test` 是否通过；界面改动是否实际渲染看过；中文文案是否和 en 一起更新。
+界面只有 `AgentOS/` 的 macOS 原生壳（SwiftUI）。边界：**界面只做展示与交互，判断归核心**。
 
 ## AgentOS 界面（`AgentOS/`）
 

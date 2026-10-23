@@ -30,7 +30,7 @@ App ──▶ Features ──▶ Domain ◀── Core ──▶ Infrastructure
 
 - **端口在 `Domain/`，实现在 `Core/`**：`Features` 只认 `Domain` 的协议；`App` 把 `Core` 的实现注入。换核心 = 换 `Core/`，`Features` 不动。
 - **wire DTO 不出 `Core/`**：核心的 JSON 形状只活在 `Core/Wire/`（`Core` 前缀）；`Core` 把它映射成 `Domain` 类型后再向上给。`Features` 看不到也拿不到核心的字段形状。
-- **端口按能力分组**：目前七个——`CoreLifecycle`（进程与连接）、`CoreWorkspaces`、`CoreConversations`、`CoreSettings`、`CoreCCR`、`CoreRoster`、`CoreEngines`；`CoreEvents` 随 S4 加入。新增端口必须同改 `AgentOS/engine-api.md` 的「所属端口」列。
+- **端口按能力分组**：目前七个——`CoreLifecycle`（进程与连接）、`CoreWorkspaces`、`CoreConversations`、`CoreSettings`、`CoreModel`、`CoreRoster`、`CoreEngines`；`CoreEvents` 随 S4 加入。新增端口必须同改 `AgentOS/engine-api.md` 的「所属端口」列。
 - **`Features` 不得 `import Core`**：硬约束（可加 lint），保证核心的 500+ 条命令不会渗进界面。
 - **一个 Feature = 一个 View + 一个 ViewModel + 同目录小视图**：不建 `Components/` 之类的大目录；重复出现两次以上再抽公共视图。
 - **wire 枚举必须留 `unknown` 分支**：核心新增 `kind` / `status` / `agentType` 时，壳只降级显示，不崩、不吞。反序列化失败只允许发生在字段缺失，不允许因为未知枚举值。

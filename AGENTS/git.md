@@ -17,10 +17,10 @@
 ## 具体规则
 
 - 提交信息用 Conventional Commits：`<type>(<scope>): <subject>`。允许的 type：`feat` `fix` `perf` `refactor` `docs` `style` `chore` `test`。
-- `scope` 用层次名：`core`（codeg）、`ccr`、`agentos`、`agents`（花名册）、`rules`、`archive`、`repo`。
+- `scope` 用层次名：`cli`、`model`、`skill`、`mcp`、`agentos`、`agents`（花名册）、`rules`、`archive`、`repo`。
 - 主体用中文或英文均可，但要说清**为什么改**，不只说改了什么。
 - 提交前检查 `git status` 与 `git diff --staged`，只暂存本次意图内的文件。
-- 新增本地产物时同步扩展 `.gitignore`（`.data/`、`node_modules/`、`*.db`；vendored 基座内的产物由各自的 `.gitignore` 覆盖）。
+- 新增本地产物时同步扩展 `.gitignore`（`.data/`、`node_modules/`、`*.db`；各 crate 的 `target/` 由各自的 `.gitignore` 覆盖）。
 - 不添加 AI 署名（`Co-Authored-By`、`Generated with` 等）。
 
 ## 必须忽略

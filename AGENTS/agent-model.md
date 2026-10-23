@@ -3,7 +3,7 @@
 > **定位（2026-10-23）**：本文件描述的是产品当前的 Agent 领域模型。运行时核心是
 > `cli-layer/`；**Agent 定义存 `~/Library/Application Support/AgentOS/cli/cli-layer.db`
 > 的 `agent_roles`，唯一可写入口是 Agents 页**（见 `AGENTS/truth-sources.md`）。
-> 旧 `codeg.db` 的 `custom_agent` 与 `.data/agents/*.jsonc` 已冻结为只读迁移来源。
+> Agent 定义只存在 `cli-layer.db` 的 `agent_roles`。
 
 ## 适用范围
 
@@ -79,7 +79,7 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 - **大脑与引擎解耦**：任意大脑可驱动任意引擎，模型接入经模型层归一化（见 `AGENTS/gateway.md`）。禁止在引擎实现里写死模型来源。
 - **Agent 是独立实体**：不属于任何项目，可被多个项目引用。
-- **花名册真相源在 cli-layer**：Agent 定义存 `cli-layer.db` 的 `agent_roles`，界面（Agents 页）就是唯一写入方。旧 `codeg.db` 与 `.data/agents/*.jsonc` 已冻结为只读历史。
+- **花名册真相源在 cli-layer**：Agent 定义存 `cli-layer.db` 的 `agent_roles`，界面（Agents 页）就是唯一写入方。旧存储不再参与运行时。
 - **CLI 引擎自带大脑是默认**：`codex` / `claude` / `opencode` 不显式配 `brain` 时用各自 CLI 的默认模型；显式配了就用配的。
 - **工具是能力而不是身份**：给 Agent 加工具不改变它是谁。
 

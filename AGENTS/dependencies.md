@@ -19,16 +19,14 @@
 
 - 新增依赖前，先确认现有依赖是否已覆盖（例如流式、并发、重试）。
 - 记录选型结论：写进 `AGENTS/` 相应规则文件或提交信息，说明候选、取舍与依据。
-- Python 依赖用 `uv add`；前端依赖在 `codeg/` 下用 pnpm（`packageManager` 锁定版本）。
+- Rust 依赖用 `cargo add`；每个 crate 锁自己的 Cargo.lock。
 - 依赖体积会进入最终产物，前端尤其注意（曾因 `monaco-editor` / `mermaid` 等体积大而剔除与保留页面无关的包）。
 
-## 已固化的第三方源码（vendored）
+## 已固化的第三方依赖
 
-- **Codeg** → `codeg/`（Apache-2.0）。协作工作台（Next.js 前端 + Tauri/Server 后端）的二次开发基座。
-  - 排除 `.git/` 与 `docs/images/`；取舍与升级方式见 `codeg/NOTICE.md`。
-- **CCR（claude-code-router）** → `ccr/`（MIT）。**legacy 回退**；运行时已由 `model-layer/` 取代。
-  - 排除 `.git/`、`blog/`、`cdn/`；取舍与升级方式见 `ccr/NOTICE.md`。
-- **模型层** → `model-layer/`（自有 Rust 代码，不是 vendored 基座）。
+- **mcp-proxy**：`mcp-layer` 的网关内核，crate 依赖（MIT OR Apache-2.0），不复制源码。
+- **Agent Skills / MCP 规范**：协议形状参考，不 vendor 规范实现。
+- 其他 Rust crates 见各 crate 的 `Cargo.lock`。
 
 ## 网络受限
 
