@@ -624,8 +624,8 @@ UI：
 
 ### Phase C：权限 + 用量 + 恢复
 
-1. `permission_mode` / `auto_approve` 真正生效。
-2. 自动批准审计。
+1. 🟡 `auto_approve` 已生效；`permission_mode` 到引擎参数仍待映射。
+2. ✅ 自动批准写 `permission_auto_approved` 审计事件。
 3. 每成员 usage / cost。
 4. `session/load`。
 5. 团队会话重启恢复。

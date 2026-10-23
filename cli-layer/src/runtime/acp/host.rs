@@ -13,9 +13,9 @@ use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, InitializeRequest,
-    McpServer, McpServerStdio, NewSessionRequest, PromptRequest, RequestPermissionOutcome,
-    RequestPermissionRequest, RequestPermissionResponse, SelectedPermissionOutcome, SessionId,
-    SessionNotification, TextContent,
+    McpServer, McpServerStdio, NewSessionRequest, PermissionOptionKind, PromptRequest,
+    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    SelectedPermissionOutcome, SessionId, SessionNotification, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -304,6 +304,11 @@ impl AcpHost {
         };
         let agent = self.engines.acp_agent(spec, &env, &extra_args)?;
 
+        let auto_approve = role
+            .as_ref()
+            .and_then(|role| role.get("auto_approve"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel();
         let (ready_tx, ready_rx) = oneshot::channel::<SessionId>();
@@ -335,9 +340,40 @@ impl AcpHost {
                         let sink = permission_sink.clone();
                         let conn = permission_conn.clone();
                         connection.spawn(async move {
-                            let (request_id, rx) = permissions.open();
                             let request_value =
                                 serde_json::to_value(&request).unwrap_or(Value::Null);
+                            if auto_approve {
+                                if let Some(option) = request.options.iter().find(|option| {
+                                    matches!(
+                                        option.kind,
+                                        PermissionOptionKind::AllowOnce
+                                            | PermissionOptionKind::AllowAlways
+                                    )
+                                }) {
+                                    let audit_id = uuid::Uuid::new_v4().to_string();
+                                    sink.emit(EventEnvelope {
+                                        kind: "permission_auto_approved".to_string(),
+                                        connection_id: conn.clone(),
+                                        seq: 0,
+                                        payload: json!({
+                                            "request_id": audit_id,
+                                            "option_id": option.option_id,
+                                            "option_name": option.name,
+                                            "request": request_value,
+                                        }),
+                                    });
+                                    let response = RequestPermissionResponse::new(
+                                        RequestPermissionOutcome::Selected(
+                                            SelectedPermissionOutcome::new(
+                                                option.option_id.clone(),
+                                            ),
+                                        ),
+                                    );
+                                    let _ = responder.respond(response);
+                                    return Ok(());
+                                }
+                            }
+                            let (request_id, rx) = permissions.open();
                             sink.emit(EventEnvelope {
                                 kind: "permission_request".to_string(),
                                 connection_id: conn,

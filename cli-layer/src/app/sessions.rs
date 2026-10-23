@@ -458,6 +458,16 @@ impl SessionService {
                         )
                     }
                     "turn_complete" => {
+                        if let Some(error) = event.payload.get("error").and_then(Value::as_str) {
+                            return (
+                                false,
+                                "protocol".to_string(),
+                                error.to_string(),
+                                text,
+                                usage,
+                                events_seen,
+                            );
+                        }
                         let stopped = event
                             .payload
                             .get("stop_reason")
