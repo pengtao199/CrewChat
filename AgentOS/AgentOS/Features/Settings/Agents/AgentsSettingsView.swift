@@ -161,294 +161,48 @@ struct AgentsSettingsView: View {
             }
 
             Section("settings.agents.runtime") {
-                engineField
-
-                if let enginesError = model.enginesError {
-                    Text(enginesError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-
-                modelFields
+                AgentRuntimeFields(
+                    role: $role,
+                    engines: model.engines,
+                    enginesError: model.enginesError,
+                    face: model.face,
+                    faceError: model.faceError,
+                    isLoadingFace: model.isLoadingFace,
+                    onRetryFace: reloadFace
+                )
             }
 
             Section("settings.agents.persona") {
-                personaGroup(
-                    title: "settings.agents.soul",
-                    text: role.soul,
-                    expanded: $soulExpanded,
-                    document: .soul
-                )
-                personaGroup(
-                    title: "settings.agents.rules",
-                    text: role.rules,
-                    expanded: $rulesExpanded,
-                    document: .rules
+                AgentPersonaFields(
+                    soul: $role.soul,
+                    rules: $role.rules,
+                    soulExpanded: $soulExpanded,
+                    rulesExpanded: $rulesExpanded,
+                    onEdit: { editingDocument = $0 }
                 )
             }
 
             Section("settings.agents.capabilities") {
-                CapabilityMultiSelect(
-                    title: "settings.agents.skills",
-                    options: model.skills,
-                    knownIDs: Set(model.skills.map(\.id)),
-                    selection: $role.skills,
+                AgentCapabilitiesFields(
+                    skills: $role.skills,
+                    mcp: $role.mcp,
+                    skillOptions: model.skills,
+                    skillError: model.skillsError,
+                    mcpOptions: model.mcpServers,
+                    mcpError: model.mcpError,
                     isLoading: model.isLoadingCapabilities,
-                    error: model.skillsError,
-                    searchPrompt: "settings.agents.searchSkills",
-                    isEnabled: true,
-                    onRetry: reloadCapabilities
-                )
-
-                CapabilityMultiSelect(
-                    title: "settings.agents.mcp",
-                    options: model.mcpServers,
-                    knownIDs: Set(model.mcpServers.map(\.id)).union(role.mcp),
-                    selection: $role.mcp,
-                    isLoading: model.isLoadingCapabilities,
-                    error: model.mcpError,
-                    searchPrompt: "settings.agents.searchMCP",
-                    isEnabled: false,
                     onRetry: reloadCapabilities
                 )
             }
 
             Section("settings.agents.permissions") {
-                Picker("settings.agents.permissionMode", selection: $role.permissionMode) {
-                    Text("settings.agents.permissionMode.default").tag("")
-                    ForEach(permissionModes, id: \.self) { mode in
-                        Text(modeLabel(mode)).tag(mode)
-                    }
-                    if !role.permissionMode.isEmpty, !permissionModes.contains(role.permissionMode) {
-                        Text(role.permissionMode).tag(role.permissionMode)
-                    }
-                }
-
-                Toggle("settings.agents.autoApprove", isOn: $role.autoApprove)
-
-                if role.autoApprove {
-                    Text("settings.agents.autoApproveHint")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
+                AgentPermissionsFields(
+                    permissionMode: $role.permissionMode,
+                    autoApprove: $role.autoApprove
+                )
             }
         }
         .formStyle(.grouped)
-    }
-
-    @ViewBuilder
-    private var engineField: some View {
-        if runnableEngines.isEmpty {
-            Text("settings.agents.engine.noneAvailable")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        } else {
-            Picker("settings.agents.engine", selection: $role.agentType) {
-                if role.agentType.isEmpty {
-                    Text("settings.agents.engine.none").tag("")
-                }
-                ForEach(runnableEngines) { engine in
-                    Text(engine.name).tag(engine.agentType)
-                }
-            }
-
-            if !role.agentType.isEmpty,
-               !runnableEngines.contains(where: { $0.agentType == role.agentType }) {
-                Text("settings.agents.engine.unavailableCurrent")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var modelFields: some View {
-        if model.isLoadingFace {
-            ProgressView().controlSize(.small)
-        } else if let faceError = model.faceError {
-            errorLine(faceError, retry: reloadFace)
-        } else if let face = model.face {
-            if face.supported {
-                providerField
-                modelField
-
-                if let hint = faceHint {
-                    Text(hint)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else if let hint = faceHint {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var providerField: some View {
-        Picker("settings.agents.provider", selection: providerBinding) {
-            if role.modelProvider.isEmpty {
-                Text("settings.agents.model.default").tag("")
-            }
-            ForEach(providerChoices) { choice in
-                Text(choice.name).tag(choice.id)
-            }
-        }
-        .disabled(providerChoices.isEmpty)
-    }
-
-    private var modelField: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Picker("settings.agents.model", selection: $role.model) {
-                Text("settings.agents.model.default").tag("")
-                ForEach(modelOptions, id: \.self) { name in
-                    Text(name).tag(name)
-                }
-            }
-            .disabled(modelOptions.isEmpty)
-
-            if let face = model.face, face.supported, !role.model.isEmpty, !modelOptions.contains(role.model) {
-                HStack(spacing: 6) {
-                    Label("settings.agents.modelInvalid", systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                    Button("settings.agents.modelClear") {
-                        role.model = ""
-                    }
-                    .buttonStyle(.link)
-                    .font(.caption)
-                }
-            }
-        }
-    }
-
-    private func personaGroup(
-        title: LocalizedStringKey,
-        text: String,
-        expanded: Binding<Bool>,
-        document: AgentDocument
-    ) -> some View {
-        DisclosureGroup(isExpanded: expanded) {
-            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Text("settings.agents.persona.empty")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } else {
-                ScrollView {
-                    StructuredText(markdown: text)
-                        .textual.structuredTextStyle(.gitHub)
-                        .textual.textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(minHeight: 80, maxHeight: 180)
-            }
-        } label: {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-
-                    if let summary = firstLine(text) {
-                        Text(summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-
-                Spacer()
-
-                Button("settings.agents.edit") {
-                    editingDocument = document
-                }
-                .buttonStyle(.borderless)
-                .font(.caption)
-            }
-        }
-    }
-
-    private var providerChoices: [ProviderChoice] {
-        var seen = Set<String>()
-        var result: [ProviderChoice] = []
-        for model in model.face?.models ?? [] {
-            let id = model.providerID.isEmpty ? model.provider : model.providerID
-            guard seen.insert(id).inserted else { continue }
-            result.append(ProviderChoice(id: id, name: model.provider))
-        }
-        return result
-    }
-
-    private var resolvedProviderID: String {
-        if providerChoices.contains(where: { $0.id == role.modelProvider }) {
-            return role.modelProvider
-        }
-        if let choice = providerChoices.first(where: { $0.name == role.modelProvider }) {
-            return choice.id
-        }
-        return role.modelProvider
-    }
-
-    private var providerBinding: Binding<String> {
-        Binding(
-            get: { resolvedProviderID },
-            set: { providerID in
-                role.modelProvider = providerID
-                if !modelOptions(for: providerID).contains(role.model) {
-                    role.model = ""
-                }
-            }
-        )
-    }
-
-    private var modelOptions: [String] {
-        modelOptions(for: resolvedProviderID)
-    }
-
-    private func modelOptions(for providerID: String) -> [String] {
-        (model.face?.models ?? [])
-            .filter { ($0.providerID.isEmpty ? $0.provider : $0.providerID) == providerID }
-            .map(\.model)
-    }
-
-    private var faceHint: String? {
-        guard let face = model.face else { return nil }
-        if !face.supported {
-            return face.reason ?? String(localized: "settings.agents.modelUnsupported")
-        }
-        if face.models.isEmpty {
-            return face.reason ?? String(localized: "settings.agents.modelUnsupported")
-        }
-        return nil
-    }
-
-    private var permissionModes: [String] {
-        ["default", "acceptEdits", "auto", "dontAsk", "bypassPermissions", "plan"]
-    }
-
-    private func modeLabel(_ mode: String) -> LocalizedStringKey {
-        switch mode {
-        case "default": "settings.agents.permissionMode.default"
-        case "acceptEdits": "settings.agents.permissionMode.acceptEdits"
-        case "auto": "settings.agents.permissionMode.auto"
-        case "dontAsk": "settings.agents.permissionMode.dontAsk"
-        case "bypassPermissions": "settings.agents.permissionMode.bypass"
-        case "plan": "settings.agents.permissionMode.plan"
-        default: LocalizedStringKey(mode)
-        }
-    }
-
-    private var runnableEngines: [Engine] {
-        model.engines.filter(\.available)
-    }
-
-    private func errorLine(_ message: String, retry: @escaping () -> Void) -> some View {
-        HStack(spacing: 6) {
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.red)
-            Button("settings.agents.retry", action: retry)
-                .buttonStyle(.link)
-                .font(.caption)
-        }
     }
 
     private func subtitle(_ agent: AgentRole) -> String {
@@ -475,13 +229,6 @@ struct AgentsSettingsView: View {
     private var isValidDraft: Bool {
         !role.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !role.agentType.isEmpty
-    }
-
-    private func firstLine(_ text: String) -> String? {
-        text.split(separator: "\n", omittingEmptySubsequences: false)
-            .lazy
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty }
     }
 
     private func scheduleAutoSave() {
@@ -556,7 +303,7 @@ struct AgentsSettingsView: View {
         await saveDraft()
 
         var draft = AgentRole.empty
-        draft.agentType = runnableEngines.first?.agentType ?? ""
+        draft.agentType = model.engines.first(where: \.available)?.agentType ?? ""
 
         isCreating = true
         selection = nil
@@ -587,39 +334,14 @@ struct AgentsSettingsView: View {
     private func reloadForDraft() async {
         await model.loadFace(agentType: role.agentType)
         await model.loadCapabilities(agentType: role.agentType)
-        normalizeModelSelection()
     }
 
     private func reloadFace() {
-        Task {
-            await model.loadFace(agentType: role.agentType)
-            normalizeModelSelection()
-        }
+        Task { await model.loadFace(agentType: role.agentType) }
     }
 
     private func reloadCapabilities() {
         Task { await model.loadCapabilities(agentType: role.agentType) }
-    }
-
-    private func normalizeModelSelection() {
-        guard let face = model.face else { return }
-
-        if !face.supported {
-            role.modelProvider = ""
-            role.model = ""
-            return
-        }
-
-        let providers = providerChoices
-        if !providers.contains(where: { $0.id == resolvedProviderID }) {
-            role.modelProvider = providers.first?.id ?? ""
-        } else if role.modelProvider != resolvedProviderID {
-            role.modelProvider = resolvedProviderID
-        }
-
-        if !role.model.isEmpty, !modelOptions.contains(role.model) {
-            role.model = ""
-        }
     }
 
     private func waitForSave() async {
@@ -656,23 +378,4 @@ struct AgentsSettingsView: View {
             saveError = error.localizedDescription
         }
     }
-}
-
-private enum AgentDocument: String, Identifiable {
-    case soul
-    case rules
-
-    var id: String { rawValue }
-
-    var titleKey: LocalizedStringKey {
-        switch self {
-        case .soul: "settings.agents.soul"
-        case .rules: "settings.agents.rules"
-        }
-    }
-}
-
-private struct ProviderChoice: Identifiable, Hashable {
-    let id: String
-    let name: String
 }
