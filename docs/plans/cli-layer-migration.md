@@ -79,8 +79,8 @@ Agent = 大脑（模型）+ 引擎（CLI）+ 技能 + MCP + 记忆 + 规则
 | 会话 | `acp_connect` / `acp_prompt` / `acp_cancel` / `/ws/events` / `acp_respond_permission` | `acp-host` + `sessions` + `events` | P1–P2 |
 | 模型页 | `ccr_health` / `ccr_call` / `ccr_provider_*` / `ccr_disabled_models` / `ccr_supervisor_start` | `http/model_proxy.rs`（薄代理到 model-layer） | P1 |
 | 花名册 | `agent_roles_list` / `agent_roles_save` / `agent_roles_delete` / `agent_role_model_face` | `store/roster` + `roles` | P2 |
-| 技能 | `acp_list_agent_skills` / `acp_read_agent_skill` / `acp_save_agent_skill` / `acp_delete_agent_skill` | `capabilities/skills`（`skill-layer`） | P3 |
-| MCP | `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` | `capabilities/mcp` | P3 |
+| 技能 | `acp_list_agent_skills` / `acp_read_agent_skill`；新 `skill_*` / `agent_skills_set` | `cli-layer` 代理 `skill-layer` | ✅ |
+| MCP | `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` | `capabilities/mcp` | 后置 |
 | 引擎 | `acp_list_agents` / `acp_update_agent_preferences` / `acp_fetch_agent_latest_release` / `acp_prepare_npx_agent` / `acp_download_agent_binary` / `acp_install_pi_binary` / `acp_env_diagnostics` | `engines` | P3 |
 | 项目/会话 | `list_open_folder_details` / `open_folder` / `remove_folder_from_workspace` / `list_all_conversations` / `delete_conversation` / `create_conversation` / `get_folder_conversation` / `get_conversation` | `store` + `http` | P3 |
 | 设置 | `get_delegation_settings` / `set_delegation_settings` | `team` + `settings` | P4 |
@@ -406,8 +406,26 @@ skills / MCP / engine install、数据迁移、打包。
 - 未支持：Gemini / Antigravity（Gemini 协议）、CodeBuddy / Qoder（自有登录或目录）、
   Cursor（Cursor 账号 + 固定端点）。
 
-剩余：AgentOS 切换（Phase 3）、skills/MCP/engine install、旧 transcript 导入、
-打包。
+剩余：MCP / delegation、旧 transcript 导入、打包。
+
+### Phase 3 切换（2026-10-23）
+
+- AgentOS 默认走 cli-layer：`CoreBinaryLocator.isCliLayerEnabled()` 默认 true，
+  `AGENTOS_CLI_LAYER=0` / `AGENTOS_CODEG_CORE=1` 是显式回退。
+- AgentOS 启动顺序：model-layer → skill-layer → cli-layer；skill-layer 只作为
+  本地 daemon，不阻塞聊天。
+- cli-layer 已加 skill 代理：`skill_list` / `skill_read` / `skill_install` /
+  `skill_check` / `skill_update` / `skill_remove` / `skill_link_status` /
+  `agent_skills_set` / `agent_skill_status`；旧 `acp_list_agent_skills` /
+  `acp_read_agent_skill` 继续兼容现有 Skills 页。
+- `acp_connect` 会在 role 有技能时调用 skill-layer `materialize`，把选中的技能
+  链到 role home 的 `skills/`；技能缺失会让连接失败，而不是静默跳过。
+- 旧技能目录一次性导入 skill-layer registry（81 个技能；gstack 因 3519 文件/70MB 超限未导入），
+  `~/.agents/skills` 已转为 current 软链。
+- 已验证：重启 AgentOS 后 `3080` 无 codeg，`3081` 为 cli-layer；Skills 页
+  通过旧命令读取 81 个技能；Claude 使用全局 `claude-agent-acp` 连接成功。
+- 未完成：MCP / delegation 仍 501；`session/load` 尚未实现；前端新技能命令
+  （`skill_*` / `agent_skills_set`）未接。
 
 ### AgentOS 开发开关（2026-10-23）
 

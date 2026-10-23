@@ -1,7 +1,7 @@
 # Skill 层 API：前端交付说明
 
 Updated: 2026-10-23
-Status: `skill-layer` daemon 第一版可用；core 代理与 Agent 绑定命令尚未接线。
+Status: `skill-layer` daemon 可用；cli-layer 已接 skill 代理、Agent skills 绑定与会话 materialize。MCP 仍后置。
 读者：AgentOS 前端工程师。
 
 ---
@@ -175,9 +175,9 @@ POST /v1/collections
 
 ---
 
-## 3. core 对前端的命令（契约草案，未实现）
+## 3. core 对前端的命令
 
-前端按这个写，core 接好后切换。所有命令走现有 `/api/<command>`，Bearer core token。
+cli-layer 已接以下命令；现有 Skills 页仍走兼容的 `acp_list_agent_skills` / `acp_read_agent_skill`。所有命令走 `/api/<command>`，Bearer core token。
 
 ### `skill_list`
 
