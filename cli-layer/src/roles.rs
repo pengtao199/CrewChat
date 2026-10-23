@@ -264,7 +264,9 @@ fn link_shared_codex_home(home: &Path) {
     };
     for entry in entries.flatten() {
         let name = entry.file_name();
-        if name == "config.toml" {
+        // Skills are materialized per role by skill-layer; linking the global
+        // tree would put the materialized `skills/` outside the role home.
+        if name == "config.toml" || name == "skills" {
             continue;
         }
         let link = home.join(&name);
