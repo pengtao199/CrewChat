@@ -496,7 +496,7 @@ async fn agent_role_model_face(
             return Json(json!({
                 "supported": false,
                 "reason": format!(
-                    "{} does not support per-role model injection yet",
+                    "{} does not expose a per-session API endpoint for model injection",
                     spec.name
                 ),
             }))

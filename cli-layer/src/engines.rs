@@ -4,9 +4,11 @@
 //! adapters, or community packages); this file only records how to install and
 //! launch them. Versions and commands mirror codeg's `acp/registry.rs` pins.
 //!
-//! Per-role model injection is only implemented for Claude / Codex / OpenCode.
-//! Every other engine is list/install/launch only; its model comes from the CLI's
-//! own configuration.
+//! Per-role model injection is implemented for the engines whose CLI exposes a
+//! per-session config directory or an API-key/base-URL provider. Engines that
+//! only speak a vendor protocol (Gemini, Cursor, CodeBuddy, Qoder) or need a
+//! vendor login stay `OverlayKind::None`; their model still comes from the
+//! CLI's own configuration.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -31,6 +33,13 @@ pub enum OverlayKind {
     Claude,
     Codex,
     OpenCode,
+    Grok,
+    Hermes,
+    Kimi,
+    OpenClaw,
+    Pi,
+    Cline,
+    DeepSeek,
     None,
 }
 
@@ -205,7 +214,7 @@ pub const ENGINES: &[EngineSpec] = &[
         args: &["acp"],
         env: &[],
         platforms: &[],
-        overlay: OverlayKind::None,
+        overlay: OverlayKind::OpenClaw,
         supports_mcp: false,
     },
     EngineSpec {
@@ -220,7 +229,7 @@ pub const ENGINES: &[EngineSpec] = &[
         args: &["--acp"],
         env: &[],
         platforms: &[],
-        overlay: OverlayKind::None,
+        overlay: OverlayKind::Cline,
         supports_mcp: true,
     },
     EngineSpec {
@@ -235,7 +244,7 @@ pub const ENGINES: &[EngineSpec] = &[
         args: &["acp"],
         env: &[],
         platforms: &[],
-        overlay: OverlayKind::None,
+        overlay: OverlayKind::Hermes,
         supports_mcp: true,
     },
     EngineSpec {
@@ -265,7 +274,7 @@ pub const ENGINES: &[EngineSpec] = &[
         args: &["acp"],
         env: &[],
         platforms: &[],
-        overlay: OverlayKind::None,
+        overlay: OverlayKind::Kimi,
         supports_mcp: true,
     },
     EngineSpec {
@@ -280,7 +289,7 @@ pub const ENGINES: &[EngineSpec] = &[
         args: &[],
         env: &[("PI_ACP_ENABLE_EMBEDDED_CONTEXT", "true")],
         platforms: &[],
-        overlay: OverlayKind::None,
+        overlay: OverlayKind::Pi,
         supports_mcp: true,
     },
     EngineSpec {
@@ -295,7 +304,7 @@ pub const ENGINES: &[EngineSpec] = &[
         args: &["--no-auto-update", "agent", "stdio"],
         env: &[],
         platforms: &[],
-        overlay: OverlayKind::None,
+        overlay: OverlayKind::Grok,
         supports_mcp: true,
     },
     EngineSpec {
@@ -325,7 +334,7 @@ pub const ENGINES: &[EngineSpec] = &[
         args: &[],
         env: &[],
         platforms: &[],
-        overlay: OverlayKind::None,
+        overlay: OverlayKind::DeepSeek,
         supports_mcp: true,
     },
     EngineSpec {
@@ -407,14 +416,12 @@ impl Engines {
         find(agent_type)
     }
 
-    /// The command used to spawn the engine. A locally installed adapter wins
-    /// over the npx/global fallback; paths are quoted because the data dir
-    /// contains `Application Support`.
-    pub fn command(&self, spec: &EngineSpec) -> String {
+    /// The executable (without the adapter args) used to spawn the engine.
+    pub fn base_command(&self, spec: &EngineSpec) -> String {
         if let Some(local) = self.local_binary(spec) {
-            return with_args(&quote_path(&local.to_string_lossy()), spec.args);
+            return quote_path(&local.to_string_lossy());
         }
-        let base = match spec.agent_type {
+        match spec.agent_type {
             "claude_code" => self.config.claude_command.clone(),
             "codex" => self.config.codex_command.clone(),
             "open_code" => self.config.opencode_command.clone(),
@@ -422,8 +429,14 @@ impl Engines {
                 Distribution::Npx => format!("npx -y {}@{}", spec.package, spec.version),
                 Distribution::Binary => spec.cmd.to_string(),
             },
-        };
-        with_args(&base, spec.args)
+        }
+    }
+
+    /// The command used to spawn the engine. A locally installed adapter wins
+    /// over the npx/global fallback; paths are quoted because the data dir
+    /// contains `Application Support`.
+    pub fn command(&self, spec: &EngineSpec) -> String {
+        with_args(&self.base_command(spec), spec.args)
     }
 
     pub fn install_dir(&self, spec: &EngineSpec) -> PathBuf {
@@ -507,8 +520,13 @@ impl Engines {
             .collect()
     }
 
-    pub fn acp_agent(&self, spec: &EngineSpec, env: &BTreeMap<String, String>) -> Result<AcpAgent> {
-        let command = self.command(spec);
+    pub fn acp_agent(
+        &self,
+        spec: &EngineSpec,
+        env: &BTreeMap<String, String>,
+        extra_args: &[String],
+    ) -> Result<AcpAgent> {
+        let command = with_extra_args(&self.command(spec), extra_args);
         tracing::debug!("spawning {}: {command}", spec.agent_type);
         let mut config = AcpAgent::from_str(&command)
             .with_context(|| format!("parse ACP command for {}", spec.agent_type))?
@@ -551,6 +569,27 @@ fn with_args(base: &str, args: &[&str]) -> String {
     } else {
         format!("{} {}", base, args.join(" "))
     }
+}
+
+fn with_extra_args(base: &str, args: &[String]) -> String {
+    if args.is_empty() {
+        return base.to_string();
+    }
+    let escaped = args
+        .iter()
+        .map(|arg| {
+            if arg
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || "-_./:".contains(ch))
+            {
+                arg.clone()
+            } else {
+                quote_path(arg)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!("{base} {escaped}")
 }
 
 fn quote_path(path: &str) -> String {
@@ -611,12 +650,39 @@ mod tests {
     }
 
     #[test]
-    fn only_three_engines_have_role_overlays() {
+    fn extra_args_are_shell_safe() {
+        assert_eq!(with_extra_args("openclaw acp", &[]), "openclaw acp");
+        assert_eq!(
+            with_extra_args(
+                "openclaw acp",
+                &["--url".to_string(), "ws://127.0.0.1:18889".to_string()]
+            ),
+            "openclaw acp --url ws://127.0.0.1:18889"
+        );
+        assert_eq!(with_extra_args("cmd", &["a b".to_string()]), "cmd 'a b'");
+    }
+
+    #[test]
+    fn engines_with_role_overlays_are_registered() {
         let overlays = ENGINES
             .iter()
             .filter(|spec| spec.overlay != OverlayKind::None)
             .map(|spec| spec.agent_type)
             .collect::<Vec<_>>();
-        assert_eq!(overlays, vec!["claude_code", "codex", "open_code"]);
+        assert_eq!(
+            overlays,
+            vec![
+                "claude_code",
+                "codex",
+                "open_code",
+                "openclaw",
+                "cline",
+                "hermes",
+                "kimi_code",
+                "pi",
+                "grok",
+                "deepseek",
+            ]
+        );
     }
 }

@@ -7,6 +7,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -17,8 +18,9 @@ use agent_client_protocol::schema::v1::{
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use serde_json::{json, Value};
+use tokio::process::{Child, Command as TokioCommand};
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::acp::events::{self, EventBus, EventEnvelope};
@@ -87,6 +89,9 @@ struct ConnectionHandle {
     info: ConnectionInfo,
     tx: mpsc::UnboundedSender<Command>,
     task: tokio::task::JoinHandle<()>,
+    /// Companion process for ACP bridges that need a local gateway
+    /// (OpenClaw). Dropping the handle kills it via `kill_on_drop`.
+    _gateway: Option<Child>,
 }
 
 enum Command {
@@ -149,7 +154,7 @@ impl AcpHost {
             .ok_or_else(|| anyhow!("unsupported engine '{agent_type}'"))?;
         if role.is_some() && spec.overlay == crate::engines::OverlayKind::None {
             return Err(anyhow!(
-                "{} does not support per-role model injection yet",
+                "{} does not expose a per-session API endpoint for model injection",
                 spec.name
             ));
         }
@@ -168,7 +173,19 @@ impl AcpHost {
         if let Some(overlay) = &overlay {
             env.extend(overlay.env.clone());
         }
-        let agent = self.engines.acp_agent(spec, &env)?;
+        let mut extra_args = Vec::new();
+        let gateway = match overlay.as_ref().and_then(|overlay| overlay.gateway_port) {
+            Some(port) => {
+                let child = self
+                    .start_gateway(&self.engines.base_command(spec), port, &env)
+                    .await?;
+                extra_args.push("--url".to_string());
+                extra_args.push(format!("ws://127.0.0.1:{port}"));
+                Some(child)
+            }
+            None => None,
+        };
+        let agent = self.engines.acp_agent(spec, &env, &extra_args)?;
 
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel();
@@ -316,6 +333,7 @@ impl AcpHost {
                 info: info.clone(),
                 tx: cmd_tx,
                 task,
+                _gateway: gateway,
             },
         );
 
@@ -325,6 +343,44 @@ impl AcpHost {
             "agent_type": info.agent_type,
             "model": info.model_label,
         }))
+    }
+
+    /// OpenClaw's ACP command is a bridge to a Gateway, not an agent process.
+    /// Start one gateway per role so two roles cannot share a global model.
+    async fn start_gateway(
+        &self,
+        base: &str,
+        port: u16,
+        env: &BTreeMap<String, String>,
+    ) -> Result<Child> {
+        let mut command = TokioCommand::new("sh");
+        command
+            .arg("-c")
+            .arg(format!(
+                "exec {base} gateway run --port {port} --allow-unconfigured --auth none --bind loopback"
+            ))
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .kill_on_drop(true);
+        for (name, value) in env {
+            command.env(name, value);
+        }
+        let mut child = command.spawn().context("spawn the OpenClaw gateway")?;
+        for _ in 0..120 {
+            if let Some(status) = child.try_wait()? {
+                bail!("OpenClaw gateway exited before it was ready ({status})");
+            }
+            if tokio::net::TcpStream::connect(("127.0.0.1", port))
+                .await
+                .is_ok()
+            {
+                return Ok(child);
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+        let _ = child.kill().await;
+        bail!("OpenClaw gateway did not become ready on 127.0.0.1:{port}")
     }
 
     pub fn prompt(&self, connection_id: &str, text: String) -> Result<()> {

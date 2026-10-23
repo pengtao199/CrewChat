@@ -108,20 +108,30 @@ pub async fn prepare_npx(
         .filter(|value| !value.is_empty())
         .unwrap_or(spec.version);
     let package = format!("{}@{}", spec.package, version);
-    let output = run(
-        "npm",
-        &[
-            "install",
-            "--prefix",
-            &dir.to_string_lossy(),
-            "--no-audit",
-            "--no-fund",
-            "--loglevel=error",
-            &package,
-        ],
-        INSTALL_TIMEOUT,
-    )
-    .await?;
+    let dir_arg = dir.to_string_lossy().to_string();
+    let mut args = vec![
+        "install",
+        "--prefix",
+        &dir_arg,
+        "--no-audit",
+        "--no-fund",
+        "--loglevel=error",
+        // Cline/Oracle-style packages ship their real binary as an optional
+        // platform dependency; without this npm can skip it.
+        "--include=optional",
+    ];
+    if spec.agent_type == "deepseek" {
+        // deepseek-acp's peer graph spans two rc lines (0.1.5-rc.1 and -rc.3).
+        // `--force` keeps npm installing the peers; `--legacy-peer-deps` would
+        // skip them and the adapter then fails at import time.
+        args.push("--force");
+    } else {
+        // ACP adapters occasionally pin peer ranges that npm 11 resolves
+        // strictly; keep the adapter install self-contained.
+        args.push("--legacy-peer-deps");
+    }
+    args.push(&package);
+    let output = run("npm", &args, INSTALL_TIMEOUT).await?;
     if !output.0 {
         bail!("npm install failed: {}", tail(&output.2));
     }
