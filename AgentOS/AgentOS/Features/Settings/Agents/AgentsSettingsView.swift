@@ -14,6 +14,7 @@ struct AgentsSettingsView: View {
     @State private var soulExpanded = false
     @State private var rulesExpanded = false
     @State private var editingDocument: AgentDocument?
+    @State private var mcpChangeNotice = false
 
     private var model: AgentsSettingsViewModel { environment.roster }
 
@@ -190,6 +191,7 @@ struct AgentsSettingsView: View {
                     skillError: model.skillsError,
                     mcpOptions: model.mcpServers,
                     mcpError: model.mcpError,
+                    mcpNotice: mcpChangeNotice,
                     isLoading: model.isLoadingCapabilities,
                     onRetry: reloadCapabilities
                 )
@@ -248,11 +250,16 @@ struct AgentsSettingsView: View {
         isSaving = true
         saveError = nil
         let snapshot = role
+        let previousMCP = Set(savedRole?.mcp ?? [])
 
         do {
             let saved = try await model.save(snapshot)
             savedRole = saved
             draftBaseline = saved
+
+            if Set(saved.mcp) != previousMCP {
+                mcpChangeNotice = true
+            }
 
             if isCreating {
                 isCreating = false
@@ -284,6 +291,7 @@ struct AgentsSettingsView: View {
 
         isCreating = false
         selection = id
+        mcpChangeNotice = false
 
         if let id, let agent = model.agents.first(where: { $0.id == id }) {
             role = agent
@@ -311,6 +319,7 @@ struct AgentsSettingsView: View {
         draftBaseline = draft
         savedRole = nil
         saveError = nil
+        mcpChangeNotice = false
     }
 
     private func duplicate(_ agent: AgentRole) async {
@@ -328,6 +337,7 @@ struct AgentsSettingsView: View {
         draftBaseline = .empty
         savedRole = nil
         saveError = nil
+        mcpChangeNotice = false
         scheduleAutoSave()
     }
 
@@ -356,6 +366,7 @@ struct AgentsSettingsView: View {
         role = first
         savedRole = first
         draftBaseline = first
+        mcpChangeNotice = false
     }
 
     private func performDelete(_ agent: AgentRole) async {
@@ -372,6 +383,7 @@ struct AgentsSettingsView: View {
                 role = .empty
                 savedRole = nil
                 draftBaseline = .empty
+                mcpChangeNotice = false
                 selectFirstIfNeeded()
             }
         } catch {

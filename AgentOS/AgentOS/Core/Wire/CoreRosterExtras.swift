@@ -17,11 +17,3 @@ struct CoreFaceModel: Decodable, Sendable {
         case model
     }
 }
-
-struct CoreMcpScan: Decodable, Sendable {
-    let servers: [CoreMcpServer]
-}
-
-struct CoreMcpServer: Decodable, Sendable {
-    let id: String
-}

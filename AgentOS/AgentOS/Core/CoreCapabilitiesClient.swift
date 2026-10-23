@@ -19,8 +19,19 @@ final class CoreCapabilitiesClient: CoreCapabilities, @unchecked Sendable {
     }
 
     func mcpServers() async throws -> [CapabilityOption] {
-        let scan: CoreMcpScan = try await provider.client().send("mcp_scan_local", body: EmptyBody())
-        return scan.servers.map { CapabilityOption(id: $0.id, name: $0.id, detail: nil) }
+        let list: CoreMCPList = try await provider.client().send(
+            "mcp_list",
+            body: EmptyBody()
+        )
+        return list.servers
+            .filter(\.enabled)
+            .map {
+                CapabilityOption(
+                    id: $0.id,
+                    name: $0.spec.name.isEmpty ? $0.id : $0.spec.name,
+                    detail: $0.spec.transport
+                )
+            }
     }
 }
 

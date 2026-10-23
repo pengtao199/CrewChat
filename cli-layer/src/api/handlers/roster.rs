@@ -31,14 +31,38 @@ pub(crate) async fn agent_roles_save(
         return unauthorized();
     }
     let role = body.get("role").cloned().unwrap_or(body);
-    let agent = match Agent::from_value(role) {
+    let mut agent = match Agent::from_value(role) {
         Ok(agent) => agent,
         Err(error) => return api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     };
-    match state.roster.save(&agent) {
-        Ok(role) => Json(role).into_response(),
-        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    agent.mcp = normalized_mcp(&agent.mcp);
+
+    let previous = state.roster.get(&agent.id).ok().flatten();
+    let mcp_changed = previous
+        .as_ref()
+        .map(|role| normalized_mcp(&role.mcp) != agent.mcp)
+        .unwrap_or(!agent.mcp.is_empty());
+
+    let saved = match state.roster.save(&agent) {
+        Ok(role) => role,
+        Err(error) => return api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    };
+
+    if mcp_changed {
+        if let Err(error) = state.mcp.sync_agent_mcps(&saved.id, &saved.mcp).await {
+            let rollback = match previous {
+                Some(role) => state.roster.save(&role).map(|_| ()),
+                None => state.roster.delete(&saved.id),
+            };
+            let _ = rollback;
+            return api_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("save role mcp binding: {error}"),
+            );
+        }
     }
+
+    Json(saved).into_response()
 }
 
 pub(crate) async fn agent_roles_delete(
@@ -150,6 +174,13 @@ pub(crate) async fn agent_skill_status(
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::NOT_FOUND, &error.to_string()),
     }
+}
+
+fn normalized_mcp(ids: &[String]) -> Vec<String> {
+    let mut values = ids.to_vec();
+    values.sort();
+    values.dedup();
+    values
 }
 
 fn string_array(value: Option<&Value>) -> Vec<String> {

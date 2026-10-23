@@ -75,7 +75,7 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 | --- | --- |
 | `mcp-layer` | 注册表、server 定义、Agent → proxy 配置、端口/进程生命周期、健康、给 cli-layer 返回 `mcpServers` |
 | `mcp-proxy` | MCP 协议、transport、聚合、tools/prompts/resources、auth、resilience |
-| `cli-layer` | 花名册、`agent_mcps_set`、ACP `session/new.mcpServers` 注入 |
+| `cli-layer` | 花名册、`agent_roles_save` 的 MCP 同步、ACP `session/new.mcpServers` 注入 |
 | `AgentOS` | MCP 库 / Agent 选择器 / 错误展示 |
 
 ---
@@ -260,7 +260,7 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 
 ### 未完成
 
-- `cli-layer` 的 `agent_mcps_set` / `session/new.mcpServers` 已接；真实 ACP 注入待实测；
+- `cli-layer` 的 `agent_roles_save` MCP 同步 / `session/new.mcpServers` 已接；真实 ACP 注入待实测；
 - Claude / Codex / OpenCode 的 ACP 注入实测；
 - 真实 MCP server（stdio/HTTP）冒烟（已用 fake stdio server 跑通基础 HTTP 握手）；
 - Agent 修改时活跃会话的切换策略；

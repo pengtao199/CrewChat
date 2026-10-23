@@ -32,7 +32,22 @@ impl McpService {
     }
 
     pub async fn remove(&self, id: &str) -> Result<Value> {
-        self.mcp.remove(id).await.map_err(anyhow::Error::msg)
+        let value = self.mcp.remove(id).await.map_err(anyhow::Error::msg)?;
+        let removed = value
+            .get("removed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+
+        if removed {
+            for mut role in self.roster.list()? {
+                if role.mcp.iter().any(|server| server == id) {
+                    role.mcp.retain(|server| server != id);
+                    self.roster.save(&role)?;
+                }
+            }
+        }
+
+        Ok(value)
     }
 
     pub async fn set_enabled(&self, id: &str, enabled: bool) -> Result<Value> {
@@ -60,10 +75,7 @@ impl McpService {
 
         // Start/stop the per-Agent proxy before persisting. A failed sync must
         // not leave the roster claiming a binding that has no gateway.
-        self.mcp
-            .sync_agent(role_id, &server_ids)
-            .await
-            .map_err(anyhow::Error::msg)?;
+        self.sync_agent_mcps(role_id, &server_ids).await?;
 
         role.mcp = server_ids;
         let saved = self.roster.save(&role)?;
@@ -71,6 +83,14 @@ impl McpService {
             "roleId": saved.id,
             "serverIds": saved.mcp,
         }))
+    }
+
+    pub async fn sync_agent_mcps(&self, role_id: &str, server_ids: &[String]) -> Result<()> {
+        self.mcp
+            .sync_agent(role_id, server_ids)
+            .await
+            .map(|_| ())
+            .map_err(anyhow::Error::msg)
     }
 
     pub async fn agent_status(&self, role_id: &str) -> Result<Value> {

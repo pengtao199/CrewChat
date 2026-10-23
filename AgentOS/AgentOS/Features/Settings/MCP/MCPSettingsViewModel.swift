@@ -3,41 +3,80 @@ import Foundation
 @MainActor
 @Observable
 final class MCPSettingsViewModel {
-    private(set) var scanResult = MCPScan.empty
+    private(set) var servers: [MCPServer] = []
     private(set) var isLoading = false
     private(set) var errorMessage: String?
+    private(set) var usageError: String?
 
-    private let client: CoreMCP
+    @ObservationIgnored private var agents: [AgentRole] = []
+    @ObservationIgnored private let client: CoreMCP
+    @ObservationIgnored private let roster: CoreRoster
 
-    init(mcp: CoreMCP) {
+    init(mcp: CoreMCP, roster: CoreRoster) {
         self.client = mcp
+        self.roster = roster
     }
-
-    var servers: [MCPServer] { scanResult.servers }
-    var warnings: [MCPSourceWarning] { scanResult.warnings }
 
     func load() async {
         isLoading = true
-        errorMessage = nil
+
+        async let serverRows = client.servers()
+        async let agentRows = roster.agents()
 
         do {
-            scanResult = try await client.scan()
+            servers = try await serverRows.sorted(by: Self.sortByName)
+            errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
-            scanResult = .empty
+        }
+
+        do {
+            agents = try await agentRows
+            usageError = nil
+        } catch {
+            usageError = error.localizedDescription
         }
 
         isLoading = false
     }
 
-    func save(serverID: String, spec: JSONValue, apps: [String]) async throws -> MCPServer {
-        let saved = try await client.upsert(serverID: serverID, spec: spec, apps: apps)
-        await load()
-        return saved
+    func save(id: String, spec: MCPServerSpec) async throws -> MCPSaveResult {
+        let result = try await client.upsert(id: id, spec: spec)
+        apply(result.server)
+        return result
     }
 
-    func remove(serverID: String) async throws {
-        _ = try await client.remove(serverID: serverID)
-        await load()
+    func remove(id: String) async throws -> MCPDeleteResult {
+        let result = try await client.remove(id: id)
+        if result.removed {
+            servers.removeAll { $0.id == id }
+            agents = agents.map { agent in
+                var agent = agent
+                agent.mcp.removeAll { $0 == id }
+                return agent
+            }
+        }
+        return result
+    }
+
+    func isInUse(_ id: String) -> Bool {
+        agents.contains { $0.mcp.contains(id) }
+    }
+
+    func contains(id: String) -> Bool {
+        servers.contains { $0.id == id }
+    }
+
+    private func apply(_ server: MCPServer) {
+        if let index = servers.firstIndex(where: { $0.id == server.id }) {
+            servers[index] = server
+        } else {
+            servers.append(server)
+        }
+        servers.sort(by: Self.sortByName)
+    }
+
+    private static func sortByName(_ lhs: MCPServer, _ rhs: MCPServer) -> Bool {
+        lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
     }
 }

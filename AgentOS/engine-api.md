@@ -32,7 +32,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `ccr_provider_probe` | 测试供应商并拉模型 | `CoreCCR` | body `{baseUrl, apiKey?, models?, forceRefresh?}`；转发 CCR `probeProvider(mode=models)`，超时 90s。返回 `{models, normalizedBaseUrl, detectedProtocol, …}`；模型编辑页用它同时做「测试连接」和模型目录 |
 | `ccr_supervisor_start` | 拉起 / 接管 CCR | `CoreCCR` | 无参数；已运行时 adopt，不新起进程（实测 before/after 进程数不变）。核心需要 `CCR_BIN` 才能自启；scheme 已注入 `.data/ccr/node_modules/.bin/ccr` |
 | `agent_roles_list` | 花名册列表 | `CoreRoster` | 无参数；首启由 `CREWCHAT_AGENTS_DIR` 从 `.data/agents` 一次性导入（实测 8 个），之后读写隔离库。**需要较新的核心二进制**：本机已装 `.data/codeg/bin/codeg-server` 缺这条路由（501），从源码构建立即正常；开发期指向 `codeg/src-tauri/target/debug/codeg-server`（scheme 已改） |
-| `agent_roles_save` | 新建 / 更新角色 | `CoreRoster` | body `{role:{id,name,soul,rules,agent_type,model,model_provider,skills,mcp,permission_mode,auto_approve}}`（snake_case）；`id` 为空=新建，返回带 id 的角色 |
+| `agent_roles_save` | 新建 / 更新角色；MCP 绑定变化时同步 mcp-layer | `CoreRoster` | body `{role:{id,name,soul,rules,agent_type,model,model_provider,skills,mcp,permission_mode,auto_approve}}`（snake_case）；`id` 为空=新建，返回带 id 的角色。核心保存角色后若 `mcp` 变化，调用 mcp-layer 同步该 Agent 的 proxy；同步失败会回滚角色并返回错误，前端不要另发 `agent_mcps_set` |
 | `agent_roles_delete` | 删除角色 | `CoreRoster` | body `{id}`；返回 bool |
 | `agent_role_model_face` | 某引擎可绑定哪些模型 | `CoreRoster` | body `{agentType}`（camelCase）；返回 `{supported, reason?, models:[{provider, provider_id, model}]}`。`supported=false` 说明该引擎不能钉模型；`supported=true` 但为空说明查不到（CCR 不可达）。花名册的 `model_provider` **新建/改选存 `provider_id`**；旧数据里的显示名仍能解析，Picker 读取时做一次 id 映射，不会静默改写旧值 |
 | `skill_list` | 全局技能库 | `CoreCapabilities` / `CoreSkills` | 无参数；返回 `{skills:[SkillSummary], collections:[Collection], globalLinks:[GlobalLink]}`。SkillSummary 含 `id/name/description/currentHash/license/sourceKind/sourceUrl/sourceRef/sourceSubdir/hasScripts/sizeBytes/installedAt/updatedAt`；`globalLinks` 是扁平的 `[{skillId,agentType,path,state,linkedAt}]`，前端按 skillId 分组 |
@@ -41,14 +41,9 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `skill_check` / `skill_update` / `skill_remove` | 检查 / 更新 / 删除 | `CoreSkills` | body `{skillId}`；分别返回 `{id,currentHash,latestHash,updateAvailable}` / `{skill}` / `{removed}` |
 | `agent_skills_set` | 保存 Agent 技能绑定 | `CoreRoster` | body `{roleId, skillIds, collectionIds}`；返回 `{roleId, skillIds}`（集合会展开进 skillIds） |
 | `agent_skill_status` | Agent 技能可用性 | `CoreRoster` | body `{roleId}`；返回 `{skills:[{id,name,available}], missing:[id]}` |
-| `mcp_list` | 全局 MCP 库 | `CoreMCP` | 无参数；返回 `{servers:[{id,spec,enabled,hash,...}]}` |
-| `mcp_read` | 单个 MCP | `CoreMCP` | body `{serverId}`；返回 `{server, warnings?}` |
-| `mcp_upsert` | 新建 / 更新 MCP | `CoreMCP` | body `{serverId, spec:<object>}`（也接受扁平 spec）；写入 mcp-layer，返回 `{server,warnings}` |
-| `mcp_remove` | 删除 MCP | `CoreMCP` | body `{serverId}`；返回 `{removed,warnings}` |
-| `mcp_enable` / `mcp_disable` | 启停 MCP | `CoreMCP` | body `{serverId}`；返回 `{enabled,warnings}` |
-| `mcp_gateway` | 所有 Agent proxy 状态 | `CoreMCP` | 无参数；返回 `{proxies:[{agentId,port,endpoint,state}]}` |
-| `agent_mcps_set` | 保存 Agent MCP 绑定 | `CoreRoster` | body `{roleId, serverIds}`；先同步 mcp-layer，再写 `agent_roles.mcp_json`；返回 `{roleId,serverIds}` |
-| `agent_mcp_status` | Agent MCP 可用性 | `CoreRoster` | body `{roleId}`；返回 `{servers:[{id,name,available}], missing, proxy}` |
+| `mcp_list` | 全局 MCP 库 | `CoreMCP` / `CoreCapabilities` | 无参数；返回 `{servers:[{id,spec,enabled,synced,hash,createdAt,updatedAt}]}`。`spec` 为 camelCase：`name/transport/description/enabled/command/args/env/url/headers/bearerToken/sessionMode`；Agents 页只用 `enabled` 的 server 作为可选能力 |
+| `mcp_upsert` | 新建 / 更新 MCP | `CoreMCP` | body `{serverId, spec:<object>}`；`spec` 同上，写入 mcp-layer，返回 `{server,warnings}`。托管服务重启使用该 server 的 Agent proxy，`warnings` 为重启失败信息 |
+| `mcp_remove` | 删除 MCP | `CoreMCP` | body `{serverId}`；返回 `{removed,warnings}`。cli-layer 删除后同时清理 `agent_roles.mcp_json` 中的引用；mcp-layer 会停止/重建受影响 Agent 的 proxy |
 | `acp_list_agents` | CLI 清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/registry_version/supports_custom_version/distribution_type/is_acp_adapter/env`（snake_case）。`available` = 现在能直接拉起（cli-layer 本地安装或 PATH 上有 adapter）；**不是「平台支持」**。`installed_version` = cli-layer 管理的安装版本；为 null 不等于不能装，npx/binary 仍可安装 |
 | `acp_update_agent_preferences` | 写引擎偏置（env；enabled 仍保留） | `CoreEngines` | body `{agentType, enabled, env}`（**camelCase**；漏写 agentType 会 400）。CLI 页不再暴露启用开关，保存 env 时回传当前 `enabled`；首次加载会把历史 disabled 的内置引擎置回 true |
 | `acp_fetch_agent_latest_release` | 检查可更新的新版本 | `CoreEngines` | body `{agentType}`；返回 `{version}` 或 `null`。只返回比核心 pin 新的版本，壳再与本地已装版本比较；网络失败按「无法检查」处理 |
@@ -65,7 +60,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `create_conversation` | 在项目内新建会话 | `CoreConversations` | body `{folderId, agentType, title?, team?}`（**camelCase**；snake_case 会 400 `missing field folderId`）。`team={leader_role_id, member_role_ids}` 时冻结团队快照、校验 readiness，并在同一事务写成员；返回新会话 id |
 | `get_folder_conversation` | 会话详情 | `CoreConversations` | body `{conversationId, tailTurns}`（camelCase）；返回 `{summary, turns:[{id,role,speaker_role_id?,timestamp,blocks:[{type,…}]}]}`。团队会话的 `summary` 带 `kind=team`、`leader_role_id`、`team` 冻结快照和 `members[].state`；`role`=user/assistant/system；`blocks.type` 见代码（text/thinking/tool_use/tool_result/turn_error，其余走 `other` 不报错） |
 
-| `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?, sessionId?}`（camelCase）。`sessionId` 传会话的 `external_id` 以续接历史；返回 `connection_id`。首次 initialize 可能 8–10s，超时按 60s |
+| `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?, conversationId?, sessionId?}`（camelCase）。`sessionId` 传会话的 `external_id` 时走 ACP `session/load` 续接历史；新会话成功后核心把 `session_id` 写回 `conversations.external_id`；返回 `connection_id`。首次 initialize 可能 8–10s，超时按 60s |
 | `acp_prompt` | 发送一轮消息 | `CoreSession` | body `{connectionId, blocks:[{type:"text",text}], folderId, conversationId}`（camelCase）。立即返回，流式结果走 `/ws/events` |
 | `acp_cancel` | 取消当前轮次 | `CoreSession` | body `{connectionId}`（camelCase） |
 

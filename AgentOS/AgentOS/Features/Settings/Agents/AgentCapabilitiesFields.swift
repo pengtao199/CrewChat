@@ -8,6 +8,7 @@ struct AgentCapabilitiesFields: View {
     let skillError: String?
     let mcpOptions: [CapabilityOption]
     let mcpError: String?
+    let mcpNotice: Bool
     let isLoading: Bool
     let onRetry: () -> Void
 
@@ -27,13 +28,19 @@ struct AgentCapabilitiesFields: View {
         CapabilityMultiSelect(
             title: "settings.agents.mcp",
             options: mcpOptions,
-            knownIDs: Set(mcpOptions.map(\.id)).union(mcp),
+            knownIDs: Set(mcpOptions.map(\.id)),
             selection: $mcp,
             isLoading: isLoading,
             error: mcpError,
             searchPrompt: "settings.agents.searchMCP",
-            isEnabled: false,
+            isEnabled: true,
             onRetry: onRetry
         )
+
+        if mcpNotice {
+            Text("settings.agents.mcp.notice")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }

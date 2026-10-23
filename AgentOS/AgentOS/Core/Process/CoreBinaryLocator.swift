@@ -52,6 +52,21 @@ enum CoreBinaryLocator {
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
+    static func locateMCPLayer() -> URL? {
+        if let path = ProcessInfo.processInfo.environment["AGENTOS_MCP_BINARY"],
+           !path.isEmpty,
+           FileManager.default.isExecutableFile(atPath: path) {
+            return URL(fileURLWithPath: path)
+        }
+        let contents = Bundle.main.bundleURL.appending(path: "Contents")
+        let candidates = [
+            contents.appending(path: "MacOS/crewchat-mcp"),
+            contents.appending(path: "Resources/crewchat-mcp"),
+            contents.appending(path: "Frameworks/crewchat-mcp"),
+        ]
+        return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
+    }
+
     static func locateModelLayer() -> URL? {
         if let path = ProcessInfo.processInfo.environment["AGENTOS_MODEL_BINARY"],
            !path.isEmpty,
@@ -131,6 +146,13 @@ enum CoreBinaryLocator {
             .appending(path: "Logs/AgentOS", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
         return logs.appending(path: "skill-layer.log")
+    }
+
+    static func mcpLayerLogFile() -> URL {
+        let logs = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
+            .appending(path: "Logs/AgentOS", directoryHint: .isDirectory)
+        try? FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        return logs.appending(path: "mcp-layer.log")
     }
 
     static func modelLayerLogFile() -> URL {

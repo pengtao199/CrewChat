@@ -9,6 +9,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private let modelSidecar = SidecarProcess()
     private let skillSidecar = SidecarProcess()
     private let cliSidecar = SidecarProcess()
+    private let mcpSidecar = SidecarProcess()
     private let tokenStore = TokenStore(directory: CoreBinaryLocator.dataDirectory())
     private let modelTokenStore = TokenStore(directory: CoreBinaryLocator.modelLayerDirectory())
     private let cliTokenStore = TokenStore(directory: CoreBinaryLocator.cliLayerDirectory())
@@ -21,6 +22,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
     private var ownsModelLayer = false
     private var ownsSkillLayer = false
     private var ownsCliLayer = false
+    private var ownsMCPLayer = false
     private let signalSource: DispatchSourceSignal
 
     init() {
@@ -67,6 +69,7 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
 
         if CoreBinaryLocator.isCliLayerEnabled() {
             _ = await startSkillLayerIfAvailable()
+            _ = await startMCPLayerIfAvailable()
             if await startCliLayerIfAvailable() {
                 finishStarting()
                 return
@@ -145,6 +148,10 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
         if ownsSkillLayer {
             skillSidecar.stop()
             ownsSkillLayer = false
+        }
+        if ownsMCPLayer {
+            mcpSidecar.stop()
+            ownsMCPLayer = false
         }
         if ownsModelLayer {
             modelSidecar.stop()
@@ -261,6 +268,84 @@ final class CoreSupervisor: CoreLifecycle, @unchecked Sendable {
                 return false
             }
             if await skillLayerHealthy() {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return false
+    }
+
+    /// The MCP control plane owns the server registry and per-Agent proxies.
+    /// It must be ready before cli-layer starts, because cli-layer reads its
+    /// runtime file once at boot.
+    private func startMCPLayerIfAvailable() async -> Bool {
+        if await mcpLayerHealthy() {
+            logger.log("mcp layer already running")
+            return true
+        }
+        guard let binary = CoreBinaryLocator.locateMCPLayer() else {
+            logger.log("mcp layer binary not found")
+            return false
+        }
+
+        let root = FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: ".agents/mcp", directoryHint: .isDirectory)
+        let port = PortPicker.isFree(3461) ? 3461 : PortPicker.freePort()
+        let logFile = CoreBinaryLocator.mcpLayerLogFile()
+        let environment = [
+            "MCP_LAYER_ROOT": root.path,
+            "MCP_LAYER_PORT": String(port),
+        ]
+
+        do {
+            try mcpSidecar.start(
+                binary: binary,
+                endpoint: CoreEndpoint(host: "127.0.0.1", port: port, token: ""),
+                dataDirectory: root,
+                logFile: logFile,
+                extraEnvironment: environment,
+                label: "mcp"
+            )
+        } catch {
+            logger.error("mcp layer failed to start: \(error.localizedDescription)")
+            return false
+        }
+
+        if await waitForMCPLayer() {
+            ownsMCPLayer = true
+            logger.log("mcp layer ready on :\(port)")
+            return true
+        }
+        mcpSidecar.stop()
+        logger.error("mcp layer did not become healthy; MCP settings will be unavailable")
+        return false
+    }
+
+    private func mcpLayerHealthy() async -> Bool {
+        let runtime = FileManager.default.homeDirectoryForCurrentUser
+            .appending(path: ".agents/mcp/runtime.json")
+        guard let data = try? Data(contentsOf: runtime),
+              let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let urlString = value["url"] as? String,
+              let token = value["token"] as? String,
+              let baseURL = URL(string: urlString) else {
+            return false
+        }
+        var request = URLRequest(url: baseURL.appendingPathComponent("v1/health"))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        guard let (_, response) = try? await URLSession.shared.data(for: request) else {
+            return false
+        }
+        return (response as? HTTPURLResponse)?.statusCode == 200
+    }
+
+    private func waitForMCPLayer() async -> Bool {
+        let deadline = Date().addingTimeInterval(20)
+        while Date() < deadline {
+            if !mcpSidecar.isRunning {
+                return false
+            }
+            if await mcpLayerHealthy() {
                 return true
             }
             try? await Task.sleep(for: .milliseconds(250))

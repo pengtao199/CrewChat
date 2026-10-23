@@ -1,7 +1,7 @@
 # MCP Layer API：cli-layer / AgentOS 交付说明
 
 Updated: 2026-10-23
-Status: `mcp-layer` 后端核心可用；`cli-layer` 代理、`agent_mcps_set` 与 `session/new` 注入已接；真实 ACP 待验证。
+Status: `mcp-layer` 后端核心可用；`cli-layer` 代理、`agent_roles_save` MCP 同步与 `session/new` 注入已接；AgentOS MCP 页已接；真实 ACP 待验证。
 读者：cli-layer 工程师、AgentOS 前端工程师。
 
 ---
@@ -197,21 +197,22 @@ HTTP：
 - `sync_agent(agent_id, server_ids) -> AgentSession`；
 - `list_servers()` / `upsert_server()` 给 MCP 页代理用。
 
-### 7.2 `agent_mcps_set`（已落地）
+### 7.2 `agent_roles_save` / `agent_mcps_set`
 
-命令：
+AgentOS 保存 Agent 时只发 `agent_roles_save`：
 
 ```json
-{ "roleId": "role-1", "serverIds": ["playwright"] }
+{ "role": { "id": "role-1", "name": "…", "mcp": ["playwright"], "…": "…" } }
 ```
 
 流程：
 
-1. 校验 role 存在；
+1. 校验 role；
 2. 写 `agent_roles.mcp_json`（`cli-layer.db`）；
-3. 调 `PUT /v1/agents/{roleId}`；
-4. 返回 `{roleId, serverIds}`；
-5. mcp-layer 不可用时返回明确错误，不静默清空。
+3. 若 `mcp` 变化，调 `PUT /v1/agents/{roleId}`；
+4. 返回角色；同步失败则回滚角色并返回明确错误，不静默清空。
+
+`agent_mcps_set` 保留为独立命令（`{roleId, serverIds}`），但 AgentOS 不再同时发它，避免一次保存写两遍。
 
 ### 7.3 `acp_connect`（已落地）
 
@@ -235,7 +236,7 @@ let request = NewSessionRequest::new(cwd).mcp_servers(mcp_servers);
 
 ### 7.4 Agent 修改
 
-`agent_mcps_set` 会重启该 Agent 的 proxy：
+保存 Agent 的 `mcp` 变化时会重启该 Agent 的 proxy：
 
 - 新会话拿新 endpoint/token；
 - 活跃会话仍连着旧实例，可能被停止；UI 提示「MCP 变更，重连会话后生效」；
@@ -244,10 +245,12 @@ let request = NewSessionRequest::new(cwd).mcp_servers(mcp_servers);
 ### 7.5 启动顺序
 
 ```
-AgentOS → cli-layer → mcp-layer
+AgentOS → mcp-layer → cli-layer →（ACP 会话）
 ```
 
-`mcp-layer` 启动不自动拉起所有 Agent proxy；`acp_connect` / `agent_mcps_set` 按需启动。
+- AgentOS 先探活 `~/.agents/mcp/runtime.json`；已有健康 mcp-layer 就复用，否则在 cli-layer 之前启动它。
+- cli-layer 启动时读取一次 runtime 文件；mcp-layer 必须先就绪。
+- `mcp-layer` 启动不自动拉起所有 Agent proxy；`acp_connect` / 保存 Agent MCP 绑定按需启动。
 
 ---
 
@@ -255,18 +258,17 @@ AgentOS → cli-layer → mcp-layer
 
 ### MCP 页
 
-- 列表：`GET /v1/servers`。
-- 详情：`GET /v1/servers/{id}`。
-- 新建/编辑：`PUT /v1/servers/{id}`。
-- 删除：`DELETE /v1/servers/{id}`。
-- 启停：`POST /v1/servers/{id}/enable|disable`。
+- 列表：`mcp_list`（cli-layer 代理 `GET /v1/servers`）。
+- 新建/编辑：`mcp_upsert`（`PUT /v1/servers/{id}`），详情内联编辑并自动保存。
+- 删除：`mcp_remove`（`DELETE /v1/servers/{id}`）；cli-layer 同时清理花名册引用。
+- 启停：详情里的 Toggle 走 `mcp_upsert` 的 `enabled`；不单独调 enable/disable。
 - 不再有「写入哪些 CLI」的 `apps` 多选。
 - 旧 `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` 不再兼容。
 
 ### Agents 页
 
-- MCP 多选：`GET /v1/servers`。
-- 保存：`agent_mcps_set`。
+- MCP 多选：`mcp_list`，只列 `enabled` 的 server。
+- 保存：`agent_roles_save` 的 `mcp` 字段；由 cli-layer 检测变化并同步 mcp-layer。
 - 可用性：`agent_mcp_status`（cli-layer 代理 `GET /v1/agents/{id}` + `/v1/gateway`）。
 - 空选择 = 没有 MCP；提供「全选」按钮但保存显式列表。
 

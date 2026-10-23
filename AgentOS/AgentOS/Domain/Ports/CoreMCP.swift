@@ -1,7 +1,7 @@
 import Foundation
 
 protocol CoreMCP: Sendable {
-    func scan() async throws -> MCPScan
-    func upsert(serverID: String, spec: JSONValue, apps: [String]) async throws -> MCPServer
-    func remove(serverID: String) async throws -> Bool
+    func servers() async throws -> [MCPServer]
+    func upsert(id: String, spec: MCPServerSpec) async throws -> MCPSaveResult
+    func remove(id: String) async throws -> MCPDeleteResult
 }

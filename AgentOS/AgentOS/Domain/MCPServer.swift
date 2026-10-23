@@ -2,82 +2,54 @@ import Foundation
 
 struct MCPServer: Identifiable, Sendable, Equatable {
     let id: String
-    let spec: JSONValue
-    let apps: [String]
+    let spec: MCPServerSpec
+    let enabled: Bool
+    let synced: Bool
+    let hash: String
+    let createdAt: String
+    let updatedAt: String
 
-    var type: String {
-        spec.objectValue?["type"]?.stringValue ?? "stdio"
+    var name: String {
+        let trimmed = spec.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? id : trimmed
     }
+
+    var transport: String { spec.transport }
 
     var summary: String {
-        guard let object = spec.objectValue else { return "—" }
-
-        if type == "stdio" {
-            let command = object["command"]?.stringValue ?? ""
-            let args = (object["args"]?.arrayValue ?? [])
-                .compactMap(\.stringValue)
-                .joined(separator: " ")
-            let line = [command, args]
+        switch spec.transport {
+        case "stdio":
+            let line = ([spec.command ?? ""] + spec.args)
                 .filter { !$0.isEmpty }
                 .joined(separator: " ")
-            return line.isEmpty ? "—" : line
-        }
-
-        return object["url"]?.stringValue ?? type
-    }
-}
-
-struct MCPSourceWarning: Identifiable, Sendable, Equatable {
-    let app: String
-    let message: String
-
-    var id: String { "\(app):\(message)" }
-}
-
-struct MCPScan: Sendable, Equatable {
-    let servers: [MCPServer]
-    let warnings: [MCPSourceWarning]
-
-    static let empty = MCPScan(servers: [], warnings: [])
-}
-
-enum MCPAppCatalog {
-    static let all: [String] = [
-        "claude_code",
-        "codex",
-        "gemini",
-        "open_code",
-        "open_claw",
-        "cline",
-        "hermes",
-        "code_buddy",
-        "kimi_code",
-        "grok",
-        "cursor",
-        "deepseek",
-        "qoder",
-        "antigravity",
-        "pi",
-    ]
-
-    static func labelKey(for app: String) -> String {
-        switch app {
-        case "claude_code": "settings.mcp.app.claudeCode"
-        case "codex": "settings.mcp.app.codex"
-        case "gemini": "settings.mcp.app.gemini"
-        case "open_code": "settings.mcp.app.openCode"
-        case "open_claw": "settings.mcp.app.openClaw"
-        case "cline": "settings.mcp.app.cline"
-        case "hermes": "settings.mcp.app.hermes"
-        case "code_buddy": "settings.mcp.app.codeBuddy"
-        case "kimi_code": "settings.mcp.app.kimiCode"
-        case "grok": "settings.mcp.app.grok"
-        case "cursor": "settings.mcp.app.cursor"
-        case "deepseek": "settings.mcp.app.deepseek"
-        case "qoder": "settings.mcp.app.qoder"
-        case "antigravity": "settings.mcp.app.antigravity"
-        case "pi": "settings.mcp.app.pi"
-        default: app
+            return line.isEmpty ? "stdio" : line
+        default:
+            return spec.url ?? spec.transport
         }
     }
+}
+
+struct MCPServerSpec: Sendable, Equatable {
+    var id: String
+    var name: String
+    var transport: String
+    var description: String
+    var enabled: Bool
+    var command: String?
+    var args: [String]
+    var env: [String: String]
+    var url: String?
+    var headers: [String: String]
+    var bearerToken: String?
+    var sessionMode: String?
+}
+
+struct MCPSaveResult: Sendable, Equatable {
+    let server: MCPServer
+    let warnings: [String]
+}
+
+struct MCPDeleteResult: Sendable, Equatable {
+    let removed: Bool
+    let warnings: [String]
 }

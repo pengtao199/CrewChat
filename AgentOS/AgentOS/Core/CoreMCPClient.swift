@@ -7,27 +7,27 @@ final class CoreMCPClient: CoreMCP, @unchecked Sendable {
         self.provider = provider
     }
 
-    func scan() async throws -> MCPScan {
-        let result: CoreMCPScan = try await provider.client().send(
-            "mcp_scan_local",
+    func servers() async throws -> [MCPServer] {
+        let result: CoreMCPList = try await provider.client().send(
+            "mcp_list",
             body: EmptyBody()
         )
-        return result.domain
+        return result.servers.map(\.domain)
     }
 
-    func upsert(serverID: String, spec: JSONValue, apps: [String]) async throws -> MCPServer {
-        let result: CoreMCPServer = try await provider.client().send(
-            "mcp_upsert_local_server",
-            body: CoreMCPUpsertBody(serverID: serverID, spec: spec, apps: apps)
+    func upsert(id: String, spec: MCPServerSpec) async throws -> MCPSaveResult {
+        let result: CoreMCPUpsertResult = try await provider.client().send(
+            "mcp_upsert",
+            body: CoreMCPUpsertBody(serverID: id, spec: CoreMCPServerSpec(spec))
         )
         return result.domain
     }
 
-    func remove(serverID: String) async throws -> Bool {
-        try await provider.client().send(
-            "mcp_remove_server",
-            body: CoreMCPRemoveBody(serverID: serverID)
+    func remove(id: String) async throws -> MCPDeleteResult {
+        let result: CoreMCPDeleteResult = try await provider.client().send(
+            "mcp_remove",
+            body: CoreMCPRemoveBody(serverID: id)
         )
+        return result.domain
     }
-
 }
