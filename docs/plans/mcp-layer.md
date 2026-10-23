@@ -1,7 +1,7 @@
 # MCP 层：完整网关 + 按 Agent 授权
 
 Updated: 2026-10-23
-Status: Research / Decision Draft（方案已收敛，未实现）
+Status: In Progress（后端控制面已落地；网关 sidecar 构建待网络恢复）
 关系：`cli-layer`（ACP 宿主 / 花名册）、`mcp-layer`（薄控制面）、`AgentOS`（MCP / Agents 页）、`model-layer`（Keychain 机制可复用）。
 参考：`AGENTS/agent-model.md`、`AGENTS/truth-sources.md`、`AgentOS/engine-api.md`、`cli-layer/src/http.rs`、`cli-layer/src/engines.rs`、`cli-layer/src/acp/host.rs`。
 
@@ -522,3 +522,34 @@ AgentOS 启动
 - mcp-remote：https://github.com/geelen/mcp-remote
 - 官方 MCP Registry：https://github.com/modelcontextprotocol/registry
 - MCP Router（已 EOL，仅 UX 参考）：https://github.com/mcp-router/mcp-router
+
+---
+
+## 13. 后端核心进展（2026-10-23）
+
+### 已落地
+
+- 新 crate `mcp-layer/`（二进制 `crewchat-mcp`，控制面 `127.0.0.1:3461`）。
+- 规范化 server 定义：`~/.agents/mcp/servers/<id>.json`。
+- SQLite registry：`~/.agents/mcp/registry.sqlite`（servers / agents）。
+- HTTP API：health、server CRUD/启停、Agent allowlist 同步、gateway start/stop/sync。
+- Agent 会话配置：返回 ACP 可直接消费的 `mcpServers`；优先 stdio `mcp-remote` 桥，无 npx 时回退 HTTP。
+- 每个 Agent 一个网关 client token + allowlist；空 allowlist 删除 client。
+- 网关 sidecar 生命周期、初始化、admin token、reconcile。
+- 网关源码固定在 `mcp-layer/vendor/gateway/`，构建脚本 `mcp-layer/scripts/build-gateway.sh`；许可证见 `NOTICE.md`。
+- 6 个测试通过（registry / spec / Agent session / fake gateway），clippy 通过；daemon health 冒烟通过（gateway 缺失时显式 `unavailable`）。
+
+### 未完成 / 阻塞
+
+- 网关 sidecar 尚未在本机构建成功：`go build` 下载 `modernc.org/sqlite@v1.23.1` 时网络连接被重置。
+  错误原文：
+  `read "https://proxy.golang.org/modernc.org/sqlite/@v/v1.23.1.zip": read tcp ...: read: connection reset by peer`
+  网络恢复后执行 `mcp-layer/scripts/build-gateway.sh`，再做真实 gateway + Agent token 冒烟。
+- `cli-layer` 尚未接 `agent_mcps_set` / `session/new.mcpServers`；前端未动。
+- 真实 MCP server（stdio/HTTP）尚未通过 sidecar 跑通。
+
+### 下一步
+
+1. 网络恢复后构建 sidecar，跑通“注册 server → 创建 Agent client → token 只能看到 allowlist”。
+2. 接 `cli-layer`：Agent 保存 MCP 选择、`acp_connect` 注入 `mcpServers`。
+3. 用 Claude / Codex / OpenCode 实测 stdio bridge 与 HTTP 注入。

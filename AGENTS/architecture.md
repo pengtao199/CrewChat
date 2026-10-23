@@ -7,7 +7,7 @@
 ## 定位（2026-10-23）
 
 当前运行时由四层组成：macOS 壳 **AgentOS**、核心 **cli-layer**、模型层 **model-layer**、
-技能层 **skill-layer**。MCP 层 **mcp-layer** 计划中，最终形态是完整本地网关，见
+技能层 **skill-layer**、MCP 层 **mcp-layer**。MCP 的最终形态是完整本地网关，控制面已落地，见
 [`docs/plans/mcp-layer.md`](../docs/plans/mcp-layer.md)。
 
 `codeg/` 与 `ccr/` 已冻结为只读回退，不参与当前运行时；`archive/` 是历史归档，不参与构建。
@@ -17,7 +17,7 @@
 | 核心（运行时） | `cli-layer/` | ACP 会话、权限、花名册、引擎管理、持久化 | `~/Library/Application Support/AgentOS/cli/cli-layer.db` |
 | 模型层 | `model-layer/` | 供应商 / 路由 / 密钥 / 额度（本地网关 + 控制面） | SQLite 元数据 + macOS Keychain |
 | 技能层 | `skill-layer/` | 全局技能库、版本、安装/更新、会话 materialize | `~/.agents/skill-store` + `~/.agents/skill-layer/registry.sqlite` |
-| MCP 层（计划） | `mcp-layer/` | MCP 注册表、Agent token/allowlist、网关 sidecar 控制面 | `~/.agents/mcp` + MCPJungle 运行时库 |
+| MCP 层 | `mcp-layer/` | MCP 注册表、Agent token/allowlist、网关 sidecar 控制面 | `~/.agents/mcp` + 网关运行时库 |
 | 壳（macOS） | `AgentOS/` | Swift 客户端：只渲染与交互 | 无，只持自己的设置 |
 | 冻结回退 | `codeg/`、`ccr/` | 只读参考 / 回退，不参与当前运行时 | 历史库 |
 | 归档 | `archive/` | 冻结的 Python 编排层与历史，只读 | 无 |
@@ -27,7 +27,7 @@
 - **业务与执行归 `cli-layer/`**：谁在跑、能不能跑、花了多少，都是它的结论。
 - **模型与密钥归 `model-layer/`**：其他层不持有 provider key。
 - **技能归 `skill-layer/`**：全局库与版本由它管理；`cli-layer` 只做代理与 Agent 绑定。
-- **MCP 归 `mcp-layer/`（计划）**：注册表、Agent token/allowlist、网关 sidecar；不把 MCP 逻辑塞进 `skill-layer`。
+- **MCP 归 `mcp-layer/`**：注册表、Agent token/allowlist、网关 sidecar；不把 MCP 逻辑塞进 `skill-layer`。
 - **壳只渲染**：`AgentOS/` 不复制真相、不解析协议（见 `AGENTS/agentos-boundary.md`）。
 - **归档不参与任何构建**：`codeg/`、`ccr/`、`AgentOS/` 都不得引用 `archive/`。
 
@@ -39,7 +39,7 @@
 | macOS 原生壳 / 设置页 / Agents 页 | `AgentOS/`（见 `AGENTS/agentos-boundary.md`、`AGENTS/ui.md`） |
 | 模型接入 / 端点 / 模型注入 | `model-layer/`（见 `AGENTS/gateway.md`） |
 | 技能库 / 版本 / 安装 / materialize | `skill-layer/`（见 `docs/plans/skill-layer.md`） |
-| MCP 网关 / Agent MCP 授权 | `mcp-layer/`（计划，见 `docs/plans/mcp-layer.md`） |
+| MCP 网关 / Agent MCP 授权 | `mcp-layer/`（见 `docs/plans/mcp-layer.md`） |
 | Agent 领域语义 | 先读 `AGENTS/agent-model.md`；落点是 `cli-layer.db` |
 
 ## Python 编排层（已归档）
