@@ -2,7 +2,7 @@
 
 Updated: 2026-10-22
 Status: In Progress
-关系：模型层已完成（[模型层：移除 CCR](model-layer-remove-ccr.md)）；技能统一管理见 [Skill 层](skill-layer.md)。本计划取代
+关系：模型层已完成（[模型层：移除 CCR](model-layer-remove-ccr.md)）；技能统一管理见 [Skill 层](skill-layer.md)（全局库 + Agent 选择 + session home）。本计划取代
 [Swift 原生运行时迁移](swift-runtime-migration.md) 的 Phase 2–5，作为近期路径；
 Swift 原生 runtime 仍是终态选项，不在本计划内。
 
