@@ -207,8 +207,23 @@ struct BackendSection<'a> {
 struct AuthSection<'a> {
     #[serde(rename = "type")]
     kind: &'static str,
-    tokens: Vec<&'a str>,
+    scoped_tokens: Vec<ScopedToken<'a>>,
 }
+
+#[derive(Serialize)]
+struct ScopedToken<'a> {
+    token: &'a str,
+    deny_tools: Vec<String>,
+}
+
+const PROXY_ADMIN_TOOLS: &[&str] = &[
+    "proxy/add_backend",
+    "proxy/call_tool",
+    "proxy/config",
+    "proxy/health_check",
+    "proxy/list_backends",
+    "proxy/session_count",
+];
 
 pub fn render_proxy_config(
     agent: &AgentRecord,
@@ -232,7 +247,13 @@ pub fn render_proxy_config(
         backends,
         auth: AuthSection {
             kind: "bearer",
-            tokens: vec![agent.token.as_str()],
+            scoped_tokens: vec![ScopedToken {
+                token: agent.token.as_str(),
+                deny_tools: PROXY_ADMIN_TOOLS
+                    .iter()
+                    .map(|name| name.to_string())
+                    .collect(),
+            }],
         },
     };
     Ok(toml::to_string_pretty(&file)?)

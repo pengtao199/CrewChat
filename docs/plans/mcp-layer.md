@@ -82,8 +82,9 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 
 ## 3. 复用 `mcp-proxy` 的方式
 
-- crate：`mcp-proxy = { version = "0.6", default-features = false }`
-- 不启用默认的 OTel / OAuth / OpenAPI / WebSocket / discovery / YAML / Redis / SQLite，保持轻量；
+- crate：`mcp-proxy = { version = "0.6", default-features = false, features = ["oauth"] }`
+- 只启用 `oauth` 以获得 per-token 权限；不启用 OTel / OpenAPI / WebSocket / discovery / YAML / Redis / SQLite，保持轻量；
+- 每个 Agent token 显式 deny `proxy/*` 管理工具，避免把网关管理面暴露给 Agent；
 - 只用核心：stdio/HTTP backend、聚合、bearer auth、TOML 配置；
 - 在 `mcp-layer` 内嵌 `Proxy`，每个 Agent 一个 `Proxy` + axum listener；不是再起一个外部 Go 进程；
 - 后续二次开发：fork `mcp-proxy` 或在其上层补：

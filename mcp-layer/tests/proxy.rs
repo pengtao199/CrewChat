@@ -147,5 +147,73 @@ for line in sys.stdin:
     let status = manager.status().await;
     assert_eq!(status.len(), 1);
     assert_eq!(status[0].state, "running");
+
+    let client = reqwest::Client::new();
+    let url = endpoint(port);
+    let init = client
+        .post(&url)
+        .bearer_auth("agent-token-12345678")
+        .header("accept", "application/json, text/event-stream")
+        .json(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "0"}
+            }
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert!(init.status().is_success());
+    let session_id = init
+        .headers()
+        .get("mcp-session-id")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    client
+        .post(&url)
+        .bearer_auth("agent-token-12345678")
+        .header("mcp-session-id", &session_id)
+        .header("accept", "application/json, text/event-stream")
+        .json(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized"
+        }))
+        .send()
+        .await
+        .unwrap();
+    let list: serde_json::Value = client
+        .post(&url)
+        .bearer_auth("agent-token-12345678")
+        .header("mcp-session-id", &session_id)
+        .header("accept", "application/json, text/event-stream")
+        .json(&serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/list",
+            "params": {}
+        }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let tools = list["result"]["tools"].as_array().unwrap();
+    let names = tools
+        .iter()
+        .filter_map(|tool| tool["name"].as_str())
+        .collect::<Vec<_>>();
+    assert!(names.contains(&"echo/echo"), "names: {names:?}");
+    assert!(
+        names.iter().all(|name| !name.starts_with("proxy/")),
+        "admin tools leaked: {names:?}"
+    );
+
     manager.stop_agent("role-1").await;
 }
