@@ -1,7 +1,7 @@
 # 模型层：移除 CCR
 
-Updated: 2026-10-22
-Status: In Progress
+Updated: 2026-10-23
+Status: In Progress（运行时已接管；验收/打包未收口）
 关系：`agentos-shell.md` 的模型页接线不变；`swift-runtime-migration.md` 的 Phase 1 改由本计划承担。终态若迁到 Swift 自研 runtime，模型层仍是独立 HTTP 服务，可原样保留，或按同一套 conformance fixture 移植。
 
 > 历史说明：原文件名为「模型从 ccr 切换到 agentos Swift 原生」。结论已改为 **Rust 模型层 sidecar**，原因见第 1、3 节；文件名同步改为现在这个。
@@ -471,3 +471,24 @@ Route {
 ### 下一步
 
 Phase 6（建 Agents + Claude 工具调用验收）→ 一周后清理 `ccr/`；打包按需再开。
+
+### 2026-10-23 复核
+
+本次只读复核（不再发真实 prompt），确认运行时与数据状态：
+
+| 项 | 实测 |
+| --- | --- |
+| 模型层 | `crewchat-model` 监听 `127.0.0.1:3456/3458` |
+| 当前核心 | `codeg-server` 监听 `3080`；`CCR_WEB_URL=http://127.0.0.1:3458`、`CODEG_CCR_SUPERVISE=0` |
+| CCR | 进程已停；`ccr/` 源码保留作回退；`model/required` 标记存在 |
+| Provider | 3 个：OpenCode Go / Agnes / OpenRouter |
+| 数据 | `provider_models` 67、凭据 5、caller key 7、禁用模型 0 |
+| Claude 目录 | 38 个 ID，8 个 `[1m]`；与 `claude-models.json` 一致 |
+| 全局 Claude | `apiKeyHelper=~/.crewchat/bin/claude-api-key.sh`，base `3456` |
+| 测试 | `model-layer` 29 passed；clippy 通过；AgentOS `xcodebuild` 通过 |
+
+仍然按「未完成」那一节收口：Responses 面的 Anthropic 翻译、thinking 映射、正式打包、
+真实多轮/取消验收、Phase 6。另有两处文档漂移需在切 CLI 前修：
+
+- `AgentOS/engine-api.md` 仍把 `ccr_*` 写成 CCR；实际已经是模型层的兼容控制面。
+- 模型页的 “CCR / 启动 CCR” 文案与状态卡仍是旧名字；功能走的是模型层。

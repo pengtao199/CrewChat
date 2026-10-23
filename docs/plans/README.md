@@ -9,6 +9,7 @@
 | [Swift 原生运行时迁移](swift-runtime-migration.md) | Proposed | 去掉 `codeg-server` / CCR：Swift 自己拥有 ACP、持久化、模型网关、权限与编排；外部 CLI/adapter 保留。模型层已拆出，见下 |
 | [模型层：移除 CCR](model-layer-remove-ccr.md) | In Progress | Rust 模型层 sidecar：控制面 3458 + 网关 3456、CCR 数据导入、Anthropic→OpenAI 翻译、并发多模型路由；模型层完成后建 Agents |
 | [CLI Layer：移除 Codeg](cli-layer-migration.md) | In Progress | 新建 `cli-layer/` 取代 codeg：ACP 宿主、引擎/会话/权限/花名册/持久化；copy 官方 rust-sdk + OpenAB 的 ACP 部分，codeg 降级为只读参考与回退 |
+| [Skill 层：统一管理](skill-layer.md) | Proposed | 技能收敛到 `~/.agents/skills`，逐技能软链供所有 CLI 使用；注册/安装/更新/卸载、市场与安全边界；由 `cli-layer` 进程内调用 |
 
 ## 归档
 

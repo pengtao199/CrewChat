@@ -2,7 +2,7 @@
 
 Updated: 2026-10-22
 Status: In Progress
-关系：模型层已完成（[模型层：移除 CCR](model-layer-remove-ccr.md)）。本计划取代
+关系：模型层已完成（[模型层：移除 CCR](model-layer-remove-ccr.md)）；技能统一管理见 [Skill 层](skill-layer.md)。本计划取代
 [Swift 原生运行时迁移](swift-runtime-migration.md) 的 Phase 2–5，作为近期路径；
 Swift 原生 runtime 仍是终态选项，不在本计划内。
 
@@ -79,7 +79,7 @@ Agent = 大脑（模型）+ 引擎（CLI）+ 技能 + MCP + 记忆 + 规则
 | 会话 | `acp_connect` / `acp_prompt` / `acp_cancel` / `/ws/events` / `acp_respond_permission` | `acp-host` + `sessions` + `events` | P1–P2 |
 | 模型页 | `ccr_health` / `ccr_call` / `ccr_provider_*` / `ccr_disabled_models` / `ccr_supervisor_start` | `http/model_proxy.rs`（薄代理到 model-layer） | P1 |
 | 花名册 | `agent_roles_list` / `agent_roles_save` / `agent_roles_delete` / `agent_role_model_face` | `store/roster` + `roles` | P2 |
-| 技能 | `acp_list_agent_skills` / `acp_read_agent_skill` / `acp_save_agent_skill` / `acp_delete_agent_skill` | `capabilities/skills` | P3 |
+| 技能 | `acp_list_agent_skills` / `acp_read_agent_skill` / `acp_save_agent_skill` / `acp_delete_agent_skill` | `capabilities/skills`（`skill-layer`） | P3 |
 | MCP | `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` | `capabilities/mcp` | P3 |
 | 引擎 | `acp_list_agents` / `acp_update_agent_preferences` / `acp_fetch_agent_latest_release` / `acp_prepare_npx_agent` / `acp_download_agent_binary` / `acp_install_pi_binary` / `acp_env_diagnostics` | `engines` | P3 |
 | 项目/会话 | `list_open_folder_details` / `open_folder` / `remove_folder_from_workspace` / `list_all_conversations` / `delete_conversation` / `create_conversation` / `get_folder_conversation` / `get_conversation` | `store` + `http` | P3 |
