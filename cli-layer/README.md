@@ -45,7 +45,7 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 | CLI 偏好 / env | ✅ `acp_update_agent_preferences` |
 | 引擎版本 / 安装 / 升级 | ✅ `acp_fetch_agent_latest_release`、`acp_prepare_npx_agent`、`acp_download_agent_binary`、`acp_install_pi_binary` |
 | 环境诊断 | ✅ `acp_env_diagnostics` |
-| skills（skill-layer 代理 + 旧命令兼容） | ✅ `skill_list` / `skill_install` / `agent_skills_set` 等 |
+| skills（skill-layer 代理） | ✅ `skill_list` / `skill_read` / `skill_install` / `agent_skills_set` 等 |
 | MCP / delegation | 501，后续补 |
 
 ## 已验证（2026-10-23）
@@ -80,7 +80,7 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
   OpenClaw `openclaw-ok`、Cline `cline-ok`、DeepSeek `deepseek-ok`、Pi `pi-ok`，
   共用 model-layer 的 `local-gateway` key。
 - AgentOS 切换：重启后 3080 无 codeg、3081 为 cli-layer；skill-layer 启动、
-  81 个技能导入 registry（gstack 因 3519 文件/70MB 超过 skill-layer 限制未导入）；Skills 页通过兼容命令读取 81 个技能；Claude 全局适配器连接成功。
+  81 个技能导入 registry（gstack 因 3519 文件/70MB 超过 skill-layer 限制未导入）；Skills 页通过 `skill_list` 读取 81 个技能；Claude 全局适配器连接成功。
 - OpenClaw 的 ACP 是 Gateway bridge；host 为每个 role 启动独立
   `openclaw gateway run`（独立 port/config/state），连接关闭时回收。
 - MCP / delegation / 旧 transcript 导入仍未完成；其余未支持的 CLI：Antigravity 还需要

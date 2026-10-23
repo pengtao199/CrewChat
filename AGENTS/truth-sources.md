@@ -42,7 +42,7 @@
 ## 具体规则
 
 - 修改 Agent 只经 Agents 页写 `cli-layer.db` 的 `agent_roles`；不再写旧 `codeg.db` 或 `.data/agents/*.jsonc`（冻结只读）。
-- 读写技能/MCP 一律通过核心命令：技能用 `skill_list` / `skill_read` / `skill_install` / `agent_skills_set` / `agent_skill_status`，旧命令 `acp_list_agent_skills` / `acp_read_agent_skill` 仍作兼容；MCP 用 `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server`。壳不自行拼路径、不直接改这些文件。
+- 读写技能/MCP 一律通过核心命令：技能用 `skill_list` / `skill_read` / `skill_install` / `agent_skills_set` / `agent_skill_status`；MCP 用 `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server`。壳不自行拼路径、不直接改这些文件。
 - 技能页由 cli-layer 代理 skill-layer；MCP 页显示 `spec` 与写入的 CLI 集合（核心的 scan 不返回每个 CLI 的配置文件路径）。
 - `.data/` 整体被 gitignore；新增本地状态放进 `.data/`，不要放仓库根目录。
 - 新增配置文件时，先判断它是否属于「跨工具共享」（`~/.agents/`）还是「本项目私有」（`.data/`）。

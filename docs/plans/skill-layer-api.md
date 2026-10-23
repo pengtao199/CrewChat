@@ -177,7 +177,7 @@ POST /v1/collections
 
 ## 3. core 对前端的命令
 
-cli-layer 已接以下命令；现有 Skills 页仍走兼容的 `acp_list_agent_skills` / `acp_read_agent_skill`。所有命令走 `/api/<command>`，Bearer core token。
+cli-layer 已接以下命令；现有 Skills 页已改为 `skill_list` / `skill_read`。所有命令走 `/api/<command>`，Bearer core token。
 
 ### `skill_list`
 
