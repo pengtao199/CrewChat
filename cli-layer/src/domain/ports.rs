@@ -3,10 +3,16 @@
 //! Implementations live in `infra` and `runtime`; app services depend only on
 //! these traits so SQLite / HTTP / ACP details do not leak upward.
 
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
 use anyhow::Result;
+use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::domain::agent::Agent;
+use crate::domain::engine::EnginePreferences;
+use crate::domain::event::EventEnvelope;
 
 pub trait AgentRepository: Send + Sync {
     fn list(&self) -> Result<Vec<Agent>>;
@@ -28,17 +34,83 @@ pub trait ConversationRepository: Send + Sync {
     ) -> Result<String>;
     fn get_conversation(&self, id: &str) -> Result<Option<Value>>;
     fn delete_conversation(&self, id: &str) -> Result<()>;
+    fn append_turn(&self, conversation_id: &str, role: &str, blocks: &Value) -> Result<()>;
+    fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>>;
+}
+
+pub trait EventRepository: Send + Sync {
+    fn append_event(
+        &self,
+        connection_id: &str,
+        conversation_id: Option<&str>,
+        envelope: &Value,
+    ) -> Result<()>;
 }
 
 pub trait EngineSettingsRepository: Send + Sync {
-    fn engine_preferences(
-        &self,
-        agent_type: &str,
-    ) -> Result<crate::infra::store::EnginePreferences>;
+    fn engine_preferences(&self, agent_type: &str) -> Result<EnginePreferences>;
     fn save_engine_preferences(
         &self,
         agent_type: &str,
         enabled: bool,
-        env: &std::collections::BTreeMap<String, String>,
+        env: &BTreeMap<String, String>,
     ) -> Result<()>;
+}
+
+/// Inputs needed to start one ACP session. Kept free of runtime types so a
+/// fake or remote runtime can implement the same port.
+#[derive(Clone, Debug)]
+pub struct ConnectRequest {
+    pub agent_type: String,
+    pub cwd: PathBuf,
+    pub role: Option<Value>,
+    pub api_key: Option<String>,
+    pub conversation_id: Option<String>,
+    pub engine_env: BTreeMap<String, String>,
+}
+
+#[async_trait]
+pub trait EventSubscription: Send {
+    async fn recv(&mut self) -> Option<EventEnvelope>;
+}
+
+#[async_trait]
+pub trait SessionRuntime: Send + Sync {
+    async fn connect(&self, request: ConnectRequest) -> Result<Value>;
+    fn prompt(&self, connection_id: &str, text: String) -> Result<()>;
+    fn cancel(&self, connection_id: &str) -> Result<()>;
+    fn close(&self, connection_id: &str);
+    fn respond_permission(&self, request_id: &str, option_id: Option<String>) -> bool;
+    fn subscribe(&self) -> Box<dyn EventSubscription>;
+}
+
+#[async_trait]
+pub trait ModelCatalog: Send + Sync {
+    fn health(&self) -> Value;
+    async fn rpc(&self, method: &str, args: Value) -> Result<Value, String>;
+    async fn provider_save(&self, body: &Value) -> Result<Value, String>;
+    async fn provider_delete(&self, body: &Value) -> Result<Value, String>;
+    async fn provider_probe(&self, body: &Value) -> Result<Value, String>;
+    async fn disabled_models(&self) -> Result<Value, String>;
+    async fn model_face(&self, agent_type: &str) -> Result<Value, String>;
+    async fn normalize_provider(&self, provider: &str, model: &str) -> Option<String>;
+    async fn local_gateway_key(&self) -> Option<String>;
+}
+
+#[async_trait]
+pub trait SkillCatalog: Send + Sync {
+    async fn list(&self) -> Result<Value, String>;
+    async fn detail(&self, id: &str) -> Result<Value, String>;
+    async fn install(&self, body: &Value) -> Result<Value, String>;
+    async fn check(&self, id: &str) -> Result<Value, String>;
+    async fn update(&self, id: &str) -> Result<Value, String>;
+    async fn remove(&self, id: &str) -> Result<Value, String>;
+    async fn collections(&self) -> Result<Value, String>;
+    async fn global_links(&self) -> Result<Value, String>;
+    async fn materialize(
+        &self,
+        home: &Path,
+        agent_type: &str,
+        skill_ids: &[String],
+    ) -> Result<Value, String>;
 }

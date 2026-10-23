@@ -1,0 +1,93 @@
+//! Port implementations for HTTP-backed model / skill clients.
+
+use std::path::Path;
+
+use async_trait::async_trait;
+use serde_json::Value;
+
+use crate::domain::ports::{ModelCatalog, SkillCatalog};
+use crate::infra::model_layer::ModelLayerClient;
+use crate::infra::skill_layer::SkillLayerClient;
+
+#[async_trait]
+impl ModelCatalog for ModelLayerClient {
+    fn health(&self) -> Value {
+        self.health()
+    }
+
+    async fn rpc(&self, method: &str, args: Value) -> Result<Value, String> {
+        self.rpc(method, args).await
+    }
+
+    async fn provider_save(&self, body: &Value) -> Result<Value, String> {
+        self.provider_save(body).await
+    }
+
+    async fn provider_delete(&self, body: &Value) -> Result<Value, String> {
+        self.provider_delete(body).await
+    }
+
+    async fn provider_probe(&self, body: &Value) -> Result<Value, String> {
+        self.provider_probe(body).await
+    }
+
+    async fn disabled_models(&self) -> Result<Value, String> {
+        self.disabled_models().await
+    }
+
+    async fn model_face(&self, agent_type: &str) -> Result<Value, String> {
+        self.model_face(agent_type).await
+    }
+
+    async fn normalize_provider(&self, provider: &str, model: &str) -> Option<String> {
+        self.normalize_provider(provider, model).await
+    }
+
+    async fn local_gateway_key(&self) -> Option<String> {
+        self.local_gateway_key().await
+    }
+}
+
+#[async_trait]
+impl SkillCatalog for SkillLayerClient {
+    async fn list(&self) -> Result<Value, String> {
+        self.list().await
+    }
+
+    async fn detail(&self, id: &str) -> Result<Value, String> {
+        self.detail(id).await
+    }
+
+    async fn install(&self, body: &Value) -> Result<Value, String> {
+        self.install(body).await
+    }
+
+    async fn check(&self, id: &str) -> Result<Value, String> {
+        self.check(id).await
+    }
+
+    async fn update(&self, id: &str) -> Result<Value, String> {
+        self.update(id).await
+    }
+
+    async fn remove(&self, id: &str) -> Result<Value, String> {
+        self.remove(id).await
+    }
+
+    async fn collections(&self) -> Result<Value, String> {
+        self.collections().await
+    }
+
+    async fn global_links(&self) -> Result<Value, String> {
+        self.global_links().await
+    }
+
+    async fn materialize(
+        &self,
+        home: &Path,
+        agent_type: &str,
+        skill_ids: &[String],
+    ) -> Result<Value, String> {
+        self.materialize(home, agent_type, skill_ids).await
+    }
+}

@@ -558,11 +558,20 @@ ACP update
   roster/workspace/skills/engines/sessions 服务。
 - `cargo test` 18 passed、clippy、smoke 通过。
 
-### Step 2c.3：SessionRuntime port
+### Step 2c.3：Runtime / catalog ports + fake runtime ✅ 2026-10-23
 
-- 把 `AgentRole` / Conversation / Team / Delegation 从 JSON Value 提升为类型。
-- 给 store 定义 repository trait。
-- `app` 通过 trait 调用。
+- 新增 `SessionRuntime` / `EventSubscription` / `EventRepository` /
+  `ModelCatalog` / `SkillCatalog` port；`AcpHost`、`ModelLayerClient`、
+  `SkillLayerClient` 实现。
+- `ConnectRequest` 把 connect 参数收成 domain 类型；`EventEnvelope` 移到
+  `domain/event.rs`，`EnginePreferences` 移到 `domain/engine.rs`，去掉
+  `domain → infra` 反向依赖。
+- 新增 `app/models.rs`；`app/engines.rs` 接管 install / diagnostics；`AcpHost`
+  通过 `EventRepository` 写事件，不再直接持有 `Store`。API 与 runtime 都不再
+  import 对方或 `infra`。
+- `SessionService` 只依赖 port；新增 fake runtime 测试覆盖 connect 归一化和
+  prompt 落库。
+- `cargo test` 20 passed、clippy、smoke 通过。
 
 ### Step 3：加 readiness / test run
 
@@ -581,8 +590,8 @@ ACP update
 
 ## 18. 验收
 
-- [ ] `api` 不直接 import `infra` / `runtime`。
-- [ ] `runtime` 不 import `infra/store`。
+- [x] `api` 不直接 import `infra` / `runtime`。
+- [x] `runtime` 不 import `infra/store`。
 - [ ] `domain` 不 import axum/reqwest/rusqlite。
 - [ ] `store` 不包含业务判断。
 - [ ] 所有外部资源通过 port。

@@ -4,8 +4,11 @@ use anyhow::Result;
 use serde_json::Value;
 
 use crate::domain::agent::Agent;
-use crate::domain::ports::{AgentRepository, ConversationRepository, EngineSettingsRepository};
-use crate::infra::store::{EnginePreferences, Store};
+use crate::domain::engine::EnginePreferences;
+use crate::domain::ports::{
+    AgentRepository, ConversationRepository, EngineSettingsRepository, EventRepository,
+};
+use crate::infra::store::Store;
 
 impl AgentRepository for Store {
     fn list(&self) -> Result<Vec<Agent>> {
@@ -61,6 +64,26 @@ impl ConversationRepository for Store {
 
     fn delete_conversation(&self, id: &str) -> Result<()> {
         self.delete_conversation(id)
+    }
+
+    fn append_turn(&self, conversation_id: &str, role: &str, blocks: &Value) -> Result<()> {
+        self.append_turn(conversation_id, role, blocks)
+    }
+
+    fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>> {
+        self.events_since(connection_id, since_seq)
+    }
+}
+
+impl EventRepository for Store {
+    fn append_event(
+        &self,
+        connection_id: &str,
+        conversation_id: Option<&str>,
+        envelope: &Value,
+    ) -> Result<()> {
+        self.append_event(connection_id, conversation_id, envelope)
+            .map(|_| ())
     }
 }
 

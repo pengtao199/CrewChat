@@ -6,16 +6,16 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
 use crate::app::roster::RosterService;
-use crate::infra::skill_layer::SkillLayerClient;
+use crate::domain::ports::SkillCatalog;
 
 #[derive(Clone)]
 pub struct SkillService {
     roster: RosterService,
-    skill: Arc<SkillLayerClient>,
+    skill: Arc<dyn SkillCatalog>,
 }
 
 impl SkillService {
-    pub fn new(roster: RosterService, skill: Arc<SkillLayerClient>) -> Self {
+    pub fn new(roster: RosterService, skill: Arc<dyn SkillCatalog>) -> Self {
         Self { roster, skill }
     }
 

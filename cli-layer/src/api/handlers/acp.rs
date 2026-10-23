@@ -11,7 +11,6 @@ use serde_json::{json, Value};
 
 use crate::api::http::{api_error, authorized, blocks_to_text, field, unauthorized, AppState};
 use crate::app::sessions::SessionError;
-use crate::runtime::engine::manager;
 
 pub(crate) async fn acp_list_agents(State(state): State<AppState>, headers: HeaderMap) -> Response {
     if !authorized(&state, &headers) {
@@ -152,7 +151,7 @@ pub(crate) async fn acp_fetch_agent_latest_release(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
-    match manager::latest_version(&state.config, agent_type).await {
+    match state.engines.latest_release(agent_type).await {
         Ok(Some(version)) => Json(json!({"version": version})).into_response(),
         Ok(None) => Json(Value::Null).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
@@ -174,7 +173,11 @@ pub(crate) async fn acp_prepare_npx_agent(
         .or_else(|| body.get("clean_first"))
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    match manager::prepare_npx(&state.config, agent_type, version, clean_first).await {
+    match state
+        .engines
+        .prepare_npx(agent_type, version, clean_first)
+        .await
+    {
         Ok(version) => Json(json!(version)).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
@@ -190,7 +193,7 @@ pub(crate) async fn acp_download_agent_binary(
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
     let version = field(&body, &["version"]);
-    match manager::download_binary(&state.config, agent_type, version).await {
+    match state.engines.download_binary(agent_type, version).await {
         Ok(version) => Json(json!(version)).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
@@ -204,7 +207,7 @@ pub(crate) async fn acp_install_pi_binary(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match manager::install_pi_binary().await {
+    match state.engines.install_pi().await {
         Ok(_) => Json(Value::Null).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
     }
@@ -219,7 +222,7 @@ pub(crate) async fn acp_env_diagnostics(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
-    Json(manager::diagnostics(&state.config, agent_type).await).into_response()
+    Json(state.engines.diagnostics(agent_type).await).into_response()
 }
 
 fn session_error(error: SessionError) -> Response {

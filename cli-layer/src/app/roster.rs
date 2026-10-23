@@ -6,21 +6,20 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
 use crate::domain::agent::Agent;
-use crate::domain::ports::AgentRepository;
-use crate::infra::model_layer::ModelLayerClient;
+use crate::domain::ports::{AgentRepository, ModelCatalog};
 use crate::runtime::engine::registry::{Engines, OverlayKind};
 
 #[derive(Clone)]
 pub struct RosterService {
     repo: Arc<dyn AgentRepository>,
-    model: Arc<ModelLayerClient>,
+    model: Arc<dyn ModelCatalog>,
     engines: Engines,
 }
 
 impl RosterService {
     pub fn new(
         repo: Arc<dyn AgentRepository>,
-        model: Arc<ModelLayerClient>,
+        model: Arc<dyn ModelCatalog>,
         engines: Engines,
     ) -> Self {
         Self {

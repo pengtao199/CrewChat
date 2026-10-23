@@ -5,20 +5,10 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
+pub use crate::domain::event::EventEnvelope;
 use agent_client_protocol::schema::v1::{ContentBlock, SessionNotification, SessionUpdate};
-use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
-
-#[derive(Clone, Debug, Serialize)]
-pub struct EventEnvelope {
-    #[serde(rename = "type")]
-    pub kind: String,
-    pub connection_id: String,
-    pub seq: u64,
-    #[serde(flatten)]
-    pub payload: Value,
-}
 
 #[derive(Clone)]
 pub struct EventBus {

@@ -12,7 +12,7 @@ pub(crate) async fn ccr_health(State(state): State<AppState>, headers: HeaderMap
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    Json(state.model.health()).into_response()
+    Json(state.models.health()).into_response()
 }
 
 pub(crate) async fn ccr_call(
@@ -28,7 +28,7 @@ pub(crate) async fn ccr_call(
         .and_then(Value::as_str)
         .unwrap_or_default();
     let args = body.get("args").cloned().unwrap_or_else(|| json!([]));
-    match state.model.rpc(method, args).await {
+    match state.models.rpc(method, args).await {
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
     }
@@ -42,7 +42,7 @@ pub(crate) async fn ccr_provider_save(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match state.model.provider_save(&body).await {
+    match state.models.provider_save(&body).await {
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
     }
@@ -56,7 +56,7 @@ pub(crate) async fn ccr_provider_delete(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match state.model.provider_delete(&body).await {
+    match state.models.provider_delete(&body).await {
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
     }
@@ -70,7 +70,7 @@ pub(crate) async fn ccr_provider_probe(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match state.model.provider_probe(&body).await {
+    match state.models.provider_probe(&body).await {
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_REQUEST, &error),
     }
@@ -83,7 +83,7 @@ pub(crate) async fn ccr_disabled_models(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    match state.model.disabled_models().await {
+    match state.models.disabled_models().await {
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
     }
@@ -96,5 +96,5 @@ pub(crate) async fn ccr_supervisor_start(
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    Json(json!({"state": "running", "endpoint": state.model.health()["url"]})).into_response()
+    Json(json!({"state": "running", "endpoint": state.models.health()["url"]})).into_response()
 }

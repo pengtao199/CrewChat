@@ -3,7 +3,6 @@
 //! The schema is intentionally small: it is the `cli-layer` replacement for
 //! codeg's much larger `db/` (folders + conversations + roster + usage).
 
-use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -15,20 +14,7 @@ pub struct Store {
     conn: Arc<Mutex<Connection>>,
 }
 
-#[derive(Debug, Clone)]
-pub struct EnginePreferences {
-    pub enabled: bool,
-    pub env: BTreeMap<String, String>,
-}
-
-impl Default for EnginePreferences {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            env: BTreeMap::new(),
-        }
-    }
-}
+pub use crate::domain::engine::EnginePreferences;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ImportReport {
@@ -129,6 +115,8 @@ mod repositories;
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
     use serde_json::json;
 

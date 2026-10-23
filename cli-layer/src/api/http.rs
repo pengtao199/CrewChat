@@ -17,6 +17,7 @@ use base64::Engine;
 
 use crate::api::handlers::*;
 use crate::app::engines::EngineService;
+use crate::app::models::ModelService;
 use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
 use crate::app::skills::SkillService;
@@ -25,12 +26,11 @@ use serde_json::{json, Value};
 
 use crate::api::ws;
 use crate::config::Config;
-use crate::infra::model_layer::ModelLayerClient;
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
-    pub model: Arc<ModelLayerClient>,
+    pub models: ModelService,
     pub roster: RosterService,
     pub workspace: WorkspaceService,
     pub skills: SkillService,

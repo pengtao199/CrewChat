@@ -24,8 +24,6 @@ use tokio::process::{Child, Command as TokioCommand};
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::config::Config;
-use crate::infra::skill_layer::SkillLayerClient;
-use crate::infra::store::Store;
 use crate::runtime::acp::events::{self, EventBus, EventEnvelope};
 use crate::runtime::engine::registry::Engines;
 use crate::runtime::overlay;
@@ -33,14 +31,14 @@ use crate::runtime::overlay;
 #[derive(Clone)]
 pub struct EventSink {
     bus: EventBus,
-    store: Store,
+    events: Arc<dyn crate::domain::ports::EventRepository>,
 }
 
 impl EventSink {
     pub fn emit(&self, event: EventEnvelope) {
         let event = self.bus.publish(event);
         let value = serde_json::to_value(&event).unwrap_or(Value::Null);
-        let _ = self.store.append_event(&event.connection_id, None, &value);
+        let _ = self.events.append_event(&event.connection_id, None, &value);
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
@@ -126,16 +124,20 @@ pub struct AcpHost {
     sink: EventSink,
     permissions: PermissionBroker,
     connections: Arc<Mutex<HashMap<String, ConnectionHandle>>>,
-    skills: Arc<SkillLayerClient>,
+    skills: Arc<dyn crate::domain::ports::SkillCatalog>,
 }
 
 impl AcpHost {
-    pub fn new(config: Arc<Config>, store: Store, skills: Arc<SkillLayerClient>) -> Self {
+    pub fn new(
+        config: Arc<Config>,
+        events: Arc<dyn crate::domain::ports::EventRepository>,
+        skills: Arc<dyn crate::domain::ports::SkillCatalog>,
+    ) -> Self {
         let bus = EventBus::new();
         Self {
             engines: Engines::new(config.clone()),
             config,
-            sink: EventSink { bus, store },
+            sink: EventSink { bus, events },
             permissions: PermissionBroker::default(),
             connections: Arc::new(Mutex::new(HashMap::new())),
             skills,
@@ -449,5 +451,53 @@ impl AcpHost {
             .get(connection_id)
             .map(|handle| handle.tx.clone())
             .ok_or_else(|| anyhow!("unknown connection '{connection_id}'"))
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::domain::ports::SessionRuntime for AcpHost {
+    async fn connect(
+        &self,
+        request: crate::domain::ports::ConnectRequest,
+    ) -> anyhow::Result<Value> {
+        AcpHost::connect(
+            self,
+            &request.agent_type,
+            request.cwd,
+            request.role,
+            request.api_key,
+            request.conversation_id,
+            request.engine_env,
+        )
+        .await
+    }
+
+    fn prompt(&self, connection_id: &str, text: String) -> anyhow::Result<()> {
+        AcpHost::prompt(self, connection_id, text)
+    }
+
+    fn cancel(&self, connection_id: &str) -> anyhow::Result<()> {
+        AcpHost::cancel(self, connection_id)
+    }
+
+    fn close(&self, connection_id: &str) {
+        AcpHost::close(self, connection_id)
+    }
+
+    fn respond_permission(&self, request_id: &str, option_id: Option<String>) -> bool {
+        AcpHost::respond_permission(self, request_id, option_id)
+    }
+
+    fn subscribe(&self) -> Box<dyn crate::domain::ports::EventSubscription> {
+        Box::new(BroadcastSubscription(AcpHost::subscribe(self)))
+    }
+}
+
+struct BroadcastSubscription(broadcast::Receiver<EventEnvelope>);
+
+#[async_trait::async_trait]
+impl crate::domain::ports::EventSubscription for BroadcastSubscription {
+    async fn recv(&mut self) -> Option<EventEnvelope> {
+        self.0.recv().await.ok()
     }
 }

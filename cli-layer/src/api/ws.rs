@@ -3,7 +3,6 @@
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
-use tokio::sync::broadcast;
 
 use crate::api::http::AppState;
 
@@ -81,7 +80,7 @@ pub async fn serve(state: AppState, socket: WebSocket) {
             }
             event = events.recv() => {
                 match event {
-                    Ok(event) => {
+                    Some(event) => {
                         if let Some(conn) = &connection_id {
                             if event.connection_id != *conn {
                                 continue;
@@ -96,8 +95,7 @@ pub async fn serve(state: AppState, socket: WebSocket) {
                             break;
                         }
                     }
-                    Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                    Err(broadcast::error::RecvError::Closed) => break,
+                    None => break,
                 }
             }
         }
