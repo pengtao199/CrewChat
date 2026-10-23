@@ -118,6 +118,7 @@ src/
     workspace.rs   folder / conversation 用例
     skills.rs      skill 代理 + Agent 技能绑定
     engines.rs     引擎列表 / 偏好
+    sessions.rs    ACP 会话用例 / 事件回放
   config.rs        环境与数据目录
   domain/
     agent.rs       类型化 Agent（后续扩展 readiness/团队）

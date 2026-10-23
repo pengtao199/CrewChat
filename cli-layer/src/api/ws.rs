@@ -9,7 +9,7 @@ use crate::api::http::AppState;
 
 pub async fn serve(state: AppState, socket: WebSocket) {
     let (mut sender, mut receiver) = socket.split();
-    let mut events = state.host.subscribe();
+    let mut events = state.sessions.subscribe();
     let mut connection_id: Option<String> = None;
 
     if sender
@@ -42,7 +42,7 @@ pub async fn serve(state: AppState, socket: WebSocket) {
                                     .unwrap_or(0);
                                 if let Some(conn) = &connection_id {
                                     let replay = state
-                                        .store
+                                        .sessions
                                         .events_since(conn, since)
                                         .unwrap_or_default();
                                     let frame = json!({"type": "replay", "events": replay});

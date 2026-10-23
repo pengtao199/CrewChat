@@ -10,6 +10,7 @@ use axum::{
 use serde_json::{json, Value};
 
 use crate::api::http::{api_error, authorized, blocks_to_text, field, unauthorized, AppState};
+use crate::app::sessions::SessionError;
 use crate::runtime::engine::manager;
 
 pub(crate) async fn acp_list_agents(State(state): State<AppState>, headers: HeaderMap) -> Response {
@@ -28,47 +29,19 @@ pub(crate) async fn acp_connect(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
-    let preferences = state.engines.preferences(agent_type);
-    if !preferences.enabled {
-        return api_error(StatusCode::BAD_REQUEST, "this engine is disabled");
-    }
     let cwd = field(&body, &["workingDir", "working_dir"])
         .map(PathBuf::from)
         .or_else(|| std::env::current_dir().ok())
         .unwrap_or_else(|| PathBuf::from("/"));
-    let mut role =
-        field(&body, &["roleId", "role_id"]).and_then(|id| state.store.role(id).ok().flatten());
-    if let Some(role) = role.as_mut() {
-        if let Some(provider) = role
-            .get("model_provider")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-        {
-            let model = role
-                .get("model")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string();
-            if let Some(display) = state.model.normalize_provider(&provider, &model).await {
-                role["model_provider"] = json!(display);
-            }
-        }
-    }
-    let api_key = state.model.local_gateway_key().await;
+    let role_id = field(&body, &["roleId", "role_id"]);
+    let conversation_id = field(&body, &["conversationId", "conversation_id"]).map(str::to_string);
     match state
-        .host
-        .connect(
-            agent_type,
-            cwd,
-            role,
-            api_key,
-            field(&body, &["conversationId", "conversation_id"]).map(str::to_string),
-            preferences.env,
-        )
+        .sessions
+        .connect(agent_type, cwd, role_id, conversation_id)
         .await
     {
         Ok(value) => Json(value).into_response(),
-        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error.to_string()),
+        Err(error) => session_error(error),
     }
 }
 
@@ -87,19 +60,10 @@ pub(crate) async fn acp_prompt(
         .filter(|text| !text.trim().is_empty())
         .or_else(|| field(&body, &["text"]).map(str::to_string))
         .unwrap_or_default();
-    if text.trim().is_empty() {
-        return api_error(StatusCode::BAD_REQUEST, "prompt has no text");
-    }
-    if let Some(conversation_id) = field(&body, &["conversationId", "conversation_id"]) {
-        let _ = state.store.append_turn(
-            conversation_id,
-            "user",
-            &json!([{"type": "text", "text": text.clone()}]),
-        );
-    }
-    match state.host.prompt(connection_id, text) {
+    let conversation_id = field(&body, &["conversationId", "conversation_id"]);
+    match state.sessions.prompt(connection_id, text, conversation_id) {
         Ok(()) => Json(json!({})).into_response(),
-        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+        Err(error) => session_error(error),
     }
 }
 
@@ -112,9 +76,9 @@ pub(crate) async fn acp_cancel(
         return unauthorized();
     }
     let connection_id = field(&body, &["connectionId", "connection_id"]).unwrap_or_default();
-    match state.host.cancel(connection_id) {
+    match state.sessions.cancel(connection_id) {
         Ok(()) => Json(json!({})).into_response(),
-        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+        Err(error) => session_error(error),
     }
 }
 
@@ -127,7 +91,7 @@ pub(crate) async fn acp_disconnect(
         return unauthorized();
     }
     let connection_id = field(&body, &["connectionId", "connection_id"]).unwrap_or_default();
-    state.host.close(connection_id);
+    state.sessions.disconnect(connection_id);
     Json(json!({})).into_response()
 }
 
@@ -141,10 +105,10 @@ pub(crate) async fn acp_respond_permission(
     }
     let request_id = field(&body, &["requestId", "request_id"]).unwrap_or_default();
     let option_id = field(&body, &["optionId", "option_id"]).map(str::to_string);
-    if state.host.respond_permission(request_id, option_id) {
-        Json(json!(true)).into_response()
-    } else {
-        api_error(StatusCode::NOT_FOUND, "unknown permission request")
+    match state.sessions.respond_permission(request_id, option_id) {
+        Ok(true) => Json(json!(true)).into_response(),
+        Ok(false) => api_error(StatusCode::NOT_FOUND, "unknown permission request"),
+        Err(error) => session_error(error),
     }
 }
 
@@ -173,7 +137,7 @@ pub(crate) async fn acp_update_agent_preferences(
                 .collect()
         })
         .unwrap_or_default();
-    match state.engines.save_preferences(agent_type, enabled, &env) {
+    match state.sessions.update_preferences(agent_type, enabled, &env) {
         Ok(()) => Json(Value::Null).into_response(),
         Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
     }
@@ -256,4 +220,12 @@ pub(crate) async fn acp_env_diagnostics(
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
     Json(manager::diagnostics(&state.config, agent_type).await).into_response()
+}
+
+fn session_error(error: SessionError) -> Response {
+    match error {
+        SessionError::BadRequest(message) => api_error(StatusCode::BAD_REQUEST, &message),
+        SessionError::BadGateway(message) => api_error(StatusCode::BAD_GATEWAY, &message),
+        SessionError::NotFound(message) => api_error(StatusCode::NOT_FOUND, &message),
+    }
 }

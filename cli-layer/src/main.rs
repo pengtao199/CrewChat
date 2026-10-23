@@ -24,6 +24,7 @@ use tracing::{info, warn};
 use crate::api::http::AppState;
 use crate::app::engines::EngineService;
 use crate::app::roster::RosterService;
+use crate::app::sessions::SessionService;
 use crate::app::skills::SkillService;
 use crate::app::workspace::WorkspaceService;
 use crate::config::Config;
@@ -76,15 +77,15 @@ async fn main() -> Result<()> {
     let workspace = WorkspaceService::new(conversation_repo);
     let skills = SkillService::new(roster.clone(), skill.clone());
     let engines = EngineService::new(settings_repo, host.engines().clone());
+    let sessions = SessionService::new(store.clone(), host.clone(), model.clone(), engines.clone());
     let state = AppState {
         config: config.clone(),
-        store,
-        host,
         model,
         roster,
         workspace,
         skills,
         engines,
+        sessions,
     };
 
     let router = crate::api::http::router(state);
