@@ -53,7 +53,7 @@ fn registry_round_trips_servers_and_agents() {
 
     let token = generate_agent_token();
     let agent = registry
-        .upsert_agent("agent-1", "agent-agent-1", &token, &["echo".to_string()])
+        .upsert_agent("agent-1", "agent-agent-1", &token, &["echo".to_string()], 0)
         .unwrap();
     assert_eq!(agent.server_ids, vec!["echo"]);
     assert_eq!(registry.list_agents().unwrap().len(), 1);

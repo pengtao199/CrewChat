@@ -150,6 +150,7 @@ pub struct AgentRecord {
     pub client_name: String,
     pub token: String,
     pub server_ids: Vec<String>,
+    pub port: u16,
     pub updated_at: String,
 }
 
@@ -187,10 +188,26 @@ impl Registry {
                 client_name TEXT NOT NULL UNIQUE,
                 token TEXT NOT NULL,
                 server_ids_json TEXT NOT NULL,
+                port INTEGER NOT NULL DEFAULT 0,
                 updated_at TEXT NOT NULL
             );
             "#,
         )?;
+        self.ensure_column("agents", "port", "INTEGER NOT NULL DEFAULT 0")?;
+        Ok(())
+    }
+
+    fn ensure_column(&self, table: &str, column: &str, declaration: &str) -> Result<()> {
+        let mut statement = self.conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        let names = statement
+            .query_map([], |row| row.get::<_, String>(1))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        if !names.iter().any(|name| name == column) {
+            self.conn.execute(
+                &format!("ALTER TABLE {table} ADD COLUMN {column} {declaration}"),
+                [],
+            )?;
+        }
         Ok(())
     }
 
@@ -277,7 +294,7 @@ impl Registry {
 
     pub fn list_agents(&self) -> Result<Vec<AgentRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT agent_id, client_name, token, server_ids_json, updated_at
+            "SELECT agent_id, client_name, token, server_ids_json, port, updated_at
              FROM agents ORDER BY agent_id",
         )?;
         let rows = stmt.query_map([], map_agent)?;
@@ -290,7 +307,7 @@ impl Registry {
 
     pub fn get_agent(&self, agent_id: &str) -> Result<Option<AgentRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT agent_id, client_name, token, server_ids_json, updated_at
+            "SELECT agent_id, client_name, token, server_ids_json, port, updated_at
              FROM agents WHERE agent_id = ?1",
         )?;
         Ok(stmt.query_row(params![agent_id], map_agent).optional()?)
@@ -302,20 +319,22 @@ impl Registry {
         client_name: &str,
         token: &str,
         server_ids: &[String],
+        port: u16,
     ) -> Result<AgentRecord> {
         let now = now_rfc3339();
         let ids = serde_json::to_string(server_ids)?;
         self.conn.execute(
             r#"
-            INSERT INTO agents (agent_id, client_name, token, server_ids_json, updated_at)
-            VALUES (?1, ?2, ?3, ?4, ?5)
+            INSERT INTO agents (agent_id, client_name, token, server_ids_json, port, updated_at)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             ON CONFLICT(agent_id) DO UPDATE SET
                 client_name = excluded.client_name,
                 token = excluded.token,
                 server_ids_json = excluded.server_ids_json,
+                port = excluded.port,
                 updated_at = excluded.updated_at
             "#,
-            params![agent_id, client_name, token, ids, now],
+            params![agent_id, client_name, token, ids, port, now],
         )?;
         self.get_agent(agent_id)?
             .ok_or_else(|| anyhow::anyhow!("agent disappeared after upsert"))
@@ -339,6 +358,7 @@ impl Registry {
                     &agent.client_name,
                     &agent.token,
                     &agent.server_ids,
+                    agent.port,
                 )?;
             }
         }
@@ -372,7 +392,8 @@ fn map_agent(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentRecord> {
         client_name: row.get(1)?,
         token: row.get(2)?,
         server_ids,
-        updated_at: row.get(4)?,
+        port: row.get::<_, i64>(4)?.max(0) as u16,
+        updated_at: row.get(5)?,
     })
 }
 

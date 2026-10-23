@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::gateway::Gateway;
+use crate::proxy::{endpoint, ProxyManager};
 use crate::registry::{
     generate_agent_token, sanitize_agent_id, write_server_file, AgentRecord, Registry, ServerSpec,
 };
@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 pub struct AppState {
     pub config: Arc<Config>,
     pub registry: Arc<Mutex<Registry>>,
-    pub gateway: Gateway,
+    pub proxies: ProxyManager,
     pub token: Arc<String>,
 }
 
@@ -59,7 +59,7 @@ impl ApiError {
     fn unavailable(message: impl Into<String>) -> Self {
         Self::new(
             StatusCode::SERVICE_UNAVAILABLE,
-            "gateway_unavailable",
+            "proxy_unavailable",
             message,
         )
     }
@@ -108,8 +108,6 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/v1/agents/{id}/sync", post(sync_agent_post))
         .route("/v1/gateway", get(gateway_status))
-        .route("/v1/gateway/start", post(gateway_start))
-        .route("/v1/gateway/stop", post(gateway_stop))
         .route("/v1/gateway/sync", post(gateway_sync))
         .with_state(state)
 }
@@ -119,11 +117,11 @@ async fn health(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     authorize(&headers, &state.token)?;
-    let gateway = state.gateway.status().await;
+    let proxies = state.proxies.status().await;
     Ok(Json(json!({
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
-        "gateway": gateway,
+        "proxies": proxies,
     })))
 }
 
@@ -166,22 +164,12 @@ async fn put_server(
         registry.upsert_server(&spec).map_err(internal)?
     };
 
-    let gateway_error = match state.gateway.register_server(&record).await {
-        Ok(()) => {
-            let mut registry = lock_registry(&state)?;
-            registry.set_synced(&record.id, true).map_err(internal)?;
-            None
-        }
-        Err(error) => Some(error.to_string()),
-    };
+    let warnings = restart_agents_using_server(&state, &record.id).await;
     let record = lock_registry(&state)?
         .get_server(&record.id)
         .map_err(internal)?
-        .ok_or_else(|| ApiError::internal("server disappeared after sync"))?;
-    Ok(Json(json!({
-        "server": record,
-        "gatewayError": gateway_error,
-    })))
+        .ok_or_else(|| ApiError::internal("server disappeared after save"))?;
+    Ok(Json(json!({"server": record, "warnings": warnings})))
 }
 
 async fn delete_server(
@@ -190,6 +178,19 @@ async fn delete_server(
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     authorize(&headers, &state.token)?;
+    let affected = {
+        let registry = lock_registry(&state)?;
+        registry
+            .list_agents()
+            .map_err(internal)?
+            .into_iter()
+            .filter(|agent| agent.server_ids.iter().any(|server| server == &id))
+            .collect::<Vec<_>>()
+    };
+    for agent in &affected {
+        state.proxies.stop_agent(&agent.agent_id).await;
+    }
+
     let removed = {
         let mut registry = lock_registry(&state)?;
         let removed = registry.delete_server(&id).map_err(internal)?;
@@ -200,15 +201,14 @@ async fn delete_server(
         return Ok(Json(json!({"removed": false})));
     }
     crate::registry::remove_server_file(&state.config.servers_dir, &id).map_err(internal)?;
-    let gateway_error = state
-        .gateway
-        .delete_server(&id)
-        .await
-        .err()
-        .map(|error| error.to_string());
-    Ok(Json(
-        json!({"removed": true, "gatewayError": gateway_error}),
-    ))
+
+    let mut warnings = Vec::new();
+    for agent in affected {
+        if let Err(error) = start_agent_by_id(&state, &agent.agent_id).await {
+            warnings.push(format!("restart agent {}: {error}", agent.agent_id));
+        }
+    }
+    Ok(Json(json!({"removed": true, "warnings": warnings})))
 }
 
 async fn enable_server(
@@ -240,20 +240,8 @@ async fn set_server_enabled(
     if !changed {
         return Err(ApiError::not_found(format!("server not found: {id}")));
     }
-    let gateway_error = state
-        .gateway
-        .set_server_enabled(&id, enabled)
-        .await
-        .err()
-        .map(|error| error.to_string());
-    if gateway_error.is_none() {
-        lock_registry(&state)?
-            .set_synced(&id, true)
-            .map_err(internal)?;
-    }
-    Ok(Json(
-        json!({"enabled": enabled, "gatewayError": gateway_error}),
-    ))
+    let warnings = restart_agents_using_server(&state, &id).await;
+    Ok(Json(json!({"enabled": enabled, "warnings": warnings})))
 }
 
 async fn list_agents(
@@ -321,7 +309,7 @@ async fn sync_agent_inner(
         .unwrap_or_else(generate_agent_token);
 
     if server_ids.is_empty() {
-        let _ = state.gateway.delete_client(&client_name).await;
+        state.proxies.stop_agent(&id).await;
         lock_registry(&state)?.delete_agent(&id).map_err(internal)?;
         return Ok(Json(json!({
             "agentId": id,
@@ -350,15 +338,34 @@ async fn sync_agent_inner(
         return Err(error);
     }
 
-    let record = lock_registry(&state)?
-        .upsert_agent(&id, &client_name, &token, &server_ids)
-        .map_err(internal)?;
-    state
-        .gateway
-        .sync_agent(&record)
+    let selected = servers
+        .iter()
+        .filter(|server| server_ids.iter().any(|id| id == &server.id))
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut agent = AgentRecord {
+        agent_id: id.clone(),
+        client_name,
+        token,
+        server_ids,
+        port: 0,
+        updated_at: String::new(),
+    };
+    let port = state
+        .proxies
+        .start_agent(&agent, &selected)
         .await
         .map_err(|error| ApiError::unavailable(error.to_string()))?;
-
+    agent.port = port;
+    let record = lock_registry(&state)?
+        .upsert_agent(
+            &agent.agent_id,
+            &agent.client_name,
+            &agent.token,
+            &agent.server_ids,
+            agent.port,
+        )
+        .map_err(internal)?;
     let session = build_agent_session(&state, &record);
     Ok(Json(serde_json::to_value(session).map_err(internal)?))
 }
@@ -369,10 +376,7 @@ async fn delete_agent(
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     authorize(&headers, &state.token)?;
-    let existing = lock_registry(&state)?.get_agent(&id).map_err(internal)?;
-    if let Some(agent) = &existing {
-        let _ = state.gateway.delete_client(&agent.client_name).await;
-    }
+    state.proxies.stop_agent(&id).await;
     let removed = lock_registry(&state)?.delete_agent(&id).map_err(internal)?;
     Ok(Json(json!({"removed": removed})))
 }
@@ -382,35 +386,7 @@ async fn gateway_status(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     authorize(&headers, &state.token)?;
-    Ok(Json(
-        serde_json::to_value(state.gateway.status().await).map_err(internal)?,
-    ))
-}
-
-async fn gateway_start(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Json<Value>, ApiError> {
-    authorize(&headers, &state.token)?;
-    state
-        .gateway
-        .ensure_started()
-        .await
-        .map_err(|error| ApiError::unavailable(error.to_string()))?;
-    Ok(Json(
-        serde_json::to_value(state.gateway.status().await).map_err(internal)?,
-    ))
-}
-
-async fn gateway_stop(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Json<Value>, ApiError> {
-    authorize(&headers, &state.token)?;
-    state.gateway.stop().await;
-    Ok(Json(
-        serde_json::to_value(state.gateway.status().await).map_err(internal)?,
-    ))
+    Ok(Json(json!({"proxies": state.proxies.status().await})))
 }
 
 async fn gateway_sync(
@@ -418,34 +394,74 @@ async fn gateway_sync(
     headers: HeaderMap,
 ) -> Result<Json<Value>, ApiError> {
     authorize(&headers, &state.token)?;
-    state
-        .gateway
-        .ensure_started()
-        .await
-        .map_err(|error| ApiError::unavailable(error.to_string()))?;
-    let (servers, agents) = {
-        let registry = lock_registry(&state)?;
-        (
-            registry.list_servers().map_err(internal)?,
-            registry.list_agents().map_err(internal)?,
-        )
+    let agents = lock_registry(&state)?.list_agents().map_err(internal)?;
+    let mut warnings = Vec::new();
+    for agent in agents {
+        if let Err(error) = start_agent_by_id(&state, &agent.agent_id).await {
+            warnings.push(format!("restart agent {}: {error}", agent.agent_id));
+        }
+    }
+    Ok(Json(
+        json!({"proxies": state.proxies.status().await, "warnings": warnings}),
+    ))
+}
+
+async fn restart_agents_using_server(state: &AppState, server_id: &str) -> Vec<String> {
+    let agents = match lock_registry(state) {
+        Ok(registry) => match registry.list_agents() {
+            Ok(agents) => agents,
+            Err(error) => return vec![format!("list agents: {error}")],
+        },
+        Err(error) => return vec![format!("lock registry: {}", error.message)],
     };
-    let mut warnings = state
-        .gateway
-        .reconcile_servers(&servers)
+    let mut warnings = Vec::new();
+    for agent in agents {
+        if agent.server_ids.iter().any(|id| id == server_id) {
+            if let Err(error) = start_agent_by_id(state, &agent.agent_id).await {
+                warnings.push(format!("restart agent {}: {error}", agent.agent_id));
+            }
+        }
+    }
+    warnings
+}
+
+async fn start_agent_by_id(state: &AppState, agent_id: &str) -> Result<(), String> {
+    let (agent, servers) = {
+        let registry = lock_registry(state).map_err(|error| error.message)?;
+        let agent = registry
+            .get_agent(agent_id)
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| format!("agent not found: {agent_id}"))?;
+        let servers = registry.list_servers().map_err(|error| error.to_string())?;
+        (agent, servers)
+    };
+    if agent.server_ids.is_empty() {
+        state.proxies.stop_agent(agent_id).await;
+        return Ok(());
+    }
+    let selected = servers
+        .into_iter()
+        .filter(|server| agent.server_ids.iter().any(|id| id == &server.id))
+        .collect::<Vec<_>>();
+    if selected.len() != agent.server_ids.len() {
+        return Err("agent references a missing server".to_string());
+    }
+    let port = state
+        .proxies
+        .start_agent(&agent, &selected)
         .await
-        .map_err(internal)?;
-    warnings.extend(
-        state
-            .gateway
-            .reconcile_agents(&agents)
-            .await
-            .map_err(internal)?,
-    );
-    Ok(Json(json!({
-        "gateway": state.gateway.status().await,
-        "warnings": warnings,
-    })))
+        .map_err(|error| error.to_string())?;
+    let mut registry = lock_registry(state).map_err(|error| error.message)?;
+    registry
+        .upsert_agent(
+            &agent.agent_id,
+            &agent.client_name,
+            &agent.token,
+            &agent.server_ids,
+            port,
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -462,7 +478,7 @@ struct AgentSession {
 }
 
 fn build_agent_session(state: &AppState, agent: &AgentRecord) -> AgentSession {
-    let endpoint = state.config.gateway_mcp_url();
+    let endpoint = endpoint(agent.port);
     let http = json!({
         "type": "http",
         "name": "mcp-layer",

@@ -22,13 +22,13 @@
 | 会话与消息 | `~/Library/Application Support/AgentOS/cli/cli-layer.db`（`conversations` / `turns` / `events`） | SQLite | 否 | 否 |
 | 用量统计（经本 app 的 CLI 身体） | `.data/crewchat.db`（`usage_events`） | SQLite | 否 | 否 |
 | 技能 | 全局库：`~/.agents/skills`（current 软链）+ `~/.agents/skill-store/<id>/<hash>`，注册表 `~/.agents/skill-layer/registry.sqlite`；Agent 绑定：cli-layer `agent_roles.skills_json`；会话级 materialize：role home 的 `skills/` | Markdown + symlink + SQLite | **是**（内容跨 CLI） | — |
-| MCP 服务 | `mcp-layer` 控制面：`~/.agents/mcp/servers/<id>.json` + `registry.sqlite`；运行时网关 sidecar 构建/联调中 | JSON + SQLite | **是** | — |
+| MCP 服务 | `mcp-layer` 控制面：`~/.agents/mcp/servers/<id>.json` + `registry.sqlite`；运行时：每 Agent 一个 proxy 实例，配置在 `~/.agents/mcp/runtime/proxies/<agent>/` | JSON + SQLite + TOML | **是** | — |
 | 插件 | `~/.agents/plugins/*` | 目录 | **是** | — |
 | 本地覆盖（CLI 参数等） | `.data/overrides.json` | JSON | 否 | 否 |
 
 ## 原则
 
-- **MCP 形态**：全局定义在 `~/.agents/mcp/servers/<id>.json`，由 `mcp-layer` 控制面同步到本地网关；旧 CLI 配置不迁移，新库从零开始。见 `docs/plans/mcp-layer.md`。
+- **MCP 形态**：全局定义在 `~/.agents/mcp/servers/<id>.json`；`mcp-layer` 为每个 Agent 启动一个只挂其 MCP 的本地 proxy；旧 CLI 配置不迁移，新库从零开始。见 `docs/plans/mcp-layer.md`。
 - **文件优先于数据库**：可被人阅读、被 git 管理、被其他工具消费的数据放文件；纯运行时状态放数据库。
 - **跨工具共享的数据不复制**：技能由各 CLI 目录/`~/.agents/skills` 承载；MCP 由 `~/.agents/mcp` + 本地网关承载；不把它们复制进 AgentOS 的数据库，也不在 `.data/` 里做镜像。
 - **密钥只落一处**：模型端点 API key 与 caller key 存在 macOS Keychain（service `com.crewchat.model-layer`），SQLite 只存 `keychain_ref`；编排层自身的大脑池 `.data/providers.jsonc` 同样含 key。两处都禁止散落到 agent 文件、代码或前端。
@@ -44,7 +44,7 @@
 
 - 修改 Agent 只经 Agents 页写 `cli-layer.db` 的 `agent_roles`；不再写旧 `codeg.db` 或 `.data/agents/*.jsonc`（冻结只读）。
 - 读写技能/MCP 一律通过核心命令：技能用 `skill_list` / `skill_read` / `skill_install` / `agent_skills_set` / `agent_skill_status`；MCP 用 `mcp_list` / `mcp_read` / `mcp_upsert` / `mcp_remove` / `agent_mcps_set` / `agent_mcp_status`（cli-layer 代理待接）；壳不自行拼路径、不直接改这些文件。
-- 技能页由 cli-layer 代理 skill-layer；MCP 页当前显示 `spec` 与写入的 CLI 集合（目标形态改为 `spec`、健康与 Agent 使用关系，见 `docs/plans/mcp-layer.md`）。
+- 技能页由 cli-layer 代理 skill-layer；MCP 页目标显示 `spec`、健康与 Agent 使用关系（见 `docs/plans/mcp-layer.md`）。
 - `.data/` 整体被 gitignore；新增本地状态放进 `.data/`，不要放仓库根目录。
 - 新增配置文件时，先判断它是否属于「跨工具共享」（`~/.agents/`）还是「本项目私有」（`.data/`）。
 - 会话消息以 SQLite 为准；UI 端的乐观渲染不是真相源。
