@@ -17,6 +17,7 @@ use base64::Engine;
 
 use crate::api::handlers::*;
 use crate::app::engines::EngineService;
+use crate::app::mcp::McpService;
 use crate::app::models::ModelService;
 use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
@@ -35,6 +36,7 @@ pub struct AppState {
     pub roster: RosterService,
     pub workspace: WorkspaceService,
     pub skills: SkillService,
+    pub mcp: McpService,
     pub readiness: ReadinessService,
     pub engines: EngineService,
     pub sessions: SessionService,
@@ -79,6 +81,15 @@ pub fn router(state: AppState) -> Router {
         .route("/api/skill_link_status", post(skill_link_status))
         .route("/api/agent_skills_set", post(agent_skills_set))
         .route("/api/agent_skill_status", post(agent_skill_status))
+        .route("/api/mcp_list", post(mcp_list))
+        .route("/api/mcp_read", post(mcp_read))
+        .route("/api/mcp_upsert", post(mcp_upsert))
+        .route("/api/mcp_remove", post(mcp_remove))
+        .route("/api/mcp_enable", post(mcp_enable))
+        .route("/api/mcp_disable", post(mcp_disable))
+        .route("/api/mcp_gateway", post(mcp_gateway))
+        .route("/api/agent_mcps_set", post(agent_mcps_set))
+        .route("/api/agent_mcp_status", post(agent_mcp_status))
         .route("/api/mcp_scan_local", post(not_implemented))
         .route("/api/mcp_upsert_local_server", post(not_implemented))
         .route("/api/mcp_remove_server", post(not_implemented))

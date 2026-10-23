@@ -1,7 +1,7 @@
 # MCP Layer API：cli-layer / AgentOS 交付说明
 
 Updated: 2026-10-23
-Status: `mcp-layer` 后端核心可用；`cli-layer` 接线待做。
+Status: `mcp-layer` 后端核心可用；`cli-layer` 代理、`agent_mcps_set` 与 `session/new` 注入已接；真实 ACP 待验证。
 读者：cli-layer 工程师、AgentOS 前端工程师。
 
 ---
@@ -188,18 +188,18 @@ HTTP：
 
 ## 7. cli-layer 接线
 
-### 7.1 客户端
+### 7.1 客户端（已落地）
 
-在 `cli-layer/src/infra/` 增加一个 `mcp_layer.rs`：
+`cli-layer/src/infra/mcp_layer.rs`：
 
 - 从 `~/.agents/mcp/runtime.json` 读 `url` / `token`；
 - 超时 60s；
 - `sync_agent(agent_id, server_ids) -> AgentSession`；
 - `list_servers()` / `upsert_server()` 给 MCP 页代理用。
 
-### 7.2 `agent_mcps_set`
+### 7.2 `agent_mcps_set`（已落地）
 
-新增命令：
+命令：
 
 ```json
 { "roleId": "role-1", "serverIds": ["playwright"] }
@@ -213,7 +213,7 @@ HTTP：
 4. 返回 `{roleId, serverIds}`；
 5. mcp-layer 不可用时返回明确错误，不静默清空。
 
-### 7.3 `acp_connect`
+### 7.3 `acp_connect`（已落地）
 
 在角色已知、`session/new` 之前：
 

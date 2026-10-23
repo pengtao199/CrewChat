@@ -95,7 +95,7 @@ cargo run
 - 控制面、注册表、Agent proxy 实例、动态端口、bearer token 已实现。
 - 网关内核复用 `mcp-proxy` 0.6（`default-features = false` + `oauth`，仅用于 per-token 权限；不启用 OTel/OpenAPI/Redis/SQLite）。
 - 7 个测试通过（registry / spec / proxy config / proxy 启动 / HTTP tools/list / admin 工具隐藏），clippy 通过。
-- `cli-layer` 的 `agent_mcps_set` / `session/new.mcpServers` 接线不在本 crate 内。
+- `cli-layer` 的 `agent_mcps_set` / `session/new.mcpServers` 已接；真实 ACP 会话待验证。
 - 不做旧数据迁移。
 
 ## 后续二次开发

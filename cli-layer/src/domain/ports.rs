@@ -98,6 +98,18 @@ pub trait ModelCatalog: Send + Sync {
 }
 
 #[async_trait]
+pub trait McpCatalog: Send + Sync {
+    async fn list(&self) -> Result<Value, String>;
+    async fn read(&self, id: &str) -> Result<Value, String>;
+    async fn upsert(&self, id: &str, spec: &Value) -> Result<Value, String>;
+    async fn remove(&self, id: &str) -> Result<Value, String>;
+    async fn set_enabled(&self, id: &str, enabled: bool) -> Result<Value, String>;
+    async fn sync_agent(&self, agent_id: &str, server_ids: &[String]) -> Result<Value, String>;
+    async fn agent(&self, agent_id: &str) -> Result<Value, String>;
+    async fn gateway(&self) -> Result<Value, String>;
+}
+
+#[async_trait]
 pub trait SkillCatalog: Send + Sync {
     async fn list(&self) -> Result<Value, String>;
     async fn detail(&self, id: &str) -> Result<Value, String>;

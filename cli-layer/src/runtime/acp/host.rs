@@ -12,9 +12,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, NewSessionRequest,
-    PromptRequest, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-    SelectedPermissionOutcome, SessionId, SessionNotification, TextContent,
+    CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, McpServer,
+    NewSessionRequest, PromptRequest, RequestPermissionOutcome, RequestPermissionRequest,
+    RequestPermissionResponse, SelectedPermissionOutcome, SessionId, SessionNotification,
+    TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -99,6 +100,24 @@ enum Command {
     Close,
 }
 
+fn role_mcp_ids(role: &Value) -> Vec<String> {
+    role.get("mcp")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| match item {
+                    Value::String(id) => Some(id.clone()),
+                    Value::Object(object) => {
+                        object.get("id").and_then(Value::as_str).map(str::to_string)
+                    }
+                    _ => None,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn role_skill_ids(role: &Value) -> Vec<String> {
     role.get("skills")
         .and_then(Value::as_array)
@@ -125,6 +144,7 @@ pub struct AcpHost {
     permissions: PermissionBroker,
     connections: Arc<Mutex<HashMap<String, ConnectionHandle>>>,
     skills: Arc<dyn crate::domain::ports::SkillCatalog>,
+    mcp: Arc<dyn crate::domain::ports::McpCatalog>,
 }
 
 impl AcpHost {
@@ -132,6 +152,7 @@ impl AcpHost {
         config: Arc<Config>,
         events: Arc<dyn crate::domain::ports::EventRepository>,
         skills: Arc<dyn crate::domain::ports::SkillCatalog>,
+        mcp: Arc<dyn crate::domain::ports::McpCatalog>,
     ) -> Self {
         let bus = EventBus::new();
         Self {
@@ -141,6 +162,7 @@ impl AcpHost {
             permissions: PermissionBroker::default(),
             connections: Arc::new(Mutex::new(HashMap::new())),
             skills,
+            mcp,
         }
     }
 
@@ -203,6 +225,45 @@ impl AcpHost {
                     })?;
             }
         }
+
+        let mcp_servers = match role.as_ref() {
+            Some(role) => {
+                let mcp_ids = role_mcp_ids(role);
+                if mcp_ids.is_empty() {
+                    Vec::new()
+                } else {
+                    let agent_id = role
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .filter(|id| !id.is_empty())
+                        .ok_or_else(|| anyhow!("agent role has no id; cannot sync MCP"))?;
+                    let value = self
+                        .mcp
+                        .sync_agent(agent_id, &mcp_ids)
+                        .await
+                        .map_err(|error| anyhow!("sync MCP for role {agent_id}: {error}"))?;
+                    let items = value
+                        .get("mcpServers")
+                        .and_then(Value::as_array)
+                        .cloned()
+                        .unwrap_or_default();
+                    if items.is_empty() {
+                        return Err(anyhow!(
+                            "mcp-layer returned no mcpServers for role {agent_id}"
+                        ));
+                    }
+                    items
+                        .into_iter()
+                        .map(|item| {
+                            serde_json::from_value::<McpServer>(item)
+                                .map_err(|error| anyhow!("invalid mcpServers payload: {error}"))
+                        })
+                        .collect::<Result<Vec<_>>>()?
+                }
+            }
+            None => Vec::new(),
+        };
+
         let mut env = engine_env;
         if let Some(overlay) = &overlay {
             env.extend(overlay.env.clone());
@@ -292,7 +353,7 @@ impl AcpHost {
                         .block_task()
                         .await?;
                     let session = connection
-                        .send_request(NewSessionRequest::new(cwd))
+                        .send_request(NewSessionRequest::new(cwd).mcp_servers(mcp_servers))
                         .block_task()
                         .await?;
                     let session_id = session.session_id;
@@ -499,5 +560,41 @@ struct BroadcastSubscription(broadcast::Receiver<EventEnvelope>);
 impl crate::domain::ports::EventSubscription for BroadcastSubscription {
     async fn recv(&mut self) -> Option<EventEnvelope> {
         self.0.recv().await.ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::McpServer;
+    use serde_json::json;
+
+    #[test]
+    fn decodes_mcp_layer_stdio_payload_for_session_new() {
+        let payload = json!({
+            "type": "stdio",
+            "name": "mcp-layer",
+            "command": "/opt/homebrew/bin/npx",
+            "args": [
+                "-y", "mcp-remote", "http://127.0.0.1:41001/",
+                "--allow-http", "--header", "Authorization: Bearer test"
+            ],
+            "env": []
+        });
+        let server: McpServer = serde_json::from_value(payload).unwrap();
+        assert!(matches!(server, McpServer::Stdio(_)));
+    }
+
+    #[test]
+    fn decodes_mcp_layer_http_payload_for_session_new() {
+        let payload = json!({
+            "type": "http",
+            "name": "mcp-layer",
+            "url": "http://127.0.0.1:41001/",
+            "headers": [
+                { "name": "Authorization", "value": "Bearer test" }
+            ]
+        });
+        let server: McpServer = serde_json::from_value(payload).unwrap();
+        assert!(matches!(server, McpServer::Http(_)));
     }
 }

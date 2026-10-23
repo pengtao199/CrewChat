@@ -5,7 +5,8 @@ use std::path::Path;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::domain::ports::{ModelCatalog, SkillCatalog};
+use crate::domain::ports::{McpCatalog, ModelCatalog, SkillCatalog};
+use crate::infra::mcp_layer::McpLayerClient;
 use crate::infra::model_layer::ModelLayerClient;
 use crate::infra::skill_layer::SkillLayerClient;
 
@@ -89,5 +90,40 @@ impl SkillCatalog for SkillLayerClient {
         skill_ids: &[String],
     ) -> Result<Value, String> {
         self.materialize(home, agent_type, skill_ids).await
+    }
+}
+
+#[async_trait]
+impl McpCatalog for McpLayerClient {
+    async fn list(&self) -> Result<Value, String> {
+        self.list().await
+    }
+
+    async fn read(&self, id: &str) -> Result<Value, String> {
+        self.read(id).await
+    }
+
+    async fn upsert(&self, id: &str, spec: &Value) -> Result<Value, String> {
+        self.upsert(id, spec).await
+    }
+
+    async fn remove(&self, id: &str) -> Result<Value, String> {
+        self.remove(id).await
+    }
+
+    async fn set_enabled(&self, id: &str, enabled: bool) -> Result<Value, String> {
+        self.set_enabled(id, enabled).await
+    }
+
+    async fn sync_agent(&self, agent_id: &str, server_ids: &[String]) -> Result<Value, String> {
+        self.sync_agent(agent_id, server_ids).await
+    }
+
+    async fn agent(&self, agent_id: &str) -> Result<Value, String> {
+        self.agent(agent_id).await
+    }
+
+    async fn gateway(&self) -> Result<Value, String> {
+        self.gateway().await
     }
 }

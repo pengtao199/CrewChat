@@ -23,6 +23,7 @@ use tracing::{info, warn};
 
 use crate::api::http::AppState;
 use crate::app::engines::EngineService;
+use crate::app::mcp::McpService;
 use crate::app::models::ModelService;
 use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
@@ -31,9 +32,10 @@ use crate::app::skills::SkillService;
 use crate::app::workspace::WorkspaceService;
 use crate::config::Config;
 use crate::domain::ports::{
-    AgentRepository, ConversationRepository, EngineSettingsRepository, EventRepository,
+    AgentRepository, ConversationRepository, EngineSettingsRepository, EventRepository, McpCatalog,
     ModelCatalog, SessionRuntime, SkillCatalog,
 };
+use crate::infra::mcp_layer::McpLayerClient;
 use crate::infra::model_layer::ModelLayerClient;
 use crate::infra::skill_layer::SkillLayerClient;
 use crate::infra::store::Store;
@@ -73,11 +75,17 @@ async fn main() -> Result<()> {
     config.write_runtime_file()?;
 
     let skill: Arc<dyn SkillCatalog> = Arc::new(SkillLayerClient::new());
+    let mcp_catalog: Arc<dyn McpCatalog> = Arc::new(McpLayerClient::new());
     let model = Arc::new(ModelLayerClient::new(&config));
     let model_catalog: Arc<dyn ModelCatalog> = model.clone();
     let models = ModelService::new(model_catalog.clone());
     let event_repo: Arc<dyn EventRepository> = Arc::new(store.clone());
-    let host = Arc::new(AcpHost::new(config.clone(), event_repo, skill.clone()));
+    let host = Arc::new(AcpHost::new(
+        config.clone(),
+        event_repo,
+        skill.clone(),
+        mcp_catalog.clone(),
+    ));
     let runtime: Arc<dyn SessionRuntime> = host.clone();
     let agent_repo: Arc<dyn AgentRepository> = Arc::new(store.clone());
     let conversation_repo: Arc<dyn ConversationRepository> = Arc::new(store.clone());
@@ -85,6 +93,7 @@ async fn main() -> Result<()> {
     let roster = RosterService::new(agent_repo.clone(), model.clone(), host.engines().clone());
     let workspace = WorkspaceService::new(conversation_repo.clone());
     let skills = SkillService::new(roster.clone(), skill.clone());
+    let mcp = McpService::new(roster.clone(), mcp_catalog);
     let engines = EngineService::new(settings_repo, host.engines().clone(), config.clone());
     let readiness = ReadinessService::new(
         roster.clone(),
@@ -105,6 +114,7 @@ async fn main() -> Result<()> {
         roster,
         workspace,
         skills,
+        mcp,
         readiness,
         engines,
         sessions,

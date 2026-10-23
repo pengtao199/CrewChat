@@ -5,7 +5,7 @@ CrewChat 的 **CLI layer**：取代 codeg 的小型 Rust sidecar。只做 ACP �
 UI 归 `AgentOS/`。
 
 状态：AgentOS 默认核心（2026-10-23）。15 个引擎注册，10 个支持 per-role
-模型注入；skill-layer 代理已接，MCP/委派后置。
+模型注入；skill-layer 与 mcp-layer 代理已接，委派后置。
 
 ## 运行
 
@@ -46,7 +46,8 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 | 引擎版本 / 安装 / 升级 | ✅ `acp_fetch_agent_latest_release`、`acp_prepare_npx_agent`、`acp_download_agent_binary`、`acp_install_pi_binary` |
 | 环境诊断 | ✅ `acp_env_diagnostics` |
 | skills（skill-layer 代理） | ✅ `skill_list` / `skill_read` / `skill_install` / `agent_skills_set` 等 |
-| MCP / delegation | 501，后续补 |
+| MCP（mcp-layer 代理 + session/new 注入） | ✅ |
+| delegation | 501，后续补 |
 
 ## 已验证（2026-10-23）
 
@@ -83,7 +84,7 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
   81 个技能导入 registry（gstack 因 3519 文件/70MB 超过 skill-layer 限制未导入）；Skills 页通过 `skill_list` 读取 81 个技能；Claude 全局适配器连接成功。
 - OpenClaw 的 ACP 是 Gateway bridge；host 为每个 role 启动独立
   `openclaw gateway run`（独立 port/config/state），连接关闭时回收。
-- MCP / delegation / 旧 transcript 导入仍未完成；其余未支持的 CLI：Antigravity 还需要
+- delegation / 旧 transcript 导入仍未完成；其余未支持的 CLI：Antigravity 还需要
   `$GEMINI_HOME/antigravity-acp/settings.json` 的 auth 配置，Cursor / Antigravity
   没有可查的 latest 端点（返回 null）。
 
@@ -96,8 +97,8 @@ AgentOS 仍默认启动 codeg。要试新运行时：
    `AGENTOS_CLI_LAYER=1`（或创建 `~/Library/Application Support/AgentOS/cli/required`）。
 3. 启动 App：壳会先拉模型层，再拉 `crewchat-cli`，并把核心连接指向 3081，跳过 codeg。
 
-当前 `cli-layer` 已覆盖会话 / 模型页 / 花名册 / 项目 / 会话列表 / 技能；
-MCP、委派仍是 501，所以设置页还不完整。切换前先只测聊天。
+当前 `cli-layer` 已覆盖会话 / 模型页 / 花名册 / 项目 / 会话列表 / 技能 / MCP；
+委派仍是 501，所以设置页还不完整。切换前先只测聊天。
 
 ## 架构
 

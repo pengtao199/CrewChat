@@ -207,7 +207,6 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 ### P1：核心
 
 - `mcp-layer` 注册表 / server CRUD / Agent proxy 管理；
-- `cli-layer` 的 `agent_mcps_set` / `session/new.mcpServers` 接线；
 - AgentOS MCP / Agents 页。
 
 ### P2：优化
@@ -261,7 +260,7 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 
 ### 未完成
 
-- `cli-layer` 的 `agent_mcps_set` / `session/new.mcpServers` 接线；
+- `cli-layer` 的 `agent_mcps_set` / `session/new.mcpServers` 已接；真实 ACP 注入待实测；
 - Claude / Codex / OpenCode 的 ACP 注入实测；
 - 真实 MCP server（stdio/HTTP）冒烟（已用 fake stdio server 跑通基础 HTTP 握手）；
 - Agent 修改时活跃会话的切换策略；
@@ -270,5 +269,5 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 ### 下一步
 
 1. 用真实 stdio MCP server 跑两个 Agent 实例，确认工具列表互不泄漏。
-2. 接 `cli-layer`，在 `acp_connect` 注入 `mcpServers`。
+2. 用真实 CLI 验证 `acp_connect` 注入 `mcpServers`。
 3. 再决定是否 fork `mcp-proxy` 做共享 runtime。

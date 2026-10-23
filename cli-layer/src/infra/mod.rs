@@ -1,3 +1,4 @@
+pub mod mcp_layer;
 pub mod model_layer;
 pub mod ports;
 pub mod skill_layer;

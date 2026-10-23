@@ -41,9 +41,14 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `skill_check` / `skill_update` / `skill_remove` | 检查 / 更新 / 删除 | `CoreSkills` | body `{skillId}`；分别返回 `{id,currentHash,latestHash,updateAvailable}` / `{skill}` / `{removed}` |
 | `agent_skills_set` | 保存 Agent 技能绑定 | `CoreRoster` | body `{roleId, skillIds, collectionIds}`；返回 `{roleId, skillIds}`（集合会展开进 skillIds） |
 | `agent_skill_status` | Agent 技能可用性 | `CoreRoster` | body `{roleId}`；返回 `{skills:[{id,name,available}], missing:[id]}` |
-| `mcp_upsert_local_server` | 新建 / 更新 MCP 服务 | `CoreMCP` | body `{serverId, spec:<object>, apps:[wire names]}`（camelCase）。`apps` 是**权威集合**：没勾的 CLI 会被移除；`spec` 原样保存由后端 canonicalize |
-| `mcp_remove_server` | 删除 MCP 服务 | `CoreMCP` | body `{serverId}`；不传 `apps` = 从所有 CLI 移除，返回 bool |
-| `mcp_scan_local` | 本机 MCP 服务清单 | `CoreCapabilities` / `CoreMCP` | 无参数；返回 `{servers:[{id,spec,apps}], warnings:[{app,message}]}`。花名册的 `mcp` 存 `server.id`；MCP 页直接展示 `spec` 与 `apps`（实测 6 个） |
+| `mcp_list` | 全局 MCP 库 | `CoreMCP` | 无参数；返回 `{servers:[{id,spec,enabled,hash,...}]}` |
+| `mcp_read` | 单个 MCP | `CoreMCP` | body `{serverId}`；返回 `{server, warnings?}` |
+| `mcp_upsert` | 新建 / 更新 MCP | `CoreMCP` | body `{serverId, spec:<object>}`（也接受扁平 spec）；写入 mcp-layer，返回 `{server,warnings}` |
+| `mcp_remove` | 删除 MCP | `CoreMCP` | body `{serverId}`；返回 `{removed,warnings}` |
+| `mcp_enable` / `mcp_disable` | 启停 MCP | `CoreMCP` | body `{serverId}`；返回 `{enabled,warnings}` |
+| `mcp_gateway` | 所有 Agent proxy 状态 | `CoreMCP` | 无参数；返回 `{proxies:[{agentId,port,endpoint,state}]}` |
+| `agent_mcps_set` | 保存 Agent MCP 绑定 | `CoreRoster` | body `{roleId, serverIds}`；先同步 mcp-layer，再写 `agent_roles.mcp_json`；返回 `{roleId,serverIds}` |
+| `agent_mcp_status` | Agent MCP 可用性 | `CoreRoster` | body `{roleId}`；返回 `{servers:[{id,name,available}], missing, proxy}` |
 | `acp_list_agents` | CLI 清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/registry_version/supports_custom_version/distribution_type/is_acp_adapter/env`（snake_case）。`available` = 现在能直接拉起（cli-layer 本地安装或 PATH 上有 adapter）；**不是「平台支持」**。`installed_version` = cli-layer 管理的安装版本；为 null 不等于不能装，npx/binary 仍可安装 |
 | `acp_update_agent_preferences` | 写引擎偏置（env；enabled 仍保留） | `CoreEngines` | body `{agentType, enabled, env}`（**camelCase**；漏写 agentType 会 400）。CLI 页不再暴露启用开关，保存 env 时回传当前 `enabled`；首次加载会把历史 disabled 的内置引擎置回 true |
 | `acp_fetch_agent_latest_release` | 检查可更新的新版本 | `CoreEngines` | body `{agentType}`；返回 `{version}` 或 `null`。只返回比核心 pin 新的版本，壳再与本地已装版本比较；网络失败按「无法检查」处理 |
