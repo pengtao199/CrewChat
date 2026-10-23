@@ -4,12 +4,14 @@
 
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
-| [Agents 核心协作](agents-core-collaboration.md) | In Progress | 聊天页做 Agents 核心改造；多 Agent 协作走 Codeg 原生委派增强（团队选择 / 管理员约束 / 成员模型注入 / 可见性）；花名册收敛与平台收尾随行 |
+| [Agents 页面与团队会话](agents-page-and-team.md) | Proposed | **核心设计**：Agents 页组装 / readiness / Test Run；单 Agent + Leader 中介团队、委派、团队快照、权限与事件归属 |
+| [Agents 核心协作](agents-core-collaboration.md) | Superseded | Codeg 时代的历史方案；保留作实现参考，不再作为运行时依据 |
 | [AgentOS 壳（macOS 前端）](agentos-shell.md) | In Progress | `AgentOS/` 下的 SwiftUI 壳：拉起并消费 `codeg-server` 的 HTTP/WS 契约，落地会话 / 流式 / 委派可见性 / 审批 / 花名册与打包 |
 | [Swift 原生运行时迁移](swift-runtime-migration.md) | Proposed | 去掉 `codeg-server` / CCR：Swift 自己拥有 ACP、持久化、模型网关、权限与编排；外部 CLI/adapter 保留。模型层已拆出，见下 |
 | [模型层：移除 CCR](model-layer-remove-ccr.md) | In Progress | Rust 模型层 sidecar：控制面 3458 + 网关 3456、CCR 数据导入、Anthropic→OpenAI 翻译、并发多模型路由；模型层完成后建 Agents |
 | [CLI Layer：移除 Codeg](cli-layer-migration.md) | In Progress | 新建 `cli-layer/` 取代 codeg：ACP 宿主、引擎/会话/权限/花名册/持久化；copy 官方 rust-sdk + OpenAB 的 ACP 部分，codeg 降级为只读参考与回退 |
-| [Skill 层：统一管理](skill-layer.md) | In Progress | 全局一份技能库；Agents 页按 Agent 选择；会话级 home 只软链选中的技能；`skill-layer` daemon（3460）+ client；注册/安装/市场/安全 |
+| [Skill 层：统一管理](skill-layer.md) | Paused | 全局一份技能库；Agents 页按 Agent 选择；会话级 home 只软链选中的技能；后端核心已完成，等待 CLI 真实会话验收 |
+| [MCP 层：统一管理](mcp-layer.md) | Research | 全局一份 MCP 库；兼容 CLI 默认链接；Agent 的 `mcps` 是使用权 allowlist；先调研 ACP 注入、CLI 兼容矩阵、生命周期与网关取舍 |
 
 ## 归档
 

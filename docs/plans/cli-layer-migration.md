@@ -226,6 +226,13 @@ tool → permission → cancel；不接 AgentOS。
 
 **Gate**：旧会话可读；`lsof` 没有 codeg；技能页正常；MCP 后置。
 
+### Phase 3.5：Agents 页面与团队会话
+
+详见 `docs/plans/agents-page-and-team.md`。当前 cli-layer 只做单 Agent；
+团队选择在 AgentOS 已存在但核心尚未持久化（`create_conversation` 忽略 `team`），
+delegation broker 也还没迁。下一步先补 `agent_role_readiness` / `agent_role_test_run`，
+再做团队快照与 Leader 委派。
+
 ### Phase 4：MCP/委派/用量 + 删除 codeg
 
 - MCP 扫描/写入；`delegation/` 接团队；
