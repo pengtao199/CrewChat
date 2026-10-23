@@ -30,12 +30,12 @@ final class EnginesSettingsViewModel {
         self.client = engines
     }
 
-    var installed: [Engine] {
-        engines.filter(\.isInstalled)
+    var usable: [Engine] {
+        engines.filter(\.isUsable)
     }
 
     var notInstalled: [Engine] {
-        engines.filter { !$0.isInstalled }
+        engines.filter { !$0.isUsable }
     }
 
     func load() async {

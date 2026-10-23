@@ -3480,6 +3480,26 @@
         }
       }
     },
+    "settings.skills.agents" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中的 Agent"
+          }
+        }
+      }
+    },
+    "settings.skills.all" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部"
+          }
+        }
+      }
+    },
     "settings.skills.content" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3490,7 +3510,18 @@
         }
       }
     },
+    "settings.skills.contentEmpty" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个技能没有正文"
+          }
+        }
+      }
+    },
     "settings.skills.create" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3501,6 +3532,7 @@
       }
     },
     "settings.skills.delete.message" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3511,6 +3543,7 @@
       }
     },
     "settings.skills.delete.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3521,6 +3554,7 @@
       }
     },
     "settings.skills.discard" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3531,6 +3565,7 @@
       }
     },
     "settings.skills.discard.message" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3541,6 +3576,7 @@
       }
     },
     "settings.skills.discard.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3551,6 +3587,7 @@
       }
     },
     "settings.skills.edit" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3561,7 +3598,6 @@
       }
     },
     "settings.skills.empty.description" : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3572,6 +3608,7 @@
       }
     },
     "settings.skills.empty.hint" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3592,11 +3629,22 @@
       }
     },
     "settings.skills.engine" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "引擎"
+          }
+        }
+      }
+    },
+    "settings.skills.hash" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "内容哈希"
           }
         }
       }
@@ -3612,6 +3660,7 @@
       }
     },
     "settings.skills.idExists" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3622,6 +3671,7 @@
       }
     },
     "settings.skills.info" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3631,7 +3681,18 @@
         }
       }
     },
+    "settings.skills.installedAt" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安装时间"
+          }
+        }
+      }
+    },
     "settings.skills.layout" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3642,6 +3703,7 @@
       }
     },
     "settings.skills.layout.directory" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3652,11 +3714,22 @@
       }
     },
     "settings.skills.layout.markdown" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "单文件"
+          }
+        }
+      }
+    },
+    "settings.skills.license" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "许可"
           }
         }
       }
@@ -3673,6 +3746,7 @@
       }
     },
     "settings.skills.name" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3683,6 +3757,7 @@
       }
     },
     "settings.skills.needsWorkspace" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3693,6 +3768,7 @@
       }
     },
     "settings.skills.needsWorkspace.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3703,6 +3779,7 @@
       }
     },
     "settings.skills.new" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3712,7 +3789,28 @@
         }
       }
     },
+    "settings.skills.noAgents" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未被 Agent 使用"
+          }
+        }
+      }
+    },
+    "settings.skills.noMatch" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有匹配的技能"
+          }
+        }
+      }
+    },
     "settings.skills.noWorkspace" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3723,6 +3821,7 @@
       }
     },
     "settings.skills.path" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3733,6 +3832,7 @@
       }
     },
     "settings.skills.preview" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3743,6 +3843,7 @@
       }
     },
     "settings.skills.readOnly" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3762,32 +3863,136 @@
         }
       }
     },
-    "settings.skills.all" : {
+    "settings.skills.files" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "全部"
+            "value" : "文件"
           }
         }
       }
     },
-    "settings.skills.noMatch" : {
+    "settings.skills.source.ref" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "没有匹配的技能"
+            "value" : "引用"
           }
         }
       }
     },
-    "settings.skills.sourceSection" : {
+    "settings.skills.source.subdir" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "来源与版本"
+            "value" : "子目录"
+          }
+        }
+      }
+    },
+    "settings.skills.retry" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        }
+      }
+    },
+    "settings.skills.save" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        }
+      }
+    },
+    "settings.skills.scope" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "范围"
+          }
+        }
+      }
+    },
+    "settings.skills.scope.global" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全局"
+          }
+        }
+      }
+    },
+    "settings.skills.scope.project" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
+    "settings.skills.scripts" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "脚本"
+          }
+        }
+      }
+    },
+    "settings.skills.scripts.no" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
+          }
+        }
+      }
+    },
+    "settings.skills.scripts.yes" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有"
+          }
+        }
+      }
+    },
+    "settings.skills.search" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索技能"
+          }
+        }
+      }
+    },
+    "settings.skills.size" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "体积"
           }
         }
       }
@@ -3798,6 +4003,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "来源"
+          }
+        }
+      }
+    },
+    "settings.skills.source.archive" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "归档"
           }
         }
       }
@@ -3822,12 +4037,12 @@
         }
       }
     },
-    "settings.skills.source.archive" : {
+    "settings.skills.source.market" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "归档"
+            "value" : "市场"
           }
         }
       }
@@ -3842,122 +4057,23 @@
         }
       }
     },
-    "settings.skills.source.market" : {
+    "settings.skills.sourceSection" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "市场"
+            "value" : "来源与版本"
           }
         }
       }
     },
-    "settings.skills.hash" : {
+    "settings.skills.template" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "内容哈希"
-          }
-        }
-      }
-    },
-    "settings.skills.license" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "许可"
-          }
-        }
-      }
-    },
-    "settings.skills.installedAt" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "安装时间"
-          }
-        }
-      }
-    },
-    "settings.skills.updatedAt" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更新时间"
-          }
-        }
-      }
-    },
-    "settings.skills.size" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "体积"
-          }
-        }
-      }
-    },
-    "settings.skills.scripts" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "脚本"
-          }
-        }
-      }
-    },
-    "settings.skills.scripts.yes" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "有"
-          }
-        }
-      }
-    },
-    "settings.skills.scripts.no" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无"
-          }
-        }
-      }
-    },
-    "settings.skills.usage" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用情况"
-          }
-        }
-      }
-    },
-    "settings.skills.agents" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用中的 Agent"
-          }
-        }
-      }
-    },
-    "settings.skills.noAgents" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未被 Agent 使用"
+            "value" : "使用模板"
           }
         }
       }
@@ -3972,12 +4088,35 @@
         }
       }
     },
-    "settings.skills.contentEmpty" : {
+    "settings.skills.unsaved" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这个技能没有正文"
+            "value" : "未保存"
+          }
+        }
+      }
+    },
+    "settings.skills.unsupported" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个 CLI 暂不支持在设置里管理技能。"
+          }
+        }
+      }
+    },
+    "settings.skills.unsupported.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不支持技能管理"
           }
         }
       }
@@ -3992,107 +4131,28 @@
         }
       }
     },
-    "settings.skills.retry" : {
+    "settings.skills.updatedAt" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重试"
+            "value" : "更新时间"
           }
         }
       }
     },
-    "settings.skills.save" : {
+    "settings.skills.usage" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "保存"
-          }
-        }
-      }
-    },
-    "settings.skills.scope" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "范围"
-          }
-        }
-      }
-    },
-    "settings.skills.scope.global" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "全局"
-          }
-        }
-      }
-    },
-    "settings.skills.scope.project" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "项目"
-          }
-        }
-      }
-    },
-    "settings.skills.search" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "搜索技能"
-          }
-        }
-      }
-    },
-    "settings.skills.template" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用模板"
-          }
-        }
-      }
-    },
-    "settings.skills.unsaved" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未保存"
-          }
-        }
-      }
-    },
-    "settings.skills.unsupported" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这个 CLI 暂不支持在设置里管理技能。"
-          }
-        }
-      }
-    },
-    "settings.skills.unsupported.title" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "不支持技能管理"
+            "value" : "使用情况"
           }
         }
       }
     },
     "settings.skills.workspace" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {

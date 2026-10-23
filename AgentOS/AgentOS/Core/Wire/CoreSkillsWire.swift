@@ -1,79 +1,37 @@
 import Foundation
 
-struct CoreSkillCatalog: Decodable, Sendable {
+// cli-layer `skill_list` / `skill_read` wire shapes. They proxy skill-layer;
+// the Agent never talks to the daemon directly.
+
+struct CoreSkillList: Decodable, Sendable {
     let skills: [CoreSkillSummary]
-    let collections: [CoreSkillCollection]
-    let globalLinks: [CoreSkillGlobalLink]
-}
-
-struct CoreSkillCollection: Decodable, Sendable {
-    let id: String
-    let name: String
-    let description: String
-    let skillIDs: [String]
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case description
-        case skillIDs = "skillIds"
-    }
-}
-
-struct CoreSkillGlobalLink: Decodable, Sendable {
-    let skillID: String
-    let agentType: String
-    let path: String
-    let state: String
-    let linkedAt: String
-
-    enum CodingKeys: String, CodingKey {
-        case skillID = "skillId"
-        case agentType
-        case path
-        case state
-        case linkedAt
-    }
+    let globalLinks: [CoreSkillLink]
 }
 
 struct CoreSkillSummary: Decodable, Sendable {
     let id: String
     let name: String
-    let description: String?
-    let currentHash: String?
+    let description: String
+    let currentHash: String
     let license: String?
-    let sourceKind: String?
-    let sourceURL: String?
+    let sourceKind: String
+    let sourceUrl: String?
     let sourceRef: String?
     let sourceSubdir: String?
-    let hasScripts: Bool?
-    let sizeBytes: UInt64?
-    let installedAt: String?
-    let updatedAt: String?
+    let hasScripts: Bool
+    let sizeBytes: UInt64
+    let installedAt: String
+    let updatedAt: String
 
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case description
-        case currentHash
-        case license
-        case sourceKind
-        case sourceURL = "sourceUrl"
-        case sourceRef
-        case sourceSubdir
-        case hasScripts
-        case sizeBytes
-        case installedAt
-        case updatedAt
-    }
-
-    func domain(globalLinks: [CoreSkillGlobalLink]) -> Skill {
+    var domain: Skill {
         Skill(
             id: id,
             name: name,
             description: description,
             sourceKind: sourceKind,
-            sourceURL: sourceURL,
+            sourceURL: sourceUrl,
+            sourceRef: sourceRef,
+            sourceSubdir: sourceSubdir,
             currentHash: currentHash,
             license: license,
             sizeBytes: sizeBytes,
@@ -81,19 +39,68 @@ struct CoreSkillSummary: Decodable, Sendable {
             installedAt: installedAt,
             updatedAt: updatedAt,
             agentsUsing: [],
-            globalLinks: globalLinks
-                .filter { $0.skillID == id }
-                .map { SkillGlobalLink(agentType: $0.agentType, state: $0.state) },
+            globalLinks: [],
+            hasUpdate: false
+        )
+    }
+
+    func domain(links: [SkillGlobalLink]) -> Skill {
+        Skill(
+            id: id,
+            name: name,
+            description: description,
+            sourceKind: sourceKind,
+            sourceURL: sourceUrl,
+            sourceRef: sourceRef,
+            sourceSubdir: sourceSubdir,
+            currentHash: currentHash,
+            license: license,
+            sizeBytes: sizeBytes,
+            hasScripts: hasScripts,
+            installedAt: installedAt,
+            updatedAt: updatedAt,
+            agentsUsing: [],
+            globalLinks: links,
             hasUpdate: false
         )
     }
 }
 
+struct CoreSkillLink: Decodable, Sendable {
+    let skillId: String
+    let agentType: String
+    let path: String
+    let state: String
+    let linkedAt: String
+}
+
 struct CoreSkillDetail: Decodable, Sendable {
     let skill: CoreSkillSummary
     let content: String
+    let files: [CoreSkillFile]
+
+    var domain: SkillContent {
+        SkillContent(
+            skill: skill.domain,
+            content: content,
+            files: files.map(\.domain)
+        )
+    }
+}
+
+struct CoreSkillFile: Decodable, Sendable {
+    let path: String
+    let size: UInt64
+
+    var domain: SkillFile {
+        SkillFile(path: path, size: size)
+    }
 }
 
 struct CoreSkillReadBody: Encodable {
-    let skillId: String
+    let skillID: String
+
+    enum CodingKeys: String, CodingKey {
+        case skillID = "skillId"
+    }
 }

@@ -9,11 +9,11 @@ final class CoreCapabilitiesClient: CoreCapabilities, @unchecked Sendable {
 
     func skills(agentType: String) async throws -> [CapabilityOption] {
         _ = agentType
-        let catalog: CoreSkillCatalog = try await provider.client().send(
+        let library: CoreSkillList = try await provider.client().send(
             "skill_list",
             body: EmptyBody()
         )
-        return catalog.skills.map {
+        return library.skills.map {
             CapabilityOption(id: $0.id, name: $0.name, detail: $0.description)
         }
     }

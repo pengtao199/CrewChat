@@ -38,6 +38,15 @@ final class SidecarProcess: @unchecked Sendable {
         process.currentDirectoryURL = binary.deletingLastPathComponent()
 
         var environment = ProcessInfo.processInfo.environment
+
+        // A GUI launch (Xcode, Finder) starts with launchd's narrow PATH, so
+        // cli-layer cannot see Homebrew/npm/user bins and reports every engine
+        // as unavailable. Give every sidecar the user's login-shell PATH once.
+        let loginPath = LoginShell.path
+        if !loginPath.isEmpty {
+            environment["PATH"] = loginPath
+        }
+
         environment["CODEG_HOST"] = endpoint.host
         environment["CODEG_PORT"] = String(endpoint.port)
         environment["CODEG_TOKEN"] = endpoint.token
@@ -82,4 +91,30 @@ final class SidecarProcess: @unchecked Sendable {
         try? handle?.close()
         logger.log("\(label) stopped")
     }
+}
+
+private enum LoginShell {
+    /// Resolved once per process. `zsh -lic` sources the login files the user
+    /// actually configured, which is where Homebrew and npm-global paths live.
+    static let path: String = {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-lic", "printf %s \"$PATH\""]
+        process.standardInput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+
+        do {
+            try process.run()
+        } catch {
+            return ""
+        }
+
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }()
 }

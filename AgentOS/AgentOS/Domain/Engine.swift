@@ -15,10 +15,14 @@ struct Engine: Identifiable, Sendable, Equatable {
 
     var id: String { agentType }
 
-    /// CCR/npm dist-tags are not a reliable "installed" signal — an npx agent
-    /// is `available` even before its package is fetched. Only a detected
-    /// local version means the CLI can actually run.
+    /// A managed install recorded a version.
     var isInstalled: Bool { installedVersion != nil }
+
+    /// cli-layer's `available` means an adapter can be launched now (local
+    /// install or a command on PATH). It is not "platform support": an
+    /// unavailable npx engine is still installable, so install actions must
+    /// not be gated on it.
+    var isUsable: Bool { available || installedVersion != nil }
 }
 
 struct EnginePreferences: Sendable, Equatable {

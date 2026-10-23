@@ -6,6 +6,7 @@ final class SkillsSettingsViewModel {
     private(set) var skills: [Skill] = []
     private(set) var selected: Skill?
     private(set) var content = ""
+    private(set) var files: [SkillFile] = []
     private(set) var isLoading = false
     private(set) var isLoadingContent = false
     private(set) var errorMessage: String?
@@ -39,12 +40,14 @@ final class SkillsSettingsViewModel {
             } else {
                 selected = nil
                 content = ""
+                files = []
             }
         } catch {
             errorMessage = error.localizedDescription
             skills = []
             selected = nil
             content = ""
+            files = []
         }
 
         isLoading = false
@@ -60,16 +63,21 @@ final class SkillsSettingsViewModel {
 
     private func loadContent(_ skill: Skill) async {
         selected = skill
+        files = []
         isLoadingContent = true
         contentError = nil
 
         do {
             let result = try await client.content(skillID: skill.id)
-            selected = result.skill
+            // Keep the list item: it carries links/usage/update state that the
+            // read response does not repeat. Only the body and files change.
+            selected = skill
             content = result.content
+            files = result.files
         } catch {
             contentError = error.localizedDescription
             content = ""
+            files = []
         }
 
         isLoadingContent = false

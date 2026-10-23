@@ -6,6 +6,8 @@ struct Skill: Identifiable, Sendable, Equatable {
     let description: String?
     let sourceKind: String?
     let sourceURL: String?
+    let sourceRef: String?
+    let sourceSubdir: String?
     let currentHash: String?
     let license: String?
     let sizeBytes: UInt64?
@@ -24,7 +26,15 @@ struct SkillGlobalLink: Identifiable, Sendable, Equatable {
     var id: String { agentType }
 }
 
+struct SkillFile: Identifiable, Sendable, Equatable {
+    let path: String
+    let size: UInt64
+
+    var id: String { path }
+}
+
 struct SkillContent: Sendable, Equatable {
     let skill: Skill
     let content: String
+    let files: [SkillFile]
 }

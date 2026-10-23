@@ -8,21 +8,28 @@ final class CoreSkillsClient: CoreSkills, @unchecked Sendable {
     }
 
     func library() async throws -> [Skill] {
-        let catalog: CoreSkillCatalog = try await provider.client().send(
+        let response: CoreSkillList = try await provider.client().send(
             "skill_list",
             body: EmptyBody()
         )
-        return catalog.skills.map { $0.domain(globalLinks: catalog.globalLinks) }
+
+        var linksBySkill: [String: [SkillGlobalLink]] = [:]
+        for link in response.globalLinks {
+            linksBySkill[link.skillId, default: []].append(
+                SkillGlobalLink(agentType: link.agentType, state: link.state)
+            )
+        }
+
+        return response.skills.map { skill in
+            skill.domain(links: linksBySkill[skill.id] ?? [])
+        }
     }
 
     func content(skillID: String) async throws -> SkillContent {
-        let detail: CoreSkillDetail = try await provider.client().send(
+        let response: CoreSkillDetail = try await provider.client().send(
             "skill_read",
-            body: CoreSkillReadBody(skillId: skillID)
+            body: CoreSkillReadBody(skillID: skillID)
         )
-        return SkillContent(
-            skill: detail.skill.domain(globalLinks: []),
-            content: detail.content
-        )
+        return response.domain
     }
 }

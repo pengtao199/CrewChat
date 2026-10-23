@@ -139,6 +139,10 @@ struct SkillsSettingsView: View {
                 metadataSection(skill)
             }
 
+            if !model.files.isEmpty {
+                filesSection
+            }
+
             if hasUsage(skill) {
                 usageSection(skill)
             }
@@ -160,6 +164,24 @@ struct SkillsSettingsView: View {
                     Text(source)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .textSelection(.enabled)
+                }
+            }
+
+            if let ref = skill.sourceRef, !ref.isEmpty {
+                LabeledContent("settings.skills.source.ref") {
+                    Text(ref)
+                        .font(.caption)
+                        .monospaced()
+                        .textSelection(.enabled)
+                }
+            }
+
+            if let subdir = skill.sourceSubdir, !subdir.isEmpty {
+                LabeledContent("settings.skills.source.subdir") {
+                    Text(subdir)
+                        .font(.caption)
+                        .monospaced()
                         .textSelection(.enabled)
                 }
             }
@@ -208,6 +230,26 @@ struct SkillsSettingsView: View {
                             : LocalizedStringKey("settings.skills.scripts.no")
                     )
                     .foregroundStyle(hasScripts ? .orange : .secondary)
+                }
+            }
+        }
+    }
+
+    private var filesSection: some View {
+        Section("settings.skills.files") {
+            ForEach(model.files) { file in
+                HStack(spacing: 8) {
+                    Text(file.path)
+                        .font(.caption)
+                        .monospaced()
+                        .textSelection(.enabled)
+
+                    Spacer(minLength: 8)
+
+                    Text(byteText(file.size))
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -287,6 +329,13 @@ struct SkillsSettingsView: View {
 
             Spacer(minLength: 4)
 
+            if skill.hasScripts == true {
+                Image(systemName: "terminal")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                    .help("settings.skills.scripts")
+            }
+
             if skill.hasUpdate {
                 Image(systemName: "arrow.up.circle.fill")
                     .foregroundStyle(.orange)
@@ -335,6 +384,8 @@ struct SkillsSettingsView: View {
     private func hasMetadata(_ skill: Skill) -> Bool {
         skill.sourceKind != nil
             || skill.sourceURL != nil
+            || skill.sourceRef != nil
+            || skill.sourceSubdir != nil
             || skill.currentHash != nil
             || skill.license != nil
             || skill.installedAt != nil
@@ -348,6 +399,12 @@ struct SkillsSettingsView: View {
     }
 
     private func sourceText(_ skill: Skill) -> String? {
+        // Local imports record the staging path they were copied from; it is
+        // usually a temp directory by the time the skill is listed, so show
+        // the source kind instead of leaking that path.
+        if skill.sourceKind == "local" {
+            return sourceKindText("local")
+        }
         if let url = skill.sourceURL, !url.trimmingCharacters(in: .whitespaces).isEmpty {
             return url
         }

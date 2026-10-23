@@ -35,7 +35,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `agent_roles_save` | 新建 / 更新角色 | `CoreRoster` | body `{role:{id,name,soul,rules,agent_type,model,model_provider,skills,mcp,permission_mode,auto_approve}}`（snake_case）；`id` 为空=新建，返回带 id 的角色 |
 | `agent_roles_delete` | 删除角色 | `CoreRoster` | body `{id}`；返回 bool |
 | `agent_role_model_face` | 某引擎可绑定哪些模型 | `CoreRoster` | body `{agentType}`（camelCase）；返回 `{supported, reason?, models:[{provider, provider_id, model}]}`。`supported=false` 说明该引擎不能钉模型；`supported=true` 但为空说明查不到（CCR 不可达）。花名册的 `model_provider` **新建/改选存 `provider_id`**；旧数据里的显示名仍能解析，Picker 读取时做一次 id 映射，不会静默改写旧值 |
-| `skill_list` | 全局技能库 | `CoreCapabilities` / `CoreSkills` | 无参数；返回 `{skills:[SkillSummary], collections:[Collection], globalLinks:[GlobalLink]}`。SkillSummary 含 `id/name/description/currentHash/license/sourceKind/sourceUrl/hasScripts/sizeBytes/installedAt/updatedAt` |
+| `skill_list` | 全局技能库 | `CoreCapabilities` / `CoreSkills` | 无参数；返回 `{skills:[SkillSummary], collections:[Collection], globalLinks:[GlobalLink]}`。SkillSummary 含 `id/name/description/currentHash/license/sourceKind/sourceUrl/sourceRef/sourceSubdir/hasScripts/sizeBytes/installedAt/updatedAt`；`globalLinks` 是扁平的 `[{skillId,agentType,path,state,linkedAt}]`，前端按 skillId 分组 |
 | `skill_read` | 读一个技能的 Markdown | `CoreSkills` | body `{skillId}`；返回 `{skill, content, files:[{path,size}]}` |
 | `skill_install` | 安装技能 | `CoreSkills` | body `{path}` 或 `{source, gitRef?, subdir?}`；返回 `{skill}` |
 | `skill_check` / `skill_update` / `skill_remove` | 检查 / 更新 / 删除 | `CoreSkills` | body `{skillId}`；分别返回 `{id,currentHash,latestHash,updateAvailable}` / `{skill}` / `{removed}` |
@@ -44,7 +44,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `mcp_upsert_local_server` | 新建 / 更新 MCP 服务 | `CoreMCP` | body `{serverId, spec:<object>, apps:[wire names]}`（camelCase）。`apps` 是**权威集合**：没勾的 CLI 会被移除；`spec` 原样保存由后端 canonicalize |
 | `mcp_remove_server` | 删除 MCP 服务 | `CoreMCP` | body `{serverId}`；不传 `apps` = 从所有 CLI 移除，返回 bool |
 | `mcp_scan_local` | 本机 MCP 服务清单 | `CoreCapabilities` / `CoreMCP` | 无参数；返回 `{servers:[{id,spec,apps}], warnings:[{app,message}]}`。花名册的 `mcp` 存 `server.id`；MCP 页直接展示 `spec` 与 `apps`（实测 6 个） |
-| `acp_list_agents` | CLI 清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/registry_version/supports_custom_version/distribution_type/is_acp_adapter/env`（snake_case）。`installed_version` 才是「已安装」；npx 的 `available` 只表示分发方式受支持 |
+| `acp_list_agents` | CLI 清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/registry_version/supports_custom_version/distribution_type/is_acp_adapter/env`（snake_case）。`available` = 现在能直接拉起（cli-layer 本地安装或 PATH 上有 adapter）；**不是「平台支持」**。`installed_version` = cli-layer 管理的安装版本；为 null 不等于不能装，npx/binary 仍可安装 |
 | `acp_update_agent_preferences` | 写引擎偏置（env；enabled 仍保留） | `CoreEngines` | body `{agentType, enabled, env}`（**camelCase**；漏写 agentType 会 400）。CLI 页不再暴露启用开关，保存 env 时回传当前 `enabled`；首次加载会把历史 disabled 的内置引擎置回 true |
 | `acp_fetch_agent_latest_release` | 检查可更新的新版本 | `CoreEngines` | body `{agentType}`；返回 `{version}` 或 `null`。只返回比核心 pin 新的版本，壳再与本地已装版本比较；网络失败按「无法检查」处理 |
 | `acp_prepare_npx_agent` | 安装 / 更新 npx 或 uvx 引擎 | `CoreEngines` | body `{agentType, registryVersion?, version?, cleanFirst, taskId}`（camelCase）；同步等到安装结束，返回解析出的版本字符串。超时按 600s 计（npm/uv 下载可能数分钟）。uvx 不接受 version override |

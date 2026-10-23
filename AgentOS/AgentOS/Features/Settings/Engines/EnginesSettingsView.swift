@@ -23,11 +23,11 @@ struct EnginesSettingsView: View {
     var body: some View {
         MasterDetailLayout {
             List(selection: listSelection) {
-                if !model.installed.isEmpty {
+                if !model.usable.isEmpty {
                     Section {
-                        ForEach(model.installed) { engineRow($0) }
+                        ForEach(model.usable) { engineRow($0) }
                     } header: {
-                        Text(verbatim: "\(String(localized: "settings.engines.installed")) (\(model.installed.count))")
+                        Text(verbatim: "\(String(localized: "settings.engines.available")) (\(model.usable.count))")
                     }
                 }
 
@@ -193,11 +193,6 @@ struct EnginesSettingsView: View {
 
                 versionRow(engine)
 
-                if !engine.available {
-                    Text("settings.engines.platformUnsupported")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
             }
 
             runtimeSection(engine)
@@ -224,17 +219,18 @@ struct EnginesSettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else if !engine.isInstalled {
-                Text(versionText(engine))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                Text(
+                    engine.available
+                        ? LocalizedStringKey("settings.engines.available")
+                        : LocalizedStringKey("settings.engines.missing")
+                )
+                .foregroundStyle(.secondary)
 
-                if engine.available {
-                    Button("settings.engines.install") {
-                        Task { await install(engine) }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
+                Button("settings.engines.install") {
+                    Task { await install(engine) }
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
             } else if let latest = model.latest(for: engine) {
                 Text(versionText(engine))
                     .monospacedDigit()
@@ -288,7 +284,7 @@ struct EnginesSettingsView: View {
 
             LabeledContent("settings.engines.acpConnection") {
                 Text(
-                    engine.isInstalled
+                    engine.isUsable
                         ? LocalizedStringKey("settings.engines.notDetected")
                         : LocalizedStringKey("settings.engines.missing")
                 )
@@ -437,8 +433,8 @@ struct EnginesSettingsView: View {
     @ViewBuilder
     private func engineRow(_ engine: Engine) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: engine.isInstalled ? "checkmark.circle.fill" : "circle.dashed")
-                .foregroundStyle(engine.isInstalled ? .green : .secondary)
+            Image(systemName: engine.isUsable ? "checkmark.circle.fill" : "circle.dashed")
+                .foregroundStyle(engine.isUsable ? .green : .secondary)
                 .font(.caption)
                 .frame(width: 14)
 
@@ -474,7 +470,7 @@ struct EnginesSettingsView: View {
                 .buttonStyle(.borderless)
                 .help("settings.engines.update")
             }
-        } else if engine.available {
+        } else {
             Button {
                 Task { await install(engine) }
             } label: {
@@ -487,13 +483,12 @@ struct EnginesSettingsView: View {
     }
 
     private func rowCaption(_ engine: Engine) -> String {
-        if !engine.available {
-            return String(localized: "settings.engines.platformUnsupported")
+        if let version = engine.installedVersion {
+            return "v\(version)"
         }
-        guard let version = engine.installedVersion else {
-            return String(localized: "settings.engines.missing")
-        }
-        return "v\(version)"
+        return engine.available
+            ? String(localized: "settings.engines.available")
+            : String(localized: "settings.engines.missing")
     }
 
     private func versionText(_ engine: Engine) -> String {
@@ -505,27 +500,30 @@ struct EnginesSettingsView: View {
 
     private func statusLabel(_ engine: Engine) -> some View {
         Label(
-            engine.isInstalled
-                ? LocalizedStringKey("settings.engines.installed")
-                : LocalizedStringKey("settings.engines.missing"),
-            systemImage: engine.isInstalled ? "checkmark.circle.fill" : "circle.dashed"
+            statusKey(engine),
+            systemImage: engine.isUsable ? "checkmark.circle.fill" : "circle.dashed"
         )
         .font(.callout)
-        .foregroundStyle(engine.isInstalled ? .green : .secondary)
+        .foregroundStyle(engine.isUsable ? .green : .secondary)
     }
 
-    private func availabilityText(_ engine: Engine) -> LocalizedStringKey {
-        guard engine.isInstalled else {
-            return "settings.engines.missing"
+    private func statusKey(_ engine: Engine) -> LocalizedStringKey {
+        if engine.isInstalled {
+            return "settings.engines.installed"
         }
         return engine.available
             ? "settings.engines.available"
-            : "settings.engines.unavailable"
+            : "settings.engines.missing"
+    }
+
+    private func availabilityText(_ engine: Engine) -> LocalizedStringKey {
+        engine.isUsable
+            ? "settings.engines.available"
+            : "settings.engines.missing"
     }
 
     private func availabilityColor(_ engine: Engine) -> Color {
-        guard engine.isInstalled else { return .secondary }
-        return engine.available ? .green : .red
+        engine.isUsable ? .green : .secondary
     }
 
     private func sortedSections(_ sections: [EngineDiagnosticsSection]) -> [EngineDiagnosticsSection] {
@@ -635,7 +633,7 @@ struct EnginesSettingsView: View {
 
     private func selectFirstIfNeeded() {
         guard let selection, model.engines.contains(where: { $0.agentType == selection }) else {
-            self.selection = model.installed.first?.agentType ?? model.engines.first?.agentType
+            self.selection = model.usable.first?.agentType ?? model.engines.first?.agentType
             return
         }
     }
