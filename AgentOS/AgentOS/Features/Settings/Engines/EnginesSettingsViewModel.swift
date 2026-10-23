@@ -92,29 +92,6 @@ final class EnginesSettingsViewModel {
         }
     }
 
-    /// Re-check every installed CLI's latest release. Runs after the fast
-    /// local refresh so the toolbar spinner is not held hostage by npm; rows
-    /// show their own progress while this walks the list.
-    func refreshAllLatest() async {
-        latestVersions.removeAll()
-        latestCheckFailed.removeAll()
-        latestChecked.removeAll()
-
-        let targets = engines.filter(\.isInstalled)
-        guard !targets.isEmpty else { return }
-
-        for start in stride(from: 0, to: targets.count, by: 3) {
-            let slice = Array(
-                targets[start..<min(start + 3, targets.count)]
-            )
-            await withTaskGroup(of: Void.self) { group in
-                for engine in slice {
-                    group.addTask { await self.checkLatest(for: engine) }
-                }
-            }
-        }
-    }
-
     func install(_ engine: Engine, version: String?) async {
         guard installing == nil else { return }
 

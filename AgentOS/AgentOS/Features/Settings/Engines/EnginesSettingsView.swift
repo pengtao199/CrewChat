@@ -9,8 +9,8 @@ struct EnginesSettingsView: View {
     @State private var actionError: String?
     @State private var pendingSelection: String?
     @State private var diagnosticsExpanded = false
-    @State private var isRefreshingAll = false
-    @State private var confirmRefreshAll = false
+    @State private var isRefreshingSelected = false
+    @State private var confirmRefreshSelected = false
     @SceneStorage("settings.engines.showUninstalled") private var showUninstalled = false
 
     private var model: EnginesSettingsViewModel { environment.engines }
@@ -32,10 +32,23 @@ struct EnginesSettingsView: View {
                 }
 
                 if !model.notInstalled.isEmpty {
-                    Section(isExpanded: $showUninstalled) {
-                        ForEach(model.notInstalled) { engineRow($0) }
+                    Section {
+                        if showUninstalled {
+                            ForEach(model.notInstalled) { engineRow($0) }
+                        }
                     } header: {
-                        Text(verbatim: "\(String(localized: "settings.engines.missing")) (\(model.notInstalled.count))")
+                        Button {
+                            showUninstalled.toggle()
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: showUninstalled ? "chevron.down" : "chevron.right")
+                                    .font(.caption2)
+                                Text(verbatim: "\(String(localized: "settings.engines.missing")) (\(model.notInstalled.count))")
+                                Spacer()
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -48,19 +61,19 @@ struct EnginesSettingsView: View {
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     if envDirty {
-                        confirmRefreshAll = true
+                        confirmRefreshSelected = true
                     } else {
-                        Task { await refreshAll() }
+                        Task { await refreshSelected() }
                     }
                 } label: {
-                    if isRefreshingAll {
+                    if isRefreshingSelected {
                         ProgressView().controlSize(.small)
                     } else {
-                        Label("settings.engines.refreshAll", systemImage: "arrow.clockwise")
+                        Label("settings.engines.refreshSelected", systemImage: "arrow.clockwise")
                     }
                 }
-                .disabled(isRefreshingAll || model.isLoading)
-                .help("settings.engines.refreshAll.help")
+                .disabled(selected == nil || isRefreshingSelected || model.isLoading)
+                .help("settings.engines.refreshSelected.help")
             }
         }
         .task {
@@ -104,16 +117,16 @@ struct EnginesSettingsView: View {
             Text("settings.engines.env.discard.message")
         }
         .confirmationDialog(
-            "settings.engines.refreshAll.discard.title",
-            isPresented: $confirmRefreshAll,
+            "settings.engines.refreshSelected.discard.title",
+            isPresented: $confirmRefreshSelected,
             titleVisibility: .visible
         ) {
-            Button("settings.engines.refreshAll", role: .destructive) {
-                Task { await refreshAll() }
+            Button("settings.engines.refreshSelected", role: .destructive) {
+                Task { await refreshSelected() }
             }
             Button("common.cancel", role: .cancel) {}
         } message: {
-            Text("settings.engines.refreshAll.discard.message")
+            Text("settings.engines.refreshSelected.discard.message")
         }
     }
 
@@ -203,9 +216,7 @@ struct EnginesSettingsView: View {
             Text("settings.engines.version")
                 .foregroundStyle(.secondary)
 
-            Text(versionText(engine))
-                .monospacedDigit()
-                .textSelection(.enabled)
+            Spacer(minLength: 12)
 
             if model.installing == engine.agentType {
                 ProgressView().controlSize(.mini)
@@ -213,43 +224,50 @@ struct EnginesSettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else if !engine.isInstalled {
-                Button("settings.engines.install") {
-                    Task { await install(engine) }
+                Text(versionText(engine))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+
+                if engine.available {
+                    Button("settings.engines.install") {
+                        Task { await install(engine) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .disabled(!engine.available)
             } else if let latest = model.latest(for: engine) {
+                Text(versionText(engine))
+                    .monospacedDigit()
+
                 Image(systemName: "arrow.right")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
+
                 Text(verbatim: "v\(latest)")
                     .monospacedDigit()
                     .foregroundStyle(.orange)
+
                 Button("settings.engines.update") {
                     Task { await install(engine) }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-            } else if model.latestChecked.contains(engine.agentType) {
-                Text(
-                    model.latestCheckFailed.contains(engine.agentType)
-                        ? LocalizedStringKey("settings.engines.updateCheckFailed")
-                        : LocalizedStringKey("settings.engines.upToDate")
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            } else if model.isCheckingLatest(engine) {
-                ProgressView().controlSize(.mini)
-            }
+            } else {
+                Text(versionText(engine))
+                    .monospacedDigit()
 
-            Spacer(minLength: 8)
-
-            Button("settings.engines.refresh") {
-                Task { await refresh(engine) }
+                if model.isCheckingLatest(engine) {
+                    ProgressView().controlSize(.mini)
+                } else if model.latestChecked.contains(engine.agentType) {
+                    Text(
+                        model.latestCheckFailed.contains(engine.agentType)
+                            ? LocalizedStringKey("settings.engines.updateCheckFailed")
+                            : LocalizedStringKey("settings.engines.upToDate")
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
             }
-            .controlSize(.small)
-            .disabled(model.isLoading || model.installing != nil)
         }
     }
 
@@ -425,7 +443,12 @@ struct EnginesSettingsView: View {
                 .frame(width: 14)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(engine.name)
+                HStack(spacing: 6) {
+                    Text(engine.name)
+                    Spacer(minLength: 4)
+                    rowAction(engine)
+                }
+
                 Text(rowCaption(engine))
                     .font(.caption)
                     .monospaced()
@@ -436,16 +459,39 @@ struct EnginesSettingsView: View {
         .tag(engine.agentType)
     }
 
+    @ViewBuilder
+    private func rowAction(_ engine: Engine) -> some View {
+        if model.installing == engine.agentType {
+            ProgressView().controlSize(.mini)
+        } else if engine.isInstalled {
+            if model.latest(for: engine) != nil {
+                Button {
+                    Task { await install(engine) }
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .foregroundStyle(.orange)
+                }
+                .buttonStyle(.borderless)
+                .help("settings.engines.update")
+            }
+        } else if engine.available {
+            Button {
+                Task { await install(engine) }
+            } label: {
+                Image(systemName: "arrow.down.circle")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help("settings.engines.install")
+        }
+    }
+
     private func rowCaption(_ engine: Engine) -> String {
         if !engine.available {
             return String(localized: "settings.engines.platformUnsupported")
         }
         guard let version = engine.installedVersion else {
             return String(localized: "settings.engines.missing")
-        }
-
-        if model.latest(for: engine) != nil {
-            return "v\(version) · \(String(localized: "settings.engines.updateBadge"))"
         }
         return "v\(version)"
     }
@@ -560,34 +606,19 @@ struct EnginesSettingsView: View {
         }
     }
 
-    private func refresh(_ engine: Engine) async {
+    private func refreshSelected() async {
+        guard let engine = selected else { return }
+
+        isRefreshingSelected = true
         actionError = nil
-        let hadUnsavedEnv = envDirty
+        defer { isRefreshingSelected = false }
+
         await model.load()
 
         if let refreshed = model.engines.first(where: { $0.agentType == engine.agentType }) {
-            if !hadUnsavedEnv {
-                syncEnv(refreshed, force: true)
-            }
+            syncEnv(refreshed, force: true)
             await model.checkLatest(for: refreshed, force: true)
         }
-    }
-
-    private func refreshAll() async {
-        isRefreshingAll = true
-        actionError = nil
-
-        await model.load()
-
-        if let selected {
-            syncEnv(selected, force: true)
-        } else {
-            envText = ""
-            envEngineID = nil
-        }
-
-        isRefreshingAll = false
-        Task { await model.refreshAllLatest() }
     }
 
     private func saveEnv(_ engine: Engine) async {
