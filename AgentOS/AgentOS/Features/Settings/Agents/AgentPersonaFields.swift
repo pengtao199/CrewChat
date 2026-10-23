@@ -58,16 +58,7 @@ struct AgentPersonaFields: View {
             }
         } label: {
             HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-
-                    if let summary = firstLine(text.wrappedValue) {
-                        Text(summary)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
+                Text(title)
 
                 Spacer()
 
@@ -78,12 +69,5 @@ struct AgentPersonaFields: View {
                 .font(.caption)
             }
         }
-    }
-
-    private func firstLine(_ text: String) -> String? {
-        text.split(separator: "\n", omittingEmptySubsequences: false)
-            .lazy
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty }
     }
 }
