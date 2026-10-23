@@ -17,7 +17,7 @@ codeg 仍经 `ccr_call` / `ccr_health` 操作它（`codeg/src-tauri/src/ccr/`）
 
 ### 模型与 Agent 的关系
 
-模型层**不感知 Agent，也不绑定 CLI**。Agent 的 `brain_provider` + `brain_model` 存在 `codeg.db` 的 `custom_agent`；每个会话由 `agent_host/overlay` 建独立 home 注入模型，网关只按请求里的 `model` 路由：
+模型层**不感知 Agent，也不绑定 CLI**。Agent 的 `model_provider` + `model` 存在 `cli-layer.db` 的 `agent_roles`；每个会话由 `cli-layer/src/roles.rs` 建独立 home 注入模型，网关只按请求里的 `model` 路由：
 
 | 形态 | 例子 | 谁发 |
 | --- | --- | --- |

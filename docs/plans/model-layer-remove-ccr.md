@@ -64,8 +64,8 @@ Model / [1m] / 协议              custom_agent(kind='role')             CLAUDE_
 ### 建一个 Agent 的实际链路（现有代码，不需要新造）
 
 1. Agents 页选引擎 → `agent_role_model_face(agent_type)` 返回该引擎能注入的 provider/model 列表。
-2. 保存 → `agent_roles_save` 写 `codeg.db` 的 `custom_agent`（`body`、`provider`、`model`）。
-3. 开新会话 → `agent_host::prepare_role_overlay(body, role_key, provider, model)`。
+2. 保存 → `agent_roles_save` 写 `cli-layer.db` 的 `agent_roles`（`agent_type`、`model_provider`、`model`）。
+3. 开新会话 → `cli-layer::roles::prepare(kind, role, gateway, key, data_dir)`。
 4. overlay 建独立 home，写入网关地址、模型、caller key 的引用（不落明文 key）。
 5. CLI 启动 → 请求带模型 → `:3456` 按 model 路由。
 
