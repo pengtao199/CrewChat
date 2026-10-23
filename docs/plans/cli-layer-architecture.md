@@ -599,8 +599,10 @@ ACP update
 - Leader 连接自动注入内部 stdio MCP（`crewchat-cli team-mcp`），只暴露
   `delegate_to_agent` / `team_status`，回调 `/api/internal/team_delegate`；
   成员连接不注入控制工具，委派深度固定 1。
-- 成员委派使用自己的冻结快照、模型、技能；成功/失败写 `delegations` 和带
-  `speaker_role_id` 的 turn。
+- 成员委派使用自己的冻结快照、模型、技能和会话所在工作区；成功/失败写
+  `delegations` 和带 `speaker_role_id` 的 turn。
+- 普通 `acp_prompt` 也会在 `turn_complete` 后落 assistant turn；连接记录
+  role/conversation，用于 speaker 归属。
 - 未完成：`cancel_delegation` 公开命令、成员连接复用/空闲回收、权限自动审批、
   `session/load`、团队 UI 的委派卡与成员状态条。
 

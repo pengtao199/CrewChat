@@ -178,11 +178,16 @@ impl TeamService {
             .set_conversation_agent(conversation_id, member_role_id, "running", None)?;
 
         let prompt = delegation_prompt(&snapshot, &member.agent, task, context, expected_output);
+        let cwd = self
+            .teams
+            .conversation_cwd(conversation_id)?
+            .map(std::path::PathBuf::from);
         let outcome = match self
             .sessions
             .run_agent(
                 &member.agent,
                 &prompt,
+                cwd,
                 Some(conversation_id),
                 Some(member_role_id),
                 300,
@@ -215,7 +220,14 @@ impl TeamService {
             .to_string();
         let usage = outcome.get("usage").cloned().unwrap_or(Value::Null);
         let error = outcome.get("error").cloned().unwrap_or(Value::Null);
-        let status = if ok { "done" } else { "failed" };
+        let phase = outcome.get("phase").and_then(Value::as_str).unwrap_or("");
+        let status = if ok {
+            "done"
+        } else if phase == "cancelled" {
+            "cancelled"
+        } else {
+            "failed"
+        };
         let result = json!({
             "summary": text,
             "text": text,

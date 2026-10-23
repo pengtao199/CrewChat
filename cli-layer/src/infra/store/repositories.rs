@@ -129,6 +129,10 @@ impl TeamRepository for Store {
         self.conversation_agents(conversation_id)
     }
 
+    fn conversation_cwd(&self, conversation_id: &str) -> Result<Option<String>> {
+        self.conversation_cwd(conversation_id)
+    }
+
     fn set_conversation_agent(
         &self,
         conversation_id: &str,

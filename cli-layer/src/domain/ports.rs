@@ -57,6 +57,7 @@ pub trait TeamRepository: Send + Sync {
         snapshot: &TeamSnapshot,
     ) -> Result<String>;
     fn conversation_agents(&self, conversation_id: &str) -> Result<Vec<Value>>;
+    fn conversation_cwd(&self, conversation_id: &str) -> Result<Option<String>>;
     fn set_conversation_agent(
         &self,
         conversation_id: &str,

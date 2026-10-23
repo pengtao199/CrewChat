@@ -1,8 +1,8 @@
 //! ACP session use cases: role normalization, engine preferences and turns.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -23,6 +23,13 @@ pub struct SessionService {
     runtime: Arc<dyn SessionRuntime>,
     model: Arc<dyn ModelCatalog>,
     engines: EngineService,
+    connections: Arc<Mutex<HashMap<String, ConnectionMeta>>>,
+}
+
+#[derive(Clone, Debug)]
+struct ConnectionMeta {
+    conversation_id: Option<String>,
+    role_id: Option<String>,
 }
 
 #[derive(Debug)]
@@ -58,6 +65,7 @@ impl SessionService {
             runtime,
             model,
             engines,
+            connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -130,18 +138,38 @@ impl SessionService {
 
         let api_key = self.model.local_gateway_key().await;
         let leader_control = self.leader_control(conversation_id.as_deref(), role.as_ref());
-        self.runtime
+        let role_id = role
+            .as_ref()
+            .and_then(|role| role.get("id"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let value = self
+            .runtime
             .connect(ConnectRequest {
                 agent_type: agent_type.to_string(),
                 cwd,
                 role,
                 api_key,
-                conversation_id,
+                conversation_id: conversation_id.clone(),
                 engine_env: preferences.env,
                 leader_control,
             })
             .await
-            .map_err(|error| SessionError::BadGateway(error.to_string()))
+            .map_err(|error| SessionError::BadGateway(error.to_string()))?;
+        if let Some(connection_id) = value
+            .get("connectionId")
+            .or_else(|| value.get("connection_id"))
+            .and_then(Value::as_str)
+        {
+            self.connections.lock().unwrap().insert(
+                connection_id.to_string(),
+                ConnectionMeta {
+                    conversation_id,
+                    role_id,
+                },
+            );
+        }
+        Ok(value)
     }
 
     fn load_role(&self, role_id: Option<&str>) -> std::result::Result<Option<Value>, SessionError> {
@@ -161,6 +189,7 @@ impl SessionService {
         &self,
         agent: &Agent,
         prompt: &str,
+        cwd: Option<PathBuf>,
         conversation_id: Option<&str>,
         speaker_role_id: Option<&str>,
         timeout_seconds: u64,
@@ -169,7 +198,9 @@ impl SessionService {
         let model = model_label(agent);
         let mut events = self.runtime.subscribe();
 
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+        let cwd = cwd
+            .or_else(|| std::env::current_dir().ok())
+            .unwrap_or_else(|| PathBuf::from("/"));
         let value = match self
             .connect_with_role(
                 &agent.agent_type,
@@ -253,7 +284,23 @@ impl SessionService {
                         )
                     }
                     "turn_complete" => {
-                        return (true, "complete", String::new(), text, usage, events_seen)
+                        let stopped = event
+                            .payload
+                            .get("stop_reason")
+                            .map(Value::to_string)
+                            .unwrap_or_default()
+                            .to_ascii_lowercase();
+                        if stopped.contains("cancel") {
+                            return (
+                                false,
+                                "cancelled",
+                                "the turn was cancelled".to_string(),
+                                text,
+                                usage,
+                                events_seen,
+                            );
+                        }
+                        return (true, "complete", String::new(), text, usage, events_seen);
                     }
                     _ => {}
                 }
@@ -306,7 +353,7 @@ impl SessionService {
             .get(role_id)
             .map_err(|error| SessionError::BadRequest(error.to_string()))?
             .ok_or_else(|| SessionError::NotFound("role not found".to_string()))?;
-        self.run_agent(&agent, "Reply with OK.", None, None, 90)
+        self.run_agent(&agent, "Reply with OK.", None, None, None, 90)
             .await
     }
 
@@ -319,7 +366,13 @@ impl SessionService {
         if text.trim().is_empty() {
             return Err(SessionError::BadRequest("prompt has no text".to_string()));
         }
-        if let Some(conversation_id) = conversation_id {
+        let meta = self.connections.lock().unwrap().get(connection_id).cloned();
+        let conversation_id = meta
+            .as_ref()
+            .and_then(|meta| meta.conversation_id.clone())
+            .or_else(|| conversation_id.map(str::to_string));
+        let events = self.runtime.subscribe();
+        if let Some(conversation_id) = conversation_id.as_deref() {
             let _ = self.conversations.append_turn(
                 conversation_id,
                 "user",
@@ -328,7 +381,60 @@ impl SessionService {
         }
         self.runtime
             .prompt(connection_id, text)
-            .map_err(|error| SessionError::BadRequest(error.to_string()))
+            .map_err(|error| SessionError::BadRequest(error.to_string()))?;
+        if let Some(conversation_id) = conversation_id {
+            let speaker_role_id = meta.and_then(|meta| meta.role_id);
+            self.spawn_turn_collector(
+                connection_id.to_string(),
+                conversation_id,
+                speaker_role_id,
+                events,
+            );
+        }
+        Ok(())
+    }
+
+    fn spawn_turn_collector(
+        &self,
+        connection_id: String,
+        conversation_id: String,
+        speaker_role_id: Option<String>,
+        mut events: Box<dyn EventSubscription>,
+    ) {
+        let conversations = self.conversations.clone();
+        tokio::spawn(async move {
+            let _ = tokio::time::timeout(Duration::from_secs(1800), async {
+                let mut text = String::new();
+                loop {
+                    let Some(event) = events.recv().await else {
+                        break;
+                    };
+                    if event.connection_id != connection_id {
+                        continue;
+                    }
+                    match event.kind.as_str() {
+                        "content_delta" => {
+                            if let Some(delta) = event.payload.get("text").and_then(Value::as_str) {
+                                text.push_str(delta);
+                            }
+                        }
+                        "turn_complete" => {
+                            if !text.is_empty() {
+                                let _ = conversations.append_turn_with_speaker(
+                                    &conversation_id,
+                                    "assistant",
+                                    speaker_role_id.as_deref(),
+                                    &json!([{"type": "text", "text": text}]),
+                                );
+                            }
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            })
+            .await;
+        });
     }
 
     pub fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>> {
@@ -727,6 +833,46 @@ mod tests {
         let control = request.leader_control.expect("leader control");
         assert_eq!(control.conversation_id, "team-conversation");
         assert_eq!(control.leader_role_id, "role-1");
+    }
+
+    #[tokio::test]
+    async fn prompt_persists_the_assistant_turn_after_turn_complete() {
+        let runtime = Arc::new(FakeRuntime {
+            events: Mutex::new(vec![
+                EventEnvelope {
+                    kind: "content_delta".to_string(),
+                    connection_id: "connection-1".to_string(),
+                    seq: 1,
+                    payload: json!({"text": "answer"}),
+                },
+                EventEnvelope {
+                    kind: "turn_complete".to_string(),
+                    connection_id: "connection-1".to_string(),
+                    seq: 2,
+                    payload: json!({"stop_reason": "end_turn"}),
+                },
+            ]),
+            ..FakeRuntime::default()
+        });
+        let conversations = Arc::new(FakeConversations::default());
+        let service = service(runtime, conversations.clone());
+
+        service
+            .prompt(
+                "connection-1",
+                "question".to_string(),
+                Some("conversation-1"),
+            )
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+
+        assert_eq!(
+            conversations.turns.lock().unwrap().as_slice(),
+            &[
+                ("conversation-1".to_string(), "user".to_string()),
+                ("conversation-1".to_string(), "assistant".to_string()),
+            ]
+        );
     }
 
     #[tokio::test]

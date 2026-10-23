@@ -58,6 +58,19 @@ impl Store {
         Ok(id)
     }
 
+    pub fn conversation_cwd(&self, conversation_id: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn
+            .query_row(
+                "SELECT f.path FROM conversations c
+                 JOIN folders f ON f.id = c.folder_id
+                 WHERE c.id = ?1 AND c.deleted_at IS NULL",
+                params![conversation_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?)
+    }
+
     pub fn conversation_agents(&self, conversation_id: &str) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
