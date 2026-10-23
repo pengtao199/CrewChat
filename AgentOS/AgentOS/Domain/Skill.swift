@@ -14,16 +14,6 @@ struct Skill: Identifiable, Sendable, Equatable {
     let hasScripts: Bool?
     let installedAt: String?
     let updatedAt: String?
-    let agentsUsing: [String]
-    let globalLinks: [SkillGlobalLink]
-    let hasUpdate: Bool
-}
-
-struct SkillGlobalLink: Identifiable, Sendable, Equatable {
-    let agentType: String
-    let state: String
-
-    var id: String { agentType }
 }
 
 struct SkillFile: Identifiable, Sendable, Equatable {
@@ -37,4 +27,17 @@ struct SkillContent: Sendable, Equatable {
     let skill: Skill
     let content: String
     let files: [SkillFile]
+}
+
+struct SkillUpdate: Sendable, Equatable {
+    let currentHash: String
+    let latestHash: String
+    let updateAvailable: Bool
+}
+
+struct SkillInstallRequest: Sendable {
+    let path: String?
+    let source: String?
+    let gitRef: String?
+    let subdir: String?
 }

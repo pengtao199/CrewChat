@@ -1,8 +1,11 @@
+import AppKit
 import SwiftUI
 
 struct SkillsSettingsView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var query = ""
+    @State private var showInstall = false
+    @State private var confirmRemove = false
 
     private var model: SkillsSettingsViewModel { environment.skills }
 
@@ -14,19 +17,62 @@ struct SkillsSettingsView: View {
         }
         .navigationTitle("settings.skills")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    Task { await model.load() }
+                    showInstall = true
                 } label: {
-                    if model.isLoading {
+                    Label("settings.skills.add", systemImage: "plus")
+                }
+                .disabled(model.isUpdating || model.isRemoving)
+                .help("settings.skills.add")
+
+                Button {
+                    Task { await model.refresh() }
+                } label: {
+                    if model.isLoading || model.isCheckingUpdate {
                         ProgressView().controlSize(.small)
                     } else {
                         Label("settings.skills.refresh", systemImage: "arrow.clockwise")
                     }
                 }
-                .disabled(model.isLoading)
+                .disabled(
+                    model.isLoading
+                        || model.isCheckingUpdate
+                        || model.isUpdating
+                        || model.isRemoving
+                )
                 .help("settings.skills.refresh")
+
+                Button(role: .destructive) {
+                    confirmRemove = true
+                } label: {
+                    Label("settings.skills.remove.action", systemImage: "trash")
+                }
+                .disabled(model.selected == nil || model.isUpdating || model.isRemoving)
+                .help("settings.skills.remove.action")
             }
+        }
+        .sheet(isPresented: $showInstall) {
+            SkillInstallSheet { request in
+                try await model.install(request)
+            }
+        }
+        .confirmationDialog(
+            "settings.skills.remove.title",
+            isPresented: $confirmRemove,
+            presenting: model.selected
+        ) { skill in
+            Button("settings.skills.remove.action", role: .destructive) {
+                Task { await model.remove(skill) }
+            }
+            Button("common.cancel", role: .cancel) {}
+        } message: { skill in
+            Text(
+                String(
+                    format: String(localized: "settings.skills.remove.message"),
+                    skill.name
+                )
+            )
         }
         .task {
             await model.load()
@@ -66,13 +112,9 @@ struct SkillsSettingsView: View {
                 .frame(maxHeight: .infinity, alignment: .center)
             } else {
                 List(selection: selectionBinding) {
-                    Section {
-                        ForEach(filteredSkills) { skill in
-                            row(skill)
-                                .tag(skill.id)
-                        }
-                    } header: {
-                        Text(verbatim: "\(String(localized: "settings.skills.all")) (\(filteredSkills.count))")
+                    ForEach(filteredSkills) { skill in
+                        row(skill)
+                            .tag(skill.id)
                     }
                 }
                 .scrollIndicators(.hidden)
@@ -104,6 +146,12 @@ struct SkillsSettingsView: View {
 
     private func skillDetail(_ skill: Skill) -> some View {
         Form {
+            if let actionError = model.actionError {
+                Section {
+                    Text(actionError).foregroundStyle(.red)
+                }
+            }
+
             Section {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 3) {
@@ -119,12 +167,6 @@ struct SkillsSettingsView: View {
                     }
 
                     Spacer(minLength: 12)
-
-                    if skill.hasUpdate {
-                        Label("settings.skills.updateAvailable", systemImage: "arrow.up.circle.fill")
-                            .font(.callout)
-                            .foregroundStyle(.orange)
-                    }
                 }
 
                 LabeledContent("settings.skills.id") {
@@ -141,10 +183,6 @@ struct SkillsSettingsView: View {
 
             if !model.files.isEmpty {
                 filesSection
-            }
-
-            if hasUsage(skill) {
-                usageSection(skill)
             }
 
             Section {
@@ -188,11 +226,39 @@ struct SkillsSettingsView: View {
 
             if let hash = skill.currentHash, !hash.isEmpty {
                 LabeledContent("settings.skills.hash") {
-                    Text(shortHash(hash))
-                        .font(.caption)
-                        .monospaced()
-                        .textSelection(.enabled)
-                        .help(hash)
+                    HStack(spacing: 6) {
+                        Text(shortHash(hash))
+                            .font(.caption)
+                            .monospaced()
+                            .textSelection(.enabled)
+                            .help(hash)
+
+                        if model.isUpdating {
+                            ProgressView().controlSize(.mini)
+                        } else if let update = model.update, update.updateAvailable {
+                            Image(systemName: "arrow.right")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+
+                            Text(shortHash(update.latestHash))
+                                .font(.caption)
+                                .monospaced()
+                                .foregroundStyle(.orange)
+
+                            Button("settings.skills.update") {
+                                Task { await model.applyUpdate(skill) }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .controlSize(.small)
+                        } else if model.isCheckingUpdate {
+                            ProgressView().controlSize(.mini)
+                        } else if let error = model.updateCheckError {
+                            Text("settings.skills.updateCheckFailed")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .help(error)
+                        }
+                    }
                 }
             }
 
@@ -255,34 +321,6 @@ struct SkillsSettingsView: View {
         }
     }
 
-    private func usageSection(_ skill: Skill) -> some View {
-        Section("settings.skills.usage") {
-            LabeledContent("settings.skills.agents") {
-                Text(
-                    skill.agentsUsing.isEmpty
-                        ? String(localized: "settings.skills.noAgents")
-                        : skill.agentsUsing.joined(separator: "、")
-                )
-                .foregroundStyle(skill.agentsUsing.isEmpty ? .secondary : .primary)
-            }
-
-            if !skill.globalLinks.isEmpty {
-                LabeledContent("settings.skills.terminalLinks") {
-                    HStack(spacing: 10) {
-                        ForEach(skill.globalLinks) { link in
-                            HStack(spacing: 3) {
-                                Text(agentName(link.agentType))
-                                Image(systemName: linkSymbol(link.state))
-                                    .foregroundStyle(linkColor(link.state))
-                            }
-                            .font(.caption)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     @ViewBuilder
     private func contentSection(_ skill: Skill) -> some View {
         if model.isLoadingContent {
@@ -335,13 +373,6 @@ struct SkillsSettingsView: View {
                     .font(.caption)
                     .help("settings.skills.scripts")
             }
-
-            if skill.hasUpdate {
-                Image(systemName: "arrow.up.circle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.caption)
-                    .help("settings.skills.updateAvailable")
-            }
         }
         .padding(.vertical, 2)
     }
@@ -392,10 +423,6 @@ struct SkillsSettingsView: View {
             || skill.updatedAt != nil
             || skill.sizeBytes != nil
             || skill.hasScripts != nil
-    }
-
-    private func hasUsage(_ skill: Skill) -> Bool {
-        !skill.agentsUsing.isEmpty || !skill.globalLinks.isEmpty
     }
 
     private func sourceText(_ skill: Skill) -> String? {
@@ -452,35 +479,6 @@ struct SkillsSettingsView: View {
         )
     }
 
-    private func agentName(_ agentType: String) -> String {
-        switch agentType {
-        case "claude_code": "Claude Code"
-        case "codex": "Codex"
-        case "open_code": "OpenCode"
-        case "gemini": "Gemini"
-        default: agentType
-        }
-    }
-
-    private func linkSymbol(_ state: String) -> String {
-        switch state {
-        case "linked": "checkmark.circle.fill"
-        case "disabled": "minus.circle"
-        case "broken": "exclamationmark.triangle.fill"
-        case "foreign": "questionmark.circle"
-        default: "circle"
-        }
-    }
-
-    private func linkColor(_ state: String) -> Color {
-        switch state {
-        case "linked": .green
-        case "disabled": .secondary
-        case "broken": .orange
-        default: .secondary
-        }
-    }
-
     private func withoutFrontmatter(_ text: String) -> String {
         let normalized = text
             .replacingOccurrences(of: "\r\n", with: "\n")
@@ -501,5 +499,171 @@ struct SkillsSettingsView: View {
         }
 
         return normalized.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private struct SkillInstallSheet: View {
+    let onInstall: (SkillInstallRequest) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var mode: Mode = .local
+    @State private var path = ""
+    @State private var source = ""
+    @State private var gitRef = ""
+    @State private var subdir = ""
+    @State private var isInstalling = false
+    @State private var error: String?
+
+    private enum Mode: String, CaseIterable, Identifiable {
+        case local
+        case git
+
+        var id: String { rawValue }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("settings.skills.add")
+                    .font(.title3.weight(.semibold))
+                Text("settings.skills.install.marketHint")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+
+            Form {
+                Section {
+                    Picker("", selection: $mode) {
+                        Text("settings.skills.install.local").tag(Mode.local)
+                        Text("settings.skills.install.git").tag(Mode.git)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
+
+                if mode == .local {
+                    Section("settings.skills.install.local") {
+                        HStack(spacing: 8) {
+                            TextField(
+                                "",
+                                text: $path,
+                                prompt: Text("settings.skills.install.path")
+                            )
+                            .labelsHidden()
+                            .textFieldStyle(.roundedBorder)
+
+                            Button("settings.skills.install.choose") {
+                                chooseDirectory()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                } else {
+                    Section("settings.skills.install.git") {
+                        TextField(
+                            "",
+                            text: $source,
+                            prompt: Text("settings.skills.install.sourcePrompt")
+                        )
+                        .labelsHidden()
+                        .textFieldStyle(.roundedBorder)
+
+                        TextField(
+                            "",
+                            text: $gitRef,
+                            prompt: Text("settings.skills.install.ref")
+                        )
+                        .labelsHidden()
+                        .textFieldStyle(.roundedBorder)
+
+                        TextField(
+                            "",
+                            text: $subdir,
+                            prompt: Text("settings.skills.install.subdir")
+                        )
+                        .labelsHidden()
+                        .textFieldStyle(.roundedBorder)
+                    }
+                }
+
+                if let error {
+                    Section {
+                        Text(error).foregroundStyle(.red)
+                    }
+                }
+            }
+            .formStyle(.grouped)
+
+            Divider()
+
+            HStack {
+                Spacer()
+
+                Button("common.cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button("settings.skills.install") {
+                    Task { await install() }
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!canInstall)
+            }
+            .padding(14)
+        }
+        .frame(width: 560, height: 430)
+    }
+
+    private var canInstall: Bool {
+        guard !isInstalling else { return false }
+        switch mode {
+        case .local:
+            return !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .git:
+            return !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    private func chooseDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+
+        if panel.runModal() == .OK, let url = panel.url {
+            path = url.path
+        }
+    }
+
+    private func install() async {
+        isInstalling = true
+        error = nil
+
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedRef = gitRef.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSubdir = subdir.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let request = SkillInstallRequest(
+            path: mode == .local ? trimmedPath : nil,
+            source: mode == .git ? trimmedSource : nil,
+            gitRef: mode == .git && !trimmedRef.isEmpty ? trimmedRef : nil,
+            subdir: mode == .git && !trimmedSubdir.isEmpty ? trimmedSubdir : nil
+        )
+
+        do {
+            try await onInstall(request)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isInstalling = false
     }
 }

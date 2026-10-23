@@ -37,7 +37,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `agent_role_model_face` | 某引擎可绑定哪些模型 | `CoreRoster` | body `{agentType}`（camelCase）；返回 `{supported, reason?, models:[{provider, provider_id, model}]}`。`supported=false` 说明该引擎不能钉模型；`supported=true` 但为空说明查不到（CCR 不可达）。花名册的 `model_provider` **新建/改选存 `provider_id`**；旧数据里的显示名仍能解析，Picker 读取时做一次 id 映射，不会静默改写旧值 |
 | `skill_list` | 全局技能库 | `CoreCapabilities` / `CoreSkills` | 无参数；返回 `{skills:[SkillSummary], collections:[Collection], globalLinks:[GlobalLink]}`。SkillSummary 含 `id/name/description/currentHash/license/sourceKind/sourceUrl/sourceRef/sourceSubdir/hasScripts/sizeBytes/installedAt/updatedAt`；`globalLinks` 是扁平的 `[{skillId,agentType,path,state,linkedAt}]`，前端按 skillId 分组 |
 | `skill_read` | 读一个技能的 Markdown | `CoreSkills` | body `{skillId}`；返回 `{skill, content, files:[{path,size}]}` |
-| `skill_install` | 安装技能 | `CoreSkills` | body `{path}` 或 `{source, gitRef?, subdir?}`；返回 `{skill}` |
+| `skill_install` | 安装技能 | `CoreSkills` | body `{path}` 或 `{source, gitRef?, subdir?}`；返回 `{skill}`。skill-layer 安装成功后自动执行 global-links sync（终端裸跑用），失败不回滚安装 |
 | `skill_check` / `skill_update` / `skill_remove` | 检查 / 更新 / 删除 | `CoreSkills` | body `{skillId}`；分别返回 `{id,currentHash,latestHash,updateAvailable}` / `{skill}` / `{removed}` |
 | `agent_skills_set` | 保存 Agent 技能绑定 | `CoreRoster` | body `{roleId, skillIds, collectionIds}`；返回 `{roleId, skillIds}`（集合会展开进 skillIds） |
 | `agent_skill_status` | Agent 技能可用性 | `CoreRoster` | body `{roleId}`；返回 `{skills:[{id,name,available}], missing:[id]}` |

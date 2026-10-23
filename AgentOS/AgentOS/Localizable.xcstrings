@@ -1788,6 +1788,7 @@
       }
     },
     "settings.engines.platformUnsupported" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1913,6 +1914,7 @@
       }
     },
     "settings.engines.unavailable" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -3639,6 +3641,16 @@
         }
       }
     },
+    "settings.skills.files" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "文件"
+          }
+        }
+      }
+    },
     "settings.skills.hash" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3863,32 +3875,152 @@
         }
       }
     },
-    "settings.skills.files" : {
+    "settings.skills.add" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "文件"
+            "value" : "添加技能"
           }
         }
       }
     },
-    "settings.skills.source.ref" : {
+    "settings.skills.install" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引用"
+            "value" : "安装"
           }
         }
       }
     },
-    "settings.skills.source.subdir" : {
+    "settings.skills.install.local" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机目录"
+          }
+        }
+      }
+    },
+    "settings.skills.install.git" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Git / URL"
+          }
+        }
+      }
+    },
+    "settings.skills.install.path" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目录"
+          }
+        }
+      }
+    },
+    "settings.skills.install.choose" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择…"
+          }
+        }
+      }
+    },
+    "settings.skills.install.sourcePrompt" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "owner/repo 或 https://…/repo.git"
+          }
+        }
+      }
+    },
+    "settings.skills.install.ref" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引用（分支 / tag / commit）"
+          }
+        }
+      }
+    },
+    "settings.skills.install.subdir" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "子目录"
+          }
+        }
+      }
+    },
+    "settings.skills.install.marketHint" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线市场暂未接入；先支持本机目录与 Git / URL。"
+          }
+        }
+      }
+    },
+    "settings.skills.update" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新"
+          }
+        }
+      }
+    },
+    "settings.skills.updateCheckFailed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法检查更新"
+          }
+        }
+      }
+    },
+    "settings.skills.remove.title" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "卸载这个技能？"
+          }
+        }
+      }
+    },
+    "settings.skills.remove.action" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "卸载"
+          }
+        }
+      }
+    },
+    "settings.skills.remove.message" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” 将从全局库移除，使用它的 Agent 新会话将无法启动。"
           }
         }
       }
@@ -4043,6 +4175,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "市场"
+          }
+        }
+      }
+    },
+    "settings.skills.source.ref" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "引用"
+          }
+        }
+      }
+    },
+    "settings.skills.source.subdir" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "子目录"
           }
         }
       }
