@@ -230,8 +230,8 @@ tool → permission → cancel；不接 AgentOS。
 
 详见 `docs/plans/agents-page-and-team.md`。当前 cli-layer 只做单 Agent；
 团队选择在 AgentOS 已存在但核心尚未持久化（`create_conversation` 忽略 `team`），
-delegation broker 也还没迁。下一步先补 `agent_role_readiness` / `agent_role_test_run`，
-再做团队快照与 Leader 委派。
+delegation broker 也还没迁。核心已补 `agent_role_readiness` /
+`agent_role_test_run`；接下来接 Agents 页，再做团队快照与 Leader 委派。
 
 ### Phase 4：MCP/委派/用量 + 删除 codeg
 

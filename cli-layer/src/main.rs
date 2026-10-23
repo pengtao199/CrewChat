@@ -24,6 +24,7 @@ use tracing::{info, warn};
 use crate::api::http::AppState;
 use crate::app::engines::EngineService;
 use crate::app::models::ModelService;
+use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
 use crate::app::skills::SkillService;
@@ -83,8 +84,14 @@ async fn main() -> Result<()> {
     let settings_repo: Arc<dyn EngineSettingsRepository> = Arc::new(store.clone());
     let roster = RosterService::new(agent_repo.clone(), model.clone(), host.engines().clone());
     let workspace = WorkspaceService::new(conversation_repo.clone());
-    let skills = SkillService::new(roster.clone(), skill);
+    let skills = SkillService::new(roster.clone(), skill.clone());
     let engines = EngineService::new(settings_repo, host.engines().clone(), config.clone());
+    let readiness = ReadinessService::new(
+        roster.clone(),
+        engines.clone(),
+        model_catalog.clone(),
+        skill.clone(),
+    );
     let sessions = SessionService::new(
         agent_repo,
         conversation_repo,
@@ -98,6 +105,7 @@ async fn main() -> Result<()> {
         roster,
         workspace,
         skills,
+        readiness,
         engines,
         sessions,
     };

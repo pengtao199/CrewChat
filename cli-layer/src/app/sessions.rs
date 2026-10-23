@@ -3,11 +3,14 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::Result;
 use serde_json::{json, Value};
+use tokio::time::timeout;
 
 use crate::app::engines::EngineService;
+use crate::domain::agent::Agent;
 use crate::domain::ports::{
     AgentRepository, ConnectRequest, ConversationRepository, EventSubscription, ModelCatalog,
     SessionRuntime,
@@ -27,6 +30,16 @@ pub enum SessionError {
     BadRequest(String),
     BadGateway(String),
     NotFound(String),
+}
+
+impl std::fmt::Display for SessionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BadRequest(message) | Self::BadGateway(message) | Self::NotFound(message) => {
+                f.write_str(message)
+            }
+        }
+    }
 }
 
 impl SessionService {
@@ -57,6 +70,18 @@ impl SessionService {
         role_id: Option<&str>,
         conversation_id: Option<String>,
     ) -> std::result::Result<Value, SessionError> {
+        let role = self.load_role(role_id)?;
+        self.connect_with_role(agent_type, cwd, role, conversation_id)
+            .await
+    }
+
+    async fn connect_with_role(
+        &self,
+        agent_type: &str,
+        cwd: PathBuf,
+        mut role: Option<Value>,
+        conversation_id: Option<String>,
+    ) -> std::result::Result<Value, SessionError> {
         let preferences = self.engines.preferences(agent_type);
         if !preferences.enabled {
             return Err(SessionError::BadRequest(
@@ -64,11 +89,6 @@ impl SessionService {
             ));
         }
 
-        let mut role = role_id
-            .and_then(|id| self.agents.get(id).ok().flatten())
-            .map(|agent| agent.to_value())
-            .transpose()
-            .map_err(|error| SessionError::BadRequest(error.to_string()))?;
         if let Some(role) = role.as_mut() {
             if let Some(provider) = role
                 .get("model_provider")
@@ -98,6 +118,149 @@ impl SessionService {
             })
             .await
             .map_err(|error| SessionError::BadGateway(error.to_string()))
+    }
+
+    fn load_role(&self, role_id: Option<&str>) -> std::result::Result<Option<Value>, SessionError> {
+        role_id
+            .and_then(|id| self.agents.get(id).ok().flatten())
+            .map(|agent| agent.to_value())
+            .transpose()
+            .map_err(|error| SessionError::BadRequest(error.to_string()))
+    }
+
+    /// Start a throwaway ACP session with the Agent's full configuration.
+    /// It never writes a conversation or delegation; failures are returned as
+    /// structured test results so the UI can show the failing phase.
+    pub async fn test_run(&self, role_id: &str) -> std::result::Result<Value, SessionError> {
+        let agent = self
+            .agents
+            .get(role_id)
+            .map_err(|error| SessionError::BadRequest(error.to_string()))?
+            .ok_or_else(|| SessionError::NotFound("role not found".to_string()))?;
+        let started = Instant::now();
+        let model = model_label(&agent);
+        let mut events = self.runtime.subscribe();
+
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+        let value = match self
+            .connect_with_role(
+                &agent.agent_type,
+                cwd,
+                Some(
+                    agent
+                        .to_value()
+                        .map_err(|error| SessionError::BadRequest(error.to_string()))?,
+                ),
+                None,
+            )
+            .await
+        {
+            Ok(value) => value,
+            Err(error) => {
+                return Ok(test_result(
+                    false,
+                    "connect",
+                    error.to_string(),
+                    model,
+                    started.elapsed(),
+                    None,
+                    None,
+                ))
+            }
+        };
+        let connection_id = value
+            .get("connectionId")
+            .or_else(|| value.get("connection_id"))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+
+        if let Err(error) = self
+            .runtime
+            .prompt(&connection_id, "Reply with OK.".to_string())
+        {
+            self.runtime.close(&connection_id);
+            return Ok(test_result(
+                false,
+                "prompt",
+                error.to_string(),
+                model,
+                started.elapsed(),
+                None,
+                Some(connection_id),
+            ));
+        }
+
+        let outcome = timeout(Duration::from_secs(90), async {
+            let mut text = String::new();
+            let mut usage = Value::Null;
+            let mut events_seen = 0u64;
+            loop {
+                let Some(event) = events.recv().await else {
+                    return (
+                        false,
+                        "protocol",
+                        "event stream closed".to_string(),
+                        text,
+                        usage,
+                        events_seen,
+                    );
+                };
+                if event.connection_id != connection_id {
+                    continue;
+                }
+                events_seen += 1;
+                match event.kind.as_str() {
+                    "content_delta" => {
+                        if let Some(delta) = event.payload.get("text").and_then(Value::as_str) {
+                            text.push_str(delta);
+                        }
+                    }
+                    "usage" => usage = event.payload.get("usage").cloned().unwrap_or(Value::Null),
+                    "permission_request" => {
+                        return (
+                            false,
+                            "permission",
+                            "the test prompt raised a permission request".to_string(),
+                            text,
+                            usage,
+                            events_seen,
+                        )
+                    }
+                    "turn_complete" => {
+                        return (true, "complete", String::new(), text, usage, events_seen)
+                    }
+                    _ => {}
+                }
+            }
+        })
+        .await;
+
+        self.runtime.close(&connection_id);
+
+        let (ok, phase, error, text, usage, events_seen) = match outcome {
+            Ok(outcome) => outcome,
+            Err(_) => (
+                false,
+                "timeout",
+                "the test prompt did not finish within 90 seconds".to_string(),
+                String::new(),
+                Value::Null,
+                0,
+            ),
+        };
+        let mut value = test_result(
+            ok,
+            phase,
+            error,
+            model,
+            started.elapsed(),
+            Some(usage),
+            Some(connection_id),
+        );
+        value["text"] = json!(text);
+        value["events"] = json!(events_seen);
+        Ok(value)
     }
 
     pub fn prompt(
@@ -157,6 +320,36 @@ impl SessionService {
     ) -> Result<()> {
         self.engines.save_preferences(agent_type, enabled, env)
     }
+}
+
+fn model_label(agent: &Agent) -> Option<String> {
+    if agent.model.trim().is_empty() {
+        return None;
+    }
+    if agent.model_provider.trim().is_empty() {
+        return Some(agent.model.clone());
+    }
+    Some(format!("{} / {}", agent.model_provider, agent.model))
+}
+
+fn test_result(
+    ok: bool,
+    phase: &str,
+    error: String,
+    model: Option<String>,
+    elapsed: Duration,
+    usage: Option<Value>,
+    connection_id: Option<String>,
+) -> Value {
+    json!({
+        "ok": ok,
+        "phase": phase,
+        "error": if ok { Value::Null } else { json!(error) },
+        "model": model,
+        "durationMs": elapsed.as_millis() as u64,
+        "usage": usage.unwrap_or(Value::Null),
+        "connectionId": connection_id,
+    })
 }
 
 #[cfg(test)]
@@ -268,6 +461,18 @@ mod tests {
     struct FakeRuntime {
         request: Mutex<Option<ConnectRequest>>,
         prompts: Mutex<Vec<String>>,
+        events: Mutex<Vec<EventEnvelope>>,
+    }
+
+    struct VecSubscription {
+        events: std::collections::VecDeque<EventEnvelope>,
+    }
+
+    #[async_trait]
+    impl EventSubscription for VecSubscription {
+        async fn recv(&mut self) -> Option<EventEnvelope> {
+            self.events.pop_front()
+        }
     }
 
     #[async_trait]
@@ -293,16 +498,9 @@ mod tests {
         }
 
         fn subscribe(&self) -> Box<dyn EventSubscription> {
-            Box::new(EmptySubscription)
-        }
-    }
-
-    struct EmptySubscription;
-
-    #[async_trait]
-    impl EventSubscription for EmptySubscription {
-        async fn recv(&mut self) -> Option<EventEnvelope> {
-            None
+            Box::new(VecSubscription {
+                events: self.events.lock().unwrap().drain(..).collect(),
+            })
         }
     }
 
@@ -440,5 +638,33 @@ mod tests {
             &[("conversation-1".to_string(), "user".to_string())]
         );
         assert_eq!(runtime.prompts.lock().unwrap().as_slice(), ["hello"]);
+    }
+    #[tokio::test]
+    async fn test_run_uses_ephemeral_session_and_does_not_write_history() {
+        let runtime = Arc::new(FakeRuntime {
+            events: Mutex::new(vec![
+                EventEnvelope {
+                    kind: "content_delta".to_string(),
+                    connection_id: "fake".to_string(),
+                    seq: 1,
+                    payload: json!({"text": "OK"}),
+                },
+                EventEnvelope {
+                    kind: "turn_complete".to_string(),
+                    connection_id: "fake".to_string(),
+                    seq: 2,
+                    payload: json!({"stop_reason": "end_turn"}),
+                },
+            ]),
+            ..FakeRuntime::default()
+        });
+        let conversations = Arc::new(FakeConversations::default());
+        let service = service(runtime, conversations.clone());
+
+        let value = service.test_run("role-1").await.unwrap();
+
+        assert_eq!(value["ok"], true);
+        assert_eq!(value["text"], "OK");
+        assert!(conversations.turns.lock().unwrap().is_empty());
     }
 }

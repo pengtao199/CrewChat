@@ -18,6 +18,7 @@ use base64::Engine;
 use crate::api::handlers::*;
 use crate::app::engines::EngineService;
 use crate::app::models::ModelService;
+use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
 use crate::app::skills::SkillService;
@@ -34,6 +35,7 @@ pub struct AppState {
     pub roster: RosterService,
     pub workspace: WorkspaceService,
     pub skills: SkillService,
+    pub readiness: ReadinessService,
     pub engines: EngineService,
     pub sessions: SessionService,
 }
@@ -58,6 +60,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/agent_roles_save", post(agent_roles_save))
         .route("/api/agent_roles_delete", post(agent_roles_delete))
         .route("/api/agent_role_model_face", post(agent_role_model_face))
+        .route("/api/agent_role_readiness", post(agent_role_readiness))
+        .route("/api/agent_role_test_run", post(agent_role_test_run))
         .route("/api/list_open_folder_details", post(list_folders))
         .route("/api/open_folder", post(open_folder))
         .route("/api/remove_folder_from_workspace", post(remove_folder))

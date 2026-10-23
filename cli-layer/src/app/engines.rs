@@ -9,7 +9,10 @@ use serde_json::{json, Value};
 use crate::config::Config;
 use crate::domain::engine::EnginePreferences;
 use crate::domain::ports::EngineSettingsRepository;
-use crate::runtime::engine::{manager, registry::Engines};
+use crate::runtime::engine::{
+    manager,
+    registry::{Engines, OverlayKind},
+};
 
 #[derive(Clone)]
 pub struct EngineService {
@@ -42,6 +45,12 @@ impl EngineService {
             }
         }
         agents
+    }
+
+    pub fn supports_model_injection(&self, agent_type: &str) -> bool {
+        self.engines
+            .find(agent_type)
+            .is_some_and(|spec| spec.overlay != OverlayKind::None)
     }
 
     pub fn preferences(&self, agent_type: &str) -> EnginePreferences {

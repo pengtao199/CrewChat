@@ -573,11 +573,18 @@ ACP update
   prompt 落库。
 - `cargo test` 20 passed、clippy、smoke 通过。
 
-### Step 3：加 readiness / test run
+### Step 3：加 readiness / test run（核心）✅ 2026-10-23
 
-- `app/roster.rs`
-- `SessionRuntime` 临时连接
-- 只读依赖 model/skill/mcp port
+- 新增 `app/readiness.rs`：engine / model / skill / permission / MCP 预留检查，
+  返回 `ready`、`blockers`、`warnings`、`resolved`，每个问题带 `fix`。
+- 新增 `/api/agent_role_readiness`；`/api/agent_role_test_run` 先跑 readiness，
+  有 blocker 直接返回。
+- `SessionService::test_run` 通过 `SessionRuntime` 起临时连接，发最小提示，
+  收 `content_delta` / `usage` / `turn_complete`，不写 conversation、不产生委派；
+  权限请求和超时作为结构化失败阶段返回。
+- fake runtime 测试覆盖 test run 不写历史。
+- Agents 页 UI 接线、启动会话/建团队强制 readiness 仍在后续。
+- `cargo test` 22 passed、clippy、smoke 通过。
 
 ### Step 4：团队
 

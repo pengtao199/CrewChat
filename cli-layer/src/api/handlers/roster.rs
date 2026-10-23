@@ -71,6 +71,48 @@ pub(crate) async fn agent_role_model_face(
     }
 }
 
+pub(crate) async fn agent_role_readiness(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
+    match state.readiness.check(role_id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::NOT_FOUND, &error.to_string()),
+    }
+}
+
+pub(crate) async fn agent_role_test_run(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let role_id = field(&body, &["roleId", "role_id"]).unwrap_or_default();
+    let readiness = match state.readiness.check(role_id).await {
+        Ok(value) => value,
+        Err(error) => return api_error(StatusCode::NOT_FOUND, &error.to_string()),
+    };
+    if readiness.get("ready").and_then(Value::as_bool) != Some(true) {
+        return Json(json!({
+            "ok": false,
+            "phase": "readiness",
+            "readiness": readiness,
+        }))
+        .into_response();
+    }
+    match state.sessions.test_run(role_id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
 pub(crate) async fn agent_skills_set(
     State(state): State<AppState>,
     headers: HeaderMap,
