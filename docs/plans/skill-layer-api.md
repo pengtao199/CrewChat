@@ -12,7 +12,7 @@ Status: `skill-layer` daemon 可用；cli-layer 已接 skill 代理、Agent skil
 AgentOS (SwiftUI)
   │  只调核心命令
   ▼
-core（当前 codeg / 之后 cli-layer）
+core（cli-layer）
   │  内部 HTTP
   ▼
 skill-layer (127.0.0.1:3460)

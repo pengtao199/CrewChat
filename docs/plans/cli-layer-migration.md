@@ -224,13 +224,14 @@ tool → permission → cancel；不接 AgentOS。
 - 技能/MCP/引擎安装（`acp_*_skill`、`mcp_*`、`acp_prepare_npx_agent` 等）；
 - AgentOS 默认指向 `cli-layer`，codeg 只读回退。
 
-**Gate**：旧会话可读；`lsof` 没有 codeg；技能/MCP 页正常。
+**Gate**：旧会话可读；`lsof` 没有 codeg；技能页正常；MCP 后置。
 
-### Phase 4：团队/委派/用量 + 删除 codeg（2 周）
+### Phase 4：MCP/委派/用量 + 删除 codeg
 
-- `delegation/` 复制并接团队；
-- 用量、错误展示；
-- 删除 `codeg/`、切换脚本与文档。
+- MCP 扫描/写入；`delegation/` 接团队；
+- `session/load`、用量、错误展示；
+- 打包三个 sidecar（Finder 启动）；
+- 删除 `codeg/`、移除 CCR 回退、更新切换脚本与文档。
 
 **Gate**：3 人团队跑通；委派可见；一周无回归。
 
@@ -424,56 +425,15 @@ skills / MCP / engine install、数据迁移、打包。
   `~/.agents/skills` 已转为 current 软链。
 - 已验证：重启 AgentOS 后 `3080` 无 codeg，`3081` 为 cli-layer；Skills 页
   通过 `skill_list` 读取 81 个技能；Claude 使用全局 `claude-agent-acp` 连接成功。
-- 未完成：MCP / delegation 仍 501；`session/load` 尚未实现；前端新技能命令
-  （`skill_*` / `agent_skills_set`）未接。
+- 未完成：MCP / delegation 仍 501；`session/load` 尚未实现；`agent_skills_set`
+  还没有独立前端入口（Agents 页保存整条 role 时会带 skills）。
 
-### AgentOS 开发开关（2026-10-23）
+### AgentOS 切换状态（2026-10-23）
 
-`CoreSupervisor` 已加 `AGENTOS_CLI_LAYER=1` / `cli/required` 分支：启用时先拉模型层，
-再拉 `crewchat-cli`，把壳的 `CoreEndpoint` 指向 3081，跳过 codeg。
-scheme 里 `AGENTOS_CLI_LAYER_BINARY` 默认关闭；未启用时行为与现在完全一致。
-技能/MCP/引擎安装/委派仍是 501，所以这个开关只用于聊天/模型/花名册验证，
-Phase 3 再默认打开。
-
-### CLI 管理后端（2026-10-23）
-
-六个 501 已补齐：
-
-- `acp_update_agent_preferences`：`engine_settings` 表存 enabled/env；`acp_list_agents`
-  回填；env 实测能进入子进程。
-- `acp_fetch_agent_latest_release`：npx 走 `npm view`，OpenCode 走 GitHub releases；
-  实测 Claude 0.94.0 / OpenCode 1.19.4 / Pi 0.0.34。
-- `acp_prepare_npx_agent`：安装到 `<data>/engines/<agent>`，本地 `.bin` 优先于 npx；
-  Claude 0.89.1、Codex 2.2.2、Pi 0.0.34 已安装并成功 `acp_connect`。
-- `acp_download_agent_binary`：OpenCode 1.18.35 下载/解压/`chmod`，本地二进制可
-  `acp_connect`（需带 `acp` 参数）。
-- `acp_install_pi_binary`：路由已实现（全局 npm），本机未执行。
-- `acp_env_diagnostics`：Node/npm/adapter/数据目录四段检查。
-
-前端未动；AgentOS 的 CLI 页接线后即可用。
-
-### 全量引擎注册（2026-10-23）
-
-按 codeg `acp/registry.rs` 的 pin 补齐 15 个内置引擎：
-
-- npx：Claude、Codex、Gemini、OpenClaw、Cline、Hermes、CodeBuddy、Kimi、Pi、
-  Grok、DeepSeek、Qoder；
-- binary：OpenCode、Cursor、Antigravity（Cursor/Antigravity 整树解压，
-  入口分别是 `dist-package/cursor-agent` 与 `agy_acp_server.par`）；
-- `acp_list_agents` 返回 15 行；`agent_role_model_face` 对非 overlay 引擎返回
-  `supported:false`，避免 Agent 页绑定一个注入不了的模型。
-
-限制：
-
-- per-role 模型注入已覆盖 10 个引擎；Gemini / Antigravity / CodeBuddy / Qoder /
-  Cursor 仍用 CLI 自己的全局配置（原因见 §12.2）。
-- Hermes / OpenClaw 未真跑 session（安装体积/网络）；其余 5 个未支持。
-- launch spec 来自 codeg 的已验证 pin；Gemini / Cursor / Antigravity 等未逐个登录验证。
-- Antigravity 需要 `$GEMINI_HOME/antigravity-acp/settings.json` 的 auth；
-  当前没有自动写该文件。
-- Cursor / Antigravity 没有稳定的 latest 端点，`acp_fetch_agent_latest_release`
-  返回 null；OpenCode 走 GitHub、npx 走 npm。
-
+- 默认已切到 cli-layer；`AGENTOS_CLI_LAYER=0` / `AGENTOS_CODEG_CORE=1` 才是回退。
+- scheme 里 `AGENTOS_CLI_LAYER_BINARY` / `AGENTOS_SKILL_BINARY` 已启用，
+  启动顺序 model-layer → skill-layer → cli-layer。
+- 仍在收口：MCP、delegation、`session/load`、打包。
 ---
 
 ## 12. 模型注入：现状、误区与开源复用
