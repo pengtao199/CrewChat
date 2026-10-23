@@ -91,11 +91,13 @@ cli-layer (Rust, 当前核心 / BFF)
 ```text
 cli-layer/src/
 ├─ api/          AgentOS 命令适配；不写业务规则
-├─ roster/       Agent 定义 / readiness / test run
-├─ runtime/      ACP host / engines / overlay / permissions
-├─ sessions/     conversations / turns / events
-├─ team/         team snapshot / delegation broker / member lifecycle
-└─ store/        唯一 SQLite 写入方
+├─ app/
+│  ├─ roster/    Agent 定义 / readiness / test run
+│  ├─ sessions/  conversations / turns / events
+│  └─ team/      team snapshot / delegation broker / member lifecycle
+├─ domain/      Agent / Conversation / Team / Delegation / Permission
+├─ runtime/     ACP host / engines / overlay / permissions
+└─ infra/store/ 唯一 SQLite 写入方
 ```
 
 如果未来团队演进成**跨机器、长时间调度、council/roundtable 平台**，再按稳定接口
