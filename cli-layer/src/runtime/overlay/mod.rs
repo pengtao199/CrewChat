@@ -241,14 +241,14 @@ fn prepare_codex(
         model_label.to_string()
     };
     let config = format!(
-        "model = {model:?}\nmodel_provider = \"crewchat\"\n\n[model_providers.crewchat]\nname = \"CrewChat\"\nbase_url = {base:?}\nwire_api = \"responses\"\nrequires_openai_auth = false\nenv_key = \"CODEG_CCR_GATEWAY_KEY\"\n"
+        "model = {model:?}\nmodel_provider = \"crewchat\"\n\n[model_providers.crewchat]\nname = \"CrewChat\"\nbase_url = {base:?}\nwire_api = \"responses\"\nrequires_openai_auth = false\nenv_key = \"CREWCHAT_GATEWAY_KEY\"\n"
     );
     std::fs::write(home.join("config.toml"), config)?;
     link_shared_codex_home(home);
 
     let mut env = BTreeMap::new();
     env.insert("CODEX_HOME".to_string(), home.to_string_lossy().to_string());
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), api_key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), api_key.to_string());
     Ok(RoleOverlay::new(home, env, model_label.to_string()))
 }
 
@@ -299,7 +299,7 @@ fn prepare_opencode(
                 "name": "CrewChat",
                 "options": {
                     "baseURL": format!("{}/v1", gateway.trim_end_matches('/')),
-                    "apiKey": "{env:CODEG_CCR_GATEWAY_KEY}",
+                    "apiKey": "{env:CREWCHAT_GATEWAY_KEY}",
                 },
                 "models": { model.clone(): { "name": model } }
             }
@@ -315,7 +315,7 @@ fn prepare_opencode(
         "OPENCODE_CONFIG".to_string(),
         home.join("opencode.json").to_string_lossy().to_string(),
     );
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), api_key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), api_key.to_string());
     Ok(RoleOverlay::new(home, env, model_label.to_string()))
 }
 
@@ -329,7 +329,7 @@ fn prepare_grok(
     let key = require_key(api_key, "Grok")?;
     let base = gateway_v1(gateway);
     let config = format!(
-        "[models]\ndefault = \"crewchat\"\n\n[model.crewchat]\nmodel = {}\nbase_url = {}\nname = \"CrewChat\"\nenv_key = \"CODEG_CCR_GATEWAY_KEY\"\napi_backend = \"responses\"\ncontext_window = 128000\n",
+        "[models]\ndefault = \"crewchat\"\n\n[model.crewchat]\nmodel = {}\nbase_url = {}\nname = \"CrewChat\"\nenv_key = \"CREWCHAT_GATEWAY_KEY\"\napi_backend = \"responses\"\ncontext_window = 128000\n",
         toml_string(model),
         toml_string(&base),
     );
@@ -337,7 +337,7 @@ fn prepare_grok(
 
     let mut env = BTreeMap::new();
     env.insert("GROK_HOME".to_string(), home.to_string_lossy().to_string());
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), key.to_string());
     Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
@@ -354,7 +354,7 @@ fn prepare_hermes(
         "model:\n  default: {model}\n  provider: crewchat\n  base_url: {base}\n\ncustom_providers:\n  - name: crewchat\n    base_url: {base}\n    api_key: {key}\n    api_mode: chat_completions\n    model: {model}\n    models:\n      {model}:\n        context_length: 128000\n",
         model = yaml_string(model),
         base = yaml_string(&base),
-        key = yaml_string("${CODEG_CCR_GATEWAY_KEY}"),
+        key = yaml_string("${CREWCHAT_GATEWAY_KEY}"),
     );
     write_private(&home.join("config.yaml"), config)?;
 
@@ -363,7 +363,7 @@ fn prepare_hermes(
         "HERMES_HOME".to_string(),
         home.to_string_lossy().to_string(),
     );
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), key.to_string());
     Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
@@ -377,7 +377,7 @@ fn prepare_kimi(
     let key = require_key(api_key, "Kimi")?;
     let base = gateway_v1(gateway);
     let config = format!(
-        "default_model = \"crewchat\"\n\n[providers.crewchat]\ntype = \"openai\"\nbase_url = {}\napi_key_env = \"CODEG_CCR_GATEWAY_KEY\"\n\n[models.crewchat]\nprovider = \"crewchat\"\nmodel = {}\nmax_context_size = 128000\n",
+        "default_model = \"crewchat\"\n\n[providers.crewchat]\ntype = \"openai\"\nbase_url = {}\napi_key_env = \"CREWCHAT_GATEWAY_KEY\"\n\n[models.crewchat]\nprovider = \"crewchat\"\nmodel = {}\nmax_context_size = 128000\n",
         toml_string(&base),
         toml_string(model),
     );
@@ -388,7 +388,7 @@ fn prepare_kimi(
         "KIMI_CODE_HOME".to_string(),
         home.to_string_lossy().to_string(),
     );
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), key.to_string());
     Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
@@ -412,7 +412,7 @@ fn prepare_openclaw(
             "providers": {
                 "crewchat": {
                     "baseUrl": base,
-                    "apiKey": "${CODEG_CCR_GATEWAY_KEY}",
+                    "apiKey": "${CREWCHAT_GATEWAY_KEY}",
                     "api": "openai-completions",
                     "models": [
                         { "id": model, "name": model, "contextWindow": 128000, "maxTokens": 8192 }
@@ -435,7 +435,7 @@ fn prepare_openclaw(
         "OPENCLAW_STATE_DIR".to_string(),
         state.to_string_lossy().to_string(),
     );
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), key.to_string());
     Ok(RoleOverlay {
         home: home.to_path_buf(),
         env,
@@ -459,7 +459,7 @@ fn prepare_pi(
                 "name": "CrewChat",
                 "baseUrl": base,
                 "api": "openai-completions",
-                "apiKey": "$CODEG_CCR_GATEWAY_KEY",
+                "apiKey": "$CREWCHAT_GATEWAY_KEY",
                 "models": [
                     {
                         "id": model,
@@ -491,7 +491,7 @@ fn prepare_pi(
         "PI_CODING_AGENT_DIR".to_string(),
         home.to_string_lossy().to_string(),
     );
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), key.to_string());
     Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
@@ -577,7 +577,7 @@ fn prepare_deepseek(
     let key = require_key(api_key, "DeepSeek")?;
     let base = gateway_v1(gateway);
     let config = format!(
-        "llm-pi-ai:\n  providers:\n    crewchat:\n      displayName: CrewChat\n      api: openai-completions\n      baseURL: {base}\n      apiKeyEnv: CODEG_CCR_GATEWAY_KEY\n      models:\n        - id: {model}\n          name: {model}\n          contextWindow: 128000\n",
+        "llm-pi-ai:\n  providers:\n    crewchat:\n      displayName: CrewChat\n      api: openai-completions\n      baseURL: {base}\n      apiKeyEnv: CREWCHAT_GATEWAY_KEY\n      models:\n        - id: {model}\n          name: {model}\n          contextWindow: 128000\n",
         base = yaml_string(&base),
         model = yaml_string(model),
     );
@@ -591,7 +591,7 @@ fn prepare_deepseek(
     );
     env.insert("DEEPSEEK_ACP_PROVIDER".to_string(), "crewchat".to_string());
     env.insert("DEEPSEEK_ACP_MODEL".to_string(), model.to_string());
-    env.insert("CODEG_CCR_GATEWAY_KEY".to_string(), key.to_string());
+    env.insert("CREWCHAT_GATEWAY_KEY".to_string(), key.to_string());
     Ok(RoleOverlay::new(home, env, model.to_string()))
 }
 
@@ -698,7 +698,7 @@ mod tests {
         let home = overlay.env.get("KIMI_CODE_HOME").unwrap();
         let config = std::fs::read_to_string(Path::new(home).join("config.toml")).unwrap();
         assert!(config.contains("type = \"openai\""));
-        assert!(config.contains("api_key_env = \"CODEG_CCR_GATEWAY_KEY\""));
+        assert!(config.contains("api_key_env = \"CREWCHAT_GATEWAY_KEY\""));
         assert!(config.contains("model = \"OpenCode Go/mimo-v2.6-flash\""));
     }
 
@@ -717,7 +717,7 @@ mod tests {
         );
         assert_eq!(
             config["models"]["providers"]["crewchat"]["apiKey"],
-            "${CODEG_CCR_GATEWAY_KEY}"
+            "${CREWCHAT_GATEWAY_KEY}"
         );
         assert!(overlay.env.contains_key("OPENCLAW_STATE_DIR"));
         assert!(overlay.gateway_port.is_some());
@@ -741,7 +741,7 @@ mod tests {
         );
         assert_eq!(
             models["providers"]["crewchat"]["apiKey"],
-            "$CODEG_CCR_GATEWAY_KEY"
+            "$CREWCHAT_GATEWAY_KEY"
         );
     }
 
@@ -773,7 +773,7 @@ mod tests {
         assert!(config.contains("llm-pi-ai:"));
         assert!(config.contains("api: openai-completions"));
         assert!(config.contains("baseURL: 'http://127.0.0.1:3456/v1'"));
-        assert!(config.contains("apiKeyEnv: CODEG_CCR_GATEWAY_KEY"));
+        assert!(config.contains("apiKeyEnv: CREWCHAT_GATEWAY_KEY"));
         assert_eq!(
             overlay.env.get("DEEPSEEK_ACP_MODEL").unwrap(),
             "OpenCode Go/mimo-v2.6-flash"

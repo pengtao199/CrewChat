@@ -1,4 +1,4 @@
-//! WebSocket attach/replay/event bridge, matching the codeg `/ws/events` shape.
+//! WebSocket attach/replay/event bridge, matching the AgentOS event-stream shape.
 
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};

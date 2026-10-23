@@ -146,6 +146,22 @@ pub trait ModelCatalog: Send + Sync {
     async fn provider_save(&self, body: &Value) -> Result<Value, String>;
     async fn provider_delete(&self, body: &Value) -> Result<Value, String>;
     async fn provider_probe(&self, body: &Value) -> Result<Value, String>;
+    async fn set_model_enabled(
+        &self,
+        _provider_id: &str,
+        _model: &str,
+        _enabled: bool,
+    ) -> Result<Value, String> {
+        Err("model toggle is not supported by this catalog".to_string())
+    }
+    async fn set_credential_enabled(
+        &self,
+        _provider_id: &str,
+        _credential_id: &str,
+        _enabled: bool,
+    ) -> Result<Value, String> {
+        Err("credential toggle is not supported by this catalog".to_string())
+    }
     async fn disabled_models(&self) -> Result<Value, String>;
     async fn model_face(&self, agent_type: &str) -> Result<Value, String>;
     async fn normalize_provider(&self, provider: &str, model: &str) -> Option<String>;

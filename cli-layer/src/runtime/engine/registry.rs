@@ -2,7 +2,7 @@
 //!
 //! The adapters themselves are external (official CLIs, Zed/`agentclientprotocol`
 //! adapters, or community packages); this file only records how to install and
-//! launch them. Versions and commands mirror codeg's `acp/registry.rs` pins.
+//! launch them. Versions and commands mirror the known-good adapter pins.
 //!
 //! Per-role model injection is implemented for the engines whose CLI exposes a
 //! per-session config directory or an API-key/base-URL provider. Engines that
@@ -435,7 +435,7 @@ impl Engines {
         if let Some(local) = self.local_binary(spec) {
             return quote_path(&local.to_string_lossy());
         }
-        // Codeg and the user installs often already have the adapter on PATH;
+        // Existing installs often already have the adapter on PATH;
         // use it instead of forcing an npx download per session.
         if command_available(spec.cmd) {
             return spec.cmd.to_string();

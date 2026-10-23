@@ -39,4 +39,26 @@ impl ModelService {
     pub async fn disabled_models(&self) -> Result<Value, String> {
         self.model.disabled_models().await
     }
+
+    pub async fn set_model_enabled(
+        &self,
+        provider_id: &str,
+        model: &str,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        self.model
+            .set_model_enabled(provider_id, model, enabled)
+            .await
+    }
+
+    pub async fn set_credential_enabled(
+        &self,
+        provider_id: &str,
+        credential_id: &str,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        self.model
+            .set_credential_enabled(provider_id, credential_id, enabled)
+            .await
+    }
 }

@@ -1,7 +1,7 @@
 //! SQLite store for projects, conversations, turns, roster and event replay.
 //!
 //! The schema is intentionally small: it is the `cli-layer` replacement for
-//! codeg's much larger `db/` (folders + conversations + roster + usage).
+//! the old core's much larger `db/` (folders + conversations + roster + usage).
 
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -15,13 +15,6 @@ pub struct Store {
 }
 
 pub use crate::domain::engine::EnginePreferences;
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct ImportReport {
-    pub folders: usize,
-    pub conversations: usize,
-    pub roles: usize,
-}
 
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
@@ -171,7 +164,6 @@ mod conversations;
 mod engine_settings;
 mod events;
 mod folders;
-mod import;
 mod repositories;
 #[allow(dead_code)]
 mod team;

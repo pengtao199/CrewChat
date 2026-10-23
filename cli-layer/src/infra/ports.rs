@@ -32,6 +32,25 @@ impl ModelCatalog for ModelLayerClient {
         self.provider_probe(body).await
     }
 
+    async fn set_model_enabled(
+        &self,
+        provider_id: &str,
+        model: &str,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        self.set_model_enabled(provider_id, model, enabled).await
+    }
+
+    async fn set_credential_enabled(
+        &self,
+        provider_id: &str,
+        credential_id: &str,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        self.set_credential_enabled(provider_id, credential_id, enabled)
+            .await
+    }
+
     async fn disabled_models(&self) -> Result<Value, String> {
         self.disabled_models().await
     }

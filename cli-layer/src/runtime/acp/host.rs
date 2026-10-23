@@ -1,7 +1,7 @@
 //! ACP host: spawn one CLI adapter per connection, keep the session alive, and
 //! route updates/permissions into the event bus.
 //!
-//! This is deliberately a small host, not a copy of codeg's 127k-line ACP
+//! This is deliberately a small host, not a copy of the old core's 127k-line ACP
 //! module. The shape follows the official `agent-client-protocol` client
 //! example; the permission broker and per-role env are ours.
 

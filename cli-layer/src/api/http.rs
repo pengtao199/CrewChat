@@ -47,13 +47,21 @@ pub struct AppState {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", post(health))
-        .route("/api/ccr_health", post(ccr_health))
-        .route("/api/ccr_call", post(ccr_call))
-        .route("/api/ccr_provider_save", post(ccr_provider_save))
-        .route("/api/ccr_provider_delete", post(ccr_provider_delete))
-        .route("/api/ccr_provider_probe", post(ccr_provider_probe))
-        .route("/api/ccr_disabled_models", post(ccr_disabled_models))
-        .route("/api/ccr_supervisor_start", post(ccr_supervisor_start))
+        .route("/api/model_health", post(model_health))
+        .route("/api/model_call", post(model_call))
+        .route("/api/model_provider_save", post(model_provider_save))
+        .route("/api/model_provider_delete", post(model_provider_delete))
+        .route("/api/model_provider_probe", post(model_provider_probe))
+        .route(
+            "/api/model_provider_set_model",
+            post(model_provider_set_model),
+        )
+        .route(
+            "/api/model_provider_set_credential",
+            post(model_provider_set_credential),
+        )
+        .route("/api/model_disabled_models", post(model_disabled_models))
+        .route("/api/model_supervisor_start", post(model_supervisor_start))
         .route("/api/acp_list_agents", post(acp_list_agents))
         .route("/api/acp_connect", post(acp_connect))
         .route("/api/acp_prompt", post(acp_prompt))
@@ -169,7 +177,7 @@ fn ws_authorized(state: &AppState, headers: &HeaderMap) -> bool {
         return false;
     };
     for part in protocol.split(',') {
-        let Some(token) = part.trim().strip_prefix("codeg-token.") else {
+        let Some(token) = part.trim().strip_prefix("crewchat-token.") else {
             continue;
         };
         if let Ok(bytes) = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(token) {

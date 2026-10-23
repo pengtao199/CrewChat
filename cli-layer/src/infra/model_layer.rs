@@ -1,6 +1,5 @@
 //! Thin proxy for the AgentOS model page. The model layer owns providers and
-//! keys; `cli-layer` only keeps the existing `ccr_*` command surface alive so
-//! the Swift shell does not have to change during the migration.
+//! keys; `cli-layer` only exposes a stable HTTP surface to the Swift shell.
 
 use std::time::Duration;
 
@@ -38,10 +37,10 @@ impl ModelLayerClient {
     pub async fn rpc(&self, method: &str, args: Value) -> Result<Value, String> {
         let mut request = self
             .client
-            .post(format!("{}/api/ccr/rpc", self.base_url))
+            .post(format!("{}/api/model/rpc", self.base_url))
             .json(&json!({"method": method, "args": args}));
         if let Some(token) = &self.token {
-            request = request.header("x-ccr-web-auth", token);
+            request = request.header("x-model-web-auth", token);
         }
         let response = request
             .send()
@@ -333,6 +332,94 @@ fn slug(name: &str) -> String {
         uuid::Uuid::new_v4().to_string()
     } else {
         out
+    }
+}
+
+impl ModelLayerClient {
+    pub async fn set_model_enabled(
+        &self,
+        provider_id: &str,
+        model: &str,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        let mut config = self.get_config().await?;
+        let providers = config
+            .get_mut("Providers")
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| "model config has no Providers".to_string())?;
+        let provider = providers
+            .iter_mut()
+            .find(|provider| {
+                provider.get("id").and_then(Value::as_str) == Some(provider_id)
+                    || provider.get("name").and_then(Value::as_str) == Some(provider_id)
+            })
+            .ok_or_else(|| format!("provider not found: {provider_id}"))?;
+        let models = provider
+            .get_mut("models")
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| "provider has no models".to_string())?;
+        if enabled {
+            if !models.iter().any(|item| item.as_str() == Some(model)) {
+                models.push(json!(model));
+            }
+            if let Some(disabled) = provider
+                .get_mut("disabledModels")
+                .and_then(Value::as_array_mut)
+            {
+                disabled.retain(|item| item.as_str() != Some(model));
+            }
+        } else {
+            models.retain(|item| item.as_str() != Some(model));
+            if provider.get("disabledModels").is_none() {
+                provider["disabledModels"] = json!([]);
+            }
+            if let Some(disabled) = provider
+                .get_mut("disabledModels")
+                .and_then(Value::as_array_mut)
+            {
+                if !disabled.iter().any(|item| item.as_str() == Some(model)) {
+                    disabled.push(json!(model));
+                }
+            }
+        }
+        self.rpc("saveConfig", json!([config, {"applyProfile": true}]))
+            .await?;
+        Ok(json!(true))
+    }
+
+    pub async fn set_credential_enabled(
+        &self,
+        provider_id: &str,
+        credential_id: &str,
+        enabled: bool,
+    ) -> Result<Value, String> {
+        let mut config = self.get_config().await?;
+        let providers = config
+            .get_mut("Providers")
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| "model config has no Providers".to_string())?;
+        let provider = providers
+            .iter_mut()
+            .find(|provider| {
+                provider.get("id").and_then(Value::as_str) == Some(provider_id)
+                    || provider.get("name").and_then(Value::as_str) == Some(provider_id)
+            })
+            .ok_or_else(|| format!("provider not found: {provider_id}"))?;
+        let credentials = provider
+            .get_mut("credentials")
+            .and_then(Value::as_array_mut)
+            .ok_or_else(|| "provider has no credentials".to_string())?;
+        let credential = credentials
+            .iter_mut()
+            .find(|credential| {
+                credential.get("id").and_then(Value::as_str) == Some(credential_id)
+                    || credential.get("name").and_then(Value::as_str) == Some(credential_id)
+            })
+            .ok_or_else(|| format!("credential not found: {credential_id}"))?;
+        credential["enabled"] = json!(enabled);
+        self.rpc("saveConfig", json!([config, {"applyProfile": true}]))
+            .await?;
+        Ok(json!(true))
     }
 }
 

@@ -1,11 +1,11 @@
 //! CrewChat CLI layer.
 //!
-//! A small Rust sidecar that replaces codeg's ACP/workbench core:
+//! A small Rust sidecar: the ACP/workbench core.
 //! - `:3081` HTTP compatibility surface for AgentOS
 //! - `/ws/events` streaming
 //! - ACP host (15 CLI engines)
 //! - SQLite projects/conversations/turns/roster
-//! - thin `ccr_*` proxy to the model layer
+//! - thin `model_*` proxy to the model layer
 
 mod api;
 mod app;
@@ -13,9 +13,9 @@ mod config;
 mod domain;
 mod infra;
 mod runtime;
+#[allow(dead_code)]
 mod team_mcp;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -45,11 +45,6 @@ use crate::runtime::acp::host::AcpHost;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args: Vec<String> = std::env::args().collect();
-    if args.get(1).map(String::as_str) == Some("team-mcp") {
-        return crate::team_mcp::run().await;
-    }
-
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -60,24 +55,6 @@ async fn main() -> Result<()> {
     let config = Arc::new(Config::from_env()?);
     let store = Store::open(&config.db_path())?;
     store.init_schema()?;
-
-    if args.iter().any(|arg| arg == "--import-codeg") {
-        let path = args
-            .windows(2)
-            .find(|pair| pair[0] == "--codeg")
-            .map(|pair| PathBuf::from(&pair[1]))
-            .unwrap_or_else(default_codeg_path);
-        let report = store.import_codeg(&path)?;
-        println!(
-            "imported {} folders, {} conversations, {} roles from {}",
-            report.folders,
-            report.conversations,
-            report.roles,
-            path.display()
-        );
-        return Ok(());
-    }
-
     config.write_runtime_file()?;
 
     let skill: Arc<dyn SkillCatalog> = Arc::new(SkillLayerClient::new());
@@ -149,11 +126,4 @@ async fn main() -> Result<()> {
         _ = tokio::signal::ctrl_c() => info!("shutting down"),
     }
     Ok(())
-}
-
-fn default_codeg_path() -> PathBuf {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/"))
-        .join("Library/Application Support/AgentOS/core/codeg.db")
 }
