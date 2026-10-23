@@ -93,7 +93,7 @@ cargo run
 
 - 市场搜索/安装（skills.sh / Claude 市场）。
 - 按技能 × CLI 的全局链接开关（目前是同步全部）。
-- `cli-layer` / codeg 代理与 AgentOS 接线。
+- `cli-layer` 代理与 AgentOS 接线（已完成）。
 - 技能脚本执行策略、垃圾回收、备份/审计。
 
 ## 测试

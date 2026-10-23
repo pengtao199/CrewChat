@@ -15,7 +15,7 @@
 | 技能层 | `skill-layer/` | Rust：全局技能库、版本、安装/更新、会话 materialize（`:3460`） |
 | MCP 层 | `mcp-layer/` | Rust：MCP 注册表、每 Agent 一个本地 proxy 实例（`:3461`） |
 
-`codeg/`、`ccr/` 与 v1 Python 编排层均已移除/归档，不再参与构建或运行。
+旧工作台、旧模型路由与 v1 Python 编排层均已移除/归档，不再参与构建或运行。
 
 一个会话里可以有多名 Agent：
 

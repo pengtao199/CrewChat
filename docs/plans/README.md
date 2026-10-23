@@ -5,11 +5,6 @@
 | 计划 | 状态 | 适用边界 |
 | --- | --- | --- |
 | [Agents 页面与团队会话](agents-page-and-team.md) | Proposed | **核心设计**：Agents 页组装 / readiness / Test Run；单 Agent + Leader 中介团队、委派、团队快照、权限与事件归属；团队留在 cli-layer 的模块化单体，MCP 独立成层 |
-| [Agents 核心协作](agents-core-collaboration.md) | Superseded | Codeg 时代的历史方案；保留作实现参考，不再作为运行时依据 |
-| [AgentOS 壳（macOS 前端）](agentos-shell.md) | In Progress | `AgentOS/` 下的 SwiftUI 壳：拉起并消费 `codeg-server` 的 HTTP/WS 契约，落地会话 / 流式 / 委派可见性 / 审批 / 花名册与打包 |
-| [Swift 原生运行时迁移](swift-runtime-migration.md) | Proposed | 去掉 `codeg-server` / CCR：Swift 自己拥有 ACP、持久化、模型网关、权限与编排；外部 CLI/adapter 保留。模型层已拆出，见下 |
-| [模型层：移除 CCR](model-layer-remove-ccr.md) | In Progress | Rust 模型层 sidecar：控制面 3458 + 网关 3456、CCR 数据导入、Anthropic→OpenAI 翻译、并发多模型路由；模型层完成后建 Agents |
-| [CLI Layer：移除 Codeg](cli-layer-migration.md) | In Progress | 新建 `cli-layer/` 取代 codeg：ACP 宿主、引擎/会话/权限/花名册/持久化；copy 官方 rust-sdk + OpenAB 的 ACP 部分，codeg 降级为只读参考与回退 |
 | [cli-layer 架构](cli-layer-architecture.md) | Proposed | cli-layer 的模块化单体边界：api / app / domain / runtime / infra，port 隔离 model / skill / MCP；团队留在核心，资源域独立 |
 | [Skill 层：统一管理](skill-layer.md) | Paused | 全局一份技能库；Agents 页按 Agent 选择；会话级 home 只软链选中的技能；后端核心已完成，等待 CLI 真实会话验收 |
 | [MCP 层：统一管理](mcp-layer.md) | In Progress | 最终形态是完整本地网关；复用 Rust `mcp-proxy`，每个 Agent 一个只挂自己 MCP 的实例；不做旧数据兼容 |
@@ -18,6 +13,11 @@
 
 | 计划 | 归档原因 |
 | --- | --- |
+| [Agents 核心协作](archive/agents-core-collaboration.md) | Codeg 时代历史方案，运行时已迁移到 cli-layer |
+| [AgentOS 壳（Codeg 时代）](archive/agentos-shell-codeg.md) | 壳已改为直接消费 cli-layer / model-layer / skill-layer / mcp-layer |
+| [Swift 原生运行时迁移](archive/swift-runtime-migration.md) | 未采用；当前为 Rust sidecar 分层 |
+| [CLI Layer 迁移](archive/cli-layer-migration.md) | 已完成，cli-layer 是当前核心 |
+| [模型层：移除 CCR](archive/model-layer-remove-ccr.md) | 已完成，模型层独立运行 |
 | [Codeg / CCR 集成](archive/codeg-ccr-integration.md) | 未完成续作并入「Agents 核心协作」（2026-10-12）；已完成部分（CCR 薄代理、模型页 v2、CLI 页就绪卡、scope 坑实测）保留记录 |
 | [多 Agent 单会话](archive/multi-agent-conversations.md) | 协作界面迁到 `codeg/`；Python 编排若以自定义 ACP agent 复活，另开计划 |
 | [权限系统](archive/permissions.md) | Python 侧权限管道已退役（2026-10-11；审批归 Codeg，自跑身体兜底放行） |
