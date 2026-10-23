@@ -148,6 +148,7 @@ pub struct ServerRecord {
 pub struct AgentRecord {
     pub agent_id: String,
     pub client_name: String,
+    #[serde(skip_serializing)]
     pub token: String,
     pub server_ids: Vec<String>,
     pub port: u16,

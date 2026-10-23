@@ -20,6 +20,8 @@ AgentOS / cli-layer
 - 旧 CLI MCP 配置**不迁移、不读取**。
 - 网关内核是 `mcp-proxy`（MIT OR Apache-2.0），没有 Go sidecar。
 
+交付契约：[`docs/plans/mcp-layer-api.md`](../docs/plans/mcp-layer-api.md)。
+
 ## 构建与运行
 
 ```sh
