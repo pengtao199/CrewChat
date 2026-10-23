@@ -367,6 +367,8 @@ remove:  删除全局链接 / session 链接由会话结束清理
 
 ## 11. API 与 UI
 
+前端交付说明（可直接发给前端工程师）：[`skill-layer-api.md`](skill-layer-api.md)。
+
 ### 11.1 `skill-layer` HTTP（草案）
 
 | 端点 | 作用 |
