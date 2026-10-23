@@ -10,8 +10,9 @@
 | [Swift 原生运行时迁移](swift-runtime-migration.md) | Proposed | 去掉 `codeg-server` / CCR：Swift 自己拥有 ACP、持久化、模型网关、权限与编排；外部 CLI/adapter 保留。模型层已拆出，见下 |
 | [模型层：移除 CCR](model-layer-remove-ccr.md) | In Progress | Rust 模型层 sidecar：控制面 3458 + 网关 3456、CCR 数据导入、Anthropic→OpenAI 翻译、并发多模型路由；模型层完成后建 Agents |
 | [CLI Layer：移除 Codeg](cli-layer-migration.md) | In Progress | 新建 `cli-layer/` 取代 codeg：ACP 宿主、引擎/会话/权限/花名册/持久化；copy 官方 rust-sdk + OpenAB 的 ACP 部分，codeg 降级为只读参考与回退 |
+| [cli-layer 架构](cli-layer-architecture.md) | Proposed | cli-layer 的模块化单体边界：api / app / domain / runtime / infra，port 隔离 model / skill / MCP；团队留在核心，资源域独立 |
 | [Skill 层：统一管理](skill-layer.md) | Paused | 全局一份技能库；Agents 页按 Agent 选择；会话级 home 只软链选中的技能；后端核心已完成，等待 CLI 真实会话验收 |
-| [MCP 层：统一管理](mcp-layer.md) | Research | 全局一份 MCP 库；兼容 CLI 默认链接；Agent 的 `mcps` 是使用权 allowlist；先调研 ACP 注入、CLI 兼容矩阵、生命周期与网关取舍 |
+| [MCP 层：统一管理](mcp-layer.md) | Research / Decision Draft | 最终形态是完整本地网关；复用 MCPJungle（vendor/fork）做运行时，`mcp-layer` 只做注册表、Agent token/allowlist 与 ACP 注入；不做旧数据兼容 |
 
 ## 归档
 

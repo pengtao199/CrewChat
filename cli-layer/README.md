@@ -99,6 +99,12 @@ AgentOS 仍默认启动 codeg。要试新运行时：
 当前 `cli-layer` 已覆盖会话 / 模型页 / 花名册 / 项目 / 会话列表 / 技能；
 MCP、委派仍是 501，所以设置页还不完整。切换前先只测聊天。
 
+## 架构
+
+当前按模块化单体组织，依赖方向 `api → app → domain`，`runtime`/`infra` 实现 port。
+model / skill / MCP 是独立资源域，cli-layer 只代理，不拥有它们的存储。详见
+[`docs/plans/cli-layer-architecture.md`](../docs/plans/cli-layer-architecture.md)。
+
 ## 目录
 
 ```
