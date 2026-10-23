@@ -103,6 +103,7 @@ model-layer，再删代理。
 | codeg `agent_host/{overlay,role_home,faces,gateway}.rs` | Apache-2.0 | **copy + 改** | per-role 模型注入；`gateway.rs` 改成指向 model-layer |
 | codeg `db/entities/{custom_agent,folder,conversation,message}.rs` + 对应 service | Apache-2.0 | **copy + 改** | roster/项目/会话/turn 的 schema 参考 |
 | codeg `acp/{registry,binary_cache,latest_release,mcp_scope}.rs` | Apache-2.0 | **copy + 裁剪** | 只留 Claude/Codex/OpenCode |
+| [`farion1231/cc-switch`](https://github.com/farion1231/cc-switch) | MIT | **copy + 改** | 各 CLI 的配置写入/路径解析：Claude、Codex、Gemini、Grok、Hermes、Kimi、OpenClaw、OpenCode、Antigravity、Pi |
 | `claude-code-acp` / `codex-acp` / `opencode acp` | 各自 | **外部依赖** | 作为 CLI 适配器安装/启动，不 vendor |
 | `zed-industries/codex-acp` | 许可证未明确（NOASSERTION） | **不 copy** | 需要时作为外部二进制，先用法务确认 |
 | `rebornix/Agmente` | MIT | 只读参考 | Swift ACP client，将来 Swift 迁移用 |
@@ -300,6 +301,7 @@ tool → permission → cancel；不接 AgentOS。
 - 不迁 66k 行 transcript parser；只写一次性 importer。
 - 不把模型层塞进 `cli-layer`。
 - 不 fork 整个 OpenAB（chat-platform 假设）或整个 codeg。
+- **不自己写每个 CLI 的配置模板**：优先移植 `cc-switch` 的 MIT 实现，按 per-session 根目录改路径。
 - Phase 1 不做团队/委派/技能/MCP。
 
 ---
@@ -416,3 +418,101 @@ Phase 3 再默认打开。
   当前没有自动写该文件。
 - Cursor / Antigravity 没有稳定的 latest 端点，`acp_fetch_agent_latest_release`
   返回 null；OpenCode 走 GitHub、npx 走 npm。
+
+---
+
+## 12. 模型注入：现状、误区与开源复用
+
+### 12.1 先澄清：ACP 适配 ≠ 模型注入
+
+- **ACP 适配**：CLI 自己（或官方/社区 adapter）说的 JSON-RPC；我们只注册 launch spec，
+  不写 adapter。现在已注册 15 个。
+- **模型注入**：让**同一个 CLI 的不同会话**跑不同模型。这是 CLI 自己的配置问题，
+  ACP 协议没有统一的“设置模型”字段。
+- 所以“15 个适配都装好了”不等于“15 个都能一个会话一个模型”。目前只有
+  Claude / Codex / OpenCode 做了 per-role 注入；其余 11 个默认读各自 CLI 的全局模型。
+
+一句话：**Adapters 是别人的；注入胶水是我们的。胶水可以复用开源，不必自己写。**
+
+### 12.2 各引擎的注入机制（已确认/待确认）
+
+| 引擎 | ACP 来源 | 每会话模型机制 | 现状 |
+| --- | --- | --- | --- |
+| Claude Code | `claude-agent-acp` | `CLAUDE_CONFIG_DIR/settings.json` 的 `ANTHROPIC_MODEL` | ✅ 已实现 |
+| Codex | `codex-acp` | `CODEX_HOME/config.toml` 的 `model` | ✅ 已实现 |
+| OpenCode | 官方 `opencode acp` | `OPENCODE_CONFIG` 的 `model: crewchat/<model>` | ✅ 已实现 |
+| Gemini CLI | 官方 `gemini --acp --skip-trust` | `GEMINI_MODEL` env / `-m`（cc-switch 写 `.env`） | 🟡 可移植 |
+| Grok | 官方 `grok agent stdio` | root `--model` / `~/.grok/config.toml` | 🟡 可移植 |
+| Hermes | `hermes acp` | `HERMES_HOME` + `config.yaml` | 🟡 可移植 |
+| Kimi Code | `kimi acp` | `KIMI_CODE_HOME` + `config.toml` | 🟡 可移植 |
+| Antigravity | 官方 `agy_acp_server` | `--gemini_dir=<私有目录>` + `settings.json` | 🟡 可移植（cc-switch 已做） |
+| OpenClaw | `openclaw acp` | 可能靠 per-session `HOME` + `openclaw.json` | ⚪ 待验证 |
+| Cline | `cline --acp` | 待查 `--model` / 配置路径 | ⚪ 待验证 |
+| CodeBuddy | `codebuddy --acp` | 待查 | ⚪ 待验证 |
+| Qoder | `qoder --acp` | 待查 | ⚪ 待验证 |
+| DeepSeek | `deepseek-acp` | 待查 | ⚪ 待验证 |
+| Pi | `pi-acp` | `pi` 的配置/环境，adapter 是否透传待查 | ⚪ 待验证 |
+| Cursor | `cursor-agent acp` | 待查 `--model` | ⚪ 待验证 |
+
+### 12.3 复用 `cc-switch`，不自己写模板
+
+[`cc-switch`](https://github.com/farion1231/cc-switch) 是 MIT、Rust/Tauri、147k★、2026-10 仍活跃，
+已经实现了这些 CLI 的配置写入与路径解析：
+
+| cc-switch 文件 | 可复用什么 |
+| --- | --- |
+| `src-tauri/src/gemini_config.rs` | `~/.gemini/.env`、`GEMINI_MODEL`、`settings.json` |
+| `src-tauri/src/grok_config.rs` | `~/.grok/config.toml` 的 model/provider/env_key |
+| `src-tauri/src/hermes_config.rs` | `HERMES_HOME`、`config.yaml` 的 model/provider |
+| `src-tauri/src/kimi_config.rs` | `KIMI_CODE_HOME`、`config.toml` 的 provider/models |
+| `src-tauri/src/openclaw_config.rs` | `openclaw.json`（JSON5）的 provider/env |
+| `src-tauri/src/codex_config.rs` | `CODEX_HOME/config.toml`、model provider |
+| `src-tauri/src/opencode_config.rs` | `OPENCODE_CONFIG`、provider/model |
+| `src-tauri/src/agy_config.rs` | `--gemini_dir` 私有目录、`settings.json`（**原生 per-session**） |
+| `src-tauri/src/pi_config/` | Pi 配置/路径 |
+| `src-tauri/src/claude_*` | Claude settings / MCP / plugin |
+
+用法：**copy + 参数化根目录**，不要直接依赖它的 Tauri/Provider 类型。
+
+- 把“写全局 `~/.xxx`”改成“写 `<data>/roles/<role>/<xxx>`”；
+- 把“设置页面切换”改成“spawn 前写一次”；
+- 保留 `[from cc-switch]` 注释，`cli-layer/NOTICE.md` 记录 MIT 与源 commit。
+
+### 12.4 注入模型抽象
+
+在 `cli-layer/src/roles.rs` 增加一个表驱动结构，而不是每个引擎写一段：
+
+```rust
+enum ModelInjection {
+    None,
+    Env(&'static str),                       // GEMINI_MODEL
+    Home { env: &'static str, kind: Writer }, // HERMES_HOME / KIMI_CODE_HOME / CODEX_HOME
+    Args { flag: &'static str, before: bool },// Grok --model, Gemini -m
+    PrivateDir { flag: &'static str, kind: Writer }, // agy --gemini_dir
+}
+```
+
+优先级：
+
+1. **Gemini / Grok / Hermes / Kimi / Antigravity**：机制已确认，直接移植 cc-switch 的 writer，
+   1–2 天可完成。
+2. **OpenClaw / Cline / CodeBuddy / Qoder / DeepSeek / Pi / Cursor**：逐个看 `--help`/配置，
+   有 `--model` 的走 Args，有 `*_HOME` 的走 Home，没有可靠隔离的标 `supported:false`。
+3. **不追求 15 个全部注入**：一个会话一个模型的前提是 CLI 能接受 per-session 配置；
+   接受不了的，不假装支持。
+
+### 12.5 长尾的官方来源
+
+- 官方 ACP agent 注册表：`https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json`
+  （当前 43 个，带 npx/binary、args/env、archive、版本）。
+- 下一步可做动态 registry：启动时拉取 + 缓存，`acp_list_agents` 合并 15 个内置 + 动态条目；
+  安装/启动复用现有 `prepare`/`download`/`connect`。
+- 动态条目默认 `overlay: None`，模型注入仍按上表逐个补。
+
+### 12.6 结论
+
+- **15 个 ACP 适配已注册，不等于 15 个都支持一个 Agent 一个模型。**
+- 现在 **3 个**（Claude / Codex / OpenCode）完成注入；**5 个**（Gemini / Grok / Hermes / Kimi /
+  Antigravity）有明确、可移植的机制；其余 7 个待验证。
+- **不自己写配置模板**：优先 copy `cc-switch`（MIT）的 writer，参数化到 per-session 根目录。
+- 下一刀：先移植 Gemini / Grok / Hermes / Kimi / Antigravity 五套注入，再用真实登录各跑一轮。
