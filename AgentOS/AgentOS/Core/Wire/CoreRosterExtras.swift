@@ -18,26 +18,6 @@ struct CoreFaceModel: Decodable, Sendable {
     }
 }
 
-struct CoreSkillsResult: Decodable, Sendable {
-    let supported: Bool
-    let message: String?
-    let skills: [CoreSkillItem]
-}
-
-struct CoreSkillItem: Decodable, Sendable {
-    let id: String
-    let name: String
-    let description: String?
-    let readOnly: Bool
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case description
-        case readOnly = "read_only"
-    }
-}
-
 struct CoreMcpScan: Decodable, Sendable {
     let servers: [CoreMcpServer]
 }

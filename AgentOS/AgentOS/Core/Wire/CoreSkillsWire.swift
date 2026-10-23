@@ -1,75 +1,99 @@
 import Foundation
 
-// [crewchat] Legacy bridge DTOs for codeg's per-engine skill commands. The
-// skill-layer `skill_list` / `skill_read` commands replace these; until they
-// land, the client reads the shared `~/.agents/skills` tree through the first
-// engine that can see it. The UI never shows the engine.
-
-struct CoreLegacySkillCatalog: Decodable, Sendable {
-    let supported: Bool
-    let message: String?
-    let skills: [CoreLegacySkill]
+struct CoreSkillCatalog: Decodable, Sendable {
+    let skills: [CoreSkillSummary]
+    let collections: [CoreSkillCollection]
+    let globalLinks: [CoreSkillGlobalLink]
 }
 
-struct CoreLegacySkill: Decodable, Sendable {
+struct CoreSkillCollection: Decodable, Sendable {
     let id: String
     let name: String
-    let scope: String
-    let layout: String
-    let path: String
-    let description: String?
-    let readOnly: Bool
+    let description: String
+    let skillIDs: [String]
 
     enum CodingKeys: String, CodingKey {
         case id
         case name
-        case scope
-        case layout
-        case path
         case description
-        case readOnly = "read_only"
+        case skillIDs = "skillIds"
+    }
+}
+
+struct CoreSkillGlobalLink: Decodable, Sendable {
+    let skillID: String
+    let agentType: String
+    let path: String
+    let state: String
+    let linkedAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case skillID = "skillId"
+        case agentType
+        case path
+        case state
+        case linkedAt
+    }
+}
+
+struct CoreSkillSummary: Decodable, Sendable {
+    let id: String
+    let name: String
+    let description: String?
+    let currentHash: String?
+    let license: String?
+    let sourceKind: String?
+    let sourceURL: String?
+    let sourceRef: String?
+    let sourceSubdir: String?
+    let hasScripts: Bool?
+    let sizeBytes: UInt64?
+    let installedAt: String?
+    let updatedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case description
+        case currentHash
+        case license
+        case sourceKind
+        case sourceURL = "sourceUrl"
+        case sourceRef
+        case sourceSubdir
+        case hasScripts
+        case sizeBytes
+        case installedAt
+        case updatedAt
     }
 
-    var domain: Skill {
+    func domain(globalLinks: [CoreSkillGlobalLink]) -> Skill {
         Skill(
             id: id,
             name: name,
             description: description,
-            sourceKind: nil,
-            sourceURL: nil,
-            currentHash: nil,
-            license: nil,
-            sizeBytes: nil,
-            hasScripts: nil,
-            installedAt: nil,
-            updatedAt: nil,
+            sourceKind: sourceKind,
+            sourceURL: sourceURL,
+            currentHash: currentHash,
+            license: license,
+            sizeBytes: sizeBytes,
+            hasScripts: hasScripts,
+            installedAt: installedAt,
+            updatedAt: updatedAt,
             agentsUsing: [],
-            globalLinks: [],
+            globalLinks: globalLinks
+                .filter { $0.skillID == id }
+                .map { SkillGlobalLink(agentType: $0.agentType, state: $0.state) },
             hasUpdate: false
         )
     }
 }
 
-struct CoreLegacySkillContent: Decodable, Sendable {
-    let skill: CoreLegacySkill
+struct CoreSkillDetail: Decodable, Sendable {
+    let skill: CoreSkillSummary
     let content: String
 }
 
-struct CoreAgentSkillListBody: Encodable {
-    let agentType: String
-    let workspacePath: String?
-}
-
 struct CoreSkillReadBody: Encodable {
-    let agentType: String
-    let scope: String
-    let skillID: String
-    let workspacePath: String?
-
-    enum CodingKeys: String, CodingKey {
-        case agentType
-        case scope
-        case skillID = "skillId"
-        case workspacePath
-    }
+    let skillId: String
 }

@@ -63,10 +63,6 @@ pub fn router(state: AppState) -> Router {
         .route("/api/get_folder_conversation", post(get_conversation))
         .route("/api/get_conversation", post(get_conversation))
         .route("/api/delete_conversation", post(delete_conversation))
-        .route("/api/acp_list_agent_skills", post(acp_list_agent_skills))
-        .route("/api/acp_read_agent_skill", post(acp_read_agent_skill))
-        .route("/api/acp_save_agent_skill", post(not_implemented))
-        .route("/api/acp_delete_agent_skill", post(not_implemented))
         .route("/api/skill_list", post(skill_list))
         .route("/api/skill_read", post(skill_read))
         .route("/api/skill_install", post(skill_install))
@@ -518,75 +514,6 @@ async fn agent_role_model_face(
         Ok(value) => Json(value).into_response(),
         Err(error) => api_error(StatusCode::BAD_GATEWAY, &error),
     }
-}
-
-async fn acp_list_agent_skills(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(_body): Json<Value>,
-) -> Response {
-    if !authorized(&state, &headers) {
-        return unauthorized();
-    }
-    match state.skill.list().await {
-        Ok(value) => {
-            let skills = value
-                .get("skills")
-                .and_then(Value::as_array)
-                .map(|rows| rows.iter().map(legacy_skill).collect::<Vec<_>>())
-                .unwrap_or_default();
-            Json(json!({"supported": true, "message": Value::Null, "skills": skills}))
-                .into_response()
-        }
-        Err(error) => Json(json!({
-            "supported": false,
-            "message": error,
-            "skills": [],
-        }))
-        .into_response(),
-    }
-}
-
-async fn acp_read_agent_skill(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(body): Json<Value>,
-) -> Response {
-    if !authorized(&state, &headers) {
-        return unauthorized();
-    }
-    let id = field(&body, &["skillId", "skill_id", "id"]).unwrap_or_default();
-    match state.skill.detail(id).await {
-        Ok(detail) => {
-            let skill = detail.get("skill").cloned().unwrap_or(Value::Null);
-            Json(json!({
-                "skill": legacy_skill(&skill),
-                "content": detail.get("content").cloned().unwrap_or(Value::Null),
-            }))
-            .into_response()
-        }
-        Err(error) => api_error(StatusCode::NOT_FOUND, &error),
-    }
-}
-
-fn legacy_skill(skill: &Value) -> Value {
-    let id = skill.get("id").and_then(Value::as_str).unwrap_or_default();
-    let root = std::env::var_os("SKILL_LAYER_ROOT")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".agents")));
-    let path = root
-        .map(|root| root.join("skills").join(id))
-        .map(|path| path.to_string_lossy().to_string())
-        .unwrap_or_default();
-    json!({
-        "id": id,
-        "name": skill.get("name").and_then(Value::as_str).unwrap_or(id),
-        "scope": "global",
-        "layout": "directory",
-        "path": path,
-        "description": skill.get("description").cloned().unwrap_or(Value::Null),
-        "read_only": false,
-    })
 }
 
 async fn skill_list(State(state): State<AppState>, headers: HeaderMap) -> Response {
