@@ -9,13 +9,6 @@ struct AgentsSettingsView: View {
     @State private var draftBaseline = AgentRole.empty
     @State private var isSaving = false
     @State private var saveError: String?
-    @State private var query = ""
-    @State private var previewSoul = false
-    @State private var previewRules = false
-    @State private var skillsExpanded = false
-    @State private var mcpExpanded = false
-    @State private var skillQuery = ""
-    @State private var mcpQuery = ""
     @State private var pendingChange: PendingChange?
     @State private var pendingDelete: AgentRole?
 
@@ -35,13 +28,23 @@ struct AgentsSettingsView: View {
         }
         .navigationTitle("settings.agents")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     request(.create)
                 } label: {
                     Label("common.add", systemImage: "plus")
                 }
                 .help("settings.agents.add")
+
+                Button(role: .destructive) {
+                    if let selected = model.agents.first(where: { $0.id == selection }) {
+                        pendingDelete = selected
+                    }
+                } label: {
+                    Label("common.delete", systemImage: "trash")
+                }
+                .disabled(selection == nil || isCreating)
+                .help("common.delete")
             }
         }
         .onChange(of: selection) { _, _ in
@@ -80,7 +83,7 @@ struct AgentsSettingsView: View {
     }
 
     private var sidebar: some View {
-        List(filteredAgents, selection: selectionBinding) { agent in
+        List(model.agents, selection: selectionBinding) { agent in
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     Text(agent.name)
@@ -108,7 +111,6 @@ struct AgentsSettingsView: View {
                 }
             }
         }
-        .searchable(text: $query, placement: .sidebar, prompt: Text("settings.agents.search"))
     }
 
     @ViewBuilder
@@ -144,60 +146,78 @@ struct AgentsSettingsView: View {
         Form {
             Section("settings.agents.identity") {
                 TextField("settings.agents.name", text: $role.name)
+            }
+
+            Section("settings.agents.runtime") {
                 engineField
-                providerField
-                modelField
+
+                if let engine = selectedEngine {
+                    LabeledContent("settings.agents.engineStatus") {
+                        Text(engineStatus(engine))
+                            .foregroundStyle(engine.available ? .primary : .secondary)
+                    }
+                }
 
                 if let enginesError = model.enginesError {
                     Text(enginesError)
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+
+                providerField
+                modelField
+
+                if let face = model.face {
+                    LabeledContent("settings.agents.modelInjection") {
+                        Text(
+                            face.supported
+                                ? LocalizedStringKey("settings.agents.modelInjection.supported")
+                                : LocalizedStringKey("settings.agents.modelInjection.unsupported")
+                        )
+                        .foregroundStyle(face.supported ? .green : .orange)
+                    }
+
+                    if let hint = faceHint {
+                        Text(hint)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             Section("settings.agents.persona") {
-                markdownField(
+                markdownPreview(
                     title: "settings.agents.soul",
-                    text: $role.soul,
-                    preview: $previewSoul
+                    text: role.soul
                 )
-                markdownField(
+                markdownPreview(
                     title: "settings.agents.rules",
-                    text: $role.rules,
-                    preview: $previewRules
+                    text: role.rules
                 )
             }
 
             Section("settings.agents.capabilities") {
-                DisclosureGroup(isExpanded: $skillsExpanded) {
-                    capabilityList(
-                        options: skillOptions,
-                        knownIDs: Set(model.skills.map(\.id)),
-                        selection: $role.skills,
-                        query: $skillQuery,
-                        isLoading: model.isLoadingCapabilities,
-                        error: model.skillsError,
-                        searchPrompt: "settings.agents.searchSkills",
-                        retry: reloadCapabilities
-                    )
-                } label: {
-                    LabeledContent("settings.agents.skills", value: "\(role.skills.count)")
-                }
+                CapabilityMultiSelect(
+                    title: "settings.agents.skills",
+                    options: model.skills,
+                    knownIDs: Set(model.skills.map(\.id)),
+                    selection: $role.skills,
+                    isLoading: model.isLoadingCapabilities,
+                    error: model.skillsError,
+                    searchPrompt: "settings.agents.searchSkills",
+                    onRetry: reloadCapabilities
+                )
 
-                DisclosureGroup(isExpanded: $mcpExpanded) {
-                    capabilityList(
-                        options: mcpOptions,
-                        knownIDs: Set(model.mcpServers.map(\.id)),
-                        selection: $role.mcp,
-                        query: $mcpQuery,
-                        isLoading: model.isLoadingCapabilities,
-                        error: model.mcpError,
-                        searchPrompt: "settings.agents.searchMCP",
-                        retry: reloadCapabilities
-                    )
-                } label: {
-                    LabeledContent("settings.agents.mcp", value: "\(role.mcp.count)")
-                }
+                CapabilityMultiSelect(
+                    title: "settings.agents.mcp",
+                    options: model.mcpServers,
+                    knownIDs: Set(model.mcpServers.map(\.id)),
+                    selection: $role.mcp,
+                    isLoading: model.isLoadingCapabilities,
+                    error: model.mcpError,
+                    searchPrompt: "settings.agents.searchMCP",
+                    onRetry: reloadCapabilities
+                )
             }
 
             Section("settings.agents.permissions") {
@@ -227,15 +247,6 @@ struct AgentsSettingsView: View {
                 }
 
                 HStack(spacing: 10) {
-                    if !isCreating, let agent = savedRole {
-                        Button("settings.agents.copy") {
-                            request(.duplicate(agent))
-                        }
-                        Button("common.delete", role: .destructive) {
-                            pendingDelete = agent
-                        }
-                    }
-
                     Spacer()
 
                     if isDirty {
@@ -316,10 +327,6 @@ struct AgentsSettingsView: View {
                 ProgressView().controlSize(.small)
             } else if let faceError = model.faceError {
                 errorLine(faceError, retry: reloadFace)
-            } else if let hint = faceHint {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -354,125 +361,43 @@ struct AgentsSettingsView: View {
         }
     }
 
-    private func markdownField(
+    private func markdownPreview(
         title: LocalizedStringKey,
-        text: Binding<String>,
-        preview: Binding<Bool>
+        text: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(title)
-                Spacer()
-                Picker("", selection: preview) {
-                    Text("settings.agents.edit").tag(false)
-                    Text("settings.agents.preview").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 140)
-            }
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-            if preview.wrappedValue {
+            if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text("settings.agents.persona.empty")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
                 ScrollView {
-                    StructuredText(markdown: text.wrappedValue)
+                    StructuredText(markdown: text)
                         .textual.structuredTextStyle(.gitHub)
                         .textual.textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(minHeight: 80, maxHeight: 160)
-            } else {
-                TextEditor(text: text)
-                    .frame(minHeight: 80)
+                .frame(minHeight: 80, maxHeight: 180)
             }
         }
     }
 
     @ViewBuilder
-    private func capabilityList(
-        options: [CapabilityOption],
-        knownIDs: Set<String>,
-        selection: Binding<[String]>,
-        query: Binding<String>,
-        isLoading: Bool,
-        error: String?,
-        searchPrompt: LocalizedStringKey,
-        retry: @escaping () -> Void
-    ) -> some View {
-        if isLoading, options.isEmpty {
-            ProgressView().controlSize(.small)
-        } else if let error {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                Button("settings.agents.retry", action: retry)
-                    .buttonStyle(.link)
-                    .font(.caption)
-            }
-        } else if options.isEmpty {
-            Text("settings.agents.capabilities.empty")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            TextField(searchPrompt, text: query)
-
-            HStack(spacing: 12) {
-                Button("settings.agents.selectAll") {
-                    for option in filtered(options, query: query.wrappedValue)
-                    where !selection.wrappedValue.contains(option.id) {
-                        selection.wrappedValue.append(option.id)
-                    }
-                }
-                Button("settings.agents.clearAll") {
-                    selection.wrappedValue.removeAll()
-                }
-                Spacer()
-                Text("\(selection.wrappedValue.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.link)
-            .font(.caption)
-
-            let missing = options.filter {
-                !knownIDs.contains($0.id) && selection.wrappedValue.contains($0.id)
-            }.count
-
-            if missing > 0 {
-                Label(
-                    String(
-                        format: String(localized: "settings.agents.capabilitiesMissing"),
-                        missing
-                    ),
-                    systemImage: "exclamationmark.triangle"
-                )
-                .font(.caption)
-                .foregroundStyle(.orange)
-            }
-
-            ForEach(filtered(options, query: query.wrappedValue)) { option in
-                Toggle(isOn: binding(for: option.id, in: selection)) {
-                    HStack(spacing: 4) {
-                        Text(option.name)
-                        if !knownIDs.contains(option.id) {
-                            Text("settings.agents.capabilityMissingShort")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-        }
+    private var selectedEngine: Engine? {
+        model.engines.first { $0.agentType == role.agentType }
     }
 
-    private func filtered(_ options: [CapabilityOption], query: String) -> [CapabilityOption] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return options }
-        return options.filter {
-            $0.name.localizedCaseInsensitiveContains(needle)
-                || $0.id.localizedCaseInsensitiveContains(needle)
+    private func engineStatus(_ engine: Engine) -> String {
+        if let version = engine.installedVersion {
+            return "v\(version)"
         }
+        return engine.available
+            ? String(localized: "settings.engines.available")
+            : String(localized: "settings.engines.missing")
     }
 
     private func errorLine(_ message: String, retry: @escaping () -> Void) -> some View {
@@ -541,37 +466,6 @@ struct AgentsSettingsView: View {
         return nil
     }
 
-    private var skillOptions: [CapabilityOption] {
-        union(model.skills, role.skills)
-    }
-
-    private var mcpOptions: [CapabilityOption] {
-        union(model.mcpServers, role.mcp)
-    }
-
-    private func union(_ options: [CapabilityOption], _ selected: [String]) -> [CapabilityOption] {
-        var all = options
-        for id in selected where !all.contains(where: { $0.id == id }) {
-            all.append(CapabilityOption(id: id, name: id, detail: nil))
-        }
-        return all
-    }
-
-    private func binding(for id: String, in values: Binding<[String]>) -> Binding<Bool> {
-        Binding(
-            get: { values.wrappedValue.contains(id) },
-            set: { isOn in
-                if isOn {
-                    if !values.wrappedValue.contains(id) {
-                        values.wrappedValue.append(id)
-                    }
-                } else {
-                    values.wrappedValue.removeAll { $0 == id }
-                }
-            }
-        )
-    }
-
     private var permissionModes: [String] {
         ["default", "acceptEdits", "auto", "dontAsk", "bypassPermissions", "plan"]
     }
@@ -596,17 +490,6 @@ struct AgentsSettingsView: View {
             parts.append(String(localized: "settings.agents.engine.disabled"))
         }
         return parts.joined(separator: " · ")
-    }
-
-    private var filteredAgents: [AgentRole] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return model.agents }
-        return model.agents.filter {
-            $0.name.localizedCaseInsensitiveContains(needle)
-                || $0.agentType.localizedCaseInsensitiveContains(needle)
-                || model.engineName(for: $0.agentType).localizedCaseInsensitiveContains(needle)
-                || $0.model.localizedCaseInsensitiveContains(needle)
-        }
     }
 
     private func subtitle(_ agent: AgentRole) -> String {
@@ -759,4 +642,175 @@ struct AgentsSettingsView: View {
 private struct ProviderChoice: Identifiable, Hashable {
     let id: String
     let name: String
+}
+
+private struct CapabilityMultiSelect: View {
+    let title: LocalizedStringKey
+    let options: [CapabilityOption]
+    let knownIDs: Set<String>
+    @Binding var selection: [String]
+    let isLoading: Bool
+    let error: String?
+    let searchPrompt: LocalizedStringKey
+    let onRetry: () -> Void
+
+    @State private var showPicker = false
+    @State private var query = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(title)
+
+                Spacer()
+
+                Text("\(selection.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    showPicker.toggle()
+                } label: {
+                    Label("settings.agents.select", systemImage: "chevron.down")
+                }
+                .controlSize(.small)
+                .popover(isPresented: $showPicker, arrowEdge: .bottom) {
+                    picker
+                }
+            }
+
+            if selection.isEmpty {
+                Text("settings.agents.noneSelected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(selectedOptions) { option in
+                    HStack(spacing: 6) {
+                        Text(option.name)
+
+                        if !knownIDs.contains(option.id) {
+                            Text("settings.agents.capabilityMissingShort")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            selection.removeAll { $0 == option.id }
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.caption2)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("common.delete")
+                    }
+                    .font(.callout)
+                }
+            }
+        }
+    }
+
+    private var picker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("", text: $query, prompt: Text(searchPrompt))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+
+            HStack(spacing: 12) {
+                Button("settings.agents.selectAll") {
+                    for option in filtered where !selection.contains(option.id) {
+                        selection.append(option.id)
+                    }
+                }
+                Button("settings.agents.clearAll") {
+                    selection.removeAll()
+                }
+                Spacer()
+                Text("\(selection.count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.link)
+            .font(.caption)
+
+            Divider()
+
+            if isLoading, options.isEmpty {
+                ProgressView().controlSize(.small)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                    Button("settings.agents.retry", action: onRetry)
+                        .buttonStyle(.link)
+                        .font(.caption)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if filtered.isEmpty {
+                Text("settings.agents.capabilities.empty")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(filtered) { option in
+                            Toggle(isOn: binding(for: option.id)) {
+                                HStack(spacing: 4) {
+                                    Text(option.name)
+                                    if !knownIDs.contains(option.id) {
+                                        Text("settings.agents.capabilityMissingShort")
+                                            .font(.caption2)
+                                            .foregroundStyle(.orange)
+                                    }
+                                }
+                            }
+                            .toggleStyle(.checkbox)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(width: 360, height: 380)
+    }
+
+    private var allOptions: [CapabilityOption] {
+        var rows = options
+        for id in selection where !rows.contains(where: { $0.id == id }) {
+            rows.append(CapabilityOption(id: id, name: id, detail: nil))
+        }
+        return rows
+    }
+
+    private var selectedOptions: [CapabilityOption] {
+        allOptions.filter { selection.contains($0.id) }
+    }
+
+    private var filtered: [CapabilityOption] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return allOptions }
+        return allOptions.filter {
+            $0.name.localizedCaseInsensitiveContains(needle)
+                || $0.id.localizedCaseInsensitiveContains(needle)
+        }
+    }
+
+    private func binding(for id: String) -> Binding<Bool> {
+        Binding(
+            get: { selection.contains(id) },
+            set: { isOn in
+                if isOn {
+                    if !selection.contains(id) {
+                        selection.append(id)
+                    }
+                } else {
+                    selection.removeAll { $0 == id }
+                }
+            }
+        )
+    }
 }
