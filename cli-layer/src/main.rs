@@ -9,6 +9,7 @@
 
 mod acp;
 mod config;
+mod engine_manager;
 mod engines;
 mod http;
 mod model_proxy;

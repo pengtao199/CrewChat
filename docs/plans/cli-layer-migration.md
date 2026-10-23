@@ -379,3 +379,20 @@ skills / MCP / engine install、数据迁移、打包。
 scheme 里 `AGENTOS_CLI_LAYER_BINARY` 默认关闭；未启用时行为与现在完全一致。
 技能/MCP/引擎安装/委派仍是 501，所以这个开关只用于聊天/模型/花名册验证，
 Phase 3 再默认打开。
+
+### CLI 管理后端（2026-10-23）
+
+六个 501 已补齐：
+
+- `acp_update_agent_preferences`：`engine_settings` 表存 enabled/env；`acp_list_agents`
+  回填；env 实测能进入子进程。
+- `acp_fetch_agent_latest_release`：npx 走 `npm view`，OpenCode 走 GitHub releases；
+  实测 Claude 0.94.0 / OpenCode 1.19.4 / Pi 0.0.34。
+- `acp_prepare_npx_agent`：安装到 `<data>/engines/<agent>`，本地 `.bin` 优先于 npx；
+  Claude 0.89.1、Codex 2.2.2、Pi 0.0.34 已安装并成功 `acp_connect`。
+- `acp_download_agent_binary`：OpenCode 1.18.35 下载/解压/`chmod`，本地二进制可
+  `acp_connect`（需带 `acp` 参数）。
+- `acp_install_pi_binary`：路由已实现（全局 npm），本机未执行。
+- `acp_env_diagnostics`：Node/npm/adapter/数据目录四段检查。
+
+前端未动；AgentOS 的 CLI 页接线后即可用。

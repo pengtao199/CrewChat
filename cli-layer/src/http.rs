@@ -4,6 +4,7 @@
 //! ACP session path. Skills/MCP/engine-install/delegation return a structured
 //! `not_implemented` until their phases land.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -19,6 +20,7 @@ use serde_json::{json, Value};
 
 use crate::acp::host::AcpHost;
 use crate::config::Config;
+use crate::engine_manager;
 use crate::model_proxy::ModelLayerClient;
 use crate::store::Store;
 use crate::ws;
@@ -66,12 +68,21 @@ pub fn router(state: AppState) -> Router {
         .route("/api/mcp_scan_local", post(not_implemented))
         .route("/api/mcp_upsert_local_server", post(not_implemented))
         .route("/api/mcp_remove_server", post(not_implemented))
-        .route("/api/acp_update_agent_preferences", post(not_implemented))
-        .route("/api/acp_fetch_agent_latest_release", post(not_implemented))
-        .route("/api/acp_prepare_npx_agent", post(not_implemented))
-        .route("/api/acp_download_agent_binary", post(not_implemented))
-        .route("/api/acp_install_pi_binary", post(not_implemented))
-        .route("/api/acp_env_diagnostics", post(not_implemented))
+        .route(
+            "/api/acp_update_agent_preferences",
+            post(acp_update_agent_preferences),
+        )
+        .route(
+            "/api/acp_fetch_agent_latest_release",
+            post(acp_fetch_agent_latest_release),
+        )
+        .route("/api/acp_prepare_npx_agent", post(acp_prepare_npx_agent))
+        .route(
+            "/api/acp_download_agent_binary",
+            post(acp_download_agent_binary),
+        )
+        .route("/api/acp_install_pi_binary", post(acp_install_pi_binary))
+        .route("/api/acp_env_diagnostics", post(acp_env_diagnostics))
         .route("/api/get_delegation_settings", post(not_implemented))
         .route("/api/set_delegation_settings", post(not_implemented))
         .route("/ws/events", get(events_ws))
@@ -174,7 +185,16 @@ async fn acp_list_agents(State(state): State<AppState>, headers: HeaderMap) -> R
     if !authorized(&state, &headers) {
         return unauthorized();
     }
-    Json(state.host.engines().list()).into_response()
+    let mut agents = state.host.engines().list();
+    for agent in &mut agents {
+        if let Some(agent_type) = agent.get("agent_type").and_then(Value::as_str) {
+            if let Ok(preferences) = state.store.engine_preferences(agent_type) {
+                agent["enabled"] = json!(preferences.enabled);
+                agent["env"] = json!(preferences.env);
+            }
+        }
+    }
+    Json(agents).into_response()
 }
 
 async fn acp_connect(
@@ -186,6 +206,13 @@ async fn acp_connect(
         return unauthorized();
     }
     let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
+    let preferences = state
+        .store
+        .engine_preferences(agent_type)
+        .unwrap_or_default();
+    if !preferences.enabled {
+        return api_error(StatusCode::BAD_REQUEST, "this engine is disabled");
+    }
     let cwd = field(&body, &["workingDir", "working_dir"])
         .map(PathBuf::from)
         .or_else(|| std::env::current_dir().ok())
@@ -217,6 +244,7 @@ async fn acp_connect(
             role,
             api_key,
             field(&body, &["conversationId", "conversation_id"]).map(str::to_string),
+            preferences.env,
         )
         .await
     {
@@ -299,6 +327,119 @@ async fn acp_respond_permission(
     } else {
         api_error(StatusCode::NOT_FOUND, "unknown permission request")
     }
+}
+
+async fn acp_update_agent_preferences(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
+    if agent_type.is_empty() {
+        return api_error(StatusCode::BAD_REQUEST, "agentType is required");
+    }
+    let enabled = body.get("enabled").and_then(Value::as_bool).unwrap_or(true);
+    let env: BTreeMap<String, String> = body
+        .get("env")
+        .and_then(Value::as_object)
+        .map(|object| {
+            object
+                .iter()
+                .filter_map(|(key, value)| {
+                    value.as_str().map(|value| (key.clone(), value.to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    match state
+        .store
+        .save_engine_preferences(agent_type, enabled, &env)
+    {
+        Ok(()) => Json(Value::Null).into_response(),
+        Err(error) => api_error(StatusCode::INTERNAL_SERVER_ERROR, &error.to_string()),
+    }
+}
+
+async fn acp_fetch_agent_latest_release(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
+    match engine_manager::latest_version(&state.config, agent_type).await {
+        Ok(Some(version)) => Json(json!({"version": version})).into_response(),
+        Ok(None) => Json(Value::Null).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn acp_prepare_npx_agent(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
+    let version = field(&body, &["version", "registryVersion", "registry_version"]);
+    let clean_first = body
+        .get("cleanFirst")
+        .or_else(|| body.get("clean_first"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    match engine_manager::prepare_npx(&state.config, agent_type, version, clean_first).await {
+        Ok(version) => Json(json!(version)).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn acp_download_agent_binary(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
+    let version = field(&body, &["version"]);
+    match engine_manager::download_binary(&state.config, agent_type, version).await {
+        Ok(version) => Json(json!(version)).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn acp_install_pi_binary(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(_body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match engine_manager::install_pi_binary().await {
+        Ok(_) => Json(Value::Null).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
+async fn acp_env_diagnostics(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or_default();
+    Json(engine_manager::diagnostics(&state.config, agent_type).await).into_response()
 }
 
 async fn agent_roles_list(State(state): State<AppState>, headers: HeaderMap) -> Response {

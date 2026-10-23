@@ -41,7 +41,10 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
 | `ccr_health` / `ccr_call` / provider save/delete/probe / disabled models | ✅ 薄代理到 model-layer |
 | `agent_roles_*` / `agent_role_model_face` | ✅ 基础 |
 | folders / conversations | ✅ 基础 |
-| skills / MCP / engine install / delegation | 501，Phase 2–4 |
+| CLI 偏好 / env | ✅ `acp_update_agent_preferences` |
+| 引擎版本 / 安装 / 升级 | ✅ `acp_fetch_agent_latest_release`、`acp_prepare_npx_agent`、`acp_download_agent_binary`、`acp_install_pi_binary` |
+| 环境诊断 | ✅ `acp_env_diagnostics` |
+| skills / MCP / delegation | 501，Phase 3 |
 
 ## 已验证（2026-10-22）
 
@@ -60,6 +63,14 @@ MODEL_LAYER_GATEWAY_URL=http://127.0.0.1:3456 \
   `OpenCode Go`。
 - `/ws/events`：ready → replay → attached → event。
 - 模型页代理：`getConfig` 返回 3 provider / 38 models。
+- CLI 管理后端：
+  - `acp_list_agents` 返回 installed/registry version、enabled、env；
+  - `acp_update_agent_preferences` 的 env 能进入子进程（fake agent 收到 `env:bar`）；
+  - Claude 0.89.1 / Codex 2.2.2 / Pi 0.0.34 走 `acp_prepare_npx_agent`，OpenCode 1.18.35 走
+    `acp_download_agent_binary`，本地安装后 `acp_connect` 可初始化；
+  - `acp_fetch_agent_latest_release` 实测 Claude 0.94.0 / OpenCode 1.19.4 / Pi 0.0.34；
+  - `acp_env_diagnostics` 返回 Node/npm/adapter/数据目录检查。
+  - `acp_install_pi_binary` 路由已实现，但没在本机跑全局 npm 安装。
 
 ## 接到 AgentOS（开发开关，默认关闭）
 

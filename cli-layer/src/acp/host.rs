@@ -5,14 +5,14 @@
 //! module. The shape follows the official `agent-client-protocol` client
 //! example; the permission broker and per-role env are ours.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
-    CancelNotification, ContentBlock, InitializeRequest, NewSessionRequest, PromptRequest,
-    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    CancelNotification, ClientCapabilities, ContentBlock, InitializeRequest, NewSessionRequest,
+    PromptRequest, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     SelectedPermissionOutcome, SessionId, SessionNotification, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
@@ -141,6 +141,7 @@ impl AcpHost {
         role: Option<Value>,
         api_key: Option<String>,
         conversation_id: Option<String>,
+        engine_env: BTreeMap<String, String>,
     ) -> Result<Value> {
         let kind = self
             .engines
@@ -157,10 +158,10 @@ impl AcpHost {
             )?),
             None => None,
         };
-        let env = overlay
-            .as_ref()
-            .map(|overlay| overlay.env.clone())
-            .unwrap_or_default();
+        let mut env = engine_env;
+        if let Some(overlay) = &overlay {
+            env.extend(overlay.env.clone());
+        }
         let agent = self.engines.acp_agent(kind, &env)?;
 
         let connection_id = uuid::Uuid::new_v4().to_string();
@@ -227,7 +228,10 @@ impl AcpHost {
                 )
                 .connect_with(agent, move |connection: ConnectionTo<Agent>| async move {
                     let _initialize = connection
-                        .send_request(InitializeRequest::new(ProtocolVersion::V1))
+                        .send_request(
+                            InitializeRequest::new(ProtocolVersion::V1)
+                                .client_capabilities(ClientCapabilities::new()),
+                        )
                         .block_task()
                         .await?;
                     let session = connection
@@ -279,7 +283,7 @@ impl AcpHost {
             }
         });
 
-        let session_id = match tokio::time::timeout(Duration::from_secs(60), ready_rx).await {
+        let session_id = match tokio::time::timeout(Duration::from_secs(180), ready_rx).await {
             Ok(Ok(session_id)) => session_id,
             Ok(Err(_)) => {
                 task.abort();
