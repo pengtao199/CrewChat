@@ -366,6 +366,10 @@ impl TeamService {
             .unwrap_or_default()
             .to_string();
         let usage = outcome.get("usage").cloned().unwrap_or(Value::Null);
+        let artifacts = outcome
+            .get("artifacts")
+            .cloned()
+            .unwrap_or_else(|| json!([]));
         let error = outcome.get("error").cloned().unwrap_or(Value::Null);
         let phase = outcome.get("phase").and_then(Value::as_str).unwrap_or("");
         let current_status = self
@@ -389,6 +393,7 @@ impl TeamService {
             "error": error,
             "phase": outcome.get("phase").cloned().unwrap_or(Value::Null),
             "durationMs": duration_ms,
+            "artifacts": artifacts,
         });
         self.teams
             .update_delegation(&delegation.id, status, Some(&result), Some(&usage), None)?;
@@ -412,6 +417,7 @@ impl TeamService {
                 "summary": result["summary"],
                 "usage": usage,
                 "durationMs": duration_ms,
+                "artifacts": result["artifacts"],
                 "error": if ok { Value::Null } else { error.clone() },
             }),
         );
@@ -423,6 +429,7 @@ impl TeamService {
             "status": status,
             "summary": result["summary"],
             "usage": usage,
+            "artifacts": result["artifacts"],
             "error": if ok { Value::Null } else { error },
         }))
     }
@@ -737,11 +744,19 @@ mod tests {
                     payload: json!({"text": "built"}),
                 },
                 EventEnvelope {
-                    kind: "usage".to_string(),
+                    kind: "tool_call".to_string(),
                     connection_id: "test-connection".to_string(),
                     conversation_id: None,
                     speaker_role_id: None,
                     seq: 2,
+                    payload: json!({"raw": {"locations": [{"path": "/tmp/result.swift"}]}}),
+                },
+                EventEnvelope {
+                    kind: "usage".to_string(),
+                    connection_id: "test-connection".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
+                    seq: 3,
                     payload: json!({"usage": {"input": 2, "output": 1}}),
                 },
                 EventEnvelope {
@@ -749,7 +764,7 @@ mod tests {
                     connection_id: "test-connection".to_string(),
                     conversation_id: None,
                     speaker_role_id: None,
-                    seq: 3,
+                    seq: 4,
                     payload: json!({"stop_reason": "end_turn"}),
                 },
             ]),
@@ -804,6 +819,7 @@ mod tests {
         let status = team.status(&conversation).unwrap();
         assert_eq!(status["usage"]["input"], 2);
         assert_eq!(status["members"][1]["usage"]["input"], 2);
+        assert_eq!(result["artifacts"][0], "/tmp/result.swift");
         assert!(team
             .retry(result["delegationId"].as_str().unwrap())
             .await

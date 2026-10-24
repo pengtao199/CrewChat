@@ -612,7 +612,8 @@ ACP update
 - 事件 envelope 带 `conversation_id` / `speaker_role_id`；团队委派事件写
   `delegation_started/completed/cancelled`，可按会话回放。
 - Leader/成员连接状态写入 `conversation_agents`；`get_conversation` 汇总
-  `summary.usage` 与 `members[].usage`；失败/取消委派可 `retry_delegation`。
+  `summary.usage` 与 `members[].usage`；失败/取消委派可 `retry_delegation`，
+delegation result 带 `artifacts`（来自 ACP tool locations）与 `durationMs`。
 - `acp_connect` 接收 `sessionId` 时走 ACP `session/load`；连接成功后把
   `session_id` 写回 `conversations.external_id`，会话可恢复。
 - 未完成：`permission_mode` 到引擎参数的映射、工具级 allow/ask/deny、

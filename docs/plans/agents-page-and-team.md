@@ -703,7 +703,7 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 ### P2：团队执行质量
 
 - ✅ usage 汇总到会话/成员（`summary.usage`、`members[].usage`）
-- 🟡 artifacts 结构化返回
+- ✅ artifacts 从 ACP tool call locations 提取并写入 delegation result
 - ✅ 失败/取消委派可重试（`retry_delegation`）；最大轮数、预算未做
 - 🟡 团队重启后的成员池恢复
 

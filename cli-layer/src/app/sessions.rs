@@ -321,13 +321,14 @@ impl SessionService {
             .await;
         self.runtime.close(&connection_id);
         self.connections.lock().unwrap().remove(&connection_id);
-        let (ok, phase, error, text, usage, events_seen) = outcome;
+        let (ok, phase, error, text, usage, artifacts, events_seen) = outcome;
         Ok(self.turn_result(
             ok,
             phase,
             error,
             text,
             usage,
+            artifacts,
             events_seen,
             model,
             started.elapsed(),
@@ -365,7 +366,7 @@ impl SessionService {
                 Some(connection_id),
             ));
         }
-        let (ok, phase, error, text, usage, events_seen) = self
+        let (ok, phase, error, text, usage, artifacts, events_seen) = self
             .wait_for_turn(&connection_id, events, timeout_seconds)
             .await;
         if ok {
@@ -386,6 +387,7 @@ impl SessionService {
             error,
             text,
             usage,
+            artifacts,
             events_seen,
             model,
             started.elapsed(),
@@ -490,10 +492,11 @@ impl SessionService {
         connection_id: &str,
         mut events: Box<dyn EventSubscription>,
         timeout_seconds: u64,
-    ) -> (bool, String, String, String, Value, u64) {
+    ) -> (bool, String, String, String, Value, Vec<String>, u64) {
         timeout(Duration::from_secs(timeout_seconds), async {
             let mut text = String::new();
             let mut usage = Value::Null;
+            let mut artifacts = Vec::new();
             let mut events_seen = 0u64;
             loop {
                 let Some(event) = events.recv().await else {
@@ -503,6 +506,7 @@ impl SessionService {
                         "event stream closed".to_string(),
                         text,
                         usage,
+                        artifacts,
                         events_seen,
                     );
                 };
@@ -517,6 +521,9 @@ impl SessionService {
                         }
                     }
                     "usage" => usage = event.payload.get("usage").cloned().unwrap_or(Value::Null),
+                    "tool_call" | "tool_call_update" => {
+                        collect_artifacts(&event.payload, &mut artifacts);
+                    }
                     "permission_request" => {
                         return (
                             false,
@@ -524,6 +531,7 @@ impl SessionService {
                             "the prompt raised a permission request".to_string(),
                             text,
                             usage,
+                            artifacts,
                             events_seen,
                         )
                     }
@@ -535,6 +543,7 @@ impl SessionService {
                                 error.to_string(),
                                 text,
                                 usage,
+                                artifacts,
                                 events_seen,
                             );
                         }
@@ -551,6 +560,7 @@ impl SessionService {
                                 "the turn was cancelled".to_string(),
                                 text,
                                 usage,
+                                artifacts,
                                 events_seen,
                             );
                         }
@@ -560,6 +570,7 @@ impl SessionService {
                             String::new(),
                             text,
                             usage,
+                            artifacts,
                             events_seen,
                         );
                     }
@@ -575,6 +586,7 @@ impl SessionService {
                 format!("the prompt did not finish within {timeout_seconds} seconds"),
                 String::new(),
                 Value::Null,
+                Vec::new(),
                 0,
             )
         })
@@ -588,6 +600,7 @@ impl SessionService {
         error: String,
         text: String,
         usage: Value,
+        artifacts: Vec<String>,
         events_seen: u64,
         model: Option<String>,
         elapsed: Duration,
@@ -615,6 +628,7 @@ impl SessionService {
             connection_id,
         );
         value["text"] = json!(text);
+        value["artifacts"] = json!(artifacts);
         value["events"] = json!(events_seen);
         value
     }
@@ -808,6 +822,31 @@ impl SessionService {
         env: &BTreeMap<String, String>,
     ) -> Result<()> {
         self.engines.save_preferences(agent_type, enabled, env)
+    }
+}
+
+fn collect_artifacts(payload: &Value, artifacts: &mut Vec<String>) {
+    for value in [payload.get("raw"), payload.get("raw_output")]
+        .into_iter()
+        .flatten()
+    {
+        let locations = value
+            .get("locations")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        for location in locations {
+            if let Some(path) = location.get("path").and_then(Value::as_str) {
+                if !path.is_empty() && !artifacts.iter().any(|item| item == path) {
+                    artifacts.push(path.to_string());
+                }
+            }
+        }
+        if let Some(path) = value.get("path").and_then(Value::as_str) {
+            if !path.is_empty() && !artifacts.iter().any(|item| item == path) {
+                artifacts.push(path.to_string());
+            }
+        }
     }
 }
 
