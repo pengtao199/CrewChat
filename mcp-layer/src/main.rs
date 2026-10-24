@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crewchat_mcp::config::Config;
+use crewchat_mcp::health;
 use crewchat_mcp::http::{router, AppState};
 use crewchat_mcp::proxy::ProxyManager;
 use crewchat_mcp::registry::Registry;
@@ -35,7 +36,9 @@ async fn main() -> Result<()> {
         registry: Arc::new(Mutex::new(registry)),
         proxies: proxies.clone(),
         token: Arc::new(config.token.clone()),
+        health: health::new_cache(),
     };
+    health::startup(&state);
 
     let listener = tokio::net::TcpListener::bind((config.host.as_str(), config.port)).await?;
     config.write_runtime()?;

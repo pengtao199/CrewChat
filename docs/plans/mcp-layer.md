@@ -107,7 +107,7 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 ```
 ~/.agents/mcp/
   servers/<id>.json          # 唯一 server 定义；不含明文密钥
-  registry.sqlite            # servers / agents / 端口 / token 引用 / 健康
+  registry.sqlite            # servers / agents / 端口 / token 引用（健康缓存在内存）
   runtime/proxies/<agent>/   # 每 Agent 的 proxy.toml / 日志
 ```
 
@@ -169,7 +169,7 @@ Claude / Codex / OpenCode / ...（ACP adapter）
 - Agent 修改：停止旧实例，写新配置，启动新实例；活跃会话不热改，重连后生效。
 - Server 修改：重启引用该 server 的 Agent 实例；其他实例不动。
 - Server 删除：从所有 Agent 选择中移除；重启受影响实例。
-- 健康：检查 proxy 端口/HTTP；失败标 `unavailable`。
+- 健康：对每个启用 server 做一次性 MCP `initialize` + `tools/list`；失败标 `unavailable` 并缓存错误。
 - 网关只监听 `127.0.0.1`。
 
 ---

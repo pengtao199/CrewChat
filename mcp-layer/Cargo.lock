@@ -434,6 +434,7 @@ dependencies = [
  "time",
  "tokio",
  "toml",
+ "tower-mcp",
  "tracing",
  "tracing-subscriber",
  "uuid",

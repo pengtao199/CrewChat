@@ -59,12 +59,16 @@ final class MCPSettingsViewModel {
         return result
     }
 
-    func isInUse(_ id: String) -> Bool {
-        agents.contains { $0.mcp.contains(id) }
+    func checkAll() async throws {
+        try await client.check(serverID: nil)
     }
 
-    func contains(id: String) -> Bool {
-        servers.contains { $0.id == id }
+    func check(id: String) async throws {
+        try await client.check(serverID: id)
+    }
+
+    func isInUse(_ id: String) -> Bool {
+        agents.contains { $0.mcp.contains(id) }
     }
 
     private func apply(_ server: MCPServer) {

@@ -4,8 +4,7 @@ struct MCPDetailForm: View {
     @Binding var draft: MCPServerDraft
     @Binding var advancedExpanded: Bool
 
-    let isNew: Bool
-    let duplicateID: Bool
+    let health: MCPServerHealth?
     let isSaving: Bool
     let loadError: String?
     let saveError: String?
@@ -30,24 +29,39 @@ struct MCPDetailForm: View {
                 }
             }
 
-            Section {
-                TextField("settings.mcp.name", text: $draft.name)
-                TextField("settings.mcp.id", text: $draft.id)
-                    .font(.system(.body, design: .monospaced))
-                    .disabled(!isNew)
-                TextField("settings.mcp.description", text: $draft.description, axis: .vertical)
-                    .lineLimit(2...4)
+            Section("settings.mcp.basic") {
+                LabeledContent("settings.mcp.id") {
+                    Text(draft.id)
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                }
+
+                LabeledContent("settings.mcp.status") {
+                    MCPStatusBadge(availability: availability)
+                }
+
+                if availability == .available, let count = health?.toolCount {
+                    LabeledContent("settings.mcp.tools") {
+                        Text("\(count)")
+                    }
+                }
+
                 Picker("settings.mcp.transport", selection: $draft.transport) {
                     ForEach(transports, id: \.self) { transport in
                         Text(verbatim: transport).tag(transport)
                     }
                 }
+
                 Toggle("settings.mcp.enabled", isOn: $draft.enabled)
-            } header: {
-                Text("settings.mcp.basic")
-            } footer: {
-                Text(isNew ? "settings.mcp.idHint" : "settings.mcp.idLocked")
-                    .foregroundStyle(.secondary)
+            }
+
+            if availability == .unavailable, let error = health?.error {
+                Section("settings.mcp.status.error") {
+                    Text(error)
+                        .font(.callout)
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
             }
 
             if draft.isRemote {
@@ -56,14 +70,7 @@ struct MCPDetailForm: View {
                 stdioSection
             }
 
-            if duplicateID {
-                Section {
-                    Text("settings.mcp.idDuplicate")
-                        .foregroundStyle(.red)
-                }
-            }
-
-            if let validation = draft.validationMessage, showsValidation {
+            if let validation = draft.validationMessage {
                 Section {
                     Text(validation)
                         .foregroundStyle(.orange)
@@ -160,13 +167,7 @@ struct MCPDetailForm: View {
         return values
     }
 
-    private var showsValidation: Bool {
-        !draft.id.isEmpty
-            || !draft.name.isEmpty
-            || !draft.command.isEmpty
-            || !draft.url.isEmpty
-            || !draft.argsText.isEmpty
-            || !draft.envText.isEmpty
-            || !draft.headersText.isEmpty
+    private var availability: MCPAvailability {
+        MCPAvailability.resolve(enabled: draft.enabled, health: health)
     }
 }

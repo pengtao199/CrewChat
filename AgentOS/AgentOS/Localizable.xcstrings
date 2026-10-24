@@ -2278,16 +2278,6 @@
         }
       }
     },
-    "settings.mcp.add" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "添加 MCP 服务"
-          }
-        }
-      }
-    },
     "settings.mcp.advanced" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2304,204 +2294,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "只读预览，保存时以该结构写入核心。"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.antigravity" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.claudeCode" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude Code"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.cline" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cline"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.codeBuddy" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "CodeBuddy"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.codex" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Codex"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.cursor" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cursor"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.deepseek" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "DeepSeek"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.gemini" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gemini"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.grok" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Grok"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.hermes" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hermes"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.kimiCode" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kimi Code"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.openClaw" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OpenClaw"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.openCode" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OpenCode"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.pi" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pi"
-          }
-        }
-      }
-    },
-    "settings.mcp.app.qoder" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Qoder"
-          }
-        }
-      }
-    },
-    "settings.mcp.appCount" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 个 CLI"
-          }
-        }
-      }
-    },
-    "settings.mcp.apps" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "写入的 CLI"
-          }
-        }
-      }
-    },
-    "settings.mcp.appsHint" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存会把这个服务写进勾选的 CLI，并从没勾选的 CLI 移除。"
           }
         }
       }
@@ -2596,16 +2388,6 @@
         }
       }
     },
-    "settings.mcp.description" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "描述"
-          }
-        }
-      }
-    },
     "settings.mcp.disabled" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2616,23 +2398,12 @@
         }
       }
     },
-    "settings.mcp.edit" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑 MCP 服务"
-          }
-        }
-      }
-    },
     "settings.mcp.empty.description" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "添加一个 MCP 服务，供 Agent 选择；所有 Agent 共用这一份库。"
+            "value" : "在对话里让 AI 安装 MCP；安装成功后会自动出现在这里。"
           }
         }
       }
@@ -2707,36 +2478,6 @@
         }
       }
     },
-    "settings.mcp.idDuplicate" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已存在相同 ID 的 MCP，请换一个 ID。"
-          }
-        }
-      }
-    },
-    "settings.mcp.idHint" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅支持字母、数字、- 和 _；创建后不可修改。"
-          }
-        }
-      }
-    },
-    "settings.mcp.idLocked" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ID 创建后不可修改。"
-          }
-        }
-      }
-    },
     "settings.mcp.idRequired" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2747,76 +2488,12 @@
         }
       }
     },
-    "settings.mcp.jsonInvalid" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "JSON 格式错误。"
-          }
-        }
-      }
-    },
-    "settings.mcp.name" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "名称"
-          }
-        }
-      }
-    },
-    "settings.mcp.nameRequired" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请填写名称。"
-          }
-        }
-      }
-    },
-    "settings.mcp.new" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新建 MCP 服务"
-          }
-        }
-      }
-    },
-    "settings.mcp.noApps" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未写入任何 CLI"
-          }
-        }
-      }
-    },
     "settings.mcp.noMatches" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "没有匹配的 MCP"
-          }
-        }
-      }
-    },
-    "settings.mcp.objectRequired" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "配置必须是一个 JSON 对象。"
           }
         }
       }
@@ -2871,35 +2548,82 @@
         }
       }
     },
-    "settings.mcp.selectedApps" : {
-      "extractionState" : "stale",
+    "settings.mcp.status" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已选 %lld 个 CLI"
+            "value" : "状态"
           }
         }
       }
     },
-    "settings.mcp.spec" : {
-      "extractionState" : "stale",
+    "settings.mcp.status.available" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "配置 JSON"
+            "value" : "可用"
           }
         }
       }
     },
-    "settings.mcp.specHint" : {
-      "extractionState" : "stale",
+    "settings.mcp.status.unavailable" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "直接编辑写入 CLI 配置的对象；类型支持 stdio / http / sse。"
+            "value" : "不可用"
+          }
+        }
+      }
+    },
+    "settings.mcp.status.checking" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测中"
+          }
+        }
+      }
+    },
+    "settings.mcp.status.unknown" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测"
+          }
+        }
+      }
+    },
+    "settings.mcp.status.error" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查失败"
+          }
+        }
+      }
+    },
+    "settings.mcp.tools" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工具"
+          }
+        }
+      }
+    },
+    "settings.mcp.empty.sidebar" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 AI 安装后会自动出现"
           }
         }
       }
@@ -2914,67 +2638,12 @@
         }
       }
     },
-    "settings.mcp.summary" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "摘要"
-          }
-        }
-      }
-    },
-    "settings.mcp.template" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "模板"
-          }
-        }
-      }
-    },
-    "settings.mcp.template.http" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "HTTP 地址"
-          }
-        }
-      }
-    },
-    "settings.mcp.template.stdio" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "stdio 命令"
-          }
-        }
-      }
-    },
     "settings.mcp.transport" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "传输方式"
-          }
-        }
-      }
-    },
-    "settings.mcp.type" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "类型"
           }
         }
       }
@@ -2995,17 +2664,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "远程服务需要填写地址。"
-          }
-        }
-      }
-    },
-    "settings.mcp.warnings" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld 个配置读取失败"
           }
         }
       }

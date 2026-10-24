@@ -24,11 +24,11 @@ final class CoreCapabilitiesClient: CoreCapabilities, @unchecked Sendable {
             body: EmptyBody()
         )
         return list.servers
-            .filter(\.enabled)
+            .filter { $0.enabled && $0.health?.available == true }
             .map {
                 CapabilityOption(
                     id: $0.id,
-                    name: $0.spec.name.isEmpty ? $0.id : $0.spec.name,
+                    name: $0.id,
                     detail: $0.spec.transport
                 )
             }

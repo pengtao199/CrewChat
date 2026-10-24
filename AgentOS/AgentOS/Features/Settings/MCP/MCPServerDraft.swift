@@ -87,9 +87,6 @@ struct MCPServerDraft: Equatable {
         if id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return String(localized: "settings.mcp.idRequired")
         }
-        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return String(localized: "settings.mcp.nameRequired")
-        }
         if isRemote {
             if url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return String(localized: "settings.mcp.urlRequired")
@@ -128,7 +125,7 @@ struct MCPServerDraft: Equatable {
 
         return MCPServerSpec(
             id: trimmedID,
-            name: trimmedName,
+            name: trimmedName.isEmpty ? trimmedID : trimmedName,
             transport: transport,
             description: trimmedDescription,
             enabled: enabled,

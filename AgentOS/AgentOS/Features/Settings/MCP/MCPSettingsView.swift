@@ -4,12 +4,12 @@ struct MCPSettingsView: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var query = ""
     @State private var selection: String?
-    @State private var isCreating = false
     @State private var draft = MCPServerDraft.empty
     @State private var baseline = MCPServerDraft.empty
     @State private var isSaving = false
     @State private var saveError: String?
     @State private var saveTask: Task<Void, Never>?
+    @State private var pollTask: Task<Void, Never>?
     @State private var pendingDelete: MCPServer?
     @State private var advancedExpanded = false
     @State private var warnings: [String] = []
@@ -25,13 +25,6 @@ struct MCPSettingsView: View {
         .navigationTitle("settings.mcp")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    Task { await startCreate() }
-                } label: {
-                    Label("settings.mcp.add", systemImage: "plus")
-                }
-                .help("settings.mcp.add")
-
                 Button(role: .destructive) {
                     if let selectedServer {
                         pendingDelete = selectedServer
@@ -39,7 +32,7 @@ struct MCPSettingsView: View {
                 } label: {
                     Label("common.delete", systemImage: "trash")
                 }
-                .disabled(selectedServer == nil || isCreating || isSaving)
+                .disabled(selectedServer == nil || isSaving)
                 .help("common.delete")
 
                 Button {
@@ -57,9 +50,15 @@ struct MCPSettingsView: View {
         .task {
             await model.load()
             selectFirstIfNeeded()
+            if model.servers.contains(where: { $0.availability() == .unknown }) {
+                try? await model.checkAll()
+                await model.load()
+            }
+            startPolling()
         }
         .onDisappear {
             saveTask?.cancel()
+            pollTask?.cancel()
             Task { await saveDraft() }
         }
         .alert(
@@ -107,9 +106,10 @@ struct MCPSettingsView: View {
                         .foregroundStyle(.secondary)
 
                     if model.servers.isEmpty {
-                        Button("settings.mcp.add") {
-                            Task { await startCreate() }
-                        }
+                        Text("settings.mcp.empty.sidebar")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                            .multilineTextAlignment(.center)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -117,15 +117,11 @@ struct MCPSettingsView: View {
                 Spacer()
             } else {
                 List(filteredServers, selection: selectionBinding) { server in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 5) {
-                            Text(server.name)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(server.id)
                                 .lineLimit(1)
-                            if !server.enabled {
-                                Text("settings.mcp.disabled")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
+                            MCPStatusBadge(availability: server.availability())
                         }
                         Text(server.summary)
                             .font(.caption)
@@ -150,7 +146,7 @@ struct MCPSettingsView: View {
 
     @ViewBuilder
     private var detailContent: some View {
-        if let message = model.errorMessage, model.servers.isEmpty, !isCreating {
+        if let message = model.errorMessage, model.servers.isEmpty {
             ContentUnavailableView {
                 Label("common.error", systemImage: "exclamationmark.triangle")
             } description: {
@@ -160,12 +156,11 @@ struct MCPSettingsView: View {
                     Task { await refresh() }
                 }
             }
-        } else if isCreating || selection != nil {
+        } else if let selectedServer {
             MCPDetailForm(
                 draft: $draft,
                 advancedExpanded: $advancedExpanded,
-                isNew: isCreating,
-                duplicateID: duplicateID,
+                health: selectedServer.health,
                 isSaving: isSaving,
                 loadError: model.errorMessage,
                 saveError: saveError
@@ -175,10 +170,6 @@ struct MCPSettingsView: View {
                 Label("settings.mcp.empty.title", systemImage: "puzzlepiece.extension")
             } description: {
                 Text("settings.mcp.empty.description")
-            } actions: {
-                Button("settings.mcp.add") {
-                    Task { await startCreate() }
-                }
             }
         } else {
             SelectItemPlaceholder()
@@ -213,10 +204,8 @@ struct MCPSettingsView: View {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return model.servers }
         return model.servers.filter {
-            $0.name.localizedCaseInsensitiveContains(needle)
-                || $0.id.localizedCaseInsensitiveContains(needle)
+            $0.id.localizedCaseInsensitiveContains(needle)
                 || $0.summary.localizedCaseInsensitiveContains(needle)
-                || $0.spec.description.localizedCaseInsensitiveContains(needle)
         }
     }
 
@@ -238,14 +227,8 @@ struct MCPSettingsView: View {
         draft != baseline
     }
 
-    private var duplicateID: Bool {
-        guard isCreating else { return false }
-        let id = draft.id.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !id.isEmpty && model.contains(id: id)
-    }
-
     private func scheduleAutoSave() {
-        guard isDirty, draft.isValid, !duplicateID, !isSaving else { return }
+        guard isDirty, draft.isValid, !isSaving else { return }
 
         saveTask?.cancel()
         saveTask = Task {
@@ -256,13 +239,12 @@ struct MCPSettingsView: View {
     }
 
     private func saveDraft() async {
-        guard isDirty, draft.isValid, !duplicateID, !isSaving else { return }
+        guard isDirty, draft.isValid, !isSaving else { return }
         guard let spec = draft.spec() else { return }
 
         isSaving = true
         saveError = nil
         let snapshot = draft
-        let wasCreating = isCreating
         var didFail = false
 
         do {
@@ -271,14 +253,10 @@ struct MCPSettingsView: View {
             baseline = savedDraft
             warnings = result.warnings
 
-            if wasCreating {
-                isCreating = false
-                selection = result.server.id
-            }
-
             if draft == snapshot {
                 draft = savedDraft
             }
+            startPolling()
         } catch {
             didFail = true
             saveError = error.localizedDescription
@@ -286,23 +264,9 @@ struct MCPSettingsView: View {
 
         isSaving = false
 
-        if !didFail, isDirty, draft.isValid, !duplicateID {
+        if !didFail, isDirty, draft.isValid {
             scheduleAutoSave()
         }
-    }
-
-    private func startCreate() async {
-        saveTask?.cancel()
-        await waitForSave()
-        await saveDraft()
-
-        isCreating = true
-        selection = nil
-        draft = .empty
-        baseline = .empty
-        advancedExpanded = false
-        saveError = nil
-        warnings = []
     }
 
     private func switchSelection(to id: String?) async {
@@ -312,7 +276,6 @@ struct MCPSettingsView: View {
         await waitForSave()
         await saveDraft()
 
-        isCreating = false
         selection = id
         advancedExpanded = false
         saveError = nil
@@ -340,12 +303,36 @@ struct MCPSettingsView: View {
             }
         } else if selection != nil {
             selection = nil
-            isCreating = false
             draft = .empty
             baseline = .empty
         }
 
         selectFirstIfNeeded()
+
+        do {
+            try await model.checkAll()
+            await model.load()
+        } catch {
+            saveError = error.localizedDescription
+        }
+
+        startPolling()
+    }
+
+    private func startPolling() {
+        pollTask?.cancel()
+        pollTask = Task {
+            for _ in 0..<60 {
+                guard !Task.isCancelled else { return }
+                let pending = model.servers.contains {
+                    $0.availability() == .checking || $0.availability() == .unknown
+                }
+                guard pending else { return }
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { return }
+                await model.load()
+            }
+        }
     }
 
     private func waitForSave() async {
@@ -355,7 +342,7 @@ struct MCPSettingsView: View {
     }
 
     private func selectFirstIfNeeded() {
-        guard selection == nil, !isCreating, let first = model.servers.first else { return }
+        guard selection == nil, let first = model.servers.first else { return }
         selection = first.id
         draft = MCPServerDraft(server: first)
         baseline = draft
@@ -372,7 +359,6 @@ struct MCPSettingsView: View {
 
             if selection == server.id {
                 selection = nil
-                isCreating = false
                 draft = .empty
                 baseline = .empty
                 saveError = nil
@@ -389,7 +375,7 @@ struct MCPSettingsView: View {
         }
         return String(
             format: String(localized: "settings.mcp.delete.message"),
-            server.name
+            server.id
         )
     }
 }

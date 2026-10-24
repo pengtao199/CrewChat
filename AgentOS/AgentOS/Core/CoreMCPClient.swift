@@ -30,4 +30,11 @@ final class CoreMCPClient: CoreMCP, @unchecked Sendable {
         )
         return result.domain
     }
+
+    func check(serverID: String?) async throws {
+        try await provider.client().sendIgnoring(
+            "mcp_check",
+            body: CoreMCPCheckBody(serverID: serverID)
+        )
+    }
 }

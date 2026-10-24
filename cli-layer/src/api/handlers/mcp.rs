@@ -135,6 +135,21 @@ pub(crate) async fn mcp_gateway(State(state): State<AppState>, headers: HeaderMa
     }
 }
 
+pub(crate) async fn mcp_check(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let id = field(&body, &["serverId", "server_id", "id"]).filter(|id| !id.is_empty());
+    match state.mcp.check(id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error.to_string()),
+    }
+}
+
 pub(crate) async fn agent_mcps_set(
     State(state): State<AppState>,
     headers: HeaderMap,

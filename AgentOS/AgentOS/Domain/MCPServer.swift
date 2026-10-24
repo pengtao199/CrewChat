@@ -8,11 +8,9 @@ struct MCPServer: Identifiable, Sendable, Equatable {
     let hash: String
     let createdAt: String
     let updatedAt: String
+    let health: MCPServerHealth?
 
-    var name: String {
-        let trimmed = spec.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? id : trimmed
-    }
+    var name: String { id }
 
     var transport: String { spec.transport }
 
@@ -26,6 +24,10 @@ struct MCPServer: Identifiable, Sendable, Equatable {
         default:
             return spec.url ?? spec.transport
         }
+    }
+
+    func availability(enabled: Bool? = nil) -> MCPAvailability {
+        MCPAvailability.resolve(enabled: enabled ?? self.enabled, health: health)
     }
 }
 
@@ -42,6 +44,30 @@ struct MCPServerSpec: Sendable, Equatable {
     var headers: [String: String]
     var bearerToken: String?
     var sessionMode: String?
+}
+
+struct MCPServerHealth: Sendable, Equatable {
+    let checking: Bool
+    let available: Bool
+    let checkedAt: String?
+    let error: String?
+    let toolCount: Int?
+}
+
+enum MCPAvailability: Sendable, Equatable {
+    case disabled
+    case checking
+    case available
+    case unavailable
+    case unknown
+
+    static func resolve(enabled: Bool, health: MCPServerHealth?) -> MCPAvailability {
+        guard enabled else { return .disabled }
+        guard let health else { return .unknown }
+        if health.checking { return .checking }
+        if health.checkedAt == nil { return .unknown }
+        return health.available ? .available : .unavailable
+    }
 }
 
 struct MCPSaveResult: Sendable, Equatable {

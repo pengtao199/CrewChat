@@ -1,7 +1,9 @@
 use crate::config::Config;
+use crate::health::{HealthCache, ServerHealth};
 use crate::proxy::{endpoint, ProxyManager};
 use crate::registry::{
-    generate_agent_token, sanitize_agent_id, write_server_file, AgentRecord, Registry, ServerSpec,
+    generate_agent_token, sanitize_agent_id, write_server_file, AgentRecord, Registry,
+    ServerRecord, ServerSpec,
 };
 use axum::{
     extract::{Path, State},
@@ -20,6 +22,7 @@ pub struct AppState {
     pub registry: Arc<Mutex<Registry>>,
     pub proxies: ProxyManager,
     pub token: Arc<String>,
+    pub health: HealthCache,
 }
 
 #[derive(Debug)]
@@ -95,11 +98,13 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/v1/health", get(health))
         .route("/v1/servers", get(list_servers))
+        .route("/v1/servers/check", post(check_servers))
         .route("/v1/scan", post(scan_servers))
         .route(
             "/v1/servers/{id}",
             get(get_server).put(put_server).delete(delete_server),
         )
+        .route("/v1/servers/{id}/check", post(check_one_server))
         .route("/v1/servers/{id}/enable", post(enable_server))
         .route("/v1/servers/{id}/disable", post(disable_server))
         .route("/v1/agents", get(list_agents))
@@ -124,6 +129,7 @@ async fn health(
     Ok(Json(json!({
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
+        "capabilities": ["server-health"],
         "proxies": proxies,
     })))
 }
@@ -146,6 +152,7 @@ async fn list_servers(
 ) -> Result<Json<Value>, ApiError> {
     authorize(&headers, &state.token)?;
     let servers = lock_registry(&state)?.list_servers().map_err(internal)?;
+    let servers = with_health(&state, servers)?;
     Ok(Json(json!({ "servers": servers })))
 }
 
@@ -159,7 +166,48 @@ async fn get_server(
         .get_server(&id)
         .map_err(internal)?
         .ok_or_else(|| ApiError::not_found(format!("server not found: {id}")))?;
-    Ok(Json(serde_json::to_value(server).map_err(internal)?))
+    let mut value = serde_json::to_value(&server).map_err(internal)?;
+    value["health"] = health_value(&state, &server.id);
+    Ok(Json(value))
+}
+
+async fn check_servers(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let servers = lock_registry(&state)?
+        .list_servers()
+        .map_err(internal)?
+        .into_iter()
+        .filter(|server| server.enabled);
+    let mut checking = Vec::new();
+    for server in servers {
+        let id = server.id.clone();
+        crate::health::spawn_check(&state, server);
+        checking.push(id);
+    }
+    Ok(Json(json!({"checking": checking})))
+}
+
+async fn check_one_server(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let server = lock_registry(&state)?
+        .get_server(&id)
+        .map_err(internal)?
+        .ok_or_else(|| ApiError::not_found(format!("server not found: {id}")))?;
+    if !server.enabled {
+        return Ok(Json(json!({
+            "serverId": id,
+            "health": ServerHealth::unknown(),
+        })));
+    }
+    let health = crate::health::spawn_check(&state, server);
+    Ok(Json(json!({"serverId": id, "health": health})))
 }
 
 async fn put_server(
@@ -184,7 +232,15 @@ async fn put_server(
         .get_server(&record.id)
         .map_err(internal)?
         .ok_or_else(|| ApiError::internal("server disappeared after save"))?;
-    Ok(Json(json!({"server": record, "warnings": warnings})))
+    if record.enabled {
+        crate::health::invalidate_and_check(&state, record.clone());
+    } else {
+        crate::health::remove(&state, &record.id);
+    }
+    let server = with_health(&state, vec![record])?
+        .pop()
+        .ok_or_else(|| ApiError::internal("server disappeared after health lookup"))?;
+    Ok(Json(json!({"server": server, "warnings": warnings})))
 }
 
 async fn delete_server(
@@ -215,6 +271,7 @@ async fn delete_server(
     if !removed {
         return Ok(Json(json!({"removed": false})));
     }
+    crate::health::remove(&state, &id);
     crate::registry::remove_server_file(&state.config.servers_dir, &id).map_err(internal)?;
 
     let mut warnings = Vec::new();
@@ -254,6 +311,13 @@ async fn set_server_enabled(
         .map_err(internal)?;
     if !changed {
         return Err(ApiError::not_found(format!("server not found: {id}")));
+    }
+    let record = lock_registry(&state)?.get_server(&id).map_err(internal)?;
+    match record {
+        Some(record) if enabled => {
+            crate::health::invalidate_and_check(&state, record);
+        }
+        _ => crate::health::remove(&state, &id),
     }
     let warnings = restart_agents_using_server(&state, &id).await;
     Ok(Json(json!({"enabled": enabled, "warnings": warnings})))
@@ -463,6 +527,39 @@ async fn gateway_sync(
     Ok(Json(
         json!({"proxies": state.proxies.status().await, "warnings": warnings}),
     ))
+}
+
+fn with_health(state: &AppState, servers: Vec<ServerRecord>) -> Result<Vec<Value>, ApiError> {
+    let health = state
+        .health
+        .lock()
+        .map(|cache| cache.clone())
+        .unwrap_or_default();
+    servers
+        .into_iter()
+        .map(|server| {
+            let id = server.id.clone();
+            let mut value = serde_json::to_value(server).map_err(internal)?;
+            value["health"] = serde_json::to_value(
+                health
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or_else(ServerHealth::unknown),
+            )
+            .map_err(internal)?;
+            Ok(value)
+        })
+        .collect()
+}
+
+fn health_value(state: &AppState, id: &str) -> Value {
+    let health = state
+        .health
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(id).cloned())
+        .unwrap_or_else(ServerHealth::unknown);
+    serde_json::to_value(health).unwrap_or(Value::Null)
 }
 
 async fn restart_agents_using_server(state: &AppState, server_id: &str) -> Vec<String> {

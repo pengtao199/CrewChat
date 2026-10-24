@@ -182,6 +182,7 @@ pub trait McpCatalog: Send + Sync {
     async fn upsert(&self, id: &str, spec: &Value) -> Result<Value, String>;
     async fn remove(&self, id: &str) -> Result<Value, String>;
     async fn set_enabled(&self, id: &str, enabled: bool) -> Result<Value, String>;
+    async fn check(&self, id: Option<&str>) -> Result<Value, String>;
     async fn sync_agent(&self, agent_id: &str, server_ids: &[String]) -> Result<Value, String>;
     async fn agent(&self, agent_id: &str) -> Result<Value, String>;
     async fn gateway(&self) -> Result<Value, String>;

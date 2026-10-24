@@ -22,6 +22,7 @@ sha2 = "0.10"
 time = { version = "0.3", features = ["formatting"] }
 toml = "1"
 tokio = { version = "1", features = ["full"] }
+tower-mcp = "0.23.2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 uuid = { version = "1", features = ["v4"] }

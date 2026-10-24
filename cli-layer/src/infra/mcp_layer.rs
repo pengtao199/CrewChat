@@ -142,6 +142,15 @@ impl McpLayerClient {
         .await
     }
 
+    pub async fn check(&self, id: Option<&str>) -> Result<Value, String> {
+        let path = match id.filter(|id| !id.is_empty()) {
+            Some(id) => format!("/v1/servers/{id}/check"),
+            None => "/v1/servers/check".to_string(),
+        };
+        self.request(reqwest::Method::POST, &path, Some(&json!({})))
+            .await
+    }
+
     pub async fn sync_agent(&self, agent_id: &str, server_ids: &[String]) -> Result<Value, String> {
         self.request(
             reqwest::Method::PUT,

@@ -69,6 +69,10 @@ impl McpService {
             .map_err(anyhow::Error::msg)
     }
 
+    pub async fn check(&self, id: Option<&str>) -> Result<Value> {
+        self.mcp.check(id).await.map_err(anyhow::Error::msg)
+    }
+
     pub async fn gateway(&self) -> Result<Value> {
         self.mcp.gateway().await.map_err(anyhow::Error::msg)
     }

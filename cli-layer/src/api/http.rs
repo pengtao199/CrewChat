@@ -106,6 +106,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/mcp_read", post(mcp_read))
         .route("/api/mcp_upsert", post(mcp_upsert))
         .route("/api/mcp_remove", post(mcp_remove))
+        .route("/api/mcp_check", post(mcp_check))
         .route("/api/mcp_enable", post(mcp_enable))
         .route("/api/mcp_disable", post(mcp_disable))
         .route("/api/mcp_gateway", post(mcp_gateway))

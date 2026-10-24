@@ -12,6 +12,7 @@ struct CoreMCPServerRecord: Decodable, Sendable {
     let hash: String
     let createdAt: String
     let updatedAt: String
+    let health: CoreMCPServerHealth?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -21,6 +22,7 @@ struct CoreMCPServerRecord: Decodable, Sendable {
         case hash
         case createdAt
         case updatedAt
+        case health
     }
 
     init(from decoder: Decoder) throws {
@@ -36,6 +38,7 @@ struct CoreMCPServerRecord: Decodable, Sendable {
         hash = try container.decodeIfPresent(String.self, forKey: .hash) ?? ""
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt) ?? ""
+        health = try container.decodeIfPresent(CoreMCPServerHealth.self, forKey: .health)
     }
 
     var domain: MCPServer {
@@ -46,7 +49,43 @@ struct CoreMCPServerRecord: Decodable, Sendable {
             synced: synced,
             hash: hash,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            health: health?.domain
+        )
+    }
+}
+
+struct CoreMCPServerHealth: Decodable, Sendable {
+    let checking: Bool
+    let available: Bool
+    let checkedAt: String?
+    let error: String?
+    let toolCount: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case checking
+        case available
+        case checkedAt
+        case error
+        case toolCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        checking = try container.decodeIfPresent(Bool.self, forKey: .checking) ?? false
+        available = try container.decodeIfPresent(Bool.self, forKey: .available) ?? false
+        checkedAt = try container.decodeIfPresent(String.self, forKey: .checkedAt)
+        error = try container.decodeIfPresent(String.self, forKey: .error)
+        toolCount = try container.decodeIfPresent(Int.self, forKey: .toolCount)
+    }
+
+    var domain: MCPServerHealth {
+        MCPServerHealth(
+            checking: checking,
+            available: available,
+            checkedAt: checkedAt,
+            error: error,
+            toolCount: toolCount
         )
     }
 }
@@ -166,6 +205,14 @@ struct CoreMCPUpsertBody: Encodable {
 
 struct CoreMCPRemoveBody: Encodable {
     let serverID: String
+
+    enum CodingKeys: String, CodingKey {
+        case serverID = "serverId"
+    }
+}
+
+struct CoreMCPCheckBody: Encodable {
+    let serverID: String?
 
     enum CodingKeys: String, CodingKey {
         case serverID = "serverId"

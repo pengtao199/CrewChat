@@ -1,7 +1,7 @@
 # MCP Layer API：cli-layer / AgentOS 交付说明
 
 Updated: 2026-10-23
-Status: `mcp-layer` 后端核心可用；`cli-layer` 代理、`agent_roles_save` MCP 同步与 `session/new` 注入已接；AgentOS MCP 页已接；真实 ACP 待验证。
+Status: `mcp-layer` 后端核心可用；`cli-layer` 代理、`agent_roles_save` MCP 同步、MCP 健康探测与 `session/new` 注入已接；AgentOS MCP 页已收口；真实 ACP 待验证。
 读者：cli-layer 工程师、AgentOS 前端工程师。
 
 ---
@@ -56,11 +56,13 @@ Agent proxy 的 token 是另一个 token，只在 `PUT /v1/agents/{id}` 返回�
 
 | 方法 | 路径 | 作用 |
 | --- | --- | --- |
-| `GET` | `/v1/health` | 控制面 + 所有 proxy 状态 |
-| `GET` | `/v1/servers` | 全局 MCP 库 |
+| `GET` | `/v1/health` | 控制面 + proxy 状态；`capabilities` 用于壳判断是否支持 `health` 字段 |
+| `GET` | `/v1/servers` | 全局 MCP 库；每项带 `health` |
 | `POST` | `/v1/scan` | 扫描本机 CLI 配置并导入新 MCP |
-| `GET` | `/v1/servers/{id}` | 单个 MCP |
-| `PUT` | `/v1/servers/{id}` | 新建/更新 MCP 定义 |
+| `POST` | `/v1/servers/check` | 触发所有启用 server 的健康探测 |
+| `GET` | `/v1/servers/{id}` | 单个 MCP；带 `health` |
+| `PUT` | `/v1/servers/{id}` | 新建/更新 MCP 定义；清空旧健康并触发探测 |
+| `POST` | `/v1/servers/{id}/check` | 触发单个 server 的健康探测 |
 | `DELETE` | `/v1/servers/{id}` | 删除 MCP，清理 Agent 引用 |
 | `POST` | `/v1/servers/{id}/enable` | 启用 |
 | `POST` | `/v1/servers/{id}/disable` | 停用 |
@@ -246,7 +248,7 @@ let request = NewSessionRequest::new(cwd).mcp_servers(mcp_servers);
 - 活跃会话仍连着旧实例，可能被停止；UI 提示「MCP 变更，重连会话后生效」；
 - 不重启其他 Agent。
 
-### 7.5 启动顺序
+### 7.5 启动顺序与健康探测
 
 ```
 AgentOS → mcp-layer → cli-layer →（ACP 会话）
@@ -254,6 +256,8 @@ AgentOS → mcp-layer → cli-layer →（ACP 会话）
 
 - AgentOS 先探活 `~/.agents/mcp/runtime.json`；已有健康 mcp-layer 就复用，否则在 cli-layer 之前启动它。
 - cli-layer 启动时读取一次 runtime 文件；mcp-layer 必须先就绪。
+- mcp-layer 启动后对启用的 server 做后台探测；`mcp_check` 可手动重新探测。
+- 探测在 mcp-layer 内完成：stdio 启动进程、HTTP 连接 URL，执行 MCP `initialize` + `tools/list`，30s 超时；结果缓存在 `health`。
 - `mcp-layer` 启动不自动拉起所有 Agent proxy；`acp_connect` / 保存 Agent MCP 绑定按需启动。
 
 ---
@@ -262,16 +266,18 @@ AgentOS → mcp-layer → cli-layer →（ACP 会话）
 
 ### MCP 页
 
-- 列表：`mcp_list`（cli-layer 代理 `GET /v1/servers`）。
-- 新建/编辑：`mcp_upsert`（`PUT /v1/servers/{id}`），详情内联编辑并自动保存。
-- 删除：`mcp_remove`（`DELETE /v1/servers/{id}`）；cli-layer 同时清理花名册引用。
+- 列表：`mcp_list`；显示 `id` 与 `health`，不展示 `name` / `description`。
+- 编辑：选中即编辑，500ms 防抖自动保存；`mcp_upsert`。
+- 删除：`mcp_remove`；cli-layer 同时清理花名册引用。
 - 启停：详情里的 Toggle 走 `mcp_upsert` 的 `enabled`；不单独调 enable/disable。
+- 刷新：先 `mcp_check` 触发探测，再轮询 `mcp_list.health`。
+- 不提供手动添加；MCP 由 AI/安装流程写入，页面只管理已有项。
 - 不再有「写入哪些 CLI」的 `apps` 多选。
 - 旧 `mcp_scan_local` / `mcp_upsert_local_server` / `mcp_remove_server` 不再兼容。
 
 ### Agents 页
 
-- MCP 多选：`mcp_list`，只列 `enabled` 的 server。
+- MCP 多选：`mcp_list`，只列 `enabled && health.available` 的 server。
 - 保存：`agent_roles_save` 的 `mcp` 字段；由 cli-layer 检测变化并同步 mcp-layer。
 - 可用性：`agent_mcp_status`（cli-layer 代理 `GET /v1/agents/{id}` + `/v1/gateway`）。
 - 空选择 = 没有 MCP；提供「全选」按钮但保存显式列表。
@@ -289,6 +295,7 @@ AgentOS → mcp-layer → cli-layer →（ACP 会话）
 4. mcp-layer 停止 + Agent 有 MCP → `acp_connect` 明确失败；Agent 空 MCP 仍可起会话。
 5. Claude / Codex / OpenCode 至少各跑一次真实 `session/new` 注入。
 6. 控制面 token 错误 → 401；Agent token 错误 → proxy 401。
+7. 缺失命令 / 协议不兼容 → `health.available=false`，`error` 可读；可用 server → `toolCount` 有值。
 
 ---
 

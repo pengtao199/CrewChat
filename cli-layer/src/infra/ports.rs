@@ -142,6 +142,10 @@ impl McpCatalog for McpLayerClient {
         self.set_enabled(id, enabled).await
     }
 
+    async fn check(&self, id: Option<&str>) -> Result<Value, String> {
+        self.check(id).await
+    }
+
     async fn sync_agent(&self, agent_id: &str, server_ids: &[String]) -> Result<Value, String> {
         self.sync_agent(agent_id, server_ids).await
     }

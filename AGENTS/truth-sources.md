@@ -38,8 +38,8 @@
 ## 具体规则
 
 - 修改 Agent 只经 Agents 页写 `cli-layer.db` 的 `agent_roles`。
-- 读写技能/MCP 一律通过核心命令：技能用 `skill_list` / `skill_read` / `skill_install` / `agent_skills_set` / `agent_skill_status`；MCP 用 `mcp_list` / `mcp_read` / `mcp_upsert` / `mcp_remove` / `agent_mcps_set` / `agent_mcp_status`（cli-layer 已代理）；壳不自行拼路径、不直接改这些文件。
-- 技能页由 cli-layer 代理 skill-layer；MCP 页目标显示 `spec`、健康与 Agent 使用关系（见 `docs/plans/mcp-layer.md`）。
+- 读写技能/MCP 一律通过核心命令：技能用 `skill_list` / `skill_read` / `skill_install` / `agent_skills_set` / `agent_skill_status`；MCP 用 `mcp_list` / `mcp_upsert` / `mcp_remove` / `mcp_check` / `agent_mcps_set` / `agent_mcp_status`（cli-layer 已代理）；壳不自行拼路径、不直接改这些文件。
+- 技能页由 cli-layer 代理 skill-layer；MCP 页显示 `id` 与 `health`，不手工新增；Agents 页只列 `enabled && health.available` 的 MCP（见 `docs/plans/mcp-layer.md`）。
 - `.data/` 整体被 gitignore；新增本地状态放进 `.data/`，不要放仓库根目录。
 - 新增配置文件时，先判断它是否属于「跨工具共享」（`~/.agents/`）还是「本项目私有」（`.data/`）。
 - 会话消息以 SQLite 为准；UI 端的乐观渲染不是真相源。
