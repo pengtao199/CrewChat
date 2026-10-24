@@ -8,6 +8,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::domain::permission::ToolRule;
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Agent {
     #[serde(default)]
@@ -32,6 +34,8 @@ pub struct Agent {
     pub permission_mode: String,
     #[serde(default)]
     pub auto_approve: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_rules: Vec<ToolRule>,
     /// Roster revision, bumped on every save. Team snapshots store this so a
     /// running team can tell that its frozen member config has drifted.
     #[serde(default)]

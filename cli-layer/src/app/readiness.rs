@@ -237,6 +237,19 @@ impl ReadinessService {
                 "Choose a mode this engine supports in the Agent editor.",
             ));
         }
+        for (index, rule) in agent.tool_rules.iter().enumerate() {
+            if rule.action().is_none() {
+                blockers.push(issue(
+                    "tool_rule_invalid",
+                    &format!(
+                        "Tool rule #{} has an invalid action '{}'.",
+                        index + 1,
+                        rule.action
+                    ),
+                    "Use allow, ask, or deny.",
+                ));
+            }
+        }
         if agent.auto_approve && agent.permission_mode.trim().is_empty() {
             warnings.push(issue(
                 "auto_approve_overrides_mode",

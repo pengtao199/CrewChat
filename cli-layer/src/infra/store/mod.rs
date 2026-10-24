@@ -80,6 +80,7 @@ impl Store {
                 mcp_json TEXT NOT NULL DEFAULT '[]',
                 permission_mode TEXT NOT NULL DEFAULT '',
                 auto_approve INTEGER NOT NULL DEFAULT 0,
+                tool_rules_json TEXT NOT NULL DEFAULT '[]',
                 version INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -137,6 +138,12 @@ impl Store {
         ensure_column(&conn, "conversations", "team_json", "TEXT")?;
         ensure_column(&conn, "turns", "speaker_role_id", "TEXT")?;
         ensure_column(&conn, "conversation_agents", "external_session_id", "TEXT")?;
+        ensure_column(
+            &conn,
+            "agent_roles",
+            "tool_rules_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
         ensure_column(
             &conn,
             "agent_roles",
@@ -228,14 +235,20 @@ mod tests {
             "model": "mimo-v2.6-flash",
             "model_provider": "opencode-go",
             "skills": ["codegraph"],
-            "mcp": ["xcode"]
+            "mcp": ["xcode"],
+            "tool_rules": [{"tool": "bash", "action": "deny"}]
         });
         let saved = store.save_role(&role).unwrap();
         assert_eq!(saved["name"], "Builder");
+        assert_eq!(saved["tool_rules"][0]["action"], "deny");
         let rows = store.list_roles().unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["skills"][0], "codegraph");
         let id = rows[0]["id"].as_str().unwrap();
+        let preserved = store
+            .save_role(&json!({"id": id, "name": "Builder", "agent_type": "claude_code"}))
+            .unwrap();
+        assert_eq!(preserved["tool_rules"][0]["tool"], "bash");
         assert!(store.role(id).unwrap().is_some());
         store.delete_role(id).unwrap();
         assert_eq!(store.list_roles().unwrap().len(), 0);

@@ -10,7 +10,8 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
             "SELECT id, name, soul, rules, agent_type, model, model_provider,
-                    skills_json, mcp_json, permission_mode, auto_approve, version
+                    skills_json, mcp_json, permission_mode, auto_approve,
+                    tool_rules_json, version
              FROM agent_roles ORDER BY name",
         )?;
         let rows = stmt
@@ -29,7 +30,9 @@ impl Store {
                         .unwrap_or(Value::Null),
                     "permission_mode": row.get::<_, String>(9)?,
                     "auto_approve": row.get::<_, i64>(10)? != 0,
-                    "version": row.get::<_, i64>(11)?,
+                    "tool_rules": serde_json::from_str::<Value>(&row.get::<_, String>(11)?)
+                        .unwrap_or(Value::Null),
+                    "version": row.get::<_, i64>(12)?,
                 }))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -41,7 +44,8 @@ impl Store {
         Ok(conn
             .query_row(
                 "SELECT id, name, soul, rules, agent_type, model, model_provider,
-                    skills_json, mcp_json, permission_mode, auto_approve, version
+                    skills_json, mcp_json, permission_mode, auto_approve,
+                    tool_rules_json, version
              FROM agent_roles WHERE id = ?1",
                 params![id],
                 |row| {
@@ -59,7 +63,9 @@ impl Store {
                             .unwrap_or(Value::Null),
                         "permission_mode": row.get::<_, String>(9)?,
                         "auto_approve": row.get::<_, i64>(10)? != 0,
-                        "version": row.get::<_, i64>(11)?,
+                        "tool_rules": serde_json::from_str::<Value>(&row.get::<_, String>(11)?)
+                            .unwrap_or(Value::Null),
+                        "version": row.get::<_, i64>(12)?,
                     }))
                 },
             )
@@ -75,20 +81,29 @@ impl Store {
             .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
         let timestamp = now();
         let conn = self.conn.lock().unwrap();
-        let current_version: Option<i64> = conn
+        let existing = conn
             .query_row(
-                "SELECT version FROM agent_roles WHERE id = ?1",
+                "SELECT version, tool_rules_json FROM agent_roles WHERE id = ?1",
                 params![id],
-                |row| row.get(0),
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
             )
             .optional()?;
-        let version = current_version.map(|value| value + 1).unwrap_or(1);
+        let version = existing
+            .as_ref()
+            .map(|(version, _)| version + 1)
+            .unwrap_or(1);
+        let tool_rules = role.get("tool_rules").cloned().unwrap_or_else(|| {
+            existing
+                .as_ref()
+                .and_then(|(_, raw)| serde_json::from_str::<Value>(raw).ok())
+                .unwrap_or_else(|| json!([]))
+        });
         conn.execute(
             "INSERT INTO agent_roles
              (id, name, soul, rules, agent_type, model, model_provider,
-              skills_json, mcp_json, permission_mode, auto_approve, version,
-              created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)
+              skills_json, mcp_json, permission_mode, auto_approve,
+              tool_rules_json, version, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 soul = excluded.soul,
@@ -100,6 +115,7 @@ impl Store {
                 mcp_json = excluded.mcp_json,
                 permission_mode = excluded.permission_mode,
                 auto_approve = excluded.auto_approve,
+                tool_rules_json = excluded.tool_rules_json,
                 version = excluded.version,
                 updated_at = excluded.updated_at",
             params![
@@ -122,6 +138,7 @@ impl Store {
                 role.get("auto_approve")
                     .and_then(Value::as_bool)
                     .unwrap_or(false) as i64,
+                serde_json::to_string(&tool_rules)?,
                 version,
                 timestamp
             ],
@@ -131,6 +148,7 @@ impl Store {
             saved = json!({});
         }
         saved["id"] = json!(id);
+        saved["tool_rules"] = tool_rules;
         saved["version"] = json!(version);
         saved["created_at"] = json!(timestamp);
         saved["updated_at"] = json!(timestamp);

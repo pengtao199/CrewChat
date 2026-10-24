@@ -16,8 +16,8 @@ use std::time::Duration;
 
 use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, InitializeRequest,
-    LoadSessionRequest, McpServer, McpServerStdio, NewSessionRequest, PermissionOptionKind,
-    PromptRequest, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
+    LoadSessionRequest, McpServer, McpServerStdio, NewSessionRequest, PromptRequest,
+    RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
     SelectedPermissionOutcome, SessionId, SessionNotification, SetSessionModeRequest, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
@@ -29,7 +29,7 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::config::Config;
 use crate::runtime::acp::events::{self, EventEnvelope};
-use crate::runtime::acp::host::permission::{PermissionBroker, PermissionDecision};
+use crate::runtime::acp::host::permission::{auto_decision, PermissionBroker, PermissionDecision};
 use crate::runtime::acp::host::sink::EventSink;
 use crate::runtime::engine::registry::Engines;
 use crate::runtime::overlay;
@@ -268,6 +268,14 @@ impl AcpHost {
             .and_then(|role| role.get("auto_approve"))
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let tool_rules: Vec<crate::domain::permission::ToolRule> = role
+            .as_ref()
+            .and_then(|role| role.get("tool_rules"))
+            .cloned()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|error| anyhow!("invalid tool_rules: {error}"))?
+            .unwrap_or_default();
         let requested_mode = role
             .as_ref()
             .and_then(|role| role.get("permission_mode"))
@@ -314,37 +322,31 @@ impl AcpHost {
                         let permissions = permissions.clone();
                         let sink = permission_sink.clone();
                         let conn = permission_conn.clone();
+                        let rules = tool_rules.clone();
                         connection.spawn(async move {
                             let request_value =
                                 serde_json::to_value(&request).unwrap_or(Value::Null);
-                            if auto_approve {
-                                if let Some(option) = request.options.iter().find(|option| {
-                                    matches!(option.kind, PermissionOptionKind::AllowOnce)
-                                }) {
-                                    let audit_id = uuid::Uuid::new_v4().to_string();
-                                    sink.emit(EventEnvelope {
-                                        kind: "permission_auto_approved".to_string(),
-                                        connection_id: conn.clone(),
-                                        conversation_id: None,
-                                        speaker_role_id: None,
-                                        seq: 0,
-                                        payload: json!({
-                                            "request_id": audit_id,
-                                            "option_id": option.option_id,
-                                            "option_name": option.name,
-                                            "request": request_value,
-                                        }),
-                                    });
-                                    let response = RequestPermissionResponse::new(
-                                        RequestPermissionOutcome::Selected(
-                                            SelectedPermissionOutcome::new(
-                                                option.option_id.clone(),
-                                            ),
-                                        ),
-                                    );
-                                    let _ = responder.respond(response);
-                                    return Ok(());
-                                }
+                            if let Some(decision) = auto_decision(&request, &rules, auto_approve) {
+                                sink.emit(EventEnvelope {
+                                    kind: decision.kind.to_string(),
+                                    connection_id: conn.clone(),
+                                    conversation_id: None,
+                                    speaker_role_id: None,
+                                    seq: 0,
+                                    payload: json!({
+                                        "request_id": uuid::Uuid::new_v4().to_string(),
+                                        "request": request_value,
+                                        "decision": decision.audit,
+                                    }),
+                                });
+                                let outcome = match decision.option_id {
+                                    Some(option_id) => RequestPermissionOutcome::Selected(
+                                        SelectedPermissionOutcome::new(option_id),
+                                    ),
+                                    None => RequestPermissionOutcome::Cancelled,
+                                };
+                                let _ = responder.respond(RequestPermissionResponse::new(outcome));
+                                return Ok(());
                             }
                             let (request_id, rx) = permissions.open();
                             sink.emit(EventEnvelope {

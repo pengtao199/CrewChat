@@ -542,6 +542,8 @@ Agent 的权限在 Agents 页一次配置：
   原生 mode id，不再做旧产品模式别名兼容；历史 `default` 在启动迁移为空字符串。
 - `auto_approve`：该角色的权限请求自动批准；默认只选 `AllowOnce`，审计事件
   为 `permission_auto_approved`
+- `tool_rules`：后端已支持按 tool/kind/path_prefix 匹配 allow/ask/deny；
+  第一条匹配生效，无匹配时回退 auto_approve/UI
 - 自动批准必须写审计日志
 - 成员权限独立于 Leader
 - 不允许 Leader 偷偷提升成员权限
@@ -711,8 +713,9 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 
 ### P3：工具级权限
 
-在 Session Mode 之上增加 allow / ask / deny，并支持 `RejectOnce` /
-`RejectAlways`；不改变“权限归 Agent”的产品边界。
+- 🟡 后端 `tool_rules` 已支持 allow / ask / deny；UI 尚未提供编辑入口
+- 🟡 当前自动拒绝使用 `RejectOnce`；`RejectAlways` 留给后续规则记忆
+- 不改变“权限归 Agent”的产品边界
 
 ---
 

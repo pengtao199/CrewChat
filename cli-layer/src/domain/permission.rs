@@ -4,7 +4,67 @@
 //! ACP adapters advertise their own modes; this catalog is the product fallback
 //! and the source for the Agents page before a session is started.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ToolRule {
+    #[serde(default)]
+    pub tool: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub path_prefix: String,
+    pub action: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PermissionAction {
+    Allow,
+    Ask,
+    Deny,
+}
+
+impl PermissionAction {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "allow" => Some(Self::Allow),
+            "ask" => Some(Self::Ask),
+            "deny" => Some(Self::Deny),
+            _ => None,
+        }
+    }
+}
+
+impl ToolRule {
+    pub fn action(&self) -> Option<PermissionAction> {
+        PermissionAction::parse(&self.action)
+    }
+
+    pub fn matches(&self, tool: &str, kind: &str, paths: &[String]) -> bool {
+        if !self.tool.is_empty() && !self.tool.eq_ignore_ascii_case(tool) {
+            return false;
+        }
+        if !self.kind.is_empty() && !self.kind.eq_ignore_ascii_case(kind) {
+            return false;
+        }
+        if !self.path_prefix.is_empty()
+            && !paths.iter().any(|path| path.starts_with(&self.path_prefix))
+        {
+            return false;
+        }
+        true
+    }
+}
+
+/// First matching rule wins. An invalid action is treated as a hard deny.
+pub fn match_tool_rule<'a>(
+    rules: &'a [ToolRule],
+    tool: &str,
+    kind: &str,
+    paths: &[String],
+) -> Option<&'a ToolRule> {
+    rules.iter().find(|rule| rule.matches(tool, kind, paths))
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PermissionMode {
