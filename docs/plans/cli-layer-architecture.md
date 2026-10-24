@@ -118,8 +118,8 @@ cli-layer/src/
 ├─ app/
 │  ├─ mod.rs
 │  ├─ roster.rs            // Agent CRUD / clone / readiness / test
-│  ├─ sessions.rs          // create/open/send/cancel
-│  ├─ team.rs              // team snapshot / delegation / member lifecycle
+│  ├─ sessions/            // create/open/send/cancel（turn.rs / tests.rs）
+│  ├─ team/                // team snapshot / delegation / member lifecycle
 │  ├─ engines.rs           // list/install/diagnostics
 │  ├─ skills.rs            // skill proxy 用例
 │  ├─ models.rs            // model proxy 用例

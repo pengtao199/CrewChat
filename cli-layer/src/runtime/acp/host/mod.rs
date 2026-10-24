@@ -5,6 +5,9 @@
 //! module. The shape follows the official `agent-client-protocol` client
 //! example; the permission broker and per-role env are ours.
 
+mod permission;
+mod sink;
+
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -25,101 +28,11 @@ use tokio::process::{Child, Command as TokioCommand};
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::config::Config;
-use crate::runtime::acp::events::{self, EventBus, EventEnvelope};
+use crate::runtime::acp::events::{self, EventEnvelope};
+use crate::runtime::acp::host::permission::{PermissionBroker, PermissionDecision};
+use crate::runtime::acp::host::sink::EventSink;
 use crate::runtime::engine::registry::Engines;
 use crate::runtime::overlay;
-
-#[derive(Clone, Debug)]
-struct EventMeta {
-    conversation_id: Option<String>,
-    role_id: Option<String>,
-}
-
-#[derive(Clone)]
-pub struct EventSink {
-    bus: EventBus,
-    events: Arc<dyn crate::domain::ports::EventRepository>,
-    meta: Arc<Mutex<HashMap<String, EventMeta>>>,
-}
-
-impl EventSink {
-    fn new(events: Arc<dyn crate::domain::ports::EventRepository>) -> Self {
-        Self {
-            bus: EventBus::new(),
-            events,
-            meta: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    fn register(
-        &self,
-        connection_id: &str,
-        conversation_id: Option<String>,
-        role_id: Option<String>,
-    ) {
-        self.meta.lock().unwrap().insert(
-            connection_id.to_string(),
-            EventMeta {
-                conversation_id,
-                role_id,
-            },
-        );
-    }
-
-    fn unregister(&self, connection_id: &str) {
-        self.meta.lock().unwrap().remove(connection_id);
-    }
-
-    pub fn emit(&self, mut event: EventEnvelope) {
-        if let Some(meta) = self.meta.lock().unwrap().get(&event.connection_id).cloned() {
-            if event.conversation_id.is_none() {
-                event.conversation_id = meta.conversation_id;
-            }
-            if event.speaker_role_id.is_none() {
-                event.speaker_role_id = meta.role_id;
-            }
-        }
-        let event = self.bus.publish(event);
-        let value = serde_json::to_value(&event).unwrap_or(Value::Null);
-        let _ = self.events.append_event(
-            &event.connection_id,
-            event.conversation_id.as_deref(),
-            &value,
-        );
-    }
-
-    pub fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
-        self.bus.subscribe()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum PermissionDecision {
-    Selected(String),
-    Cancelled,
-}
-
-#[derive(Clone, Default)]
-pub struct PermissionBroker {
-    pending: Arc<Mutex<HashMap<String, oneshot::Sender<PermissionDecision>>>>,
-}
-
-impl PermissionBroker {
-    fn open(&self) -> (String, oneshot::Receiver<PermissionDecision>) {
-        let request_id = uuid::Uuid::new_v4().to_string();
-        let (tx, rx) = oneshot::channel();
-        self.pending.lock().unwrap().insert(request_id.clone(), tx);
-        (request_id, rx)
-    }
-
-    pub fn resolve(&self, request_id: &str, decision: PermissionDecision) -> bool {
-        let sender = self.pending.lock().unwrap().remove(request_id);
-        match sender {
-            Some(sender) => sender.send(decision).is_ok(),
-            None => false,
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct ConnectionInfo {
@@ -744,62 +657,4 @@ impl crate::domain::ports::EventPublisher for AcpHost {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use super::{EventEnvelope, EventSink, McpServer};
-    use crate::infra::store::Store;
-    use serde_json::json;
-
-    #[test]
-    fn decodes_mcp_layer_stdio_payload_for_session_new() {
-        let payload = json!({
-            "type": "stdio",
-            "name": "mcp-layer",
-            "command": "/opt/homebrew/bin/npx",
-            "args": [
-                "-y", "mcp-remote", "http://127.0.0.1:41001/",
-                "--allow-http", "--header", "Authorization: Bearer test"
-            ],
-            "env": []
-        });
-        let server: McpServer = serde_json::from_value(payload).unwrap();
-        assert!(matches!(server, McpServer::Stdio(_)));
-    }
-
-    #[test]
-    fn event_sink_attaches_conversation_and_speaker() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::open(&dir.path().join("events.db")).unwrap();
-        store.init_schema().unwrap();
-        let sink = EventSink::new(Arc::new(store.clone()));
-        sink.register("conn", Some("conv".to_string()), Some("role".to_string()));
-        sink.emit(EventEnvelope {
-            kind: "content_delta".to_string(),
-            connection_id: "conn".to_string(),
-            conversation_id: None,
-            speaker_role_id: None,
-            seq: 0,
-            payload: json!({"text": "hi"}),
-        });
-
-        let rows = store.events_for_conversation("conv", 0).unwrap();
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0]["conversation_id"], "conv");
-        assert_eq!(rows[0]["speaker_role_id"], "role");
-    }
-
-    #[test]
-    fn decodes_mcp_layer_http_payload_for_session_new() {
-        let payload = json!({
-            "type": "http",
-            "name": "mcp-layer",
-            "url": "http://127.0.0.1:41001/",
-            "headers": [
-                { "name": "Authorization", "value": "Bearer test" }
-            ]
-        });
-        let server: McpServer = serde_json::from_value(payload).unwrap();
-        assert!(matches!(server, McpServer::Http(_)));
-    }
-}
+mod tests;
