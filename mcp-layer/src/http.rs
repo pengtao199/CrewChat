@@ -95,6 +95,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/v1/health", get(health))
         .route("/v1/servers", get(list_servers))
+        .route("/v1/scan", post(scan_servers))
         .route(
             "/v1/servers/{id}",
             get(get_server).put(put_server).delete(delete_server),
@@ -123,6 +124,18 @@ async fn health(
         "version": env!("CARGO_PKG_VERSION"),
         "proxies": proxies,
     })))
+}
+
+async fn scan_servers(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let report = {
+        let mut registry = lock_registry(&state)?;
+        crate::scan::scan_local(&mut registry, &state.config.servers_dir).map_err(internal)?
+    };
+    Ok(Json(serde_json::to_value(report).map_err(internal)?))
 }
 
 async fn list_servers(

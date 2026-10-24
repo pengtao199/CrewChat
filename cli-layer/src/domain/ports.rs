@@ -170,6 +170,9 @@ pub trait ModelCatalog: Send + Sync {
 
 #[async_trait]
 pub trait McpCatalog: Send + Sync {
+    async fn scan(&self) -> Result<Value, String> {
+        Err("scan is not supported by this catalog".to_string())
+    }
     async fn list(&self) -> Result<Value, String>;
     async fn read(&self, id: &str) -> Result<Value, String>;
     async fn upsert(&self, id: &str, spec: &Value) -> Result<Value, String>;

@@ -2,6 +2,7 @@ pub mod config;
 pub mod http;
 pub mod proxy;
 pub mod registry;
+pub mod scan;
 
 pub use config::Config;
 pub use http::{router, AppState};

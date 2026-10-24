@@ -251,7 +251,8 @@ Claude / Codex / OpenCode / ...（ACP adapter）
   - `~/.agents/mcp/servers/<id>.json` 规范化定义；
   - SQLite registry（servers / agents / 端口）；
   - server CRUD、启停、Agent allowlist；
-  - 每个 Agent 动态分配 loopback 端口，生成 `proxy.toml`，启动/停止 `mcp-proxy` 实例；
+  - 本机 MCP 发现：扫描 Claude / Codex / OpenCode / Gemini / Cursor 等配置并导入；
+- 每个 Agent 动态分配 loopback 端口，生成 `proxy.toml`，启动/停止 `mcp-proxy` 实例；
   - 返回 ACP 可直接消费的 `mcpServers`（stdio bridge 优先，HTTP 回退）。
 - 每个 Agent 的 proxy 只配置自己的 backends；Agent 变更只重启该实例。
 - 7 个测试通过：registry / spec / proxy config / proxy 启动（fake stdio backend）/ 空选择拒绝；clippy 通过。

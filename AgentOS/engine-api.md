@@ -41,7 +41,8 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `skill_check` / `skill_update` / `skill_remove` | 检查 / 更新 / 删除 | `CoreSkills` | body `{skillId}`；分别返回 `{id,currentHash,latestHash,updateAvailable}` / `{skill}` / `{removed}` |
 | `agent_skills_set` | 保存 Agent 技能绑定 | `CoreRoster` | body `{roleId, skillIds, collectionIds}`；返回 `{roleId, skillIds}`（集合会展开进 skillIds） |
 | `agent_skill_status` | Agent 技能可用性 | `CoreRoster` | body `{roleId}`；返回 `{skills:[{id,name,available}], missing:[id]}` |
-| `mcp_list` | 全局 MCP 库 | `CoreMCP` / `CoreCapabilities` | 无参数；返回 `{servers:[{id,spec,enabled,synced,hash,createdAt,updatedAt}]}`。`spec` 为 camelCase：`name/transport/description/enabled/command/args/env/url/headers/bearerToken/sessionMode`；Agents 页只用 `enabled` 的 server 作为可选能力 |
+| `mcp_scan` | 扫描本机已安装 MCP | `CoreMCP` | 无参数；读取本机 CLI 配置并导入新条目，返回 `{discovered,imported,skipped,warnings}` |
+| `mcp_list` | 全局 MCP 库（会先尽力扫描） | `CoreMCP` / `CoreCapabilities` | 无参数；返回 `{servers:[{id,spec,enabled,synced,hash,createdAt,updatedAt}]}`。`spec` 为 camelCase：`name/transport/description/enabled/command/args/env/url/headers/bearerToken/sessionMode`；Agents 页只用 `enabled` 的 server 作为可选能力 |
 | `mcp_upsert` | 新建 / 更新 MCP | `CoreMCP` | body `{serverId, spec:<object>}`；`spec` 同上，写入 mcp-layer，返回 `{server,warnings}`。托管服务重启使用该 server 的 Agent proxy，`warnings` 为重启失败信息 |
 | `mcp_remove` | 删除 MCP | `CoreMCP` | body `{serverId}`；返回 `{removed,warnings}`。cli-layer 删除后同时清理 `agent_roles.mcp_json` 中的引用；mcp-layer 会停止/重建受影响 Agent 的 proxy |
 | `acp_list_agents` | CLI 清单与就绪态 | `CoreEngines` | 无参数；返回 `agent_type/name/description/available/enabled/installed_version/registry_version/supports_custom_version/distribution_type/is_acp_adapter/env`（snake_case）。`available` = 现在能直接拉起（cli-layer 本地安装或 PATH 上有 adapter）；**不是「平台支持」**。`installed_version` = cli-layer 管理的安装版本；为 null 不等于不能装，npx/binary 仍可安装 |

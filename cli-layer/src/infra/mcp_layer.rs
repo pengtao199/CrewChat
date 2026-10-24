@@ -94,6 +94,11 @@ impl McpLayerClient {
         }
     }
 
+    pub async fn scan(&self) -> Result<Value, String> {
+        self.request(reqwest::Method::POST, "/v1/scan", Some(&json!({})))
+            .await
+    }
+
     pub async fn list(&self) -> Result<Value, String> {
         self.request(reqwest::Method::GET, "/v1/servers", None)
             .await

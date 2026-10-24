@@ -114,6 +114,10 @@ impl SkillCatalog for SkillLayerClient {
 
 #[async_trait]
 impl McpCatalog for McpLayerClient {
+    async fn scan(&self) -> Result<Value, String> {
+        self.scan().await
+    }
+
     async fn list(&self) -> Result<Value, String> {
         self.list().await
     }

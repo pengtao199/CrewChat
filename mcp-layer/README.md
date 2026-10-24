@@ -50,7 +50,8 @@ cargo run
 | 方法 | 路径 | 作用 |
 | --- | --- | --- |
 | `GET` | `/v1/health` | 控制面 + 所有 proxy 状态 |
-| `GET` | `/v1/servers` | MCP 库 |
+| `GET` | `/v1/servers` | MCP 库（不自动扫描） |
+| `POST` | `/v1/scan` | 扫描本机 CLI MCP 配置并导入新条目 |
 | `GET` | `/v1/servers/{id}` | 单个 MCP |
 | `PUT` | `/v1/servers/{id}` | 新建/更新（写 `servers/<id>.json`） |
 | `DELETE` | `/v1/servers/{id}` | 删除并清理 Agent 引用 |
@@ -92,7 +93,7 @@ cargo run
 
 ## 当前状态
 
-- 控制面、注册表、Agent proxy 实例、动态端口、bearer token 已实现。
+- 控制面、注册表、本机 MCP 发现、Agent proxy 实例、动态端口、bearer token 已实现。
 - 网关内核复用 `mcp-proxy` 0.6（`default-features = false` + `oauth`，仅用于 per-token 权限；不启用 OTel/OpenAPI/Redis/SQLite）。
 - 7 个测试通过（registry / spec / proxy config / proxy 启动 / HTTP tools/list / admin 工具隐藏），clippy 通过。
 - `cli-layer` 的 `agent_mcps_set` / `session/new.mcpServers` 已接；真实 ACP 会话待验证。

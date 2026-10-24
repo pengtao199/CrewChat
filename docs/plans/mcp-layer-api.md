@@ -58,6 +58,7 @@ Agent proxy 的 token 是另一个 token，只在 `PUT /v1/agents/{id}` 返回�
 | --- | --- | --- |
 | `GET` | `/v1/health` | 控制面 + 所有 proxy 状态 |
 | `GET` | `/v1/servers` | 全局 MCP 库 |
+| `POST` | `/v1/scan` | 扫描本机 CLI 配置并导入新 MCP |
 | `GET` | `/v1/servers/{id}` | 单个 MCP |
 | `PUT` | `/v1/servers/{id}` | 新建/更新 MCP 定义 |
 | `DELETE` | `/v1/servers/{id}` | 删除 MCP，清理 Agent 引用 |
@@ -123,6 +124,7 @@ HTTP：
 ```
 
 - `id` 是 `cli-layer.db` 的 `agent_roles.id`。
+- MCP 页打开时 `mcp_list` 会先尽力扫描本机 CLI 配置，所以已安装的 MCP 应自动出现在库里。
 - `serverIds` 是显式 allowlist；**空数组 = 没有 MCP**，不继承全部。
 - 幂等：相同 `serverIds` 重复调用会复用已有 proxy。
 - 缺失 server → `409 server_missing`，不会部分启动。
