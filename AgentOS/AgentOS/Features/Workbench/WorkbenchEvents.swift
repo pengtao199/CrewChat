@@ -26,13 +26,18 @@ extension WorkbenchViewModel {
 
         switch frame.event {
         case let .contentDelta(text):
-            updateLive(frame.speakerRoleID) { live in
-                live.text += text
-            }
+            bufferStream(frame.speakerRoleID, text: text)
+            return
         case let .thinking(text):
-            updateLive(frame.speakerRoleID) { live in
-                live.thinking += text
-            }
+            bufferStream(frame.speakerRoleID, thinking: text)
+            return
+        default:
+            flushStreamBuffers()
+        }
+
+        switch frame.event {
+        case .contentDelta, .thinking:
+            break
         case let .toolCall(id, title, status):
             updateLive(frame.speakerRoleID) { live in
                 if let index = live.tools.firstIndex(where: { $0.id == id }) {
@@ -85,6 +90,39 @@ extension WorkbenchViewModel {
         }
     }
 
+    private func bufferStream(
+        _ speakerRoleID: String?,
+        text: String = "",
+        thinking: String = ""
+    ) {
+        let key = speakerKey(speakerRoleID)
+        var chunk = pendingStreamChunks[key]
+            ?? PendingStreamChunk(speakerRoleID: speakerRoleID)
+        chunk.text += text
+        chunk.thinking += thinking
+        pendingStreamChunks[key] = chunk
+
+        guard streamFlushTask == nil else { return }
+        streamFlushTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(50))
+            guard let self, !Task.isCancelled else { return }
+            self.flushStreamBuffers()
+            self.streamFlushTask = nil
+        }
+    }
+
+    private func flushStreamBuffers() {
+        guard !pendingStreamChunks.isEmpty else { return }
+        let chunks = pendingStreamChunks
+        pendingStreamChunks.removeAll()
+        for chunk in chunks.values {
+            updateLive(chunk.speakerRoleID) { live in
+                live.text += chunk.text
+                live.thinking += chunk.thinking
+            }
+        }
+    }
+
     private func updateLive(_ speakerRoleID: String?, mutate: (inout LiveTurn) -> Void) {
         let key = speakerKey(speakerRoleID)
         var live = liveReplies[key] ?? LiveTurn(
@@ -113,17 +151,25 @@ extension WorkbenchViewModel {
         live.isRunning = false
         live.duration = Date().timeIntervalSince(live.startedAt)
         liveReplies[key] = live
+        pendingLiveRemoval[key] = live
         refreshSoon()
         refreshRunningState()
+    }
 
-        let snapshot = live
-        Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(1500))
-            guard let self else { return }
-            if self.liveReplies[key] == snapshot {
-                self.liveReplies.removeValue(forKey: key)
+    func clearPersistedLive() {
+        guard let detail else { return }
+        for (key, live) in pendingLiveRemoval {
+            let persisted = detail.turns.contains { turn in
+                guard turn.role == .assistant, turn.speakerRoleID == live.speakerRoleID else {
+                    return false
+                }
+                return turn.plainText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    == live.text.trimmingCharacters(in: .whitespacesAndNewlines)
             }
-            self.refreshRunningState()
+            if persisted {
+                liveReplies.removeValue(forKey: key)
+                pendingLiveRemoval.removeValue(forKey: key)
+            }
         }
     }
 

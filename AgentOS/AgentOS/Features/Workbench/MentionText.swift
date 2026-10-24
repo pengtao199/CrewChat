@@ -9,6 +9,7 @@ enum MentionParser {
         in text: String,
         members: [ConversationMember]
     ) -> [(roleID: String, range: Range<String.Index>)] {
+        guard text.contains("@") else { return [] }
         var result: [(String, Range<String.Index>)] = []
         for member in members.sorted(by: { $0.name.count > $1.name.count }) {
             let token = "@\(member.name)"

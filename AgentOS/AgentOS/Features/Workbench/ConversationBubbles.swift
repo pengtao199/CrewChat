@@ -114,7 +114,9 @@ struct AssistantBubble: View {
                     }
                 }
 
-                MentionBadges(text: bubbleText, members: members)
+                if !isRunning {
+                    MentionBadges(text: bubbleText, members: members)
+                }
 
                 HStack(alignment: .bottom, spacing: 6) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -130,7 +132,8 @@ struct AssistantBubble: View {
 
                         if !text.isEmpty {
                             if isRunning {
-                                MentionText(text: text, members: members)
+                                Text(text)
+                                    .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             } else {
                                 StructuredText(markdown: text)

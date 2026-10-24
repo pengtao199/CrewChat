@@ -36,3 +36,9 @@ struct PendingPermission: Identifiable, Equatable {
 
     var id: String { request.id }
 }
+
+struct PendingStreamChunk {
+    let speakerRoleID: String?
+    var text = ""
+    var thinking = ""
+}

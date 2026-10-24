@@ -62,13 +62,7 @@ struct ToolActivityView: View {
     let tools: [ToolActivityItem]
     let isRunning: Bool
 
-    @State private var expanded: Bool
-
-    init(tools: [ToolActivityItem], isRunning: Bool) {
-        self.tools = tools
-        self.isRunning = isRunning
-        _expanded = State(initialValue: isRunning)
-    }
+    @State private var expanded = false
 
     var body: some View {
         if !tools.isEmpty {
@@ -100,9 +94,6 @@ struct ToolActivityView: View {
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            }
-            .onChange(of: isRunning) { _, running in
-                expanded = running
             }
         }
     }
@@ -261,9 +252,6 @@ struct ThinkingView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-            }
-            .onChange(of: isRunning) { _, running in
-                if !running { expanded = false }
             }
         }
     }

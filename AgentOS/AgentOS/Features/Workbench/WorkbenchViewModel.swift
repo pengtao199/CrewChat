@@ -18,6 +18,9 @@ final class WorkbenchViewModel {
     var pendingPermissions: [PendingPermission] = []
 
     var liveReplies: [String: LiveTurn] = [:]
+    var pendingLiveRemoval: [String: LiveTurn] = [:]
+    var pendingStreamChunks: [String: PendingStreamChunk] = [:]
+    var streamFlushTask: Task<Void, Never>?
     var draftFolder: Workspace?
     var selectedRoleIDs: [String] = []
     var selectedConversationID: String?
@@ -189,6 +192,10 @@ final class WorkbenchViewModel {
             refreshTask = nil
             subscribedConversationID = nil
             liveReplies = [:]
+            pendingLiveRemoval = [:]
+            pendingStreamChunks = [:]
+            streamFlushTask?.cancel()
+            streamFlushTask = nil
             pendingPermissions = []
             liveConversationID = conversationID
             isRunning = false
@@ -201,6 +208,7 @@ final class WorkbenchViewModel {
                last.plainText.trimmingCharacters(in: .whitespacesAndNewlines) == pending {
                 pendingUserText = nil
             }
+            clearPersistedLive()
             subscribe(conversationID: conversationID)
             refreshRunningState()
         } catch {
@@ -241,6 +249,10 @@ final class WorkbenchViewModel {
             isRunning = true
             waitingForTurn = true
             liveReplies = [:]
+            pendingLiveRemoval = [:]
+            pendingStreamChunks = [:]
+            streamFlushTask?.cancel()
+            streamFlushTask = nil
             pendingPermissions = []
             draftFolder = nil
             selectedRoleIDs = []
@@ -273,6 +285,7 @@ final class WorkbenchViewModel {
             waitingForTurn = false
             pendingUserText = nil
             liveReplies = [:]
+            pendingLiveRemoval = [:]
             connectionID = nil
             return false
         }
@@ -291,6 +304,10 @@ final class WorkbenchViewModel {
         let previousConversationID = liveConversationID
         if previousConversationID != conversation.id {
             liveReplies = [:]
+            pendingLiveRemoval = [:]
+            pendingStreamChunks = [:]
+            streamFlushTask?.cancel()
+            streamFlushTask = nil
             pendingPermissions = []
             liveConversationID = conversation.id
         }
@@ -334,6 +351,7 @@ final class WorkbenchViewModel {
             waitingForTurn = false
             pendingUserText = nil
             liveReplies = [:]
+            pendingLiveRemoval = [:]
             connectionID = nil
             return false
         }

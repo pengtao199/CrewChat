@@ -14,6 +14,10 @@ struct ConversationTimelineView: View {
     let onPermission: (PendingPermission, String?) -> Void
 
     private let bottomID = "conversation-bottom"
+    @State private var isPinnedToBottom = true
+    @State private var lastFollowAt = Date.distantPast
+    @State private var lastContentHeight: CGFloat = 0
+    @State private var lastContentOffset: CGFloat = 0
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -55,20 +59,44 @@ struct ConversationTimelineView: View {
                 .padding(.bottom, bottomInset)
                 .padding(.horizontal, 20)
             }
+            .onScrollGeometryChange(for: ScrollSnapshot.self) { geometry in
+                ScrollSnapshot(
+                    contentHeight: geometry.contentSize.height,
+                    contentOffset: geometry.contentOffset.y,
+                    containerHeight: geometry.containerSize.height
+                )
+            } action: { _, snapshot in
+                let contentGrew = snapshot.contentHeight > lastContentHeight + 0.5
+                let offsetMoved = abs(snapshot.contentOffset - lastContentOffset) > 0.5
+                if lastContentHeight > 0, !contentGrew || offsetMoved {
+                    let remaining = snapshot.contentHeight
+                        - snapshot.contentOffset
+                        - snapshot.containerHeight
+                    isPinnedToBottom = remaining <= 72
+                }
+                lastContentHeight = snapshot.contentHeight
+                lastContentOffset = snapshot.contentOffset
+            }
             .onAppear {
-                scrollToBottom(proxy, animated: false)
+                isPinnedToBottom = true
+                follow(proxy, animated: false)
             }
             .onChange(of: detail.turns.count) { _, _ in
-                scrollToBottom(proxy)
+                guard isPinnedToBottom else { return }
+                follow(proxy, animated: true)
             }
-            .onChange(of: pendingUserText) { _, _ in
-                scrollToBottom(proxy)
+            .onChange(of: pendingUserText) { _, value in
+                guard value != nil else { return }
+                isPinnedToBottom = true
+                follow(proxy, animated: true)
             }
             .onChange(of: liveSignature) { _, _ in
-                scrollToBottom(proxy)
+                guard isPinnedToBottom else { return }
+                follow(proxy, animated: false)
             }
             .onChange(of: pendingPermissions.count) { _, _ in
-                scrollToBottom(proxy)
+                guard isPinnedToBottom else { return }
+                follow(proxy, animated: false)
             }
         }
     }
@@ -177,9 +205,14 @@ struct ConversationTimelineView: View {
             .joined(separator: "|")
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool = true) {
+    private func follow(_ proxy: ScrollViewProxy, animated: Bool) {
+        if !animated {
+            let now = Date()
+            guard now.timeIntervalSince(lastFollowAt) >= 0.05 else { return }
+            lastFollowAt = now
+        }
         if animated {
-            withAnimation(.easeOut(duration: 0.15)) {
+            withAnimation(.easeOut(duration: 0.16)) {
                 proxy.scrollTo(bottomID, anchor: .bottom)
             }
         } else {
@@ -191,6 +224,12 @@ struct ConversationTimelineView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
+}
+
+private struct ScrollSnapshot: Equatable {
+    let contentHeight: CGFloat
+    let contentOffset: CGFloat
+    let containerHeight: CGFloat
 }
 
 private struct TurnGroup: Identifiable {
