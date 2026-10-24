@@ -89,6 +89,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/get_conversation", post(get_conversation))
         .route("/api/team_status", post(team_status))
         .route("/api/cancel_delegation", post(cancel_delegation))
+        .route("/api/cancel_conversation", post(cancel_conversation))
         .route("/api/retry_delegation", post(retry_delegation))
         .route("/api/internal/team_delegate", post(team_delegate))
         .route("/api/delete_conversation", post(delete_conversation))

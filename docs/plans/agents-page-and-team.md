@@ -490,6 +490,7 @@ create_conversation       接收 team
 get_conversation          返回 team + members + speaker
 conversation_agents       新增：成员实时状态
 cancel_delegation         新增
+cancel_conversation       新增：取消所有运行中的成员委派
 retry_delegation          新增
 ```
 

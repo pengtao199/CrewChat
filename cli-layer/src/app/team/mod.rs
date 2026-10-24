@@ -144,6 +144,68 @@ impl TeamService {
         }))
     }
 
+    /// Cancel every queued/running member delegation in a conversation.
+    /// Used when the user stops the whole team run, so members do not keep
+    /// working after the Leader is cancelled.
+    pub fn cancel_conversation(&self, conversation_id: &str) -> Result<Value> {
+        let delegations = self.teams.delegations(conversation_id)?;
+        let mut cancelled = 0usize;
+        for delegation in delegations {
+            let status = delegation
+                .get("status")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if !matches!(status, "queued" | "running") {
+                continue;
+            }
+            let Some(delegation_id) = delegation.get("id").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(member_role_id) = delegation.get("member_role_id").and_then(Value::as_str)
+            else {
+                continue;
+            };
+            let connection_cancelled = self.sessions.cancel_role(conversation_id, member_role_id);
+            self.teams.update_delegation(
+                delegation_id,
+                "cancelled",
+                Some(&json!({"cancelled": true, "reason": "conversation_cancelled"})),
+                None,
+                None,
+            )?;
+            self.teams.set_conversation_agent(
+                conversation_id,
+                member_role_id,
+                if connection_cancelled {
+                    "cancelled"
+                } else {
+                    "idle"
+                },
+                None,
+            )?;
+            self.emit_team_event(
+                conversation_id,
+                "delegation_cancelled",
+                Some(member_role_id),
+                json!({
+                    "delegation_id": delegation_id,
+                    "connection_cancelled": connection_cancelled,
+                }),
+            );
+            cancelled += 1;
+        }
+        self.emit_team_event(
+            conversation_id,
+            "conversation_cancelled",
+            None,
+            json!({"cancelled_delegations": cancelled}),
+        );
+        Ok(json!({
+            "conversationId": conversation_id,
+            "cancelledDelegations": cancelled,
+        }))
+    }
+
     fn emit_team_event(
         &self,
         conversation_id: &str,

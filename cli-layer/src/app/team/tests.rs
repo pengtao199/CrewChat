@@ -18,10 +18,11 @@ use crate::domain::ports::{
     AgentRepository, ConnectRequest, ConversationRepository, EngineSettingsRepository,
     EventPublisher, EventSubscription, ModelCatalog, SessionRuntime, SkillCatalog, TeamRepository,
 };
-use crate::domain::team::TeamSnapshot;
+use crate::domain::team::{Delegation, TeamSnapshot};
 use crate::infra::store::Store;
 use crate::runtime::engine::registry::Engines;
 
+#[derive(Default)]
 struct FakeRuntime {
     events: Mutex<Vec<EventEnvelope>>,
     connects: Mutex<usize>,
@@ -367,4 +368,70 @@ async fn delegation_uses_snapshot_and_records_speaker() {
         .delegate(&conversation, "member", "leader", "x", None, None)
         .await
         .is_err());
+}
+
+#[tokio::test]
+async fn cancel_conversation_cancels_running_delegations() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(&dir.path().join("cancel.db")).unwrap();
+    store.init_schema().unwrap();
+    let leader = Agent {
+        id: "leader".to_string(),
+        name: "Leader".to_string(),
+        agent_type: "claude_code".to_string(),
+        ..Agent::default()
+    };
+    let member = Agent {
+        id: "member".to_string(),
+        name: "Member".to_string(),
+        agent_type: "claude_code".to_string(),
+        ..Agent::default()
+    };
+    let snapshot = TeamSnapshot::new(&leader, std::slice::from_ref(&member), crate::config::now());
+    let conversation = store
+        .create_team_conversation(None, "claude_code", Some("Team"), &snapshot)
+        .unwrap();
+    let running = Delegation::new(
+        &conversation,
+        "leader",
+        "member",
+        "still running",
+        None,
+        None,
+        crate::config::now(),
+    );
+    store.create_delegation(&running).unwrap();
+    store
+        .update_delegation(&running.id, "running", None, None, None)
+        .unwrap();
+
+    let model = Arc::new(FakeModel);
+    let engines = Engines::new(config());
+    let conversations: Arc<dyn ConversationRepository> = Arc::new(store.clone());
+    let teams: Arc<dyn TeamRepository> = Arc::new(store.clone());
+    let agent_repo: Arc<dyn AgentRepository> = Arc::new(store.clone());
+    let roster = RosterService::new(agent_repo.clone(), model.clone(), engines.clone());
+    let engine_service = EngineService::new(Arc::new(FakeSettings), engines, config());
+    let readiness = ReadinessService::new(
+        roster.clone(),
+        engine_service.clone(),
+        model.clone(),
+        Arc::new(FakeSkills),
+    );
+    let sessions = SessionService::new(
+        agent_repo,
+        conversations.clone(),
+        Arc::new(FakeRuntime::default()),
+        model,
+        engine_service,
+        Some(teams.clone()),
+    );
+    let team = TeamService::new(roster, conversations, teams, readiness, sessions, None);
+
+    let result = team.cancel_conversation(&conversation).unwrap();
+    assert_eq!(result["cancelledDelegations"], 1);
+    assert_eq!(
+        store.delegation(&running.id).unwrap().unwrap()["status"],
+        "cancelled"
+    );
 }
