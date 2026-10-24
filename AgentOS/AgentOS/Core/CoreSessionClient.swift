@@ -7,13 +7,14 @@ final class CoreSessionClient: CoreSession, @unchecked Sendable {
         self.provider = provider
     }
 
-    func connect(agentType: String, workingDir: String?, roleID: String?, sessionID: String?) async throws -> String {
+    func connect(agentType: String, workingDir: String?, roleID: String?, conversationID: String?, sessionID: String?) async throws -> String {
         let result: CoreConnectResult = try await provider.client().send(
             "acp_connect",
             body: CoreConnectBody(
                 agentType: agentType,
                 workingDir: workingDir,
                 roleId: roleID,
+                conversationId: conversationID,
                 sessionId: sessionID
             )
         )
@@ -85,6 +86,7 @@ struct CoreConnectBody: Encodable {
     let agentType: String
     let workingDir: String?
     let roleId: String?
+    let conversationId: String?
     let sessionId: String?
 }
 

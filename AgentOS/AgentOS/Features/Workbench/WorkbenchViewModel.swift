@@ -252,6 +252,7 @@ final class WorkbenchViewModel {
                 agentType: leader.agentType,
                 workingDir: folder.path,
                 roleID: leader.id,
+                conversationID: conversationID,
                 sessionID: nil
             )
             connectionID = connection
@@ -309,6 +310,7 @@ final class WorkbenchViewModel {
                     agentType: conversation.agentType,
                     workingDir: folder.path,
                     roleID: conversation.teamLeaderRoleID,
+                    conversationID: conversation.id,
                     sessionID: conversation.externalId
                 )
                 connectionID = connection
