@@ -200,7 +200,11 @@ struct AgentsSettingsView: View {
             Section("settings.agents.permissions") {
                 AgentPermissionsFields(
                     permissionMode: $role.permissionMode,
-                    autoApprove: $role.autoApprove
+                    autoApprove: $role.autoApprove,
+                    face: model.permissionFace,
+                    error: model.permissionFaceError,
+                    isLoading: model.isLoadingPermissionFace,
+                    onRetry: reloadPermissionFace
                 )
             }
         }
@@ -343,6 +347,7 @@ struct AgentsSettingsView: View {
 
     private func reloadForDraft() async {
         await model.loadFace(agentType: role.agentType)
+        await model.loadPermissionFace(agentType: role.agentType)
         await model.loadCapabilities(agentType: role.agentType)
     }
 
@@ -352,6 +357,10 @@ struct AgentsSettingsView: View {
 
     private func reloadCapabilities() {
         Task { await model.loadCapabilities(agentType: role.agentType) }
+    }
+
+    private func reloadPermissionFace() {
+        Task { await model.loadPermissionFace(agentType: role.agentType) }
     }
 
     private func waitForSave() async {

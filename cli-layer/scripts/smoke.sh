@@ -51,6 +51,10 @@ def call(path, body):
 health = call("/api/health", {})
 assert health["status"] == "ok", health
 
+permission_face = call("/api/agent_role_permission_face", {"agentType": "claude_code"})
+assert permission_face["supports_session_mode"] is True, permission_face
+assert any(mode["id"] == "acceptEdits" for mode in permission_face["modes"]), permission_face
+
 connection = call("/api/acp_connect", {"agentType": "claude_code", "workingDir": "/tmp"})
 connection_id = connection["connection_id"]
 call("/api/acp_prompt", {

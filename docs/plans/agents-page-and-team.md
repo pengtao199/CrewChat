@@ -537,8 +537,10 @@ cancel_delegation         新增
 
 Agent 的权限在 Agents 页一次配置：
 
-- `permission_mode`：会话启动时套用到 ACP
-- `auto_approve`：该角色的权限请求自动批准
+- `permission_mode`：Agent 级选择，值来自 `agent_role_permission_face` 暴露的
+  ACP Session Modes；启动会话后通过 `session/set_mode` 应用
+- `auto_approve`：该角色的权限请求自动批准；默认只选 `AllowOnce`，审计事件
+  为 `permission_auto_approved`
 - 自动批准必须写审计日志
 - 成员权限独立于 Leader
 - 不允许 Leader 偷偷提升成员权限
@@ -624,7 +626,7 @@ UI：
 
 ### Phase C：权限 + 用量 + 恢复
 
-1. 🟡 `auto_approve` 已生效；`permission_mode` 到引擎参数仍待映射。
+1. ✅ `auto_approve` 已生效；`permission_mode` 走 ACP `session/set_mode`，不支持的引擎/模式在 readiness 直接阻断。
 2. ✅ 自动批准写 `permission_auto_approved` 审计事件。
 3. 🟡 委派 usage 已落 `delegations`，尚未汇总到会话/成员用量。
 4. ✅ `acp_connect` 接收 `sessionId` 时走 ACP `session/load`。

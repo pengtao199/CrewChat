@@ -9,16 +9,8 @@ use serde_json::{json, Value};
 use crate::app::engines::EngineService;
 use crate::app::roster::RosterService;
 use crate::domain::agent::Agent;
+use crate::domain::permission::resolve_mode;
 use crate::domain::ports::{ModelCatalog, SkillCatalog};
-
-const PERMISSION_MODES: &[&str] = &[
-    "default",
-    "acceptEdits",
-    "auto",
-    "dontAsk",
-    "bypassPermissions",
-    "plan",
-];
 
 #[derive(Clone)]
 pub struct ReadinessService {
@@ -54,7 +46,7 @@ impl ReadinessService {
         self.check_engine(&agent, &mut blockers, &mut warnings);
         self.check_model(&agent, &mut blockers, &mut warnings).await;
         self.check_skills(&agent, &mut blockers).await;
-        self.check_permissions(&agent, &mut warnings);
+        self.check_permissions(&agent, &mut blockers, &mut warnings);
 
         if !agent.mcp.is_empty() {
             warnings.push(issue(
@@ -74,6 +66,9 @@ impl ReadinessService {
                 "skills": agent.skills,
                 "mcp": agent.mcp,
                 "permissionMode": agent.permission_mode,
+                "effectivePermissionMode": resolve_mode(&agent.agent_type, &agent.permission_mode)
+                    .ok()
+                    .flatten(),
                 "autoApprove": agent.auto_approve,
             },
         }))
@@ -229,21 +224,24 @@ impl ReadinessService {
         }
     }
 
-    fn check_permissions(&self, agent: &Agent, warnings: &mut Vec<Value>) {
-        if !agent.permission_mode.trim().is_empty()
-            && !PERMISSION_MODES.contains(&agent.permission_mode.as_str())
-        {
-            warnings.push(issue(
-                "permission_mode_unknown",
-                &format!("Unknown permission mode '{}'.", agent.permission_mode),
-                "Choose a supported permission mode in the Agent editor.",
+    fn check_permissions(
+        &self,
+        agent: &Agent,
+        blockers: &mut Vec<Value>,
+        warnings: &mut Vec<Value>,
+    ) {
+        if let Err(message) = resolve_mode(&agent.agent_type, &agent.permission_mode) {
+            blockers.push(issue(
+                "permission_mode_unsupported",
+                &message,
+                "Choose a mode this engine supports in the Agent editor.",
             ));
         }
-        if agent.auto_approve && agent.permission_mode == "default" {
+        if agent.auto_approve && agent.permission_mode.trim().is_empty() {
             warnings.push(issue(
                 "auto_approve_overrides_mode",
-                "Auto-approve is on while the permission mode is 'default'.",
-                "Use 'auto' or turn auto-approve off to avoid mixed signals.",
+                "Auto-approve is on while the engine uses its default permission mode.",
+                "Pick an explicit mode or turn auto-approve off if you need a clear policy.",
             ));
         }
     }
@@ -455,10 +453,10 @@ mod tests {
             .unwrap()
             .iter()
             .any(|issue| issue["code"] == "skill_missing"));
-        assert!(value["warnings"]
+        assert!(value["blockers"]
             .as_array()
             .unwrap()
             .iter()
-            .any(|issue| issue["code"] == "permission_mode_unknown"));
+            .any(|issue| issue["code"] == "permission_mode_unsupported"));
     }
 }

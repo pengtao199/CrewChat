@@ -19,6 +19,7 @@ use crate::api::handlers::*;
 use crate::app::engines::EngineService;
 use crate::app::mcp::McpService;
 use crate::app::models::ModelService;
+use crate::app::permissions::PermissionService;
 use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
@@ -39,6 +40,7 @@ pub struct AppState {
     pub skills: SkillService,
     pub mcp: McpService,
     pub readiness: ReadinessService,
+    pub permissions: PermissionService,
     pub engines: EngineService,
     pub sessions: SessionService,
     pub team: TeamService,
@@ -72,6 +74,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/agent_roles_save", post(agent_roles_save))
         .route("/api/agent_roles_delete", post(agent_roles_delete))
         .route("/api/agent_role_model_face", post(agent_role_model_face))
+        .route(
+            "/api/agent_role_permission_face",
+            post(agent_role_permission_face),
+        )
         .route("/api/agent_role_readiness", post(agent_role_readiness))
         .route("/api/agent_role_test_run", post(agent_role_test_run))
         .route("/api/list_open_folder_details", post(list_folders))

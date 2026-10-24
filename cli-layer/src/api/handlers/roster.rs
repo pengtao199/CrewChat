@@ -95,6 +95,18 @@ pub(crate) async fn agent_role_model_face(
     }
 }
 
+pub(crate) async fn agent_role_permission_face(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let agent_type = field(&body, &["agentType", "agent_type"]).unwrap_or("claude_code");
+    Json(state.permissions.face(agent_type)).into_response()
+}
+
 pub(crate) async fn agent_role_readiness(
     State(state): State<AppState>,
     headers: HeaderMap,

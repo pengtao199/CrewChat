@@ -5,4 +5,5 @@ protocol CoreRoster: Sendable {
     func saveAgent(_ role: AgentRole) async throws -> AgentRole
     func deleteAgent(id: String) async throws
     func modelFace(agentType: String) async throws -> ModelFace
+    func permissionFace(agentType: String) async throws -> PermissionFace
 }

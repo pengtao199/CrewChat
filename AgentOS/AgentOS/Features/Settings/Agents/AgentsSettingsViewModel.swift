@@ -11,6 +11,9 @@ final class AgentsSettingsViewModel {
 
     private(set) var face: ModelFace?
     private(set) var faceError: String?
+    private(set) var permissionFace: PermissionFace?
+    private(set) var permissionFaceError: String?
+    private(set) var isLoadingPermissionFace = false
     private(set) var skills: [CapabilityOption] = []
     private(set) var skillsError: String?
     private(set) var mcpServers: [CapabilityOption] = []
@@ -78,6 +81,24 @@ final class AgentsSettingsViewModel {
             faceError = error.localizedDescription
         }
         isLoadingFace = false
+    }
+
+    func loadPermissionFace(agentType: String) async {
+        guard !agentType.isEmpty else {
+            permissionFace = nil
+            permissionFaceError = nil
+            return
+        }
+
+        isLoadingPermissionFace = true
+        do {
+            permissionFace = try await roster.permissionFace(agentType: agentType)
+            permissionFaceError = nil
+        } catch {
+            permissionFace = nil
+            permissionFaceError = error.localizedDescription
+        }
+        isLoadingPermissionFace = false
     }
 
     func loadCapabilities(agentType: String) async {

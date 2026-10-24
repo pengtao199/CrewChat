@@ -603,8 +603,10 @@ ACP update
   `delegations` 和带 `speaker_role_id` 的 turn。
 - 成员连接按 `(conversation, role)` 懒启动并复用；失败/取消关闭，空闲 30 分钟
   回收；`cancel_delegation` 会向正在运行的成员发 ACP cancel。
-- `auto_approve` 在 ACP permission 请求上生效：自动选择 AllowOnce/AllowAlways，
-  并写 `permission_auto_approved` 审计事件；未开启时仍走 UI 审批。
+- `permission_mode` 按引擎 Session Modes 应用：`session/new` 后读取
+  `modes.availableModes`，支持则 `session/set_mode`；不支持则 readiness blocker。
+- `auto_approve` 在 ACP permission 请求上生效：只自动选择 `AllowOnce`，并写
+  `permission_auto_approved` 审计事件；`AllowAlways` 留给后续工具级规则。
 - 普通 `acp_prompt` 也会在 `turn_complete` 后落 assistant turn；连接记录
   role/conversation，用于 speaker 归属。
 - `acp_connect` 接收 `sessionId` 时走 ACP `session/load`；连接成功后把

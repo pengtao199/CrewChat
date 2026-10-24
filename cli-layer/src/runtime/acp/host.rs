@@ -15,7 +15,7 @@ use agent_client_protocol::schema::v1::{
     CancelNotification, ClientCapabilities, ContentBlock, EnvVariable, InitializeRequest,
     LoadSessionRequest, McpServer, McpServerStdio, NewSessionRequest, PermissionOptionKind,
     PromptRequest, RequestPermissionOutcome, RequestPermissionRequest, RequestPermissionResponse,
-    SelectedPermissionOutcome, SessionId, SessionNotification, TextContent,
+    SelectedPermissionOutcome, SessionId, SessionNotification, SetSessionModeRequest, TextContent,
 };
 use agent_client_protocol::schema::ProtocolVersion;
 use agent_client_protocol::{Agent, Client, ConnectionTo};
@@ -310,9 +310,18 @@ impl AcpHost {
             .and_then(|role| role.get("auto_approve"))
             .and_then(Value::as_bool)
             .unwrap_or(false);
+        let requested_mode = role
+            .as_ref()
+            .and_then(|role| role.get("permission_mode"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        let resolved_mode = crate::domain::permission::resolve_mode(agent_type, &requested_mode)
+            .map_err(|error| anyhow!(error))?;
         let connection_id = uuid::Uuid::new_v4().to_string();
         let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel();
-        let (ready_tx, ready_rx) = oneshot::channel::<SessionId>();
+        let (ready_tx, ready_rx) = oneshot::channel::<std::result::Result<SessionId, String>>();
 
         let notification_sink = self.sink.clone();
         let notification_conn = connection_id.clone();
@@ -345,11 +354,7 @@ impl AcpHost {
                                 serde_json::to_value(&request).unwrap_or(Value::Null);
                             if auto_approve {
                                 if let Some(option) = request.options.iter().find(|option| {
-                                    matches!(
-                                        option.kind,
-                                        PermissionOptionKind::AllowOnce
-                                            | PermissionOptionKind::AllowAlways
-                                    )
+                                    matches!(option.kind, PermissionOptionKind::AllowOnce)
                                 }) {
                                     let audit_id = uuid::Uuid::new_v4().to_string();
                                     sink.emit(EventEnvelope {
@@ -411,23 +416,50 @@ impl AcpHost {
                         )
                         .block_task()
                         .await?;
-                    let session_id = if let Some(existing) = resume_session_id {
-                        connection
+                    let (session_id, modes) = if let Some(existing) = resume_session_id {
+                        let loaded = connection
                             .send_request(
                                 LoadSessionRequest::new(existing.clone(), cwd)
                                     .mcp_servers(mcp_servers),
                             )
                             .block_task()
                             .await?;
-                        SessionId::new(existing)
+                        (SessionId::new(existing), loaded.modes)
                     } else {
                         let session = connection
                             .send_request(NewSessionRequest::new(cwd).mcp_servers(mcp_servers))
                             .block_task()
                             .await?;
-                        session.session_id
+                        (session.session_id, session.modes)
                     };
-                    let _ = ready_tx.send(session_id.clone());
+                    if let Some(mode_id) = resolved_mode {
+                        if let Some(state) = &modes {
+                            if !state
+                                .available_modes
+                                .iter()
+                                .any(|mode| mode.id.0.as_ref() == mode_id.as_str())
+                            {
+                                let _ = ready_tx.send(Err(format!(
+                                    "engine did not advertise permission mode '{mode_id}'"
+                                )));
+                                return Ok(());
+                            }
+                        }
+                        if let Err(error) = connection
+                            .send_request(SetSessionModeRequest::new(
+                                session_id.clone(),
+                                mode_id.clone(),
+                            ))
+                            .block_task()
+                            .await
+                        {
+                            let _ = ready_tx.send(Err(format!(
+                                "could not apply permission mode '{mode_id}': {error}"
+                            )));
+                            return Ok(());
+                        }
+                    }
+                    let _ = ready_tx.send(Ok(session_id.clone()));
 
                     while let Some(command) = cmd_rx.recv().await {
                         match command {
@@ -472,7 +504,11 @@ impl AcpHost {
         });
 
         let session_id = match tokio::time::timeout(Duration::from_secs(180), ready_rx).await {
-            Ok(Ok(session_id)) => session_id,
+            Ok(Ok(Ok(session_id))) => session_id,
+            Ok(Ok(Err(message))) => {
+                task.abort();
+                return Err(anyhow!(message));
+            }
             Ok(Err(_)) => {
                 task.abort();
                 return Err(anyhow!("ACP connection closed before session/new"));

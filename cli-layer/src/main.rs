@@ -26,6 +26,7 @@ use crate::api::http::AppState;
 use crate::app::engines::EngineService;
 use crate::app::mcp::McpService;
 use crate::app::models::ModelService;
+use crate::app::permissions::PermissionService;
 use crate::app::readiness::ReadinessService;
 use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
@@ -107,6 +108,7 @@ async fn main() -> Result<()> {
         skills,
         mcp,
         readiness,
+        permissions: PermissionService::new(),
         engines,
         sessions,
         team,

@@ -24,6 +24,14 @@ final class CoreRosterClient: CoreRoster, @unchecked Sendable {
         try await provider.client().sendIgnoring("agent_roles_delete", body: CoreAgentIdBody(id: id))
     }
 
+    func permissionFace(agentType: String) async throws -> PermissionFace {
+        let face: CorePermissionFace = try await provider.client().send(
+            "agent_role_permission_face",
+            body: CoreFaceBody(agentType: agentType)
+        )
+        return face.domain
+    }
+
     func modelFace(agentType: String) async throws -> ModelFace {
         let face: CoreModelFace = try await provider.client().send(
             "agent_role_model_face",
