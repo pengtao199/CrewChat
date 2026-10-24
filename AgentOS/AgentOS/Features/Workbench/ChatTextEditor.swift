@@ -7,6 +7,7 @@ struct ChatTextEditor: NSViewRepresentable {
     let focusRequested: Bool
     let onFocusHandled: () -> Void
     let onSubmit: () -> Void
+    let onHeightChange: (CGFloat) -> Void
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -27,10 +28,14 @@ struct ChatTextEditor: NSViewRepresentable {
         textView.textContainerInset = NSSize(width: 0, height: 4)
         textView.textContainer?.lineFragmentPadding = 0
         textView.textContainer?.widthTracksTextView = true
+        textView.textContainer?.heightTracksTextView = false
         textView.isHorizontallyResizable = false
         textView.isVerticallyResizable = true
         textView.autoresizingMask = [.width]
         textView.string = text
+        DispatchQueue.main.async {
+            context.coordinator.measure(textView)
+        }
         return scroll
     }
 
@@ -49,6 +54,10 @@ struct ChatTextEditor: NSViewRepresentable {
             }
         } else if !focusRequested {
             context.coordinator.didFocus = false
+        }
+
+        DispatchQueue.main.async {
+            context.coordinator.measure(textView)
         }
     }
 
@@ -72,6 +81,18 @@ struct ChatTextEditor: NSViewRepresentable {
             guard let textView = notification.object as? NSTextView else { return }
             parent.text = textView.string
             textView.scrollRangeToVisible(textView.selectedRange())
+            measure(textView)
+        }
+
+        func measure(_ textView: NSTextView) {
+            guard let layoutManager = textView.layoutManager,
+                  let container = textView.textContainer else {
+                return
+            }
+            layoutManager.ensureLayout(for: container)
+            let height = layoutManager.usedRect(for: container).height
+                + textView.textContainerInset.height * 2
+            parent.onHeightChange(ceil(height))
         }
 
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {

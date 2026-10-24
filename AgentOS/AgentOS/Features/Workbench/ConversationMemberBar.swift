@@ -1,7 +1,6 @@
 import SwiftUI
 
-struct ConversationHeaderView: View {
-    let conversation: Conversation
+struct ConversationMemberBar: View {
     let members: [ConversationMember]
     let liveTurns: [LiveTurn]
     let activeDelegations: [ConversationDelegation]
@@ -9,22 +8,7 @@ struct ConversationHeaderView: View {
     let onAddMember: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(conversation.displayTitle)
-                    .font(.headline)
-                    .lineLimit(1)
-                if !members.isEmpty {
-                    Text(subtitle)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-            .layoutPriority(1)
-
-            Spacer(minLength: 8)
-
+        HStack(spacing: 6) {
             ForEach(members) { member in
                 MemberChip(
                     member: member,
@@ -38,7 +22,7 @@ struct ConversationHeaderView: View {
                 onAddMember?()
             } label: {
                 Image(systemName: "plus")
-                    .frame(width: 24, height: 24)
+                    .frame(width: 22, height: 22)
             }
             .buttonStyle(.borderless)
             .disabled(onAddMember == nil)
@@ -46,19 +30,6 @@ struct ConversationHeaderView: View {
                 ? "conversation.member.frozen"
                 : "conversation.member.add")
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 9)
-        .background(.bar)
-    }
-
-    private var subtitle: String {
-        var parts = ["\(members.count) \(String(localized: "conversation.member.count"))"]
-        if !activeDelegations.isEmpty {
-            parts.append(
-                "\(activeDelegations.count) \(String(localized: "conversation.member.activeTasks"))"
-            )
-        }
-        return parts.joined(separator: " · ")
     }
 
     private func effectiveState(_ member: ConversationMember) -> ConversationMemberState {
@@ -88,7 +59,7 @@ private struct MemberChip: View {
             HStack(spacing: 5) {
                 AgentAvatar(
                     name: member.name,
-                    size: 23,
+                    size: 21,
                     state: state,
                     isLeader: member.isLeader
                 )
@@ -101,10 +72,10 @@ private struct MemberChip: View {
                         .foregroundStyle(.tint)
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 2)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 11)
                     .fill(Color(nsColor: .controlBackgroundColor))
             )
         }

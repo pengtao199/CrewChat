@@ -16,6 +16,7 @@ struct ConversationView: View {
 
     @State private var draft = ""
     @State private var focusRequested = false
+    @State private var composerHeight: CGFloat = 100
 
     private var members: [ConversationMember] {
         detail.members
@@ -30,18 +31,6 @@ struct ConversationView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if !members.isEmpty {
-                ConversationHeaderView(
-                    conversation: detail.conversation,
-                    members: members,
-                    liveTurns: liveTurns,
-                    activeDelegations: detail.activeDelegations,
-                    onMention: insertMention,
-                    onAddMember: nil
-                )
-                Divider()
-            }
-
             if let errorMessage {
                 Text(errorMessage)
                     .font(.callout)
@@ -69,7 +58,7 @@ struct ConversationView: View {
                         agentName: agentName,
                         engineName: engineName,
                         isRunning: isRunning,
-                        bottomInset: 132,
+                        bottomInset: composerHeight + 28,
                         onMention: insertMention,
                         onPermission: onPermission
                     )
@@ -99,9 +88,29 @@ struct ConversationView: View {
                 .frame(maxWidth: 860)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 14)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    if abs(height - composerHeight) > 0.5 {
+                        composerHeight = height
+                    }
+                }
             }
         }
         .navigationTitle(detail.conversation.displayTitle)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if !members.isEmpty {
+                    ConversationMemberBar(
+                        members: members,
+                        liveTurns: liveTurns,
+                        activeDelegations: detail.activeDelegations,
+                        onMention: insertMention,
+                        onAddMember: nil
+                    )
+                }
+            }
+        }
     }
 
     private func insertMention(_ member: ConversationMember) {

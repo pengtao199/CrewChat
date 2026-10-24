@@ -11,6 +11,7 @@ struct Composer: View {
     let onStop: () -> Void
 
     @State private var isFocused = false
+    @State private var editorHeight: CGFloat = 38
     @State private var showMentions = false
     @State private var mentionQuery = ""
 
@@ -66,9 +67,15 @@ struct Composer: View {
                         } else if canSend {
                             onSend()
                         }
+                    },
+                    onHeightChange: { height in
+                        let clamped = min(max(ceil(height), 38), 160)
+                        if abs(clamped - editorHeight) > 0.5 {
+                            editorHeight = clamped
+                        }
                     }
                 )
-                .frame(maxWidth: .infinity, minHeight: 38, maxHeight: 60)
+                .frame(height: editorHeight)
             }
 
             HStack(spacing: 8) {

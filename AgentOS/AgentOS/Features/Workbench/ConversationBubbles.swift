@@ -42,6 +42,7 @@ struct UserBubble: View {
             AgentAvatar(name: String(localized: "conversation.role.user"), size: 26)
         }
         .onHover { isHovered = $0 }
+        .textSelection(.enabled)
     }
 }
 
@@ -170,6 +171,7 @@ struct AssistantBubble: View {
             Spacer(minLength: 40)
         }
         .onHover { isHovered = $0 }
+        .textSelection(.enabled)
     }
 
     private var toolItems: [ToolActivityItem] {

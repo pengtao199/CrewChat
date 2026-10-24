@@ -17,15 +17,6 @@ struct RootView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                if environment.mode == .workbench, environment.workbench.isRunning {
-                    Button {
-                        Task { await environment.workbench.cancelRun() }
-                    } label: {
-                        Label("workbench.stop", systemImage: "stop.circle")
-                    }
-                }
-            }
             ToolbarItem(placement: .navigation) {
                 if environment.mode == .settings {
                     Button {
