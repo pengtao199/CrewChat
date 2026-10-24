@@ -207,6 +207,61 @@ impl TeamService {
         }))
     }
 
+    /// Retry a failed/cancelled delegation with the same frozen member and task.
+    pub async fn retry(&self, delegation_id: &str) -> Result<Value> {
+        let delegation = self
+            .teams
+            .delegation(delegation_id)?
+            .ok_or_else(|| anyhow!("delegation not found"))?;
+        let status = delegation
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if !matches!(status, "failed" | "cancelled") {
+            bail!("only failed or cancelled delegations can be retried");
+        }
+        let conversation_id = delegation
+            .get("conversation_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("delegation has no conversation"))?;
+        let leader_role_id = delegation
+            .get("leader_role_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("delegation has no leader"))?;
+        let member_role_id = delegation
+            .get("member_role_id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("delegation has no member"))?;
+        let task = delegation
+            .get("task")
+            .and_then(Value::as_str)
+            .ok_or_else(|| anyhow!("delegation has no task"))?;
+        let context = delegation.get("context").and_then(Value::as_str);
+        let expected = delegation.get("expected_output").and_then(Value::as_str);
+        let mut result = self
+            .delegate(
+                conversation_id,
+                leader_role_id,
+                member_role_id,
+                task,
+                context,
+                expected,
+            )
+            .await?;
+        result["retriedFrom"] = json!(delegation_id);
+        self.emit_team_event(
+            conversation_id,
+            "delegation_retried",
+            Some(member_role_id),
+            json!({
+                "previous_delegation_id": delegation_id,
+                "delegation_id": result["delegationId"].clone(),
+                "status": result["status"].clone(),
+            }),
+        );
+        Ok(result)
+    }
+
     /// Run one member turn for a Leader delegation.
     ///
     /// The member snapshot comes from the frozen team JSON, never from the
@@ -327,11 +382,13 @@ impl TeamService {
         } else {
             "failed"
         };
+        let duration_ms = outcome.get("durationMs").cloned().unwrap_or(Value::Null);
         let result = json!({
             "summary": text,
             "text": text,
             "error": error,
             "phase": outcome.get("phase").cloned().unwrap_or(Value::Null),
+            "durationMs": duration_ms,
         });
         self.teams
             .update_delegation(&delegation.id, status, Some(&result), Some(&usage), None)?;
@@ -354,6 +411,7 @@ impl TeamService {
                 "status": status,
                 "summary": result["summary"],
                 "usage": usage,
+                "durationMs": duration_ms,
                 "error": if ok { Value::Null } else { error.clone() },
             }),
         );
@@ -746,6 +804,10 @@ mod tests {
         let status = team.status(&conversation).unwrap();
         assert_eq!(status["usage"]["input"], 2);
         assert_eq!(status["members"][1]["usage"]["input"], 2);
+        assert!(team
+            .retry(result["delegationId"].as_str().unwrap())
+            .await
+            .is_err());
 
         // The second delegation reuses the member connection.
         runtime.events.lock().unwrap().extend([

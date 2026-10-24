@@ -490,6 +490,7 @@ create_conversation       接收 team
 get_conversation          返回 team + members + speaker
 conversation_agents       新增：成员实时状态
 cancel_delegation         新增
+retry_delegation          新增
 ```
 
 `delegate_to_agent` 是 **Leader 会话内部工具**，不是 AgentOS 直接调用的 UI 命令。
@@ -702,9 +703,9 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 ### P2：团队执行质量
 
 - ✅ usage 汇总到会话/成员（`summary.usage`、`members[].usage`）
-- artifacts 结构化返回
-- 失败重试、最大轮数、预算
-- 团队重启后的成员池恢复
+- 🟡 artifacts 结构化返回
+- ✅ 失败/取消委派可重试（`retry_delegation`）；最大轮数、预算未做
+- 🟡 团队重启后的成员池恢复
 
 ### P3：工具级权限
 
