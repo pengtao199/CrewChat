@@ -71,6 +71,30 @@ impl Store {
             .optional()?)
     }
 
+    pub fn add_conversation_member(
+        &self,
+        conversation_id: &str,
+        snapshot: &TeamSnapshot,
+        role_id: &str,
+    ) -> Result<()> {
+        let timestamp = now();
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "UPDATE conversations SET team_json = ?1, updated_at = ?2
+             WHERE id = ?3 AND kind = 'team' AND deleted_at IS NULL",
+            params![snapshot.to_json()?, timestamp, conversation_id],
+        )?;
+        tx.execute(
+            "INSERT INTO conversation_agents
+             (conversation_id, role_id, seat, state, joined_at, updated_at)
+             VALUES (?1, ?2, 'member', 'idle', ?3, ?3)",
+            params![conversation_id, role_id, timestamp],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn conversation_agent(
         &self,
         conversation_id: &str,

@@ -201,7 +201,7 @@ mod tests {
 
     use super::*;
     use crate::domain::agent::Agent;
-    use crate::domain::team::{Delegation, TeamSnapshot};
+    use crate::domain::team::{Delegation, TeamMemberSnapshot, TeamSnapshot};
     use serde_json::json;
 
     fn store() -> (tempfile::TempDir, Store) {
@@ -299,6 +299,27 @@ mod tests {
         assert_eq!(detail["summary"]["members"][0]["role_id"], "member");
         assert_eq!(detail["summary"]["members"][0]["state"], "idle");
         assert_eq!(detail["summary"]["team"]["members"][0]["version"], 2);
+
+        let newcomer = Agent {
+            id: "newcomer".to_string(),
+            name: "Newcomer".to_string(),
+            agent_type: "claude_code".to_string(),
+            ..Agent::default()
+        };
+        let mut expanded = snapshot.clone();
+        expanded.members.push(TeamMemberSnapshot::new(&newcomer));
+        store
+            .add_conversation_member(&id, &expanded, "newcomer")
+            .unwrap();
+        let detail = store.get_conversation(&id).unwrap().unwrap();
+        assert_eq!(
+            detail["summary"]["team"]["members"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(store.conversation_agents(&id).unwrap().len(), 3);
 
         store
             .append_turn_with_speaker(

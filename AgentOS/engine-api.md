@@ -67,6 +67,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?, conversationId?, sessionId?}`（camelCase）。**必须带 `conversationId`**，否则该连接的流式事件不会带会话 ID；`sessionId` 传会话的 `external_id` 时走 ACP `session/load` 续接历史；新会话成功后核心把 `session_id` 写回 `conversations.external_id`；返回对象 `{connection_id,session_id,agent_type,model}`，壳取 `connection_id`。首次 initialize 可能 8–10s，超时按 60s |
 | `acp_prompt` | 发送一轮消息 | `CoreSession` | body `{connectionId, blocks:[{type:"text",text}], folderId, conversationId, mentions:[roleId]}`（camelCase；folder/conversation 均为 UUID 字符串；`mentions` 为前端预留协作提及，核心当前可忽略）。立即返回，流式结果走 `/ws/events` |
 | `acp_respond_permission` | 批准 / 拒绝权限请求 | `CoreSession` | body `{requestId, optionId?}`；`optionId` 来自 `permission_request.request.options`；null 表示取消/拒绝 |
+| `add_conversation_member` | 向当前团队添加成员 | `CoreTeam` | body `{conversationId, roleId}`（camelCase）；校验角色、重复成员、团队上限 5、readiness；原子追加 team snapshot 与 conversation_agents，返回最新团队状态 |
 | `cancel_conversation` | 取消会话内所有进行中的委派 | `CoreTeam` | body `{conversationId}`；遍历 queued/running 委派，取消成员连接并写 `delegation_cancelled` / `conversation_cancelled`；用于团队停止 |
 | `cancel_delegation` | 取消一个进行中的委派 | `CoreTeam` | body `{delegationId}`；只取消该成员的这个 delegation，幂等 |
 | `acp_cancel` | 取消当前轮次 | `CoreSession` | body `{connectionId}`（camelCase） |

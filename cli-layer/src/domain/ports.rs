@@ -63,6 +63,12 @@ pub trait TeamRepository: Send + Sync {
         snapshot: &TeamSnapshot,
     ) -> Result<String>;
     fn conversation_agents(&self, conversation_id: &str) -> Result<Vec<Value>>;
+    fn add_conversation_member(
+        &self,
+        conversation_id: &str,
+        snapshot: &TeamSnapshot,
+        role_id: &str,
+    ) -> Result<()>;
     fn conversation_agent(&self, conversation_id: &str, role_id: &str) -> Result<Option<Value>>;
     fn set_conversation_agent_session(
         &self,

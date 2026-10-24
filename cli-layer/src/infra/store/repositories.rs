@@ -148,6 +148,15 @@ impl TeamRepository for Store {
         self.conversation_agents(conversation_id)
     }
 
+    fn add_conversation_member(
+        &self,
+        conversation_id: &str,
+        snapshot: &TeamSnapshot,
+        role_id: &str,
+    ) -> Result<()> {
+        self.add_conversation_member(conversation_id, snapshot, role_id)
+    }
+
     fn conversation_agent(&self, conversation_id: &str, role_id: &str) -> Result<Option<Value>> {
         self.conversation_agent(conversation_id, role_id)
     }

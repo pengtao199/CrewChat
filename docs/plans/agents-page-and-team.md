@@ -490,6 +490,7 @@ create_conversation       接收 team
 get_conversation          返回 team + members + speaker
 conversation_agents       新增：成员实时状态
 cancel_delegation         新增
+add_conversation_member   新增：向当前团队添加成员
 cancel_conversation       新增：取消所有运行中的成员委派
 retry_delegation          新增
 ```
@@ -704,6 +705,7 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 - ✅ 事件 envelope 补 `conversation_id` / `speaker_role_id`；连接建立时登记角色/会话
 - ✅ `delegation_started` / `delegation_completed` / `delegation_cancelled` 事件落库
 - ✅ `/ws/events` attach 支持按 `conversation_id` 回放和过滤
+- ✅ `add_conversation_member` 会校验 readiness/人数，原子追加团队快照与成员行
 - ✅ Leader 连接的 `conversation_agents.state/connection_id` 随连接更新
 - ✅ 成员委派遇到 permission request 不再立即失败，等待审批；Test Run 仍快速失败
 - 🟡 前端消费团队事件流

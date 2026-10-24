@@ -223,6 +223,65 @@ impl TeamService {
         }))
     }
 
+    /// Add a roster Agent to an existing team conversation.
+    ///
+    /// The team snapshot is extended atomically with the conversation_agents
+    /// row. The member is not connected until the Leader delegates to it.
+    pub async fn add_member(&self, conversation_id: &str, role_id: &str) -> Result<Value> {
+        let detail = self
+            .conversations
+            .get_conversation(conversation_id)?
+            .ok_or_else(|| anyhow!("conversation not found"))?;
+        let snapshot_value = detail
+            .pointer("/summary/team")
+            .cloned()
+            .ok_or_else(|| anyhow!("conversation is not a team"))?;
+        let mut snapshot: TeamSnapshot = serde_json::from_value(snapshot_value)
+            .map_err(|error| anyhow!("invalid team snapshot: {error}"))?;
+        if role_id == snapshot.leader_role_id
+            || snapshot
+                .members
+                .iter()
+                .any(|member| member.role_id == role_id)
+        {
+            bail!("agent is already a member of this team");
+        }
+        if snapshot.members.len() + 2 > MAX_TEAM_MEMBERS {
+            bail!("a team can have at most {MAX_TEAM_MEMBERS} agents including the leader");
+        }
+        let agent = self
+            .roster
+            .get(role_id)?
+            .ok_or_else(|| anyhow!("role '{role_id}' not found"))?;
+        let report = self.readiness.check(role_id).await?;
+        if report.get("ready").and_then(Value::as_bool) != Some(true) {
+            let blockers = report
+                .get("blockers")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| item.get("message").and_then(Value::as_str))
+                        .collect::<Vec<_>>()
+                        .join("; ")
+                })
+                .unwrap_or_else(|| "unknown readiness blocker".to_string());
+            bail!("{} is not ready: {blockers}", agent.name);
+        }
+        snapshot
+            .members
+            .push(crate::domain::team::TeamMemberSnapshot::new(&agent));
+        self.teams
+            .add_conversation_member(conversation_id, &snapshot, role_id)?;
+        self.emit_team_event(
+            conversation_id,
+            "member_added",
+            Some(role_id),
+            json!({"role_id": role_id, "name": agent.name}),
+        );
+        self.status(conversation_id)
+    }
+
     fn emit_team_event(
         &self,
         conversation_id: &str,

@@ -28,6 +28,26 @@ pub(crate) async fn team_status(
     }
 }
 
+pub(crate) async fn add_conversation_member(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    let conversation_id = field(&body, &["conversationId", "conversation_id"]).unwrap_or_default();
+    let role_id = field(
+        &body,
+        &["roleId", "role_id", "memberRoleId", "member_role_id"],
+    )
+    .unwrap_or_default();
+    match state.team.add_member(conversation_id, role_id).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_REQUEST, &error.to_string()),
+    }
+}
+
 pub(crate) async fn cancel_delegation(
     State(state): State<AppState>,
     headers: HeaderMap,
