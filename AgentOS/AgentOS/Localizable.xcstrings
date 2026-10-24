@@ -189,6 +189,16 @@
         }
       }
     },
+    "composer.send" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送"
+          }
+        }
+      }
+    },
     "composer.stop" : {
       "localizations" : {
         "zh-Hans" : {

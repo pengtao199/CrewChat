@@ -15,12 +15,43 @@ struct Composer: View {
     @State private var mentionQuery = ""
 
     var body: some View {
-        VStack(spacing: 6) {
+        Group {
+            if #available(macOS 26.0, *) {
+                panel
+                    .glassEffect(
+                        .regular,
+                        in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    )
+            } else {
+                panel
+                    .background(
+                        .ultraThinMaterial,
+                        in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .strokeBorder(.separator.opacity(0.7))
+                    )
+            }
+        }
+        .shadow(color: .black.opacity(0.10), radius: 14, y: 6)
+        .onChange(of: text) { _, value in
+            if let context = mentionContext(value) {
+                mentionQuery = context
+                showMentions = true
+            } else {
+                showMentions = false
+            }
+        }
+    }
+
+    private var panel: some View {
+        VStack(spacing: 4) {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty, !isFocused {
                     Text(placeholder)
                         .foregroundStyle(.tertiary)
-                        .padding(.top, 4)
+                        .padding(.top, 3)
                         .allowsHitTesting(false)
                 }
 
@@ -37,7 +68,7 @@ struct Composer: View {
                         }
                     }
                 )
-                .frame(maxWidth: .infinity, minHeight: 40, maxHeight: 140)
+                .frame(maxWidth: .infinity, minHeight: 38, maxHeight: 60)
             }
 
             HStack(spacing: 8) {
@@ -84,26 +115,13 @@ struct Composer: View {
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.circle)
                     .disabled(!canSend)
+                    .help("composer.send")
                 }
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .textBackgroundColor))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color(nsColor: .separatorColor))
-        )
-        .onChange(of: text) { _, value in
-            if let context = mentionContext(value) {
-                mentionQuery = context
-                showMentions = true
-            } else {
-                showMentions = false
-            }
-        }
+        .padding(.horizontal, 12)
+        .padding(.top, 9)
+        .padding(.bottom, 7)
     }
 
     private var mentionPicker: some View {

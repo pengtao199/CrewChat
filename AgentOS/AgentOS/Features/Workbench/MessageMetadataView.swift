@@ -26,7 +26,6 @@ struct MessageMetadataView: View {
             if isRunning {
                 Text("conversation.meta.streaming")
             }
-            Spacer(minLength: 4)
             if let onCopy {
                 Button(action: onCopy) {
                     Image(systemName: "doc.on.doc")

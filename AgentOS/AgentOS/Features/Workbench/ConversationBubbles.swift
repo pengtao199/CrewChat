@@ -7,6 +7,8 @@ struct UserBubble: View {
     let timestamp: String?
     let onCopy: (() -> Void)?
 
+    @State private var isHovered = false
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Spacer(minLength: 80)
@@ -24,7 +26,9 @@ struct UserBubble: View {
                 }
 
                 HStack(alignment: .bottom, spacing: 6) {
-                    BubbleActions(onCopy: onCopy)
+                    if isHovered {
+                        BubbleActions(onCopy: onCopy)
+                    }
                     MentionText(text: text, members: members)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -37,6 +41,7 @@ struct UserBubble: View {
 
             AgentAvatar(name: String(localized: "conversation.role.user"), size: 26)
         }
+        .onHover { isHovered = $0 }
     }
 }
 
@@ -60,6 +65,7 @@ struct AssistantBubble: View {
 
     @State private var thinkingExpanded = false
     @State private var showProfile = false
+    @State private var isHovered = false
 
     private var displayName: String {
         member?.name ?? fallbackName
@@ -173,7 +179,7 @@ struct AssistantBubble: View {
                     usage: usage,
                     duration: duration,
                     isRunning: isRunning,
-                    onCopy: onCopy
+                    onCopy: isHovered ? onCopy : nil
                 )
             }
 
@@ -185,6 +191,7 @@ struct AssistantBubble: View {
         .onChange(of: isRunning) { _, running in
             thinkingExpanded = running
         }
+        .onHover { isHovered = $0 }
     }
 
     private var bubbleText: String {

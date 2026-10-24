@@ -9,6 +9,7 @@ struct ConversationTimelineView: View {
     let agentName: String
     let engineName: (String) -> String
     let isRunning: Bool
+    let bottomInset: CGFloat
     let onMention: (ConversationMember) -> Void
     let onPermission: (PendingPermission, String?) -> Void
 
@@ -50,7 +51,8 @@ struct ConversationTimelineView: View {
                 }
                 .frame(maxWidth: 860, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, 20)
+                .padding(.top, 20)
+                .padding(.bottom, bottomInset)
                 .padding(.horizontal, 20)
             }
             .onAppear {

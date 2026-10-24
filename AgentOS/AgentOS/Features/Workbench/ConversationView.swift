@@ -51,54 +51,55 @@ struct ConversationView: View {
                     .padding(.vertical, 6)
             }
 
-            if isEmpty {
-                ContentUnavailableView(
-                    "conversation.empty.title",
-                    systemImage: "bubble.left",
-                    description: Text("conversation.empty.description")
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ConversationTimelineView(
-                    detail: detail,
-                    liveTurns: liveTurns,
-                    pendingPermissions: pendingPermissions,
-                    pendingUserText: pendingUserText,
+            ZStack(alignment: .bottom) {
+                if isEmpty {
+                    ContentUnavailableView(
+                        "conversation.empty.title",
+                        systemImage: "bubble.left",
+                        description: Text("conversation.empty.description")
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ConversationTimelineView(
+                        detail: detail,
+                        liveTurns: liveTurns,
+                        pendingPermissions: pendingPermissions,
+                        pendingUserText: pendingUserText,
+                        members: members,
+                        agentName: agentName,
+                        engineName: engineName,
+                        isRunning: isRunning,
+                        bottomInset: 132,
+                        onMention: insertMention,
+                        onPermission: onPermission
+                    )
+                }
+
+                Composer(
+                    text: $draft,
+                    focusRequested: $focusRequested,
+                    placeholder: "conversation.placeholder.team",
                     members: members,
-                    agentName: agentName,
-                    engineName: engineName,
                     isRunning: isRunning,
-                    onMention: insertMention,
-                    onPermission: onPermission
-                )
-            }
-
-            Divider()
-
-            Composer(
-                text: $draft,
-                focusRequested: $focusRequested,
-                placeholder: "conversation.placeholder.team",
-                members: members,
-                isRunning: isRunning,
-                canSend: !draft.isEmpty && !isSending && !isRunning,
-                onSend: {
-                    let text = draft
-                    let mentions = MentionParser.memberIDs(in: text, members: members)
-                    draft = ""
-                    Task {
-                        if !(await onSend(text, mentions)) {
-                            if draft.isEmpty {
-                                draft = text
+                    canSend: !draft.isEmpty && !isSending && !isRunning,
+                    onSend: {
+                        let text = draft
+                        let mentions = MentionParser.memberIDs(in: text, members: members)
+                        draft = ""
+                        Task {
+                            if !(await onSend(text, mentions)) {
+                                if draft.isEmpty {
+                                    draft = text
+                                }
                             }
                         }
-                    }
-                },
-                onStop: onStop
-            )
-            .frame(maxWidth: 860)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+                    },
+                    onStop: onStop
+                )
+                .frame(maxWidth: 860)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 14)
+            }
         }
         .navigationTitle(detail.conversation.displayTitle)
     }
