@@ -705,7 +705,8 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 - ✅ usage 汇总到会话/成员（`summary.usage`、`members[].usage`）
 - ✅ artifacts 从 ACP tool call locations 提取并写入 delegation result
 - ✅ 失败/取消委派可重试（`retry_delegation`）；最大轮数、预算未做
-- 🟡 团队重启后的成员池恢复
+- ✅ 成员 ACP session id 持久化到 `conversation_agents.external_session_id`；
+  池为空/重启后下次委派尝试 `session/load` 恢复
 
 ### P3：工具级权限
 

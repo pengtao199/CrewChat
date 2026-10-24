@@ -71,10 +71,29 @@ impl Store {
             .optional()?)
     }
 
+    pub fn conversation_agent(
+        &self,
+        conversation_id: &str,
+        role_id: &str,
+    ) -> Result<Option<Value>> {
+        let conn = self.conn.lock().unwrap();
+        Ok(conn
+            .query_row(
+                "SELECT role_id, seat, state, connection_id, external_session_id,
+                        joined_at, updated_at
+                 FROM conversation_agents
+                 WHERE conversation_id = ?1 AND role_id = ?2",
+                params![conversation_id, role_id],
+                conversation_agent_json,
+            )
+            .optional()?)
+    }
+
     pub fn conversation_agents(&self, conversation_id: &str) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT role_id, seat, state, connection_id, joined_at, updated_at
+            "SELECT role_id, seat, state, connection_id, external_session_id,
+                    joined_at, updated_at
              FROM conversation_agents WHERE conversation_id = ?1
              ORDER BY seat = 'leader' DESC, joined_at",
         )?;
@@ -85,8 +104,9 @@ impl Store {
                     "seat": row.get::<_, String>(1)?,
                     "state": row.get::<_, String>(2)?,
                     "connection_id": row.get::<_, Option<String>>(3)?,
-                    "joined_at": row.get::<_, String>(4)?,
-                    "updated_at": row.get::<_, String>(5)?,
+                    "external_session_id": row.get::<_, Option<String>>(4)?,
+                    "joined_at": row.get::<_, String>(5)?,
+                    "updated_at": row.get::<_, String>(6)?,
                 }))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -111,6 +131,22 @@ impl Store {
                 connection_id = excluded.connection_id,
                 updated_at = excluded.updated_at",
             params![conversation_id, role_id, state, connection_id, timestamp],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_conversation_agent_session(
+        &self,
+        conversation_id: &str,
+        role_id: &str,
+        external_session_id: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE conversation_agents
+             SET external_session_id = ?1, updated_at = ?2
+             WHERE conversation_id = ?3 AND role_id = ?4",
+            params![external_session_id, now(), conversation_id, role_id],
         )?;
         Ok(())
     }
@@ -206,6 +242,18 @@ impl Store {
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
+}
+
+fn conversation_agent_json(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
+    Ok(json!({
+        "role_id": row.get::<_, String>(0)?,
+        "seat": row.get::<_, String>(1)?,
+        "state": row.get::<_, String>(2)?,
+        "connection_id": row.get::<_, Option<String>>(3)?,
+        "external_session_id": row.get::<_, Option<String>>(4)?,
+        "joined_at": row.get::<_, String>(5)?,
+        "updated_at": row.get::<_, String>(6)?,
+    }))
 }
 
 fn delegation_json(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {

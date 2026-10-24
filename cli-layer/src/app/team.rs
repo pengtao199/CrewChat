@@ -544,7 +544,10 @@ mod tests {
     impl SessionRuntime for FakeRuntime {
         async fn connect(&self, _request: ConnectRequest) -> anyhow::Result<Value> {
             *self.connects.lock().unwrap() += 1;
-            Ok(json!({"connectionId": "test-connection"}))
+            Ok(json!({
+                "connectionId": "test-connection",
+                "session_id": "test-session",
+            }))
         }
 
         fn prompt(&self, _connection_id: &str, _text: String) -> anyhow::Result<()> {
@@ -775,7 +778,7 @@ mod tests {
             runtime.clone(),
             model,
             engine_service,
-            None,
+            Some(teams.clone()),
         );
         let events = Arc::new(FakeEvents::default());
         let team = TeamService::new(
@@ -803,10 +806,9 @@ mod tests {
         let detail = store.get_conversation(&conversation).unwrap().unwrap();
         assert_eq!(detail["turns"][0]["speaker_role_id"], "member");
         assert_eq!(detail["summary"]["delegations"][0]["status"], "done");
-        assert_eq!(
-            store.conversation_agents(&conversation).unwrap()[1]["state"],
-            "done"
-        );
+        let member_row = &store.conversation_agents(&conversation).unwrap()[1];
+        assert_eq!(member_row["state"], "done");
+        assert_eq!(member_row["external_session_id"], "test-session");
         let kinds = events
             .events
             .lock()

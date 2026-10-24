@@ -137,6 +137,19 @@ impl TeamRepository for Store {
         self.conversation_agents(conversation_id)
     }
 
+    fn conversation_agent(&self, conversation_id: &str, role_id: &str) -> Result<Option<Value>> {
+        self.conversation_agent(conversation_id, role_id)
+    }
+
+    fn set_conversation_agent_session(
+        &self,
+        conversation_id: &str,
+        role_id: &str,
+        external_session_id: Option<&str>,
+    ) -> Result<()> {
+        self.set_conversation_agent_session(conversation_id, role_id, external_session_id)
+    }
+
     fn conversation_cwd(&self, conversation_id: &str) -> Result<Option<String>> {
         self.conversation_cwd(conversation_id)
     }

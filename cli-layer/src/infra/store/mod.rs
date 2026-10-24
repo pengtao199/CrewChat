@@ -103,6 +103,7 @@ impl Store {
                 seat TEXT NOT NULL,
                 state TEXT NOT NULL,
                 connection_id TEXT,
+                external_session_id TEXT,
                 joined_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 PRIMARY KEY (conversation_id, role_id)
@@ -135,6 +136,7 @@ impl Store {
         ensure_column(&conn, "conversations", "leader_role_id", "TEXT")?;
         ensure_column(&conn, "conversations", "team_json", "TEXT")?;
         ensure_column(&conn, "turns", "speaker_role_id", "TEXT")?;
+        ensure_column(&conn, "conversation_agents", "external_session_id", "TEXT")?;
         ensure_column(
             &conn,
             "agent_roles",

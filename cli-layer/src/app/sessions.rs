@@ -228,14 +228,22 @@ impl SessionService {
                     role_id: role_id.clone(),
                 },
             );
-            if owns_conversation {
-                if let (Some(conversation_id), Some(session_id)) = (
-                    conversation_id.as_deref(),
-                    value.get("session_id").and_then(Value::as_str),
-                ) {
+            if let (Some(conversation_id), Some(session_id)) = (
+                conversation_id.as_deref(),
+                value.get("session_id").and_then(Value::as_str),
+            ) {
+                if owns_conversation {
                     let _ = self
                         .conversations
                         .set_external_id(conversation_id, session_id);
+                } else if let (Some(teams), Some(role_id)) =
+                    (self.teams.as_ref(), role_id.as_deref())
+                {
+                    let _ = teams.set_conversation_agent_session(
+                        conversation_id,
+                        role_id,
+                        Some(session_id),
+                    );
                 }
             }
             self.team_state(
@@ -417,6 +425,21 @@ impl SessionService {
             self.close_member(conversation_id, &agent.id);
         }
 
+        let resume_session_id = self
+            .teams
+            .as_ref()
+            .and_then(|teams| {
+                teams
+                    .conversation_agent(conversation_id, &agent.id)
+                    .ok()
+                    .flatten()
+            })
+            .and_then(|agent| {
+                agent
+                    .get("external_session_id")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            });
         let value = self
             .connect_with_role(
                 &agent.agent_type,
@@ -427,7 +450,7 @@ impl SessionService {
                         .map_err(|error| SessionError::BadRequest(error.to_string()))?,
                 ),
                 Some(conversation_id.to_string()),
-                None,
+                resume_session_id.as_deref(),
             )
             .await?;
         let connection_id = connection_id_of(&value);
