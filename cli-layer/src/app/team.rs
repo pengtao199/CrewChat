@@ -125,8 +125,20 @@ impl TeamService {
     pub fn status(&self, conversation_id: &str) -> Result<Value> {
         self.sessions.reap_idle(Duration::from_secs(1800));
         let delegations = self.teams.delegations(conversation_id)?;
+        let mut members = self.teams.conversation_agents(conversation_id)?;
+        for member in &mut members {
+            let Some(role_id) = member.get("role_id").and_then(Value::as_str) else {
+                continue;
+            };
+            let member_delegations = delegations
+                .iter()
+                .filter(|delegation| delegation["member_role_id"] == role_id)
+                .cloned()
+                .collect::<Vec<_>>();
+            member["usage"] = aggregate_usage(&member_delegations);
+        }
         Ok(json!({
-            "members": self.teams.conversation_agents(conversation_id)?,
+            "members": members,
             "delegations": delegations,
             "usage": aggregate_usage(&delegations),
         }))
@@ -667,11 +679,19 @@ mod tests {
                     payload: json!({"text": "built"}),
                 },
                 EventEnvelope {
-                    kind: "turn_complete".to_string(),
+                    kind: "usage".to_string(),
                     connection_id: "test-connection".to_string(),
                     conversation_id: None,
                     speaker_role_id: None,
                     seq: 2,
+                    payload: json!({"usage": {"input": 2, "output": 1}}),
+                },
+                EventEnvelope {
+                    kind: "turn_complete".to_string(),
+                    connection_id: "test-connection".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
+                    seq: 3,
                     payload: json!({"stop_reason": "end_turn"}),
                 },
             ]),
@@ -723,6 +743,9 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(kinds.iter().any(|kind| kind == "delegation_started"));
         assert!(kinds.iter().any(|kind| kind == "delegation_completed"));
+        let status = team.status(&conversation).unwrap();
+        assert_eq!(status["usage"]["input"], 2);
+        assert_eq!(status["members"][1]["usage"]["input"], 2);
 
         // The second delegation reuses the member connection.
         runtime.events.lock().unwrap().extend([
