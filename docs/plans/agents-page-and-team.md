@@ -698,6 +698,7 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 - ✅ `delegation_started` / `delegation_completed` / `delegation_cancelled` 事件落库
 - ✅ `/ws/events` attach 支持按 `conversation_id` 回放和过滤
 - ✅ Leader 连接的 `conversation_agents.state/connection_id` 随连接更新
+- ✅ 成员委派遇到 permission request 不再立即失败，等待审批；Test Run 仍快速失败
 - 🟡 前端消费团队事件流
 
 ### P2：团队执行质量

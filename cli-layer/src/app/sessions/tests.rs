@@ -477,3 +477,58 @@ async fn test_run_uses_ephemeral_session_and_does_not_write_history() {
     assert_eq!(value["text"], "OK");
     assert!(conversations.turns.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn delegated_turn_waits_through_permission_requests() {
+    let events = vec![
+        EventEnvelope {
+            kind: "permission_request".to_string(),
+            connection_id: "member".to_string(),
+            conversation_id: Some("conv".to_string()),
+            speaker_role_id: Some("member".to_string()),
+            seq: 1,
+            payload: json!({"request_id": "permission"}),
+        },
+        EventEnvelope {
+            kind: "turn_complete".to_string(),
+            connection_id: "member".to_string(),
+            conversation_id: Some("conv".to_string()),
+            speaker_role_id: Some("member".to_string()),
+            seq: 2,
+            payload: json!({"stop_reason": "end_turn"}),
+        },
+    ];
+    let outcome = super::turn::wait_for_turn(
+        "member",
+        Box::new(VecSubscription {
+            events: events.into_iter().collect(),
+        }),
+        5,
+        false,
+    )
+    .await;
+    assert!(outcome.0, "{outcome:?}");
+}
+
+#[tokio::test]
+async fn test_run_still_fails_fast_on_permission_requests() {
+    let events = vec![EventEnvelope {
+        kind: "permission_request".to_string(),
+        connection_id: "member".to_string(),
+        conversation_id: None,
+        speaker_role_id: None,
+        seq: 1,
+        payload: json!({"request_id": "permission"}),
+    }];
+    let outcome = super::turn::wait_for_turn(
+        "member",
+        Box::new(VecSubscription {
+            events: events.into_iter().collect(),
+        }),
+        5,
+        true,
+    )
+    .await;
+    assert!(!outcome.0);
+    assert_eq!(outcome.1, "permission");
+}

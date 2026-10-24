@@ -12,6 +12,7 @@ pub(super) async fn wait_for_turn(
     connection_id: &str,
     mut events: Box<dyn EventSubscription>,
     timeout_seconds: u64,
+    fail_on_permission: bool,
 ) -> (bool, String, String, String, Value, Vec<String>, u64) {
     timeout(Duration::from_secs(timeout_seconds), async {
         let mut text = String::new();
@@ -45,15 +46,17 @@ pub(super) async fn wait_for_turn(
                     collect_artifacts(&event.payload, &mut artifacts);
                 }
                 "permission_request" => {
-                    return (
-                        false,
-                        "permission".to_string(),
-                        "the prompt raised a permission request".to_string(),
-                        text,
-                        usage,
-                        artifacts,
-                        events_seen,
-                    )
+                    if fail_on_permission {
+                        return (
+                            false,
+                            "permission".to_string(),
+                            "the prompt raised a permission request".to_string(),
+                            text,
+                            usage,
+                            artifacts,
+                            events_seen,
+                        );
+                    }
                 }
                 "turn_complete" => {
                     if let Some(error) = event.payload.get("error").and_then(Value::as_str) {

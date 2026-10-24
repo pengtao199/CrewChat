@@ -330,7 +330,7 @@ impl SessionService {
                 Some(connection_id),
             ));
         }
-        let outcome = turn::wait_for_turn(&connection_id, events, timeout_seconds).await;
+        let outcome = turn::wait_for_turn(&connection_id, events, timeout_seconds, true).await;
         self.runtime.close(&connection_id);
         self.connections.lock().unwrap().remove(&connection_id);
         let (ok, phase, error, text, usage, artifacts, events_seen) = outcome;
@@ -380,7 +380,7 @@ impl SessionService {
             ));
         }
         let (ok, phase, error, text, usage, artifacts, events_seen) =
-            turn::wait_for_turn(&connection_id, events, timeout_seconds).await;
+            turn::wait_for_turn(&connection_id, events, timeout_seconds, false).await;
         if ok {
             if let Some(pooled) = self
                 .pool
