@@ -2,7 +2,7 @@ import Foundation
 
 struct CoreConversationSummary: Decodable, Sendable {
     let id: String
-    let folderID: String
+    let folderID: String?
     let title: String?
     let agentType: String
     let status: String
@@ -142,7 +142,7 @@ struct CoreListConversationsBody: Encodable {
 }
 
 struct CoreCreateConversationBody: Encodable {
-    let folderID: String
+    let folderID: String?
     let agentType: String
     let title: String?
     let team: ConversationTeamRef?

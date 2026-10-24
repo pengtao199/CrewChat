@@ -2,7 +2,7 @@ import Foundation
 
 struct Conversation: Identifiable, Sendable, Equatable {
     let id: String
-    let folderID: String
+    let folderID: String?
     let title: String
     let agentType: String
     let status: String
