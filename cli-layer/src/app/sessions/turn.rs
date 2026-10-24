@@ -147,12 +147,15 @@ impl TurnAccumulator {
                 "started_at": tool.started_at,
                 "duration_ms": duration,
             }));
-            if let Some(output) = &tool.output {
+            let terminal = tool.status.eq_ignore_ascii_case("completed")
+                || tool.status.eq_ignore_ascii_case("failed")
+                || tool.status.eq_ignore_ascii_case("error");
+            if tool.output.is_some() || terminal {
                 blocks.push(json!({
                     "type": "tool_result",
                     "tool_call_id": tool.id,
                     "tool_name": tool.name,
-                    "output_preview": output,
+                    "output_preview": tool.output.clone().unwrap_or_default(),
                     "status": tool.status,
                     "is_error": tool.status.to_ascii_lowercase().contains("fail")
                         || tool.status.to_ascii_lowercase().contains("error"),
