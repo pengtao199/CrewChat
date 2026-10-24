@@ -1,7 +1,7 @@
 import Foundation
 
 struct CoreFolderDetail: Decodable, Sendable {
-    let id: Int
+    let id: String
     let name: String
     let path: String
     let alias: String?
@@ -25,7 +25,7 @@ struct CorePathBody: Encodable {
 }
 
 struct CoreFolderIDBody: Encodable {
-    let folderID: Int
+    let folderID: String
 
     enum CodingKeys: String, CodingKey {
         case folderID = "folder_id"

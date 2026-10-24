@@ -23,7 +23,7 @@ final class CoreWorkspacesClient: CoreWorkspaces, @unchecked Sendable {
         return row.domain
     }
 
-    func removeWorkspace(id: Int) async throws {
+    func removeWorkspace(id: String) async throws {
         try await provider.client().sendIgnoring(
             "remove_folder_from_workspace",
             body: CoreFolderIDBody(folderID: id)
@@ -38,7 +38,7 @@ final class CoreConversationsClient: CoreConversations, @unchecked Sendable {
         self.provider = provider
     }
 
-    func conversations(in folderIDs: [Int]) async throws -> [Conversation] {
+    func conversations(in folderIDs: [String]) async throws -> [Conversation] {
         let rows: [CoreConversationSummary] = try await provider.client().send(
             "list_all_conversations",
             body: CoreListConversationsBody(folderIDs: folderIDs, includeChildren: false)
@@ -46,7 +46,7 @@ final class CoreConversationsClient: CoreConversations, @unchecked Sendable {
         return rows.map(\.domain)
     }
 
-    func detail(conversationID: Int, tailTurns: Int) async throws -> ConversationDetail {
+    func detail(conversationID: String, tailTurns: Int) async throws -> ConversationDetail {
         let detail: CoreConversationDetail = try await provider.client().send(
             "get_folder_conversation",
             body: CoreFolderConversationBody(conversationID: conversationID, tailTurns: tailTurns)
@@ -55,11 +55,11 @@ final class CoreConversationsClient: CoreConversations, @unchecked Sendable {
     }
 
     func createConversation(
-        folderID: Int,
+        folderID: String,
         agentType: String,
         title: String?,
         team: ConversationTeamRef?
-    ) async throws -> Int {
+    ) async throws -> String {
         try await provider.client().send(
             "create_conversation",
             body: CoreCreateConversationBody(
@@ -71,7 +71,7 @@ final class CoreConversationsClient: CoreConversations, @unchecked Sendable {
         )
     }
 
-    func deleteConversation(id: Int) async throws {
+    func deleteConversation(id: String) async throws {
         try await provider.client().sendIgnoring(
             "delete_conversation",
             body: CoreConversationIDBody(conversationID: id)

@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ConversationPane: View {
     @Environment(AppEnvironment.self) private var environment
-    let conversationID: Int?
+    let conversationID: String?
 
     private var model: WorkbenchViewModel { environment.workbench }
 

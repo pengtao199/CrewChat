@@ -55,11 +55,24 @@ permission_face = call("/api/agent_role_permission_face", {"agentType": "claude_
 assert permission_face["supports_session_mode"] is True, permission_face
 assert any(mode["id"] == "acceptEdits" for mode in permission_face["modes"]), permission_face
 
+folder = call("/api/open_folder", {"path": "/tmp"})
+conversation_id = call("/api/create_conversation", {
+    "folderId": folder["id"],
+    "agentType": "claude_code",
+    "title": "Smoke",
+})
+assert isinstance(conversation_id, str), conversation_id
+rows = call("/api/list_all_conversations", {"folderIds": [folder["id"]]})
+assert any(row["id"] == conversation_id for row in rows), rows
+detail = call("/api/get_conversation", {"conversationId": conversation_id})
+assert detail["summary"]["id"] == conversation_id, detail
+
 connection = call("/api/acp_connect", {"agentType": "claude_code", "workingDir": "/tmp"})
 connection_id = connection["connection_id"]
 call("/api/acp_prompt", {
     "connectionId": connection_id,
     "blocks": [{"type": "text", "text": "hi"}],
+    "conversationId": conversation_id,
 })
 
 deadline = time.time() + 10
@@ -79,8 +92,11 @@ assert "turn_complete" in types, rows
 text = "".join(row.get("text", "") for row in rows if row.get("type") == "content_delta")
 assert text == "hello from fake", text
 
+detail = call("/api/get_conversation", {"conversationId": conversation_id})
+roles = [turn["role"] for turn in detail["turns"]]
+assert "user" in roles and "assistant" in roles, detail
 call("/api/acp_disconnect", {"connectionId": connection_id})
-print(f"PASS: {types} text={text!r}")
+print(f"PASS: {types} text={text!r} turns={roles}")
 PY
 
 echo "smoke: ok"

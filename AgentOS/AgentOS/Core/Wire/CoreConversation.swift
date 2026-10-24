@@ -1,8 +1,8 @@
 import Foundation
 
 struct CoreConversationSummary: Decodable, Sendable {
-    let id: Int
-    let folderID: Int
+    let id: String
+    let folderID: String
     let title: String?
     let agentType: String
     let status: String
@@ -132,7 +132,7 @@ struct CoreBlock: Decodable, Sendable {
 }
 
 struct CoreListConversationsBody: Encodable {
-    let folderIDs: [Int]
+    let folderIDs: [String]
     let includeChildren: Bool
 
     enum CodingKeys: String, CodingKey {
@@ -142,7 +142,7 @@ struct CoreListConversationsBody: Encodable {
 }
 
 struct CoreCreateConversationBody: Encodable {
-    let folderID: Int
+    let folderID: String
     let agentType: String
     let title: String?
     let team: ConversationTeamRef?
@@ -156,7 +156,7 @@ struct CoreCreateConversationBody: Encodable {
 }
 
 struct CoreConversationIDBody: Encodable {
-    let conversationID: Int
+    let conversationID: String
 
     enum CodingKeys: String, CodingKey {
         case conversationID = "conversationId"
@@ -164,7 +164,7 @@ struct CoreConversationIDBody: Encodable {
 }
 
 struct CoreFolderConversationBody: Encodable {
-    let conversationID: Int
+    let conversationID: String
     let tailTurns: Int
 
     enum CodingKeys: String, CodingKey {

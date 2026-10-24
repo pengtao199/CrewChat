@@ -1,7 +1,7 @@
 # Agents 页面与团队会话：核心设计
 
-Updated: 2026-10-23
-Status: Proposed（设计定稿后进入实现）
+Updated: 2026-10-24
+Status: In Progress（核心团队链路已落地，正在修 AgentOS 契约）
 读者: cli-layer / AgentOS / skill-layer 开发者
 
 ---
@@ -139,15 +139,14 @@ cli-layer/src/
 
 ### 3.2 必须补的缺口
 
-| 缺口 | 影响 |
-| --- | --- |
-| `conversations` 没有 team 字段；`create_conversation` 忽略 AgentOS 传来的 `team` | 团队成员选择会丢失，无法恢复团队会话 |
-| `turns` 没有 `speaker_role_id` | 团队会话无法标记“谁说的” |
-| 没有 delegation broker | Leader 无法委派成员，成员会话不会被拉起 |
-| `permission_mode` / `auto_approve` 没有应用到 ACP | Agents 页权限设置是“看起来有、实际不生效” |
-| 没有 `agent_role_readiness` / `agent_role_test_run` | 用户只能在会话失败后才知道模型/CLI/技能不可用 |
-| 没有 `session/load` | 重启后旧会话的 ACP 上下文会重新开始 |
-| 没有团队快照 | 角色改名/删除后，历史会话语义会漂移 |
+| 缺口 | 影响 | 状态 |
+| --- | --- | --- |
+| AgentOS 仍用 `Int` 表示 folder / conversation id，cli-layer 用 UUID 字符串 | 新建会话、列表、详情、prompt 在壳与核心之间无法对齐 | **P0，阻塞** |
+| AgentOS 只解码 `teamLeaderRoleID` | 成员状态、委派卡、取消入口没有数据 | P1 |
+| 成员事件没有 `conversation_id` / `speaker_role_id` | 团队会话看不到成员实时过程 | P1 |
+| 委派 usage 未汇总，artifacts / 重试 / 最大轮数未接 | 团队成本与失败恢复不可见 | P2 |
+| 工具级 allow/ask/deny 未做 | 只能整模式放行，不能按工具收紧 | P2 |
+| 团队成员池重启后按需重建 | 重启不能无缝恢复成员会话 | P2 |
 
 ---
 
@@ -659,9 +658,61 @@ UI：
 
 ---
 
-## 16. 验收标准
+## 16. 当前落地状态与下一步（2026-10-24）
+
+### 已落地
+
+- `agent_role_readiness` / `agent_role_test_run`
+- 团队 schema：`conversations.kind/leader_role_id/team_json`、
+  `conversation_agents`、`delegations`、`turns.speaker_role_id`、`agent_roles.version`
+- 团队快照、Leader 控制 MCP、`delegate_to_agent`、成员连接复用/取消/空闲回收
+- `acp_connect` 的 `session/load` 与 `conversations.external_id`
+- Agent 权限：`agent_role_permission_face`、ACP `session/set_mode`、
+  `auto_approve` 只选 `AllowOnce` 并审计
+
+### P0：先修 AgentOS 与 cli-layer 的 ID 契约
+
+现在壳仍按旧 codeg 的 Int ID 编码：
+
+```text
+Workspace.id / Conversation.id / folderID: Int
+CoreCreateConversationBody.folderID: Int
+CorePromptBody.folderId / conversationId: Int
+CoreFolderConversationBody.conversationID: Int
+```
+
+cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。结果是：
+新建会话不会绑定项目，列表/详情解析失败，prompt 不会落用户 turn。
+
+决策：**不做数值兼容层，AgentOS 全部改成 String UUID**。
+验收：新建 → 列表 → 详情 → prompt → 刷新后 turn 仍在。
+
+### P1：团队读模型与实时事件
+
+- AgentOS 解码完整 `summary.team`、`summary.members[].state`、`summary.delegations`
+- 会话头成员 chip、委派卡、取消按钮接 `/api/cancel_delegation`
+- 事件 envelope 补 `conversation_id` / `speaker_role_id`，成员事件进入团队事件流
+- 委派中显示成员进度，而不是只在完成后刷新
+
+### P2：团队执行质量
+
+- usage 汇总到会话/成员
+- artifacts 结构化返回
+- 失败重试、最大轮数、预算
+- 团队重启后的成员池恢复
+
+### P3：工具级权限
+
+在 Session Mode 之上增加 allow / ask / deny，并支持 `RejectOnce` /
+`RejectAlways`；不改变“权限归 Agent”的产品边界。
+
+---
+
+## 17. 验收标准
 
 - [ ] Agent 编辑页能看到引擎、模型、技能、权限的真实可用性。
+- [ ] AgentOS 的 folder / conversation 全部使用 String UUID。
+- [ ] 新建会话 → 列表 → 详情 → prompt → 刷新后 turn 仍在。
 - [ ] 有 blocker 的 Agent 不能启动会话，也不能加入团队。
 - [ ] Test Run 能在不写历史的情况下跑一轮。
 - [ ] 创建团队会话后重启 App，Leader/成员/状态仍能恢复。
@@ -674,7 +725,7 @@ UI：
 
 ---
 
-## 17. 与现有计划的关系
+## 18. 与现有计划的关系
 
 - `cli-layer-migration.md`：本文件是 Phase 3 之后 Agents/团队部分的细化。
 - `skill-layer-api.md`：技能选择、readiness、materialize 的契约来源。

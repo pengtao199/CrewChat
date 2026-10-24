@@ -19,7 +19,7 @@ final class CoreSessionClient: CoreSession, @unchecked Sendable {
         )
     }
 
-    func prompt(connectionID: String, text: String, folderID: Int, conversationID: Int) async throws {
+    func prompt(connectionID: String, text: String, folderID: String, conversationID: String) async throws {
         try await provider.client().sendIgnoring(
             "acp_prompt",
             body: CorePromptBody(
@@ -60,8 +60,8 @@ struct CoreConnectionIDBody: Encodable {
 struct CorePromptBody: Encodable {
     let connectionId: String
     let blocks: [CorePromptBlock]
-    let folderId: Int
-    let conversationId: Int
+    let folderId: String
+    let conversationId: String
 }
 
 enum CorePromptBlock: Encodable {

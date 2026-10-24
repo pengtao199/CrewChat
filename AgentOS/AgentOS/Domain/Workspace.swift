@@ -1,7 +1,7 @@
 import Foundation
 
 struct Workspace: Identifiable, Sendable, Equatable {
-    let id: Int
+    let id: String
     let name: String
     let alias: String?
     let path: String

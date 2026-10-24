@@ -3,9 +3,9 @@ import SwiftUI
 
 struct WorkbenchSidebar: View {
     @Environment(AppEnvironment.self) private var environment
-    @State private var expanded: Set<Int> = []
-    @State private var hoveredWorkspace: Int?
-    @State private var hoveredConversation: Int?
+    @State private var expanded: Set<String> = []
+    @State private var hoveredWorkspace: String?
+    @State private var hoveredConversation: String?
     @State private var archiveTarget: Workspace?
 
     private var model: WorkbenchViewModel { environment.workbench }

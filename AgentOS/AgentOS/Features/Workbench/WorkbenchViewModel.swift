@@ -27,12 +27,12 @@ final class WorkbenchViewModel {
     private(set) var errorMessage: String?
     private(set) var isSending = false
     private(set) var isRunning = false
-    private(set) var liveConversationID: Int?
+    private(set) var liveConversationID: String?
     private(set) var pendingUserText: String?
 
     var draftFolder: Workspace?
     var selectedRoleIDs: [String] = []
-    var selectedConversationID: Int?
+    var selectedConversationID: String?
 
     private var liveText = ""
     private var liveThinking = ""
@@ -60,7 +60,7 @@ final class WorkbenchViewModel {
         self.rosterClient = roster
     }
 
-    func conversations(in workspaceID: Int) -> [Conversation] {
+    func conversations(in workspaceID: String) -> [Conversation] {
         conversations
             .filter { $0.folderID == workspaceID }
             .sorted { $0.updatedAt > $1.updatedAt }
@@ -119,7 +119,7 @@ final class WorkbenchViewModel {
         }
     }
 
-    func removeWorkspace(_ id: Int) async {
+    func removeWorkspace(_ id: String) async {
         do {
             try await workspacesClient.removeWorkspace(id: id)
             if detail?.conversation.folderID == id {
@@ -134,7 +134,7 @@ final class WorkbenchViewModel {
         }
     }
 
-    func createConversation(in folderID: Int, agentType: String) async -> Int? {
+    func createConversation(in folderID: String, agentType: String) async -> String? {
         do {
             let title = String(localized: "conversation.new")
             let id = try await conversationsClient.createConversation(
@@ -151,7 +151,7 @@ final class WorkbenchViewModel {
         }
     }
 
-    func archive(_ conversationID: Int) async {
+    func archive(_ conversationID: String) async {
         do {
             try await conversationsClient.deleteConversation(id: conversationID)
             if detail?.conversation.id == conversationID {
@@ -166,7 +166,7 @@ final class WorkbenchViewModel {
         }
     }
 
-    func archiveAll(in folderID: Int) async {
+    func archiveAll(in folderID: String) async {
         for conversation in conversations(in: folderID) {
             try? await conversationsClient.deleteConversation(id: conversation.id)
         }
@@ -175,7 +175,7 @@ final class WorkbenchViewModel {
         await load()
     }
 
-    func open(_ conversationID: Int) async {
+    func open(_ conversationID: String) async {
         isLoadingDetail = true
         errorMessage = nil
 
@@ -319,7 +319,7 @@ final class WorkbenchViewModel {
         isRunning = false
     }
 
-    func liveTurn(for conversationID: Int) -> LiveTurn? {
+    func liveTurn(for conversationID: String) -> LiveTurn? {
         guard liveConversationID == conversationID else { return nil }
         guard isRunning || !liveText.isEmpty || !liveThinking.isEmpty || !liveTools.isEmpty else {
             return nil
