@@ -30,6 +30,7 @@ struct ToolCall {
     status: String,
     started_at: String,
     started: Instant,
+    finished: Option<Instant>,
     output: Option<String>,
 }
 
@@ -95,12 +96,16 @@ impl TurnAccumulator {
                 .or_else(|| payload.get("output_preview")),
         );
 
+        let terminal = is_terminal(&status);
         if let Some(index) = self.tool_index.get(&id).copied() {
             let tool = &mut self.tools[index];
-            if !name.is_empty() {
+            if !name.is_empty() && name != "tool" {
                 tool.name = name;
             }
             if !status.is_empty() {
+                if terminal {
+                    tool.finished.get_or_insert_with(Instant::now);
+                }
                 tool.status = status;
             }
             if !input_preview.is_empty() {
@@ -126,6 +131,7 @@ impl TurnAccumulator {
                 .map(str::to_string)
                 .unwrap_or_else(now),
             started: Instant::now(),
+            finished: terminal.then(Instant::now),
             output,
         });
     }
@@ -136,7 +142,11 @@ impl TurnAccumulator {
             blocks.push(json!({"type": "thinking", "text": self.thinking}));
         }
         for tool in &self.tools {
-            let duration = tool.started.elapsed().as_millis() as u64;
+            let duration = tool
+                .finished
+                .unwrap_or_else(Instant::now)
+                .saturating_duration_since(tool.started)
+                .as_millis() as u64;
             blocks.push(json!({
                 "type": "tool_use",
                 "tool_call_id": tool.id,
@@ -328,6 +338,12 @@ pub(super) fn collect_artifacts(payload: &Value, artifacts: &mut Vec<String>) {
     }
 }
 
+fn is_terminal(status: &str) -> bool {
+    status.eq_ignore_ascii_case("completed")
+        || status.eq_ignore_ascii_case("failed")
+        || status.eq_ignore_ascii_case("error")
+}
+
 fn preview(value: Option<&Value>) -> Option<String> {
     let value = value?;
     if let Some(text) = value.as_str() {
@@ -374,4 +390,51 @@ pub(super) fn test_result(
         "usage": usage.unwrap_or(Value::Null),
         "connectionId": connection_id,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::TurnAccumulator;
+    use crate::domain::event::EventEnvelope;
+
+    fn event(kind: &str, payload: serde_json::Value) -> EventEnvelope {
+        EventEnvelope {
+            kind: kind.to_string(),
+            connection_id: "c".to_string(),
+            conversation_id: None,
+            speaker_role_id: None,
+            seq: 0,
+            payload,
+        }
+    }
+
+    #[test]
+    fn keeps_tool_name_when_an_update_only_carries_status() {
+        let mut accumulator = TurnAccumulator::default();
+        accumulator.apply(&event(
+            "tool_call",
+            json!({
+                "tool_call_id": "call-1",
+                "tool_name": "Read",
+                "input_preview": "AGENTS/ui.md",
+                "status": "running"
+            }),
+        ));
+        accumulator.apply(&event(
+            "tool_call_update",
+            json!({
+                "tool_call_id": "call-1",
+                "tool_name": "tool",
+                "status": "completed",
+                "raw_output": "ok"
+            }),
+        ));
+        let blocks = accumulator.blocks();
+        assert_eq!(blocks[0]["tool_name"], "Read");
+        assert_eq!(blocks[0]["input_preview"], "AGENTS/ui.md");
+        assert_eq!(blocks[1]["type"], "tool_result");
+        assert_eq!(blocks[1]["output_preview"], "ok");
+    }
 }

@@ -83,9 +83,7 @@ pub fn from_notification(connection_id: &str, notification: &SessionNotification
                 json!({
                     "tool_call_id": value.get("toolCallId").and_then(Value::as_str).unwrap_or(""),
                     "title": value.get("title").cloned().unwrap_or(Value::Null),
-                    "tool_name": value.get("name").and_then(Value::as_str)
-                        .or_else(|| value.get("title").and_then(Value::as_str))
-                        .unwrap_or("tool"),
+                    "tool_name": tool_name(&value).unwrap_or_default(),
                     "input_preview": preview(
                         value.get("rawInput").or_else(|| value.get("raw_input"))
                     ),
@@ -101,7 +99,11 @@ pub fn from_notification(connection_id: &str, notification: &SessionNotification
         ),
         SessionUpdate::UsageUpdate(usage) => (
             "usage",
-            json!({"usage": serde_json::to_value(usage).unwrap_or(Value::Null)}),
+            json!({
+                "usage": normalize_usage(
+                    serde_json::to_value(usage).unwrap_or(Value::Null)
+                )
+            }),
         ),
         SessionUpdate::CurrentModeUpdate(mode) => (
             "status_changed",
@@ -142,6 +144,33 @@ pub fn turn_complete(connection_id: &str, stop_reason: Value) -> EventEnvelope {
     }
 }
 
+fn tool_name(value: &Value) -> Option<String> {
+    value
+        .get("name")
+        .and_then(Value::as_str)
+        .or_else(|| value.get("title").and_then(Value::as_str))
+        .or_else(|| {
+            value
+                .pointer("/_meta/claudeCode/toolName")
+                .and_then(Value::as_str)
+        })
+        .map(str::to_string)
+}
+
+fn normalize_usage(value: Value) -> Value {
+    let Some(object) = value.as_object() else {
+        return value;
+    };
+    let mut out = object.clone();
+    if let Some(used) = object.get("used").and_then(Value::as_u64) {
+        out.insert("total_tokens".to_string(), json!(used));
+        out.entry("input_tokens".to_string()).or_insert(Value::Null);
+        out.entry("output_tokens".to_string())
+            .or_insert(Value::Null);
+    }
+    Value::Object(out)
+}
+
 fn preview(value: Option<&Value>) -> String {
     let Some(value) = value else {
         return String::new();
@@ -151,4 +180,25 @@ fn preview(value: Option<&Value>) -> String {
         .map(str::to_string)
         .unwrap_or_else(|| serde_json::to_string(value).unwrap_or_default());
     text.chars().take(500).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{normalize_usage, tool_name};
+
+    #[test]
+    fn normalizes_acp_usage_to_total_tokens() {
+        let usage = normalize_usage(json!({"used": 42, "size": 1000}));
+        assert_eq!(usage["total_tokens"], 42);
+        assert!(usage["input_tokens"].is_null());
+        assert!(usage["output_tokens"].is_null());
+    }
+
+    #[test]
+    fn falls_back_to_claude_tool_name_metadata() {
+        let value = json!({"_meta": {"claudeCode": {"toolName": "Read"}}});
+        assert_eq!(tool_name(&value).as_deref(), Some("Read"));
+    }
 }
