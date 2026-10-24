@@ -237,6 +237,24 @@ impl ReadinessService {
                 "Choose a mode this engine supports in the Agent editor.",
             ));
         }
+        if let Some(timeout) = agent.limits.timeout_seconds {
+            if !(1..=3600).contains(&timeout) {
+                blockers.push(issue(
+                    "limit_timeout_invalid",
+                    "Agent timeout must be between 1 and 3600 seconds.",
+                    "Update the Agent limits.",
+                ));
+            }
+        }
+        if let Some(max_turns) = agent.limits.max_turns {
+            if max_turns == 0 {
+                blockers.push(issue(
+                    "limit_max_turns_invalid",
+                    "Agent max_turns must be greater than zero.",
+                    "Update the Agent limits.",
+                ));
+            }
+        }
         for (index, rule) in agent.tool_rules.iter().enumerate() {
             if rule.action().is_none() {
                 blockers.push(issue(

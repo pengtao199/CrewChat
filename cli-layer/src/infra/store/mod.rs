@@ -81,6 +81,7 @@ impl Store {
                 permission_mode TEXT NOT NULL DEFAULT '',
                 auto_approve INTEGER NOT NULL DEFAULT 0,
                 tool_rules_json TEXT NOT NULL DEFAULT '[]',
+                limits_json TEXT NOT NULL DEFAULT '{}',
                 version INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -143,6 +144,12 @@ impl Store {
             "agent_roles",
             "tool_rules_json",
             "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        ensure_column(
+            &conn,
+            "agent_roles",
+            "limits_json",
+            "TEXT NOT NULL DEFAULT '{}'",
         )?;
         ensure_column(
             &conn,
@@ -236,11 +243,13 @@ mod tests {
             "model_provider": "opencode-go",
             "skills": ["codegraph"],
             "mcp": ["xcode"],
-            "tool_rules": [{"tool": "bash", "action": "deny"}]
+            "tool_rules": [{"tool": "bash", "action": "deny"}],
+            "limits": {"timeout_seconds": 120, "max_turns": 3}
         });
         let saved = store.save_role(&role).unwrap();
         assert_eq!(saved["name"], "Builder");
         assert_eq!(saved["tool_rules"][0]["action"], "deny");
+        assert_eq!(saved["limits"]["timeout_seconds"], 120);
         let rows = store.list_roles().unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["skills"][0], "codegraph");
@@ -249,6 +258,7 @@ mod tests {
             .save_role(&json!({"id": id, "name": "Builder", "agent_type": "claude_code"}))
             .unwrap();
         assert_eq!(preserved["tool_rules"][0]["tool"], "bash");
+        assert_eq!(preserved["limits"]["max_turns"], 3);
         assert!(store.role(id).unwrap().is_some());
         store.delete_role(id).unwrap();
         assert_eq!(store.list_roles().unwrap().len(), 0);

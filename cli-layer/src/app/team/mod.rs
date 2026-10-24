@@ -392,6 +392,12 @@ impl TeamService {
             .teams
             .conversation_cwd(conversation_id)?
             .map(std::path::PathBuf::from);
+        let timeout_seconds = member
+            .agent
+            .limits
+            .timeout_seconds
+            .unwrap_or(300)
+            .clamp(1, 3600);
         let outcome = match self
             .sessions
             .run_member(
@@ -399,7 +405,7 @@ impl TeamService {
                 &prompt,
                 cwd.unwrap_or_else(|| std::path::PathBuf::from("/")),
                 conversation_id,
-                300,
+                timeout_seconds,
             )
             .await
         {

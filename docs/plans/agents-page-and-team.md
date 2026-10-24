@@ -198,7 +198,7 @@ Agent
 | `enabled` | 停用但不删除 |
 | `archived` | 有历史会话时软删除 |
 | `version` | 团队快照对比 |
-| `limits_json` | max_turns / timeout / budget |
+| `limits_json` | max_turns / timeout / budget（后端已存；timeout 已用于成员委派） |
 | `memory_mode` | 预留 |
 
 `skills_json` 继续存 skill id 数组；`mcp_json` 继续预留。
@@ -708,7 +708,8 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 
 - ✅ usage 汇总到会话/成员（`summary.usage`、`members[].usage`）
 - ✅ artifacts 从 ACP tool call locations 提取并写入 delegation result
-- ✅ 失败/取消委派可重试（`retry_delegation`）；最大轮数、预算未做
+- ✅ 失败/取消委派可重试（`retry_delegation`）
+- 🟡 `limits.timeout_seconds` 已用于成员委派；max_turns、budget 尚未执行
 - ✅ 成员 ACP session id 持久化到 `conversation_agents.external_session_id`；
   池为空/重启后下次委派尝试 `session/load` 恢复
 

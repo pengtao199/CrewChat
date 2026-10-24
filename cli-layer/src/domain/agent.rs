@@ -11,6 +11,22 @@ use serde_json::Value;
 use crate::domain::permission::ToolRule;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AgentLimits {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_turns: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_seconds: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub budget_cents: Option<u64>,
+}
+
+impl AgentLimits {
+    pub fn is_empty(&self) -> bool {
+        self.max_turns.is_none() && self.timeout_seconds.is_none() && self.budget_cents.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Agent {
     #[serde(default)]
     pub id: String,
@@ -36,6 +52,8 @@ pub struct Agent {
     pub auto_approve: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_rules: Vec<ToolRule>,
+    #[serde(default, skip_serializing_if = "AgentLimits::is_empty")]
+    pub limits: AgentLimits,
     /// Roster revision, bumped on every save. Team snapshots store this so a
     /// running team can tell that its frozen member config has drifted.
     #[serde(default)]
