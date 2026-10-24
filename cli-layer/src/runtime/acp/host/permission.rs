@@ -106,3 +106,56 @@ pub(crate) fn auto_decision(
         }),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use agent_client_protocol::schema::v1::{
+        PermissionOption, PermissionOptionKind, RequestPermissionRequest, ToolCallUpdate,
+        ToolCallUpdateFields,
+    };
+
+    use super::auto_decision;
+    use crate::domain::permission::ToolRule;
+
+    fn request() -> RequestPermissionRequest {
+        RequestPermissionRequest::new(
+            "session",
+            ToolCallUpdate::new("call", ToolCallUpdateFields::default()),
+            vec![
+                PermissionOption::new("allow", "Allow", PermissionOptionKind::AllowOnce),
+                PermissionOption::new("reject", "Reject", PermissionOptionKind::RejectOnce),
+            ],
+        )
+    }
+
+    #[test]
+    fn auto_approve_selects_allow_once() {
+        let decision = auto_decision(&request(), &[], true).unwrap();
+        assert_eq!(decision.kind, "permission_auto_approved");
+        assert_eq!(decision.option_id.as_deref(), Some("allow"));
+    }
+
+    #[test]
+    fn explicit_rule_overrides_auto_approve() {
+        let rules = vec![ToolRule {
+            tool: "tool".to_string(),
+            kind: String::new(),
+            path_prefix: String::new(),
+            action: "deny".to_string(),
+        }];
+        let decision = auto_decision(&request(), &rules, true).unwrap();
+        assert_eq!(decision.kind, "permission_denied");
+        assert_eq!(decision.option_id.as_deref(), Some("reject"));
+    }
+
+    #[test]
+    fn ask_rule_leaves_the_request_for_the_ui() {
+        let rules = vec![ToolRule {
+            tool: "tool".to_string(),
+            kind: String::new(),
+            path_prefix: String::new(),
+            action: "ask".to_string(),
+        }];
+        assert!(auto_decision(&request(), &rules, true).is_none());
+    }
+}
