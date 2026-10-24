@@ -8,7 +8,7 @@ final class CoreSessionClient: CoreSession, @unchecked Sendable {
     }
 
     func connect(agentType: String, workingDir: String?, roleID: String?, sessionID: String?) async throws -> String {
-        try await provider.client().send(
+        let result: CoreConnectResult = try await provider.client().send(
             "acp_connect",
             body: CoreConnectBody(
                 agentType: agentType,
@@ -17,6 +17,7 @@ final class CoreSessionClient: CoreSession, @unchecked Sendable {
                 sessionId: sessionID
             )
         )
+        return result.connectionID
     }
 
     func prompt(connectionID: String, text: String, folderID: String, conversationID: String, mentions: [String]) async throws {
@@ -51,6 +52,32 @@ final class CoreSessionClient: CoreSession, @unchecked Sendable {
             "acp_respond_permission",
             body: CorePermissionResponseBody(requestId: requestID, optionId: optionID)
         )
+    }
+}
+
+struct CoreConnectResult: Decodable {
+    let connectionID: String
+
+    enum CodingKeys: String, CodingKey {
+        case connectionID = "connection_id"
+        case connectionIDCamel = "connectionId"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        if let value = try container.decodeIfPresent(String.self, forKey: .connectionID),
+           !value.isEmpty {
+            connectionID = value
+        } else if let value = try container.decodeIfPresent(String.self, forKey: .connectionIDCamel),
+                  !value.isEmpty {
+            connectionID = value
+        } else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .connectionID,
+                in: container,
+                debugDescription: "acp_connect returned no connection id"
+            )
+        }
     }
 }
 
