@@ -7,6 +7,7 @@ struct MessageMetadataView: View {
     let duration: TimeInterval?
     let isRunning: Bool
     let onCopy: (() -> Void)?
+    let copyVisible: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -29,12 +30,18 @@ struct MessageMetadataView: View {
             if let onCopy {
                 Button(action: onCopy) {
                     Image(systemName: "doc.on.doc")
+                        .font(.system(size: 10, weight: .regular))
+                        .frame(width: 16, height: 16)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
+                .opacity(copyVisible ? 1 : 0)
+                .allowsHitTesting(copyVisible)
                 .help("conversation.copy")
             }
         }
         .font(.caption2)
+        .frame(height: 16)
         .foregroundStyle(.tertiary)
         .lineLimit(1)
     }

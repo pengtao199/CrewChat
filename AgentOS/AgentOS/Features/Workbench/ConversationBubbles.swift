@@ -26,9 +26,9 @@ struct UserBubble: View {
                 }
 
                 HStack(alignment: .bottom, spacing: 6) {
-                    if isHovered {
-                        BubbleActions(onCopy: onCopy)
-                    }
+                    BubbleActions(onCopy: onCopy)
+                        .opacity(isHovered ? 1 : 0)
+                        .allowsHitTesting(isHovered)
                     MentionText(text: text, members: members)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -159,7 +159,8 @@ struct AssistantBubble: View {
                     usage: usage,
                     duration: duration,
                     isRunning: isRunning,
-                    onCopy: isHovered ? onCopy : nil
+                    onCopy: onCopy,
+                    copyVisible: isHovered
                 )
             }
 
@@ -268,6 +269,8 @@ struct BubbleActions: View {
             }
             .buttonStyle(.borderless)
             .foregroundStyle(.secondary)
+            .frame(width: 18, height: 18)
+            .contentShape(Rectangle())
             .help("conversation.copy")
         }
     }
