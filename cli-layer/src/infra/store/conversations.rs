@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use super::Store;
 use crate::config::now;
-use crate::domain::team::TeamSnapshot;
+use crate::domain::team::{aggregate_usage, TeamSnapshot};
 
 const SUMMARY_COLUMNS: &str =
     "id, folder_id, title, agent_type, status, updated_at, kind, leader_role_id, team_json, external_id";
@@ -125,6 +125,7 @@ impl Store {
             rows
         };
 
+        let delegations = self_delegations(&conn, id)?;
         if let Some(snapshot) = &snapshot {
             summary["team"] = serde_json::to_value(snapshot)?;
             let members = snapshot
@@ -132,6 +133,11 @@ impl Store {
                 .iter()
                 .map(|member| {
                     let row = agents.iter().find(|row| row["role_id"] == member.role_id);
+                    let member_delegations = delegations
+                        .iter()
+                        .filter(|delegation| delegation["member_role_id"] == member.role_id)
+                        .cloned()
+                        .collect::<Vec<_>>();
                     json!({
                         "role_id": member.role_id,
                         "name": member.agent.name,
@@ -142,12 +148,14 @@ impl Store {
                         "auto_approve": member.agent.auto_approve,
                         "state": row.and_then(|row| row["state"].as_str()).unwrap_or("idle"),
                         "connection_id": row.map(|row| row["connection_id"].clone()),
+                        "usage": aggregate_usage(&member_delegations),
                     })
                 })
                 .collect::<Vec<_>>();
             summary["members"] = json!(members);
         }
-        summary["delegations"] = json!(self_delegations(&conn, id)?);
+        summary["usage"] = aggregate_usage(&delegations);
+        summary["delegations"] = json!(delegations);
 
         Ok(Some(json!({"summary": summary, "turns": turns})))
     }

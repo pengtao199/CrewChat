@@ -92,6 +92,7 @@ async fn main() -> Result<()> {
         runtime,
         model_catalog,
         engines.clone(),
+        Some(team_repo.clone()),
     );
     let team = TeamService::new(
         roster.clone(),

@@ -14,7 +14,7 @@ use crate::config::now;
 use crate::domain::agent::Agent;
 use crate::domain::event::EventEnvelope;
 use crate::domain::ports::{ConversationRepository, EventPublisher, TeamRepository};
-use crate::domain::team::{Delegation, TeamRef, TeamSnapshot};
+use crate::domain::team::{aggregate_usage, Delegation, TeamRef, TeamSnapshot};
 
 const MAX_TEAM_MEMBERS: usize = 5;
 
@@ -124,9 +124,11 @@ impl TeamService {
 
     pub fn status(&self, conversation_id: &str) -> Result<Value> {
         self.sessions.reap_idle(Duration::from_secs(1800));
+        let delegations = self.teams.delegations(conversation_id)?;
         Ok(json!({
             "members": self.teams.conversation_agents(conversation_id)?,
-            "delegations": self.teams.delegations(conversation_id)?,
+            "delegations": delegations,
+            "usage": aggregate_usage(&delegations),
         }))
     }
 
@@ -680,6 +682,7 @@ mod tests {
             runtime.clone(),
             model,
             engine_service,
+            None,
         );
         let events = Arc::new(FakeEvents::default());
         let team = TeamService::new(

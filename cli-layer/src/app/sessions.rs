@@ -13,7 +13,7 @@ use crate::app::engines::EngineService;
 use crate::domain::agent::Agent;
 use crate::domain::ports::{
     AgentRepository, ConnectRequest, ConversationRepository, EventSubscription, LeaderControl,
-    ModelCatalog, SessionRuntime,
+    ModelCatalog, SessionRuntime, TeamRepository,
 };
 
 #[derive(Clone)]
@@ -23,6 +23,7 @@ pub struct SessionService {
     runtime: Arc<dyn SessionRuntime>,
     model: Arc<dyn ModelCatalog>,
     engines: EngineService,
+    teams: Option<Arc<dyn TeamRepository>>,
     connections: Arc<Mutex<HashMap<String, ConnectionMeta>>>,
     pool: Arc<Mutex<HashMap<(String, String), PooledConnection>>>,
 }
@@ -65,6 +66,7 @@ impl SessionService {
         runtime: Arc<dyn SessionRuntime>,
         model: Arc<dyn ModelCatalog>,
         engines: EngineService,
+        teams: Option<Arc<dyn TeamRepository>>,
     ) -> Self {
         Self {
             agents,
@@ -72,6 +74,7 @@ impl SessionService {
             runtime,
             model,
             engines,
+            teams,
             connections: Arc::new(Mutex::new(HashMap::new())),
             pool: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -79,6 +82,43 @@ impl SessionService {
 
     pub fn subscribe(&self) -> Box<dyn EventSubscription> {
         self.runtime.subscribe()
+    }
+
+    fn team_state(
+        &self,
+        conversation_id: Option<&str>,
+        role_id: Option<&str>,
+        state: &str,
+        connection_id: Option<&str>,
+    ) {
+        let (Some(teams), Some(conversation_id), Some(role_id)) =
+            (self.teams.as_ref(), conversation_id, role_id)
+        else {
+            return;
+        };
+        let is_team = self
+            .conversations
+            .get_conversation(conversation_id)
+            .ok()
+            .flatten()
+            .is_some_and(|detail| {
+                detail.pointer("/summary/kind").and_then(Value::as_str) == Some("team")
+            });
+        if is_team {
+            let _ = teams.set_conversation_agent(conversation_id, role_id, state, connection_id);
+        }
+    }
+
+    fn is_team(&self, conversation_id: Option<&str>) -> bool {
+        conversation_id.is_some_and(|id| {
+            self.conversations
+                .get_conversation(id)
+                .ok()
+                .flatten()
+                .is_some_and(|detail| {
+                    detail.pointer("/summary/kind").and_then(Value::as_str) == Some("team")
+                })
+        })
     }
 
     fn leader_control(
@@ -185,7 +225,7 @@ impl SessionService {
                 connection_id.to_string(),
                 ConnectionMeta {
                     conversation_id: conversation_id.clone(),
-                    role_id,
+                    role_id: role_id.clone(),
                 },
             );
             if owns_conversation {
@@ -198,6 +238,12 @@ impl SessionService {
                         .set_external_id(conversation_id, session_id);
                 }
             }
+            self.team_state(
+                conversation_id.as_deref(),
+                role_id.as_deref(),
+                "idle",
+                Some(connection_id),
+            );
         }
         Ok(value)
     }
@@ -600,22 +646,42 @@ impl SessionService {
             .and_then(|meta| meta.conversation_id.clone())
             .or_else(|| conversation_id.map(str::to_string));
         let events = self.runtime.subscribe();
+        let speaker_role_id = meta.and_then(|meta| meta.role_id);
         if let Some(conversation_id) = conversation_id.as_deref() {
             let _ = self.conversations.append_turn(
                 conversation_id,
                 "user",
                 &json!([{"type": "text", "text": text}]),
             );
+            self.team_state(
+                Some(conversation_id),
+                speaker_role_id.as_deref(),
+                "running",
+                Some(connection_id),
+            );
         }
-        self.runtime
-            .prompt(connection_id, text)
-            .map_err(|error| SessionError::BadRequest(error.to_string()))?;
+        if let Err(error) = self.runtime.prompt(connection_id, text) {
+            if let Some(conversation_id) = conversation_id.as_deref() {
+                self.team_state(
+                    Some(conversation_id),
+                    speaker_role_id.as_deref(),
+                    "idle",
+                    Some(connection_id),
+                );
+            }
+            return Err(SessionError::BadRequest(error.to_string()));
+        }
         if let Some(conversation_id) = conversation_id {
-            let speaker_role_id = meta.and_then(|meta| meta.role_id);
+            let teams = if self.is_team(Some(&conversation_id)) {
+                self.teams.clone()
+            } else {
+                None
+            };
             self.spawn_turn_collector(
                 connection_id.to_string(),
                 conversation_id,
                 speaker_role_id,
+                teams,
                 events,
             );
         }
@@ -627,6 +693,7 @@ impl SessionService {
         connection_id: String,
         conversation_id: String,
         speaker_role_id: Option<String>,
+        teams: Option<Arc<dyn TeamRepository>>,
         mut events: Box<dyn EventSubscription>,
     ) {
         let conversations = self.conversations.clone();
@@ -653,6 +720,16 @@ impl SessionService {
                                     "assistant",
                                     speaker_role_id.as_deref(),
                                     &json!([{"type": "text", "text": text}]),
+                                );
+                            }
+                            if let (Some(teams), Some(role_id)) =
+                                (teams.as_ref(), speaker_role_id.as_deref())
+                            {
+                                let _ = teams.set_conversation_agent(
+                                    &conversation_id,
+                                    role_id,
+                                    "idle",
+                                    None,
                                 );
                             }
                             break;
@@ -685,6 +762,16 @@ impl SessionService {
     }
 
     pub fn disconnect(&self, connection_id: &str) {
+        if let Some(meta) = self.connections.lock().unwrap().get(connection_id).cloned() {
+            if let Some(conversation_id) = meta.conversation_id.as_deref() {
+                self.team_state(
+                    Some(conversation_id),
+                    meta.role_id.as_deref(),
+                    "idle",
+                    Some(connection_id),
+                );
+            }
+        }
         let keys = self
             .pool
             .lock()
@@ -780,8 +867,10 @@ mod tests {
     use crate::domain::event::EventEnvelope;
     use crate::domain::ports::{
         AgentRepository, ConnectRequest, ConversationRepository, EngineSettingsRepository,
-        EventSubscription, ModelCatalog, SessionRuntime,
+        EventSubscription, ModelCatalog, SessionRuntime, TeamRepository,
     };
+    use crate::domain::team::TeamSnapshot;
+    use crate::infra::store::Store;
     use crate::runtime::engine::registry::Engines;
 
     #[derive(Default)]
@@ -1038,7 +1127,14 @@ mod tests {
             }],
         });
         let engines = EngineService::new(Arc::new(FakeSettings), test_engines(), test_config());
-        SessionService::new(agents, conversations, runtime, Arc::new(FakeModel), engines)
+        SessionService::new(
+            agents,
+            conversations,
+            runtime,
+            Arc::new(FakeModel),
+            engines,
+            None,
+        )
     }
 
     #[tokio::test]
@@ -1110,6 +1206,62 @@ mod tests {
         let control = request.leader_control.expect("leader control");
         assert_eq!(control.conversation_id, "team-conversation");
         assert_eq!(control.leader_role_id, "role-1");
+    }
+
+    #[tokio::test]
+    async fn leader_connection_is_recorded_on_the_team_member_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("leader.db")).unwrap();
+        store.init_schema().unwrap();
+        let leader = Agent {
+            id: "leader".to_string(),
+            name: "Leader".to_string(),
+            agent_type: "claude_code".to_string(),
+            ..Agent::default()
+        };
+        let member = Agent {
+            id: "member".to_string(),
+            name: "Member".to_string(),
+            agent_type: "claude_code".to_string(),
+            ..Agent::default()
+        };
+        let snapshot =
+            TeamSnapshot::new(&leader, std::slice::from_ref(&member), crate::config::now());
+        let conversation = store
+            .create_team_conversation(None, "claude_code", Some("Team"), &snapshot)
+            .unwrap();
+        let engines = EngineService::new(Arc::new(FakeSettings), test_engines(), test_config());
+        let conversation_repo: Arc<dyn ConversationRepository> = Arc::new(store.clone());
+        let team_repo: Arc<dyn TeamRepository> = Arc::new(store.clone());
+        let service = SessionService::new(
+            Arc::new(FakeAgents {
+                agents: vec![leader],
+            }),
+            conversation_repo,
+            Arc::new(FakeRuntime::default()),
+            Arc::new(FakeModel),
+            engines,
+            Some(team_repo),
+        );
+
+        service
+            .connect(
+                "claude_code",
+                PathBuf::from("/tmp"),
+                Some("leader"),
+                Some(conversation.clone()),
+                None,
+            )
+            .await
+            .unwrap();
+
+        let agents = store.conversation_agents(&conversation).unwrap();
+        let leader_row = agents
+            .iter()
+            .find(|row| row["role_id"] == "leader")
+            .unwrap();
+        assert_eq!(leader_row["state"], "idle");
+        assert_eq!(leader_row["connection_id"], "fake");
     }
 
     #[tokio::test]

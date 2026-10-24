@@ -303,6 +303,9 @@ mod tests {
         assert_eq!(saved["status"], "done");
         assert_eq!(saved["result"]["summary"], "ok");
         assert_eq!(store.delegations(&id).unwrap().len(), 1);
+        let detail = store.get_conversation(&id).unwrap().unwrap();
+        assert_eq!(detail["summary"]["usage"]["input"], 1);
+        assert_eq!(detail["summary"]["members"][0]["usage"]["input"], 1);
     }
 
     #[test]

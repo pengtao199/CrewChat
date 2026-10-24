@@ -689,16 +689,19 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 
 ### P1：团队读模型与实时事件
 
-- 🟡 AgentOS 解码完整 `summary.team`、`summary.members[].state`、`summary.delegations`
+- ✅ 核心 `summary` 已返回完整 `team`、`members[].state`、`members[].usage`、
+  `delegations`、会话级 `usage`
+- 🟡 AgentOS 解码完整团队读模型
 - 🟡 会话头成员 chip、委派卡、取消按钮接 `/api/cancel_delegation`
 - ✅ 事件 envelope 补 `conversation_id` / `speaker_role_id`；连接建立时登记角色/会话
 - ✅ `delegation_started` / `delegation_completed` / `delegation_cancelled` 事件落库
 - ✅ `/ws/events` attach 支持按 `conversation_id` 回放和过滤
+- ✅ Leader 连接的 `conversation_agents.state/connection_id` 随连接更新
 - 🟡 前端消费团队事件流
 
 ### P2：团队执行质量
 
-- usage 汇总到会话/成员
+- ✅ usage 汇总到会话/成员（`summary.usage`、`members[].usage`）
 - artifacts 结构化返回
 - 失败重试、最大轮数、预算
 - 团队重启后的成员池恢复

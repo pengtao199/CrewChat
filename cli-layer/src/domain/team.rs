@@ -145,3 +145,23 @@ impl Delegation {
         }
     }
 }
+
+/// Sum numeric usage fields across delegation rows. Unknown fields are kept as
+/// numbers only; ACP adapters differ in token key names, so no key is assumed.
+pub fn aggregate_usage(delegations: &[Value]) -> Value {
+    let mut totals = serde_json::Map::new();
+    for delegation in delegations {
+        let Some(usage) = delegation.get("usage").and_then(Value::as_object) else {
+            continue;
+        };
+        for (key, value) in usage {
+            let Some(number) = value.as_i64() else {
+                continue;
+            };
+            let entry = totals.entry(key.clone()).or_insert_with(|| Value::from(0));
+            let current = entry.as_i64().unwrap_or(0);
+            *entry = Value::from(current.saturating_add(number));
+        }
+    }
+    Value::Object(totals)
+}
