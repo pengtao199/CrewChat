@@ -111,7 +111,7 @@ final class WorkbenchViewModel {
     var selectedLeaderID: String? {
         selectedRoleIDs.first { id in
             roles.contains { role in
-                role.id == id && (role.id == "crewchat-manager" || role.name == "管理员")
+                role.id == id && (role.id == "agentos-manager" || role.name == "管理员")
             }
         } ?? selectedRoleIDs.first
     }

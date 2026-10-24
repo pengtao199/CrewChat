@@ -11,7 +11,7 @@ impl Store {
         let mut stmt = conn.prepare(
             "SELECT id, name, soul, rules, agent_type, model, model_provider,
                     skills_json, mcp_json, permission_mode, auto_approve,
-                    tool_rules_json, limits_json, version
+                    tool_rules_json, limits_json, preset_key, version
              FROM agent_roles ORDER BY name",
         )?;
         let rows = stmt
@@ -34,7 +34,8 @@ impl Store {
                         .unwrap_or(Value::Null),
                     "limits": serde_json::from_str::<Value>(&row.get::<_, String>(12)?)
                         .unwrap_or(Value::Null),
-                    "version": row.get::<_, i64>(13)?,
+                    "preset_key": row.get::<_, Option<String>>(13)?,
+                    "version": row.get::<_, i64>(14)?,
                 }))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -47,7 +48,7 @@ impl Store {
             .query_row(
                 "SELECT id, name, soul, rules, agent_type, model, model_provider,
                     skills_json, mcp_json, permission_mode, auto_approve,
-                    tool_rules_json, limits_json, version
+                    tool_rules_json, limits_json, preset_key, version
              FROM agent_roles WHERE id = ?1",
                 params![id],
                 |row| {
@@ -69,7 +70,8 @@ impl Store {
                             .unwrap_or(Value::Null),
                         "limits": serde_json::from_str::<Value>(&row.get::<_, String>(12)?)
                             .unwrap_or(Value::Null),
-                        "version": row.get::<_, i64>(13)?,
+                        "preset_key": row.get::<_, Option<String>>(13)?,
+                        "version": row.get::<_, i64>(14)?,
                     }))
                 },
             )
@@ -87,39 +89,47 @@ impl Store {
         let conn = self.conn.lock().unwrap();
         let existing = conn
             .query_row(
-                "SELECT version, tool_rules_json, limits_json FROM agent_roles WHERE id = ?1",
+                "SELECT version, tool_rules_json, limits_json, preset_key
+                 FROM agent_roles WHERE id = ?1",
                 params![id],
                 |row| {
                     Ok((
                         row.get::<_, i64>(0)?,
                         row.get::<_, String>(1)?,
                         row.get::<_, String>(2)?,
+                        row.get::<_, Option<String>>(3)?,
                     ))
                 },
             )
             .optional()?;
         let version = existing
             .as_ref()
-            .map(|(version, _, _)| version + 1)
+            .map(|(version, _, _, _)| version + 1)
             .unwrap_or(1);
         let tool_rules = role.get("tool_rules").cloned().unwrap_or_else(|| {
             existing
                 .as_ref()
-                .and_then(|(_, raw, _)| serde_json::from_str::<Value>(raw).ok())
+                .and_then(|(_, raw, _, _)| serde_json::from_str::<Value>(raw).ok())
                 .unwrap_or_else(|| json!([]))
+        });
+        let preset_key = role.get("preset_key").cloned().or_else(|| {
+            existing
+                .as_ref()
+                .and_then(|(_, _, _, key)| key.clone())
+                .map(Value::String)
         });
         let limits = role.get("limits").cloned().unwrap_or_else(|| {
             existing
                 .as_ref()
-                .and_then(|(_, _, raw)| serde_json::from_str::<Value>(raw).ok())
+                .and_then(|(_, _, raw, _)| serde_json::from_str::<Value>(raw).ok())
                 .unwrap_or_else(|| json!({}))
         });
         conn.execute(
             "INSERT INTO agent_roles
              (id, name, soul, rules, agent_type, model, model_provider,
               skills_json, mcp_json, permission_mode, auto_approve,
-              tool_rules_json, limits_json, version, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)
+              tool_rules_json, limits_json, preset_key, version, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 soul = excluded.soul,
@@ -133,6 +143,7 @@ impl Store {
                 auto_approve = excluded.auto_approve,
                 tool_rules_json = excluded.tool_rules_json,
                 limits_json = excluded.limits_json,
+                preset_key = excluded.preset_key,
                 version = excluded.version,
                 updated_at = excluded.updated_at",
             params![
@@ -157,6 +168,7 @@ impl Store {
                     .unwrap_or(false) as i64,
                 serde_json::to_string(&tool_rules)?,
                 serde_json::to_string(&limits)?,
+                preset_key.as_ref().and_then(Value::as_str),
                 version,
                 timestamp
             ],
@@ -168,6 +180,9 @@ impl Store {
         saved["id"] = json!(id);
         saved["tool_rules"] = tool_rules;
         saved["limits"] = limits;
+        if let Some(preset_key) = preset_key {
+            saved["preset_key"] = preset_key;
+        }
         saved["version"] = json!(version);
         saved["created_at"] = json!(timestamp);
         saved["updated_at"] = json!(timestamp);

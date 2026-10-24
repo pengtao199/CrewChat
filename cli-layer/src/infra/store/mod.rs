@@ -85,6 +85,7 @@ impl Store {
                 auto_approve INTEGER NOT NULL DEFAULT 0,
                 tool_rules_json TEXT NOT NULL DEFAULT '[]',
                 limits_json TEXT NOT NULL DEFAULT '{}',
+                preset_key TEXT,
                 version INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -156,6 +157,12 @@ impl Store {
             "agent_roles",
             "limits_json",
             "TEXT NOT NULL DEFAULT '{}'",
+        )?;
+        ensure_column(&conn, "agent_roles", "preset_key", "TEXT")?;
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_roles_preset_key
+             ON agent_roles(preset_key) WHERE preset_key IS NOT NULL",
+            [],
         )?;
         ensure_column(
             &conn,

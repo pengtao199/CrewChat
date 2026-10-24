@@ -2,6 +2,7 @@ pub mod engines;
 pub mod mcp;
 pub mod models;
 pub mod permissions;
+pub mod presets;
 pub mod readiness;
 pub mod roster;
 pub mod sessions;

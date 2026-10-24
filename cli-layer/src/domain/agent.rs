@@ -56,6 +56,8 @@ pub struct Agent {
     pub limits: AgentLimits,
     /// Roster revision, bumped on every save. Team snapshots store this so a
     /// running team can tell that its frozen member config has drifted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset_key: Option<String>,
     #[serde(default)]
     pub version: u64,
 }

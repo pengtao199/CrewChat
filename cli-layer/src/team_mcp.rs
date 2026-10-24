@@ -28,8 +28,8 @@ pub async fn run() -> Result<()> {
     let token = args
         .get("token")
         .cloned()
-        .or_else(|| std::env::var("CREWCHAT_CORE_TOKEN").ok())
-        .ok_or_else(|| anyhow!("missing --token or CREWCHAT_CORE_TOKEN"))?;
+        .or_else(|| std::env::var("AGENTOS_CORE_TOKEN").ok())
+        .ok_or_else(|| anyhow!("missing --token or AGENTOS_CORE_TOKEN"))?;
     let conversation_id = args
         .get("conversation")
         .cloned()
@@ -72,8 +72,8 @@ pub async fn run() -> Result<()> {
                     .and_then(Value::as_str)
                     .unwrap_or("2024-11-05"),
                 "capabilities": {"tools": {"listChanged": false}},
-                "serverInfo": {"name": "crewchat-team", "version": env!("CARGO_PKG_VERSION")},
-                "instructions": "This is the CrewChat team control channel. Call team_status to get the team members and their role_id values. Use delegate_to_agent for CrewChat members; Claude Code ListAgents is unrelated and will not show them.",
+                "serverInfo": {"name": "agentos-team", "version": env!("CARGO_PKG_VERSION")},
+                "instructions": "This is the AgentOS team control channel. Call team_status to get the team members and their role_id values. Use delegate_to_agent for AgentOS members; Claude Code ListAgents is unrelated and will not show them.",
             })),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({"tools": tools()})),
@@ -180,7 +180,7 @@ fn tools() -> Vec<Value> {
     vec![
         json!({
             "name": "delegate_to_agent",
-            "description": "Delegate a bounded task to a CrewChat team member. Call team_status first to get roleId values. Only the Leader may call this. The member uses its own engine, model and skills; it does not see the full conversation. Do not use Claude Code ListAgents for CrewChat members.",
+            "description": "Delegate a bounded task to a AgentOS team member. Call team_status first to get roleId values. Only the Leader may call this. The member uses its own engine, model and skills; it does not see the full conversation. Do not use Claude Code ListAgents for AgentOS members.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -194,7 +194,7 @@ fn tools() -> Vec<Value> {
         }),
         json!({
             "name": "team_status",
-            "description": "Read the CrewChat team roster (names + role_id), current member states, and delegation records. Use this before delegate_to_agent.",
+            "description": "Read the AgentOS team roster (names + role_id), current member states, and delegation records. Use this before delegate_to_agent.",
             "inputSchema": {"type": "object", "properties": {}}
         }),
     ]

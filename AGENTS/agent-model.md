@@ -57,16 +57,16 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 ## 三、两份内置 Agent，其余都是通用角色
 
-花名册里只有两份预置文件了解 CrewChat 本身；它们仍然是普通 `AgentSpec`，可改可删。代码里没有独立的 `Assistant` 类型。
+花名册里只有两份预置文件了解 AgentOS 本身；它们仍然是普通 `AgentSpec`，用 `preset_key` 标识，可改可删。代码里没有独立的 `Assistant` 类型。
 
 | id | 用户可见 | 引擎 | 职责 | 不做什么 |
 | --- | --- | --- | --- | --- |
-| `agent-helper` | Agent 助手 | CLI（要能读文件、改花名册） | 经 Agents 页改花名册（`custom_agent` 的角色行），按本文件调优别人的大脑 / 引擎 / 技能 / MCP / 记忆 / 人格 | 不写产品代码，不改模型层供应商配置里的密钥 |
-| `crewchat-manager` | 管理员 | CLI（与成员相同，默认 `opencode`） | 群聊 Leader：规划、委派、汇总 | 不代替成员写完整个任务；人格里写明只规划、委派、汇总 |
+| `agentos-helper` | Agent 助手 | CLI（要能读文件、改花名册） | 经 Agents 页改花名册（`custom_agent` 的角色行），按本文件调优别人的大脑 / 引擎 / 技能 / MCP / 记忆 / 人格 | 不写产品代码，不改模型层供应商配置里的密钥 |
+| `agentos-manager` | 管理员 | CLI（与成员相同，默认 `opencode`） | 群聊 Leader：规划、委派、汇总 | 不代替成员写完整个任务；人格里写明只规划、委派、汇总 |
 
 管理员也是普通 CLI Agent，必须显式配大脑。恢复模板不覆盖已有文件。
 
-**其余 Agent 一律通用。** 它们是「后端 / 前端 / 运维」这类角色，不属于本仓库，也不该在人格里写死 CrewChat 的目录或规则。会话绑了哪个项目，就在那个项目的工作区干活。
+**其余 Agent 一律通用。** 它们是「后端 / 前端 / 运维」这类角色，不属于本仓库，也不该在人格里写死 AgentOS 的目录或规则。会话绑了哪个项目，就在那个项目的工作区干活。
 
 ### 助手怎么改一份 Agent
 
@@ -85,9 +85,9 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 
 ## 五、具体规则
 
-- Agent 字段名与 `crewai.Agent` 保持一致（`role` / `goal` / `backstory` / `skills` / `mcps` / `memory`），同一份文件既能被 CrewChat 加载，也能被 crewai 原生加载。
+- Agent 字段名与 `crewai.Agent` 保持一致（`role` / `goal` / `backstory` / `skills` / `mcps` / `memory`），同一份文件既能被 AgentOS 加载，也能被 crewai 原生加载。
 - 一个会话绑定一个或多个 Agent（`agent_ids`）；单 Agent 时是单聊，多 Agent 时是群聊。
-- 多 Agent 会话固定加入可见管理员 `crewchat-manager`（普通 Agent 文件，可编辑、可删、可恢复）。它担任 Leader：先规划，再委派，最后汇总。创建时还要写 `leader_agent_id` 和 `project_id`。
+- 多 Agent 会话固定加入可见管理员 `agentos-manager`（普通 Agent 文件，可编辑、可删、可恢复）。它担任 Leader：先规划，再委派，最后汇总。创建时还要写 `leader_agent_id` 和 `project_id`。
 - 会话的模型默认取自 Agent 的大脑；会话级覆盖是例外。
 - 新增 Agent 组成维度时，必须同步四处：`core/models.py` 的 `AgentSpec`、读写接口、编排页表单、本文件。
 
@@ -97,8 +97,8 @@ Agent = 大脑 + 引擎 + 技能 + 工具(MCP) + 记忆 + 规则
 | --- | --- | --- | --- |
 | 引擎 | `body` / `Executor` | 引擎 | backend（上游用语，仅限契约层）、agent、runner |
 | Agent | `AgentSpec` | Agent | assistant、worker、bot |
-| 内置 Agent | `agent-helper` / `crewchat-manager`（普通 Agent 文件） | Agent 助手 / 管理员 | 独立 Assistant 类型、隐藏协调器 |
-| 管理员 Agent | `crewchat-manager`（CLI，必须显式配大脑） | 管理员 | 隐藏协调器、隐式默认大脑 |
+| 内置 Agent | `agentos-helper` / `agentos-manager`（普通 Agent 文件） | Agent 助手 / 管理员 | 独立 Assistant 类型、隐藏协调器 |
+| 管理员 Agent | `agentos-manager`（CLI，必须显式配大脑） | 管理员 | 隐藏协调器、隐式默认大脑 |
 | 大脑 | `brain` / `Provider` | 模型端点 | model（那是大脑的一部分）、api |
 | 技能 | `skills` | 技能 | capability、plugin（plugin 是安装包） |
 | 工具 | `mcps` / 应用内置工具 | 工具 | — |

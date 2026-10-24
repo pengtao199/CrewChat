@@ -60,6 +60,7 @@ async fn main() -> Result<()> {
     let config = Arc::new(Config::from_env()?);
     let store = Store::open(&config.db_path())?;
     store.init_schema()?;
+    crate::app::presets::ensure(&store)?;
     config.write_runtime_file()?;
 
     let skill: Arc<dyn SkillCatalog> = Arc::new(SkillLayerClient::new());

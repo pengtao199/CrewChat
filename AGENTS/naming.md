@@ -66,7 +66,7 @@
 | 概念 | 使用 | 不用 |
 | --- | --- | --- |
 | Agent | Agent、AgentSpec | Assistant、Worker、Bot |
-| 内置 Agent | `agent-helper`（改配置）与 `crewchat-manager`（群聊 Leader）；无独立类型 | 独立 Assistant 类型 |
+| 内置 Agent | `agentos-helper`（改配置）与 `agentos-manager`（群聊 Leader）；无独立类型 | 独立 Assistant 类型 |
 | 大脑 | brain、Provider | model（指大脑的一部分时可用）、LLM（指执行方式时不用） |
 | 引擎（大脑的执行体） | 代码 `body` / `Executor`；用户可见「引擎」；**不指 Rust 核心** | backend、agent-cli、runner、Runtime |
 | 核心 | Core（Rust `crewchat-cli`） | 引擎、后端、服务端 |

@@ -228,7 +228,7 @@ impl AcpHost {
             let command = std::env::current_exe()
                 .map_err(|error| anyhow!("resolve cli-layer executable: {error}"))?;
             mcp_servers.push(McpServer::Stdio(
-                McpServerStdio::new("crewchat-team", command)
+                McpServerStdio::new("agentos-team", command)
                     .args(vec![
                         "team-mcp".to_string(),
                         "--conversation".to_string(),
@@ -239,7 +239,7 @@ impl AcpHost {
                         self.config.base_url(),
                     ])
                     .env(vec![EnvVariable::new(
-                        "CREWCHAT_CORE_TOKEN",
+                        "AGENTOS_CORE_TOKEN",
                         self.config.token.clone(),
                     )]),
             ));
