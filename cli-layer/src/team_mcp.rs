@@ -73,6 +73,7 @@ pub async fn run() -> Result<()> {
                     .unwrap_or("2024-11-05"),
                 "capabilities": {"tools": {"listChanged": false}},
                 "serverInfo": {"name": "crewchat-team", "version": env!("CARGO_PKG_VERSION")},
+                "instructions": "This is the CrewChat team control channel. Call team_status to get the team members and their role_id values. Use delegate_to_agent for CrewChat members; Claude Code ListAgents is unrelated and will not show them.",
             })),
             "ping" => Ok(json!({})),
             "tools/list" => Ok(json!({"tools": tools()})),
@@ -179,11 +180,11 @@ fn tools() -> Vec<Value> {
     vec![
         json!({
             "name": "delegate_to_agent",
-            "description": "Delegate a bounded task to a member of this team. Only the Leader may call this. The member uses its own engine, model and skills; it does not see the full conversation.",
+            "description": "Delegate a bounded task to a CrewChat team member. Call team_status first to get roleId values. Only the Leader may call this. The member uses its own engine, model and skills; it does not see the full conversation. Do not use Claude Code ListAgents for CrewChat members.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "roleId": {"type": "string", "description": "Member role id from the team."},
+                    "roleId": {"type": "string", "description": "Member role_id returned by team_status."},
                     "task": {"type": "string", "description": "What the member must do."},
                     "context": {"type": "string", "description": "Only the context the member needs."},
                     "expectedOutput": {"type": "string", "description": "What the member should return."}
@@ -193,7 +194,7 @@ fn tools() -> Vec<Value> {
         }),
         json!({
             "name": "team_status",
-            "description": "Read current member states and delegation records for this conversation.",
+            "description": "Read the CrewChat team roster (names + role_id), current member states, and delegation records. Use this before delegate_to_agent.",
             "inputSchema": {"type": "object", "properties": {}}
         }),
     ]
@@ -210,4 +211,20 @@ fn parse_args(args: impl Iterator<Item = String>) -> BTreeMap<String, String> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::tools;
+
+    #[test]
+    fn exposes_team_control_tools() {
+        let tools = tools();
+        let names = tools
+            .iter()
+            .filter_map(|tool| tool.get("name").and_then(serde_json::Value::as_str))
+            .collect::<Vec<_>>();
+        assert!(names.contains(&"delegate_to_agent"));
+        assert!(names.contains(&"team_status"));
+    }
 }

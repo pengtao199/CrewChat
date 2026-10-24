@@ -104,4 +104,9 @@ call("/api/acp_disconnect", {"connectionId": connection_id})
 print(f"PASS: {types} text={text!r} turns={roles}")
 PY
 
+echo "==> team-mcp subcommand"
+TEAM_OUT="$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | "$ROOT/target/debug/crewchat-cli" team-mcp --conversation smoke --leader leader --core-url http://127.0.0.1:1 --token smoke)"
+echo "$TEAM_OUT" | grep -q 'delegate_to_agent'
+echo "$TEAM_OUT" | grep -q 'team_status'
+
 echo "smoke: ok"

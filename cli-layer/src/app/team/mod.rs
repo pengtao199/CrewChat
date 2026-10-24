@@ -125,7 +125,24 @@ impl TeamService {
     pub fn status(&self, conversation_id: &str) -> Result<Value> {
         self.sessions.reap_idle(Duration::from_secs(1800));
         let delegations = self.teams.delegations(conversation_id)?;
+        let snapshot = self
+            .conversations
+            .get_conversation(conversation_id)?
+            .and_then(|detail| detail.pointer("/summary/team").cloned())
+            .and_then(|value| serde_json::from_value::<TeamSnapshot>(value).ok());
         let mut members = self.teams.conversation_agents(conversation_id)?;
+        for member in &mut members {
+            let role_id = member.get("role_id").and_then(Value::as_str).unwrap_or("");
+            if let Some(snapshot) = &snapshot {
+                if let Some(role) = snapshot.member(role_id) {
+                    member["name"] = json!(role.agent.name);
+                    member["agent_type"] = json!(role.agent.agent_type);
+                    member["model"] = json!(role.agent.model);
+                    member["permission_mode"] = json!(role.agent.permission_mode);
+                    member["auto_approve"] = json!(role.agent.auto_approve);
+                }
+            }
+        }
         for member in &mut members {
             let Some(role_id) = member.get("role_id").and_then(Value::as_str) else {
                 continue;

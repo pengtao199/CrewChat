@@ -13,7 +13,6 @@ mod config;
 mod domain;
 mod infra;
 mod runtime;
-#[allow(dead_code)]
 mod team_mcp;
 
 use std::sync::Arc;
@@ -46,6 +45,11 @@ use crate::runtime::acp::host::AcpHost;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("team-mcp") {
+        return crate::team_mcp::run().await;
+    }
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
