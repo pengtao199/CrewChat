@@ -61,24 +61,19 @@ struct CoreConnectResult: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case connectionID = "connection_id"
-        case connectionIDCamel = "connectionId"
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let value = try container.decodeIfPresent(String.self, forKey: .connectionID),
-           !value.isEmpty {
-            connectionID = value
-        } else if let value = try container.decodeIfPresent(String.self, forKey: .connectionIDCamel),
-                  !value.isEmpty {
-            connectionID = value
-        } else {
+        let value = try container.decode(String.self, forKey: .connectionID)
+        guard !value.isEmpty else {
             throw DecodingError.dataCorruptedError(
                 forKey: .connectionID,
                 in: container,
                 debugDescription: "acp_connect returned no connection id"
             )
         }
+        connectionID = value
     }
 }
 

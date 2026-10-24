@@ -25,6 +25,7 @@ enum CoreEvent: Sendable, Equatable {
     case delegationCompleted(id: String, memberRoleID: String?, status: String, summary: String?, error: String?)
     case delegationCancelled(id: String, memberRoleID: String?)
     case conversationCancelled(cancelledDelegations: Int)
+    case memberAdded(roleID: String)
     case turnComplete
     case detached
     case status(String)

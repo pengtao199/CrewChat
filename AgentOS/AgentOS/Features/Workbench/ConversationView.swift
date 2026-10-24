@@ -10,13 +10,18 @@ struct ConversationView: View {
     let isRunning: Bool
     let isSending: Bool
     let engineName: (String) -> String
+    let availableRoles: [AgentRole]
     let onSend: (String, [String]) async -> Bool
     let onStop: () -> Void
+    let onAddMember: (String) async throws -> Void
     let onPermission: (PendingPermission, String?) -> Void
 
     @State private var draft = ""
     @State private var focusRequested = false
     @State private var composerHeight: CGFloat = 100
+    @State private var showAddMember = false
+    @State private var addingMemberID: String?
+    @State private var addMemberError: String?
 
     private var members: [ConversationMember] {
         detail.members
@@ -106,9 +111,38 @@ struct ConversationView: View {
                         liveTurns: liveTurns,
                         activeDelegations: detail.activeDelegations,
                         onMention: insertMention,
-                        onAddMember: nil
+                        onAddMember: {
+                            addMemberError = nil
+                            showAddMember = true
+                        }
                     )
+                    .popover(isPresented: $showAddMember, arrowEdge: .bottom) {
+                        AddMemberPicker(
+                            roles: availableRoles,
+                            existingIDs: Set(members.map(\.roleID)),
+                            addingID: addingMemberID,
+                            error: addMemberError,
+                            engineName: engineName,
+                            onSelect: addMember
+                        )
+                    }
                 }
+            }
+        }
+    }
+
+    private func addMember(_ roleID: String) {
+        guard addingMemberID == nil else { return }
+        addingMemberID = roleID
+        addMemberError = nil
+        Task {
+            do {
+                try await onAddMember(roleID)
+                addingMemberID = nil
+                showAddMember = false
+            } catch {
+                addingMemberID = nil
+                addMemberError = error.localizedDescription
             }
         }
     }

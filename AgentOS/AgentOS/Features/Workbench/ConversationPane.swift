@@ -20,6 +20,7 @@ struct ConversationPane: View {
                         isRunning: model.isRunning,
                         isSending: model.isSending,
                         engineName: model.engineName(for:),
+                        availableRoles: model.roles,
                         onSend: { text, mentions in
                             await model.sendMessage(
                                 prompt: text,
@@ -29,6 +30,12 @@ struct ConversationPane: View {
                         },
                         onStop: {
                             Task { await model.cancelRun() }
+                        },
+                        onAddMember: { roleID in
+                            try await model.addMember(
+                                conversationID: detail.conversation.id,
+                                roleID: roleID
+                            )
                         },
                         onPermission: { permission, optionID in
                             Task { await model.respondPermission(permission, optionID: optionID) }

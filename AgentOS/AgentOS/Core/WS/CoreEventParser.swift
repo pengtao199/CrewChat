@@ -83,6 +83,8 @@ enum CoreEventParser {
             return .conversationCancelled(
                 cancelledDelegations: payload["cancelled_delegations"] as? Int ?? 0
             )
+        case "member_added":
+            return .memberAdded(roleID: payload["role_id"] as? String ?? "")
         case "turn_complete":
             return .turnComplete
         case "status_changed":
@@ -99,7 +101,7 @@ enum CoreEventParser {
         return TokenUsage(
             input: int(object, ["inputTokens", "input_tokens"]),
             output: int(object, ["outputTokens", "output_tokens"]),
-            total: int(object, ["totalTokens", "total_tokens", "used"])
+            total: int(object, ["totalTokens", "total_tokens"])
         )
     }
 

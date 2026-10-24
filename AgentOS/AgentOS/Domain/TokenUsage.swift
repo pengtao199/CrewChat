@@ -18,7 +18,6 @@ struct TokenUsage: Decodable, Sendable, Equatable {
         case outputTokensSnake = "output_tokens"
         case totalTokens
         case totalTokensSnake = "total_tokens"
-        case used
     }
 
     init(from decoder: Decoder) throws {
@@ -29,7 +28,6 @@ struct TokenUsage: Decodable, Sendable, Equatable {
             ?? container.decodeIfPresent(Int.self, forKey: .outputTokensSnake)
         total = try container.decodeIfPresent(Int.self, forKey: .totalTokens)
             ?? container.decodeIfPresent(Int.self, forKey: .totalTokensSnake)
-            ?? container.decodeIfPresent(Int.self, forKey: .used)
     }
 
     var displayTotal: Int? {

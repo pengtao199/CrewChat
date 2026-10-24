@@ -35,24 +35,6 @@ struct CoreConversationSummary: Decodable, Sendable {
         case delegations
     }
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(String.self, forKey: .id)
-        folderID = try container.decodeIfPresent(String.self, forKey: .folderID)
-        title = try container.decodeIfPresent(String.self, forKey: .title)
-        agentType = try container.decodeIfPresent(String.self, forKey: .agentType) ?? ""
-        status = try container.decodeIfPresent(String.self, forKey: .status) ?? "active"
-        kind = try container.decodeIfPresent(String.self, forKey: .kind) ?? "single"
-        model = try container.decodeIfPresent(String.self, forKey: .model)
-        messageCount = try container.decodeIfPresent(Int.self, forKey: .messageCount) ?? 0
-        childCount = try container.decodeIfPresent(Int.self, forKey: .childCount) ?? 0
-        pinnedAt = try container.decodeIfPresent(String.self, forKey: .pinnedAt)
-        updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt) ?? ""
-        externalId = try container.decodeIfPresent(String.self, forKey: .externalId)
-        team = try container.decodeIfPresent(CoreConversationTeam.self, forKey: .team)
-        members = try container.decodeIfPresent([CoreConversationMember].self, forKey: .members)
-        delegations = try container.decodeIfPresent([CoreDelegation].self, forKey: .delegations)
-    }
 
     var domain: Conversation {
         Conversation(

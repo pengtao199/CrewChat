@@ -77,6 +77,8 @@ extension WorkbenchViewModel {
             setRunning(false)
             pendingPermissions = []
             refreshSoon()
+        case .memberAdded:
+            refreshSoon()
         case .turnComplete:
             completeLive(frame.speakerRoleID)
         case .detached:

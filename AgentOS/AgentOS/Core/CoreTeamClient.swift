@@ -7,6 +7,13 @@ final class CoreTeamClient: CoreTeam, @unchecked Sendable {
         self.provider = provider
     }
 
+    func addMember(conversationID: String, roleID: String) async throws {
+        try await provider.client().sendIgnoring(
+            "add_conversation_member",
+            body: CoreAddMemberBody(conversationId: conversationID, roleId: roleID)
+        )
+    }
+
     func cancelConversation(id: String) async throws {
         try await provider.client().sendIgnoring(
             "cancel_conversation",
@@ -24,4 +31,9 @@ final class CoreTeamClient: CoreTeam, @unchecked Sendable {
 
 struct CoreDelegationIDBody: Encodable {
     let delegationId: String
+}
+
+struct CoreAddMemberBody: Encodable {
+    let conversationId: String
+    let roleId: String
 }

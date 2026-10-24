@@ -369,6 +369,12 @@ final class WorkbenchViewModel {
         return engineName(for: conversation.agentType)
     }
 
+    func addMember(conversationID: String, roleID: String) async throws {
+        try await teamClient.addMember(conversationID: conversationID, roleID: roleID)
+        await loadRoles()
+        await open(conversationID)
+    }
+
     func cancelRun() async {
         waitingForTurn = false
         if let connectionID {

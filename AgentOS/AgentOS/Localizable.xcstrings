@@ -421,6 +421,26 @@
         }
       }
     },
+    "conversation.member.add.title" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加协作成员"
+          }
+        }
+      }
+    },
+    "conversation.member.add.empty" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可添加的成员"
+          }
+        }
+      }
+    },
     "conversation.member.add" : {
       "localizations" : {
         "zh-Hans" : {
