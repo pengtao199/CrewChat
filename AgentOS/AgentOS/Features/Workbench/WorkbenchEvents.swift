@@ -38,8 +38,11 @@ extension WorkbenchViewModel {
                 if let index = live.tools.firstIndex(where: { $0.id == id }) {
                     live.tools[index].title = title
                     live.tools[index].status = status
+                    markToolFinishedIfNeeded(&live.tools[index])
                 } else {
-                    live.tools.append(LiveTool(id: id, title: title, status: status, output: nil))
+                    var tool = LiveTool(id: id, title: title, status: status, output: nil)
+                    markToolFinishedIfNeeded(&tool)
+                    live.tools.append(tool)
                 }
             }
         case let .toolUpdate(id, title, status, output):
@@ -48,6 +51,7 @@ extension WorkbenchViewModel {
                 if let title { live.tools[index].title = title }
                 if let status { live.tools[index].status = status }
                 if let output { live.tools[index].output = output }
+                markToolFinishedIfNeeded(&live.tools[index])
             }
         case let .usage(usage):
             updateLive(frame.speakerRoleID) { live in
@@ -134,5 +138,16 @@ extension WorkbenchViewModel {
 
     private func speakerKey(_ roleID: String?) -> String {
         roleID ?? "__default__"
+    }
+
+    private func markToolFinishedIfNeeded(_ tool: inout LiveTool) {
+        let status = ToolActivityStatus.from(tool.status)
+        if status == .completed || status == .failed {
+            if tool.finishedAt == nil {
+                tool.finishedAt = Date()
+            }
+        } else if status == .running || status == .pending {
+            tool.finishedAt = nil
+        }
     }
 }

@@ -63,7 +63,6 @@ struct AssistantBubble: View {
     let onCopy: (() -> Void)?
     let onMention: (ConversationMember) -> Void
 
-    @State private var thinkingExpanded = false
     @State private var showProfile = false
     @State private var isHovered = false
 
@@ -120,33 +119,14 @@ struct AssistantBubble: View {
                 HStack(alignment: .bottom, spacing: 6) {
                     VStack(alignment: .leading, spacing: 8) {
                         if !thinking.isEmpty {
-                            DisclosureGroup(isExpanded: $thinkingExpanded) {
-                                Text(thinking)
-                                    .font(.callout)
-                                    .italic()
-                                    .foregroundStyle(.secondary)
-                                    .lineSpacing(2)
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(8)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.primary.opacity(0.04))
-                                    )
-                            } label: {
-                                Text("conversation.thinking")
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                            }
+                            ThinkingView(text: thinking, isRunning: isRunning)
                         }
 
                         ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
                             blockView(block)
                         }
 
-                        ForEach(tools) { tool in
-                            ToolCallRow(tool: tool)
-                        }
+                        ToolActivityView(tools: toolItems, isRunning: isRunning)
 
                         if !text.isEmpty {
                             if isRunning {
@@ -185,13 +165,42 @@ struct AssistantBubble: View {
 
             Spacer(minLength: 40)
         }
-        .onAppear {
-            thinkingExpanded = isRunning
-        }
-        .onChange(of: isRunning) { _, running in
-            thinkingExpanded = running
-        }
         .onHover { isHovered = $0 }
+    }
+
+    private var toolItems: [ToolActivityItem] {
+        if !tools.isEmpty {
+            return tools.map(ToolActivityItem.init(live:))
+        }
+
+        var items: [ToolActivityItem] = []
+        for (index, block) in blocks.enumerated() {
+            switch block {
+            case let .toolUse(name, preview):
+                let parts = [name, preview?.split(whereSeparator: \.isNewline).first.map(String.init)]
+                    .compactMap { $0 }
+                    .filter { !$0.isEmpty }
+                items.append(
+                    ToolActivityItem(
+                        id: "block-tool-\(index)",
+                        title: parts.joined(separator: " · "),
+                        status: .unknown,
+                        output: nil
+                    )
+                )
+            case let .toolResult(preview, isError):
+                guard let last = items.indices.last else { continue }
+                items[last] = ToolActivityItem(
+                    id: items[last].id,
+                    title: items[last].title,
+                    status: isError ? .failed : .completed,
+                    output: preview
+                )
+            default:
+                continue
+            }
+        }
+        return items
     }
 
     private var bubbleText: String {
@@ -212,29 +221,8 @@ struct AssistantBubble: View {
                 .textual.textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-        case let .toolUse(name, preview):
-            VStack(alignment: .leading, spacing: 2) {
-                Label(name, systemImage: "wrench.and.screwdriver")
-                    .font(.callout)
-                if let preview, !preview.isEmpty {
-                    Text(preview)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(6)
-                        .textSelection(.enabled)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-        case let .toolResult(preview, isError):
-            if let preview, !preview.isEmpty {
-                Text(preview)
-                    .font(.caption)
-                    .foregroundStyle(isError ? .red : .secondary)
-                    .lineLimit(8)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+        case .toolUse, .toolResult:
+            EmptyView()
 
         case let .turnError(message):
             Text(message)
@@ -266,30 +254,6 @@ struct SystemRows: View {
             }
         }
         .frame(maxWidth: .infinity)
-    }
-}
-
-struct ToolCallRow: View {
-    let tool: LiveTool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label(tool.title, systemImage: "wrench.and.screwdriver")
-                .font(.callout)
-            if !tool.status.isEmpty {
-                Text(tool.status)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if let output = tool.output, !output.isEmpty {
-                Text(output)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(6)
-                    .textSelection(.enabled)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

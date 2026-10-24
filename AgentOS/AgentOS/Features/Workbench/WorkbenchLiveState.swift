@@ -5,6 +5,13 @@ struct LiveTool: Identifiable, Equatable {
     var title: String
     var status: String
     var output: String?
+    var startedAt: Date = Date()
+    var finishedAt: Date?
+
+    var duration: TimeInterval? {
+        guard let finishedAt else { return nil }
+        return max(0, finishedAt.timeIntervalSince(startedAt))
+    }
 }
 
 struct LiveTurn: Identifiable, Equatable {
