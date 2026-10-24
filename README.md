@@ -1,4 +1,4 @@
-# CrewChat
+# AgentOS
 
 多 Agent 协作桌面应用。用户在一个会话里下达任务，**多个专精 Agent 协作完成** —— 每个 Agent
 有自己的模型、CLI 身体、Skill 与 MCP，并且互相能看到、接续彼此的产出。

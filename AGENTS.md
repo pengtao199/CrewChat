@@ -1,11 +1,11 @@
-# CrewChat 项目规则
+# AgentOS 项目规则
 
 多 Agent 协作桌面应用。当前运行时：macOS 壳 **AgentOS**（`AgentOS/`，Swift）、
 核心 **cli-layer/**（Rust，ACP 宿主 / 会话 / 花名册 / 引擎管理）、模型层 **model-layer/**（Rust，
 统一模型管理、本地网关与控制面）、技能层 **skill-layer/**（Rust，全局技能库与会话 materialize）、MCP 层 **mcp-layer/**（Rust，注册表与每 Agent 网关实例）。
 v1 的 Python 编排层归档在 `archive/`，不参与当前运行时。
 
-花名册里只有两份预置 Agent 了解本应用：`agent-helper`（改别人的 Agent 配置）和 `crewchat-manager`（群聊 Leader）。其余 Agent 是通用角色，不绑定本仓库。细节见 `AGENTS/agent-model.md`。
+花名册里只有两份预置 Agent 了解本应用：`agentos-helper`（改别人的 Agent 配置）和 `agentos-manager`（群聊 Leader）。其余 Agent 是通用角色，不绑定本仓库。细节见 `AGENTS/agent-model.md`。
 
 ## 执行入口
 

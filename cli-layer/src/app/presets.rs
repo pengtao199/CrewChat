@@ -64,6 +64,7 @@ pub fn ensure(repo: &dyn AgentRepository) -> Result<usize> {
         ) {
             agent.skills.clear();
             agent.mcp.clear();
+            agent.auto_approve = false;
         }
         repo.save(&agent)?;
         changed += 1;
@@ -89,7 +90,8 @@ mod tests {
                 "name": "Agent 助手",
                 "agent_type": "codex",
                 "model": "chosen-by-user",
-                "soul": "CrewChat old",
+                "soul": "old product",
+                "auto_approve": true,
                 "skills": ["old-skill"]
             }))
             .unwrap();
@@ -98,7 +100,7 @@ mod tests {
                 "id": "legacy-manager",
                 "name": "管理员",
                 "agent_type": "claude_code",
-                "soul": "CrewChat old"
+                "soul": "old product"
             }))
             .unwrap();
 
@@ -109,6 +111,7 @@ mod tests {
         assert_eq!(helper["agent_type"], "codex");
         assert_eq!(helper["model"], "chosen-by-user");
         assert_eq!(helper["skills"], json!([]));
+        assert_eq!(helper["auto_approve"], false);
         assert_eq!(ensure(&store).unwrap(), 0);
     }
 
@@ -123,6 +126,6 @@ mod tests {
         assert!(agents.iter().any(|r| r["name"] == "文档维护专家"));
         assert!(agents
             .iter()
-            .all(|r| !r["soul"].as_str().unwrap().contains("CrewChat")));
+            .all(|r| !r["soul"].as_str().unwrap().contains("old product")));
     }
 }

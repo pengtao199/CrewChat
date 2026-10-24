@@ -1,6 +1,6 @@
 # crewchat-mcp
 
-CrewChat 的 **MCP 层**：全局 MCP 注册表、每个 Agent 一个本地网关实例，以及 ACP 会话配置。
+AgentOS 的 **MCP 层**：全局 MCP 注册表、每个 Agent 一个本地网关实例，以及 ACP 会话配置。
 对外统一叫 `mcp-layer`；网关内核复用 Rust `mcp-proxy`，不再依赖 Go 或 SQLite/Postgres。
 
 ## 形态

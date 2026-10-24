@@ -1,6 +1,6 @@
 # crewchat-skill
 
-CrewChat 的 **Skill 层**：全局技能库、版本注册表，以及按 Agent 会话 materialize 的
+AgentOS 的 **Skill 层**：全局技能库、版本注册表，以及按 Agent 会话 materialize 的
 软链接。它是本地 daemon，不感知 Agent，也不做模型/ACP。
 
 ## 边界

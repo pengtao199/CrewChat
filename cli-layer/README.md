@@ -1,6 +1,6 @@
 # crewchat-cli
 
-CrewChat 的 **CLI layer**：ACP 宿主、引擎管理、会话/流式、权限、花名册与持久化。
+AgentOS 的 **CLI layer**：ACP 宿主、引擎管理、会话/流式、权限、花名册与持久化。
 模型路由归 `model-layer/`，技能归 `skill-layer/`，MCP 归 `mcp-layer/`，UI 归 `AgentOS/`。
 
 ## 运行
