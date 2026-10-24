@@ -319,16 +319,29 @@ mod tests {
     }
 
     #[test]
-    fn events_are_replayable() {
+    fn events_are_replayable_by_connection_and_conversation() {
         let (_dir, store) = store();
         store
-            .append_event("c1", None, &json!({"type": "content_delta", "seq": 1}))
+            .append_event(
+                "c1",
+                Some("conv"),
+                &json!({"type": "content_delta", "seq": 1}),
+            )
             .unwrap();
         store
-            .append_event("c1", None, &json!({"type": "turn_complete", "seq": 2}))
+            .append_event(
+                "c1",
+                Some("conv"),
+                &json!({"type": "turn_complete", "seq": 2}),
+            )
             .unwrap();
         let rows = store.events_since("c1", 0).unwrap();
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[1]["type"], "turn_complete");
+        assert_eq!(store.events_for_conversation("conv", 0).unwrap().len(), 2);
+        assert!(store
+            .events_for_conversation("other", 0)
+            .unwrap()
+            .is_empty());
     }
 }

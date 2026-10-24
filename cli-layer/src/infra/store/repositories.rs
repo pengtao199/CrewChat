@@ -89,6 +89,10 @@ impl ConversationRepository for Store {
     fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>> {
         self.events_since(connection_id, since_seq)
     }
+
+    fn events_for_conversation(&self, conversation_id: &str, since_seq: u64) -> Result<Vec<Value>> {
+        self.events_for_conversation(conversation_id, since_seq)
+    }
 }
 
 impl EventRepository for Store {

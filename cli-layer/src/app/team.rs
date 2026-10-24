@@ -12,7 +12,8 @@ use crate::app::roster::RosterService;
 use crate::app::sessions::SessionService;
 use crate::config::now;
 use crate::domain::agent::Agent;
-use crate::domain::ports::{ConversationRepository, TeamRepository};
+use crate::domain::event::EventEnvelope;
+use crate::domain::ports::{ConversationRepository, EventPublisher, TeamRepository};
 use crate::domain::team::{Delegation, TeamRef, TeamSnapshot};
 
 const MAX_TEAM_MEMBERS: usize = 5;
@@ -24,6 +25,7 @@ pub struct TeamService {
     teams: Arc<dyn TeamRepository>,
     readiness: ReadinessService,
     sessions: SessionService,
+    events: Option<Arc<dyn EventPublisher>>,
     active: Arc<Mutex<HashSet<String>>>,
 }
 
@@ -34,6 +36,7 @@ impl TeamService {
         teams: Arc<dyn TeamRepository>,
         readiness: ReadinessService,
         sessions: SessionService,
+        events: Option<Arc<dyn EventPublisher>>,
     ) -> Self {
         Self {
             roster,
@@ -41,6 +44,7 @@ impl TeamService {
             teams,
             readiness,
             sessions,
+            events,
             active: Arc::new(Mutex::new(HashSet::new())),
         }
     }
@@ -124,6 +128,25 @@ impl TeamService {
             "members": self.teams.conversation_agents(conversation_id)?,
             "delegations": self.teams.delegations(conversation_id)?,
         }))
+    }
+
+    fn emit_team_event(
+        &self,
+        conversation_id: &str,
+        kind: &str,
+        speaker_role_id: Option<&str>,
+        payload: Value,
+    ) {
+        if let Some(events) = &self.events {
+            events.emit(EventEnvelope {
+                kind: kind.to_string(),
+                connection_id: String::new(),
+                conversation_id: Some(conversation_id.to_string()),
+                speaker_role_id: speaker_role_id.map(str::to_string),
+                seq: 0,
+                payload,
+            });
+        }
     }
 
     /// Cancel a queued/running delegation. The member connection receives an
@@ -222,6 +245,16 @@ impl TeamService {
         self.teams.create_delegation(&delegation)?;
         self.teams
             .set_conversation_agent(conversation_id, member_role_id, "running", None)?;
+        self.emit_team_event(
+            conversation_id,
+            "delegation_started",
+            Some(member_role_id),
+            json!({
+                "delegation_id": delegation.id,
+                "member_role_id": member_role_id,
+                "task": task,
+            }),
+        );
 
         let prompt = delegation_prompt(&snapshot, &member.agent, task, context, expected_output);
         let cwd = self
@@ -298,6 +331,18 @@ impl TeamService {
             },
             None,
         )?;
+        self.emit_team_event(
+            conversation_id,
+            "delegation_completed",
+            Some(member_role_id),
+            json!({
+                "delegation_id": delegation.id,
+                "status": status,
+                "summary": result["summary"],
+                "usage": usage,
+                "error": if ok { Value::Null } else { error.clone() },
+            }),
+        );
 
         drop(guard);
 
@@ -384,7 +429,8 @@ mod tests {
     use crate::domain::event::EventEnvelope;
     use crate::domain::ports::{
         AgentRepository, ConnectRequest, ConversationRepository, EngineSettingsRepository,
-        EventSubscription, ModelCatalog, SessionRuntime, SkillCatalog, TeamRepository,
+        EventPublisher, EventSubscription, ModelCatalog, SessionRuntime, SkillCatalog,
+        TeamRepository,
     };
     use crate::domain::team::TeamSnapshot;
     use crate::infra::store::Store;
@@ -401,6 +447,17 @@ mod tests {
     impl EventSubscription for VecSubscription {
         async fn recv(&mut self) -> Option<EventEnvelope> {
             self.0.pop_front()
+        }
+    }
+
+    #[derive(Default)]
+    struct FakeEvents {
+        events: Mutex<Vec<EventEnvelope>>,
+    }
+
+    impl EventPublisher for FakeEvents {
+        fn emit(&self, event: EventEnvelope) {
+            self.events.lock().unwrap().push(event);
         }
     }
 
@@ -602,12 +659,16 @@ mod tests {
                 EventEnvelope {
                     kind: "content_delta".to_string(),
                     connection_id: "test-connection".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
                     seq: 1,
                     payload: json!({"text": "built"}),
                 },
                 EventEnvelope {
                     kind: "turn_complete".to_string(),
                     connection_id: "test-connection".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
                     seq: 2,
                     payload: json!({"stop_reason": "end_turn"}),
                 },
@@ -620,7 +681,15 @@ mod tests {
             model,
             engine_service,
         );
-        let team = TeamService::new(roster, conversations, teams, readiness, sessions);
+        let events = Arc::new(FakeEvents::default());
+        let team = TeamService::new(
+            roster,
+            conversations,
+            teams,
+            readiness,
+            sessions,
+            Some(events.clone()),
+        );
 
         let result = team
             .delegate(
@@ -642,18 +711,31 @@ mod tests {
             store.conversation_agents(&conversation).unwrap()[1]["state"],
             "done"
         );
+        let kinds = events
+            .events
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|event| event.kind.clone())
+            .collect::<Vec<_>>();
+        assert!(kinds.iter().any(|kind| kind == "delegation_started"));
+        assert!(kinds.iter().any(|kind| kind == "delegation_completed"));
 
         // The second delegation reuses the member connection.
         runtime.events.lock().unwrap().extend([
             EventEnvelope {
                 kind: "content_delta".to_string(),
                 connection_id: "test-connection".to_string(),
+                conversation_id: None,
+                speaker_role_id: None,
                 seq: 3,
                 payload: json!({"text": "again"}),
             },
             EventEnvelope {
                 kind: "turn_complete".to_string(),
                 connection_id: "test-connection".to_string(),
+                conversation_id: None,
+                speaker_role_id: None,
                 seq: 4,
                 payload: json!({"stop_reason": "end_turn"}),
             },

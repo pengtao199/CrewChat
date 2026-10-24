@@ -29,17 +29,63 @@ use crate::runtime::acp::events::{self, EventBus, EventEnvelope};
 use crate::runtime::engine::registry::Engines;
 use crate::runtime::overlay;
 
+#[derive(Clone, Debug)]
+struct EventMeta {
+    conversation_id: Option<String>,
+    role_id: Option<String>,
+}
+
 #[derive(Clone)]
 pub struct EventSink {
     bus: EventBus,
     events: Arc<dyn crate::domain::ports::EventRepository>,
+    meta: Arc<Mutex<HashMap<String, EventMeta>>>,
 }
 
 impl EventSink {
-    pub fn emit(&self, event: EventEnvelope) {
+    fn new(events: Arc<dyn crate::domain::ports::EventRepository>) -> Self {
+        Self {
+            bus: EventBus::new(),
+            events,
+            meta: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    fn register(
+        &self,
+        connection_id: &str,
+        conversation_id: Option<String>,
+        role_id: Option<String>,
+    ) {
+        self.meta.lock().unwrap().insert(
+            connection_id.to_string(),
+            EventMeta {
+                conversation_id,
+                role_id,
+            },
+        );
+    }
+
+    fn unregister(&self, connection_id: &str) {
+        self.meta.lock().unwrap().remove(connection_id);
+    }
+
+    pub fn emit(&self, mut event: EventEnvelope) {
+        if let Some(meta) = self.meta.lock().unwrap().get(&event.connection_id).cloned() {
+            if event.conversation_id.is_none() {
+                event.conversation_id = meta.conversation_id;
+            }
+            if event.speaker_role_id.is_none() {
+                event.speaker_role_id = meta.role_id;
+            }
+        }
         let event = self.bus.publish(event);
         let value = serde_json::to_value(&event).unwrap_or(Value::Null);
-        let _ = self.events.append_event(&event.connection_id, None, &value);
+        let _ = self.events.append_event(
+            &event.connection_id,
+            event.conversation_id.as_deref(),
+            &value,
+        );
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<EventEnvelope> {
@@ -154,11 +200,10 @@ impl AcpHost {
         skills: Arc<dyn crate::domain::ports::SkillCatalog>,
         mcp: Arc<dyn crate::domain::ports::McpCatalog>,
     ) -> Self {
-        let bus = EventBus::new();
         Self {
             engines: Engines::new(config.clone()),
             config,
-            sink: EventSink { bus, events },
+            sink: EventSink::new(events),
             permissions: PermissionBroker::default(),
             connections: Arc::new(Mutex::new(HashMap::new())),
             skills,
@@ -320,6 +365,13 @@ impl AcpHost {
         let resolved_mode = crate::domain::permission::resolve_mode(agent_type, &requested_mode)
             .map_err(|error| anyhow!(error))?;
         let connection_id = uuid::Uuid::new_v4().to_string();
+        let role_id = role
+            .as_ref()
+            .and_then(|role| role.get("id"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        self.sink
+            .register(&connection_id, conversation_id.clone(), role_id);
         let (cmd_tx, mut cmd_rx) = mpsc::unbounded_channel();
         let (ready_tx, ready_rx) = oneshot::channel::<std::result::Result<SessionId, String>>();
 
@@ -360,6 +412,8 @@ impl AcpHost {
                                     sink.emit(EventEnvelope {
                                         kind: "permission_auto_approved".to_string(),
                                         connection_id: conn.clone(),
+                                        conversation_id: None,
+                                        speaker_role_id: None,
                                         seq: 0,
                                         payload: json!({
                                             "request_id": audit_id,
@@ -383,6 +437,8 @@ impl AcpHost {
                             sink.emit(EventEnvelope {
                                 kind: "permission_request".to_string(),
                                 connection_id: conn,
+                                conversation_id: None,
+                                speaker_role_id: None,
                                 seq: 0,
                                 payload: json!({
                                     "request_id": request_id,
@@ -482,6 +538,8 @@ impl AcpHost {
                                         Err(error) => sink.emit(EventEnvelope {
                                             kind: "turn_complete".to_string(),
                                             connection_id: conn,
+                                            conversation_id: None,
+                                            speaker_role_id: None,
                                             seq: 0,
                                             payload: json!({"error": error.to_string()}),
                                         }),
@@ -507,14 +565,17 @@ impl AcpHost {
             Ok(Ok(Ok(session_id))) => session_id,
             Ok(Ok(Err(message))) => {
                 task.abort();
+                self.sink.unregister(&connection_id);
                 return Err(anyhow!(message));
             }
             Ok(Err(_)) => {
                 task.abort();
+                self.sink.unregister(&connection_id);
                 return Err(anyhow!("ACP connection closed before session/new"));
             }
             Err(_) => {
                 task.abort();
+                self.sink.unregister(&connection_id);
                 return Err(anyhow!("ACP initialize timed out"));
             }
         };
@@ -601,6 +662,7 @@ impl AcpHost {
             let _ = handle.tx.send(Command::Close);
             handle.task.abort();
         }
+        self.sink.unregister(connection_id);
     }
 
     pub fn respond_permission(&self, request_id: &str, option_id: Option<String>) -> bool {
@@ -675,9 +737,18 @@ impl crate::domain::ports::EventSubscription for BroadcastSubscription {
     }
 }
 
+impl crate::domain::ports::EventPublisher for AcpHost {
+    fn emit(&self, event: EventEnvelope) {
+        self.sink.emit(event);
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::McpServer;
+    use std::sync::Arc;
+
+    use super::{EventEnvelope, EventSink, McpServer};
+    use crate::infra::store::Store;
     use serde_json::json;
 
     #[test]
@@ -694,6 +765,28 @@ mod tests {
         });
         let server: McpServer = serde_json::from_value(payload).unwrap();
         assert!(matches!(server, McpServer::Stdio(_)));
+    }
+
+    #[test]
+    fn event_sink_attaches_conversation_and_speaker() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(&dir.path().join("events.db")).unwrap();
+        store.init_schema().unwrap();
+        let sink = EventSink::new(Arc::new(store.clone()));
+        sink.register("conn", Some("conv".to_string()), Some("role".to_string()));
+        sink.emit(EventEnvelope {
+            kind: "content_delta".to_string(),
+            connection_id: "conn".to_string(),
+            conversation_id: None,
+            speaker_role_id: None,
+            seq: 0,
+            payload: json!({"text": "hi"}),
+        });
+
+        let rows = store.events_for_conversation("conv", 0).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["conversation_id"], "conv");
+        assert_eq!(rows[0]["speaker_role_id"], "role");
     }
 
     #[test]

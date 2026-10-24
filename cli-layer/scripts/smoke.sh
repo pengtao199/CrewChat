@@ -67,7 +67,11 @@ assert any(row["id"] == conversation_id for row in rows), rows
 detail = call("/api/get_conversation", {"conversationId": conversation_id})
 assert detail["summary"]["id"] == conversation_id, detail
 
-connection = call("/api/acp_connect", {"agentType": "claude_code", "workingDir": "/tmp"})
+connection = call("/api/acp_connect", {
+    "agentType": "claude_code",
+    "workingDir": "/tmp",
+    "conversationId": conversation_id,
+})
 connection_id = connection["connection_id"]
 call("/api/acp_prompt", {
     "connectionId": connection_id,
@@ -91,6 +95,7 @@ assert "content_delta" in types, rows
 assert "turn_complete" in types, rows
 text = "".join(row.get("text", "") for row in rows if row.get("type") == "content_delta")
 assert text == "hello from fake", text
+assert all(row.get("conversation_id") == conversation_id for row in rows), rows
 
 detail = call("/api/get_conversation", {"conversationId": conversation_id})
 roles = [turn["role"] for turn in detail["turns"]]

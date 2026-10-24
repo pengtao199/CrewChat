@@ -101,6 +101,8 @@ pub fn from_notification(connection_id: &str, notification: &SessionNotification
     EventEnvelope {
         kind: kind.to_string(),
         connection_id: connection_id.to_string(),
+        conversation_id: None,
+        speaker_role_id: None,
         seq: 0,
         payload,
     }
@@ -118,6 +120,8 @@ pub fn turn_complete(connection_id: &str, stop_reason: Value) -> EventEnvelope {
     EventEnvelope {
         kind: "turn_complete".to_string(),
         connection_id: connection_id.to_string(),
+        conversation_id: None,
+        speaker_role_id: None,
         seq: 0,
         payload: json!({"stop_reason": stop_reason}),
     }

@@ -71,7 +71,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 
 | 事件 / 帧 | 用途 | 端口 | 注意点 |
 | --- | --- | --- | --- |
-| `/ws/events` attach | 订阅某连接的流式事件 | `CoreSession` | 握手用 `Authorization: Bearer <token>` 即可（实测；同时带 `Sec-WebSocket-Protocol: crewchat-events`）。客户端帧 `{action:"attach", subscription_id, connection_id, since_seq?}`；服务端先发 `{"channel":"__ready__"}`（忽略），随后 `snapshot` / `replay` / `event` / `detached` / `pong` |
+| `/ws/events` attach | 订阅连接或团队会话的流式事件 | `CoreSession` | 握手用 `Authorization: Bearer <token>` 即可（实测；同时带 `Sec-WebSocket-Protocol: crewchat-events`）。客户端帧 `{action:"attach", subscription_id, connection_id? 或 conversation_id?, since_seq?}`；服务端先发 `{"channel":"__ready__"}`（忽略），随后 `snapshot` / `replay` / `event` / `detached` / `pong`。团队会话可用 `conversation_id` 订阅；事件 envelope 带 `conversation_id` / `speaker_role_id` |
 | `event.envelope` | 单条事件（flatten 后 `type` 就在 envelope 顶层） | `CoreSession` | 壳处理 `content_delta`（增量文本）、`thinking`、`tool_call` / `tool_call_update`、`turn_complete`、`status_changed`、`detached`；其余忽略。`turn_complete` 后重新拉会话详情并清空 live 缓冲 |
 
 

@@ -10,6 +10,7 @@ pub async fn serve(state: AppState, socket: WebSocket) {
     let (mut sender, mut receiver) = socket.split();
     let mut events = state.sessions.subscribe();
     let mut connection_id: Option<String> = None;
+    let mut conversation_id: Option<String> = None;
 
     if sender
         .send(Message::Text(
@@ -35,15 +36,23 @@ pub async fn serve(state: AppState, socket: WebSocket) {
                                     .get("connection_id")
                                     .and_then(Value::as_str)
                                     .map(str::to_string);
+                                conversation_id = value
+                                    .get("conversation_id")
+                                    .and_then(Value::as_str)
+                                    .map(str::to_string);
                                 let since = value
                                     .get("since_seq")
                                     .and_then(Value::as_u64)
                                     .unwrap_or(0);
-                                if let Some(conn) = &connection_id {
-                                    let replay = state
-                                        .sessions
-                                        .events_since(conn, since)
-                                        .unwrap_or_default();
+                                let replay = if let Some(conn) = &connection_id {
+                                    state.sessions.events_since(conn, since)
+                                } else if let Some(conv) = &conversation_id {
+                                    state.sessions.conversation_events_since(conv, since)
+                                } else {
+                                    Ok(Vec::new())
+                                }
+                                .unwrap_or_default();
+                                if !replay.is_empty() {
                                     let frame = json!({"type": "replay", "events": replay});
                                     if sender
                                         .send(Message::Text(frame.to_string().into()))
@@ -66,7 +75,10 @@ pub async fn serve(state: AppState, socket: WebSocket) {
                                     ))
                                     .await;
                             }
-                            Some("detach") => connection_id = None,
+                            Some("detach") => {
+                                connection_id = None;
+                                conversation_id = None;
+                            }
                             _ => {}
                         }
                     }
@@ -83,6 +95,10 @@ pub async fn serve(state: AppState, socket: WebSocket) {
                     Some(event) => {
                         if let Some(conn) = &connection_id {
                             if event.connection_id != *conn {
+                                continue;
+                            }
+                        } else if let Some(conv) = &conversation_id {
+                            if event.conversation_id.as_deref() != Some(conv.as_str()) {
                                 continue;
                             }
                         }

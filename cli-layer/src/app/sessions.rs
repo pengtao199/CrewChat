@@ -669,6 +669,15 @@ impl SessionService {
         self.conversations.events_since(connection_id, since_seq)
     }
 
+    pub fn conversation_events_since(
+        &self,
+        conversation_id: &str,
+        since_seq: u64,
+    ) -> Result<Vec<Value>> {
+        self.conversations
+            .events_for_conversation(conversation_id, since_seq)
+    }
+
     pub fn cancel(&self, connection_id: &str) -> std::result::Result<(), SessionError> {
         self.runtime
             .cancel(connection_id)
@@ -876,6 +885,14 @@ mod tests {
         fn events_since(
             &self,
             _connection_id: &str,
+            _since_seq: u64,
+        ) -> anyhow::Result<Vec<Value>> {
+            Ok(Vec::new())
+        }
+
+        fn events_for_conversation(
+            &self,
+            _conversation_id: &str,
             _since_seq: u64,
         ) -> anyhow::Result<Vec<Value>> {
             Ok(Vec::new())
@@ -1102,12 +1119,16 @@ mod tests {
                 EventEnvelope {
                     kind: "content_delta".to_string(),
                     connection_id: "connection-1".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
                     seq: 1,
                     payload: json!({"text": "answer"}),
                 },
                 EventEnvelope {
                     kind: "turn_complete".to_string(),
                     connection_id: "connection-1".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
                     seq: 2,
                     payload: json!({"stop_reason": "end_turn"}),
                 },
@@ -1142,12 +1163,16 @@ mod tests {
                 EventEnvelope {
                     kind: "content_delta".to_string(),
                     connection_id: "fake".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
                     seq: 1,
                     payload: json!({"text": "OK"}),
                 },
                 EventEnvelope {
                     kind: "turn_complete".to_string(),
                     connection_id: "fake".to_string(),
+                    conversation_id: None,
+                    speaker_role_id: None,
                     seq: 2,
                     payload: json!({"stop_reason": "end_turn"}),
                 },

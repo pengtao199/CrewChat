@@ -45,6 +45,7 @@ pub trait ConversationRepository: Send + Sync {
         blocks: &Value,
     ) -> Result<()>;
     fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>>;
+    fn events_for_conversation(&self, conversation_id: &str, since_seq: u64) -> Result<Vec<Value>>;
 }
 
 /// Team-specific persistence. Kept separate from `ConversationRepository` so
@@ -202,4 +203,8 @@ pub trait SkillCatalog: Send + Sync {
         agent_type: &str,
         skill_ids: &[String],
     ) -> Result<Value, String>;
+}
+
+pub trait EventPublisher: Send + Sync {
+    fn emit(&self, event: EventEnvelope);
 }

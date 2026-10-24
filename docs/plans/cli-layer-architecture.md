@@ -609,6 +609,8 @@ ACP update
   `permission_auto_approved` 审计事件；`AllowAlways` 留给后续工具级规则。
 - 普通 `acp_prompt` 也会在 `turn_complete` 后落 assistant turn；连接记录
   role/conversation，用于 speaker 归属。
+- 事件 envelope 带 `conversation_id` / `speaker_role_id`；团队委派事件写
+  `delegation_started/completed/cancelled`，可按会话回放。
 - `acp_connect` 接收 `sessionId` 时走 ACP `session/load`；连接成功后把
   `session_id` 写回 `conversations.external_id`，会话可恢复。
 - 未完成：`permission_mode` 到引擎参数的映射、工具级 allow/ask/deny、

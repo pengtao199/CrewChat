@@ -99,6 +99,7 @@ async fn main() -> Result<()> {
         team_repo,
         readiness.clone(),
         sessions.clone(),
+        Some(host.clone()),
     );
     let state = AppState {
         config: config.clone(),
