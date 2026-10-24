@@ -23,10 +23,15 @@ impl McpService {
         self.mcp.scan().await.map_err(anyhow::Error::msg)
     }
 
+    pub async fn sync_global(&self) -> Result<Value> {
+        self.mcp.sync_global().await.map_err(anyhow::Error::msg)
+    }
+
     /// Refresh the machine's installed MCPs before listing; discovery failure
     /// must not hide the existing library.
     pub async fn list(&self) -> Result<Value> {
         let _ = self.mcp.scan().await;
+        let _ = self.mcp.sync_global().await;
         self.mcp.list().await.map_err(anyhow::Error::msg)
     }
 

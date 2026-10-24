@@ -28,6 +28,16 @@ pub(crate) async fn mcp_scan(State(state): State<AppState>, headers: HeaderMap) 
     }
 }
 
+pub(crate) async fn mcp_global_sync(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !authorized(&state, &headers) {
+        return unauthorized();
+    }
+    match state.mcp.sync_global().await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => api_error(StatusCode::BAD_GATEWAY, &error.to_string()),
+    }
+}
+
 pub(crate) async fn mcp_read(
     State(state): State<AppState>,
     headers: HeaderMap,

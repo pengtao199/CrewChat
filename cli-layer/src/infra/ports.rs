@@ -118,6 +118,10 @@ impl McpCatalog for McpLayerClient {
         self.scan().await
     }
 
+    async fn sync_global(&self) -> Result<Value, String> {
+        self.sync_global().await
+    }
+
     async fn list(&self) -> Result<Value, String> {
         self.list().await
     }

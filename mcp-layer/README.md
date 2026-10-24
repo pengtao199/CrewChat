@@ -17,6 +17,7 @@ AgentOS / cli-layer
 
 - Agent 的 `mcps` 是 allowlist；空 = 没有 MCP。
 - 每个 Agent 一个 proxy 实例，工具、prompts、resources 都随实例隔离。
+- 全局库同时通过一个 global proxy 开放给所有已安装 CLI（终端/原生入口）；Agent 会话仍只走自己的 proxy。
 - 旧 CLI MCP 配置**不迁移、不读取**。
 - 网关内核是 `mcp-proxy`（MIT OR Apache-2.0），没有 Go sidecar。
 
@@ -60,6 +61,8 @@ cargo run
 | `GET` | `/v1/agents/{id}` | 单个 Agent |
 | `PUT` | `/v1/agents/{id}` | 设置 allowlist，启动/重启 proxy，返回会话配置 |
 | `DELETE` | `/v1/agents/{id}` | 停止 proxy，删除映射 |
+| `POST` | `/v1/global-links/sync` | 把全局库开放给所有已安装 CLI |
+| `GET` | `/v1/global-links` | 全局 CLI 链接状态 |
 | `GET` | `/v1/gateway` | 所有 proxy 实例状态 |
 | `POST` | `/v1/gateway/sync` | 重启所有实例 |
 

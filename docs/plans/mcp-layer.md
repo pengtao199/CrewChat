@@ -252,6 +252,7 @@ Claude / Codex / OpenCode / ...（ACP adapter）
   - SQLite registry（servers / agents / 端口）；
   - server CRUD、启停、Agent allowlist；
   - 本机 MCP 发现：扫描 Claude / Codex / OpenCode / Gemini / Cursor 等配置并导入；
+- 全局 MCP 开放：启动 global proxy，并把入口写入所有已安装 CLI 的全局配置；Agent 会话仍只走自己的 proxy；
 - 每个 Agent 动态分配 loopback 端口，生成 `proxy.toml`，启动/停止 `mcp-proxy` 实例；
   - 返回 ACP 可直接消费的 `mcpServers`（stdio bridge 优先，HTTP 回退）。
 - 每个 Agent 的 proxy 只配置自己的 backends；Agent 变更只重启该实例。

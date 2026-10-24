@@ -94,6 +94,15 @@ impl McpLayerClient {
         }
     }
 
+    pub async fn sync_global(&self) -> Result<Value, String> {
+        self.request(
+            reqwest::Method::POST,
+            "/v1/global-links/sync",
+            Some(&json!({})),
+        )
+        .await
+    }
+
     pub async fn scan(&self) -> Result<Value, String> {
         self.request(reqwest::Method::POST, "/v1/scan", Some(&json!({})))
             .await

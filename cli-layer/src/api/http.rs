@@ -96,6 +96,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/agent_skill_status", post(agent_skill_status))
         .route("/api/mcp_list", post(mcp_list))
         .route("/api/mcp_scan", post(mcp_scan))
+        .route("/api/mcp_global_sync", post(mcp_global_sync))
         .route("/api/mcp_read", post(mcp_read))
         .route("/api/mcp_upsert", post(mcp_upsert))
         .route("/api/mcp_remove", post(mcp_remove))

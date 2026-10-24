@@ -108,6 +108,8 @@ pub fn router(state: AppState) -> Router {
             get(get_agent).put(sync_agent).delete(delete_agent),
         )
         .route("/v1/agents/{id}/sync", post(sync_agent_post))
+        .route("/v1/global-links", get(list_global_links))
+        .route("/v1/global-links/sync", post(sync_global_links))
         .route("/v1/gateway", get(gateway_status))
         .route("/v1/gateway/sync", post(gateway_sync))
         .with_state(state)
@@ -392,6 +394,50 @@ async fn delete_agent(
     state.proxies.stop_agent(&id).await;
     let removed = lock_registry(&state)?.delete_agent(&id).map_err(internal)?;
     Ok(Json(json!({"removed": removed})))
+}
+
+async fn list_global_links(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let links = crate::global_links::sync(&state.config, &endpoint(0), "not-configured")
+        .into_iter()
+        .map(|link| {
+            serde_json::json!({
+                "app": link.app,
+                "path": link.path,
+                "state": link.state,
+                "error": link.error,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(json!({"links": links})))
+}
+
+async fn sync_global_links(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    authorize(&headers, &state.token)?;
+    let servers = lock_registry(&state)?
+        .list_servers()
+        .map_err(internal)?
+        .into_iter()
+        .filter(|server| server.enabled)
+        .collect::<Vec<_>>();
+    if servers.is_empty() {
+        state.proxies.stop_global().await;
+        return Ok(Json(json!({"endpoint": Value::Null, "links": []})));
+    }
+    let (port, token) = state
+        .proxies
+        .start_global(&servers)
+        .await
+        .map_err(|error| ApiError::unavailable(error.to_string()))?;
+    let endpoint = endpoint(port);
+    let links = crate::global_links::sync(&state.config, &endpoint, &token);
+    Ok(Json(json!({"endpoint": endpoint, "links": links})))
 }
 
 async fn gateway_status(

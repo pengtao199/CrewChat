@@ -68,6 +68,8 @@ Agent proxy 的 token 是另一个 token，只在 `PUT /v1/agents/{id}` 返回�
 | `GET` | `/v1/agents/{id}` | 单个 Agent 映射（不含 token） |
 | `PUT` | `/v1/agents/{id}` | 设置 Agent allowlist，启动/重启 proxy |
 | `DELETE` | `/v1/agents/{id}` | 停止 proxy，删除映射 |
+| `GET` | `/v1/global-links` | 全局 CLI 链接状态 |
+| `POST` | `/v1/global-links/sync` | 全局库开放给所有已安装 CLI |
 | `GET` | `/v1/gateway` | 所有 proxy 实例状态 |
 | `POST` | `/v1/gateway/sync` | 重启所有 Agent proxy |
 
@@ -124,7 +126,7 @@ HTTP：
 ```
 
 - `id` 是 `cli-layer.db` 的 `agent_roles.id`。
-- MCP 页打开时 `mcp_list` 会先尽力扫描本机 CLI 配置，所以已安装的 MCP 应自动出现在库里。
+- MCP 页打开时 `mcp_list` 会先尽力扫描本机 CLI 配置，并同步全局 CLI 链接，所以已安装的 MCP 应自动出现在库里，且所有已安装 CLI 默认可见。
 - `serverIds` 是显式 allowlist；**空数组 = 没有 MCP**，不继承全部。
 - 幂等：相同 `serverIds` 重复调用会复用已有 proxy。
 - 缺失 server → `409 server_missing`，不会部分启动。

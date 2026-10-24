@@ -40,6 +40,24 @@ impl ProxyManager {
         }
     }
 
+    pub async fn start_global(&self, servers: &[ServerRecord]) -> Result<(u16, String)> {
+        let token = global_token(&self.config)?;
+        let agent = AgentRecord {
+            agent_id: "__global__".to_string(),
+            client_name: "crewchat-mcp-global".to_string(),
+            token: token.clone(),
+            server_ids: servers.iter().map(|server| server.id.clone()).collect(),
+            port: 0,
+            updated_at: String::new(),
+        };
+        let port = self.start_agent(&agent, servers).await?;
+        Ok((port, token))
+    }
+
+    pub async fn stop_global(&self) {
+        self.stop_agent("__global__").await;
+    }
+
     pub async fn start_agent(&self, agent: &AgentRecord, servers: &[ServerRecord]) -> Result<u16> {
         if servers.is_empty() {
             self.stop_agent(&agent.agent_id).await;
@@ -145,6 +163,20 @@ impl ProxyManager {
 
 pub fn endpoint(port: u16) -> String {
     format!("http://127.0.0.1:{port}/")
+}
+
+fn global_token(config: &Config) -> Result<String> {
+    let path = config.runtime_dir.join("global-token");
+    if let Ok(token) = std::fs::read_to_string(&path) {
+        let token = token.trim().to_string();
+        if !token.is_empty() {
+            return Ok(token);
+        }
+    }
+    let token = crate::registry::generate_agent_token();
+    ensure_private_file(&path)?;
+    std::fs::write(&path, format!("{token}\n"))?;
+    Ok(token)
 }
 
 fn proxy_config_path(config: &Config, agent_id: &str) -> PathBuf {
