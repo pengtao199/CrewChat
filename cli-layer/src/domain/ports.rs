@@ -37,12 +37,16 @@ pub trait ConversationRepository: Send + Sync {
     fn delete_conversation(&self, id: &str) -> Result<()>;
     fn set_external_id(&self, conversation_id: &str, external_id: &str) -> Result<()>;
     fn append_turn(&self, conversation_id: &str, role: &str, blocks: &Value) -> Result<()>;
-    fn append_turn_with_speaker(
+    #[allow(clippy::too_many_arguments)]
+    fn append_turn_with_meta(
         &self,
         conversation_id: &str,
         role: &str,
         speaker_role_id: Option<&str>,
         blocks: &Value,
+        usage: Option<&Value>,
+        duration_ms: Option<u64>,
+        model: Option<&str>,
     ) -> Result<()>;
     fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>>;
     fn events_for_conversation(&self, conversation_id: &str, since_seq: u64) -> Result<Vec<Value>>;

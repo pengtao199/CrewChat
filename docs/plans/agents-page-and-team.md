@@ -693,6 +693,8 @@ cli-layer 的真相源是 UUID 字符串，且 `field()` 只接收字符串。�
 
 ### P1：团队读模型与实时事件
 
+- ✅ turn 持久化 thinking / tool_use / tool_result（带 tool_call_id）、usage、
+  duration_ms、model
 - ✅ 核心 `summary` 已返回完整 `team`、`members[].state`、`members[].usage`、
   `delegations`、会话级 `usage`
 - 🟡 AgentOS 解码完整团队读模型

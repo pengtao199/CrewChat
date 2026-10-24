@@ -66,6 +66,9 @@ impl Store {
                 role TEXT NOT NULL,
                 speaker_role_id TEXT,
                 blocks_json TEXT NOT NULL,
+                usage_json TEXT,
+                duration_ms INTEGER,
+                model TEXT,
                 created_at TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS agent_roles (
@@ -138,6 +141,9 @@ impl Store {
         ensure_column(&conn, "conversations", "leader_role_id", "TEXT")?;
         ensure_column(&conn, "conversations", "team_json", "TEXT")?;
         ensure_column(&conn, "turns", "speaker_role_id", "TEXT")?;
+        ensure_column(&conn, "turns", "usage_json", "TEXT")?;
+        ensure_column(&conn, "turns", "duration_ms", "INTEGER")?;
+        ensure_column(&conn, "turns", "model", "TEXT")?;
         ensure_column(&conn, "conversation_agents", "external_session_id", "TEXT")?;
         ensure_column(
             &conn,

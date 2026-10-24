@@ -99,12 +99,15 @@ impl ConversationRepository for FakeConversations {
         Ok(())
     }
 
-    fn append_turn_with_speaker(
+    fn append_turn_with_meta(
         &self,
         conversation_id: &str,
         role: &str,
         _speaker_role_id: Option<&str>,
         _blocks: &Value,
+        _usage: Option<&Value>,
+        _duration_ms: Option<u64>,
+        _model: Option<&str>,
     ) -> anyhow::Result<()> {
         self.turns
             .lock()
@@ -507,7 +510,7 @@ async fn delegated_turn_waits_through_permission_requests() {
         false,
     )
     .await;
-    assert!(outcome.0, "{outcome:?}");
+    assert!(outcome.ok, "{outcome:?}");
 }
 
 #[tokio::test]
@@ -529,6 +532,6 @@ async fn test_run_still_fails_fast_on_permission_requests() {
         true,
     )
     .await;
-    assert!(!outcome.0);
-    assert_eq!(outcome.1, "permission");
+    assert!(!outcome.ok);
+    assert_eq!(outcome.phase, "permission");
 }

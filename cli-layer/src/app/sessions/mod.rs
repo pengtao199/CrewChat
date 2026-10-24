@@ -38,6 +38,7 @@ pub struct SessionService {
 struct ConnectionMeta {
     conversation_id: Option<String>,
     role_id: Option<String>,
+    model: Option<String>,
 }
 
 #[derive(Clone)]
@@ -232,6 +233,10 @@ impl SessionService {
                 ConnectionMeta {
                     conversation_id: conversation_id.clone(),
                     role_id: role_id.clone(),
+                    model: value
+                        .get("model")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
                 },
             );
             if let (Some(conversation_id), Some(session_id)) = (
@@ -333,16 +338,9 @@ impl SessionService {
         let outcome = turn::wait_for_turn(&connection_id, events, timeout_seconds, true).await;
         self.runtime.close(&connection_id);
         self.connections.lock().unwrap().remove(&connection_id);
-        let (ok, phase, error, text, usage, artifacts, events_seen) = outcome;
         Ok(turn::turn_result(
             self.conversations.as_ref(),
-            ok,
-            phase,
-            error,
-            text,
-            usage,
-            artifacts,
-            events_seen,
+            outcome,
             model,
             started.elapsed(),
             Some(connection_id),
@@ -379,9 +377,8 @@ impl SessionService {
                 Some(connection_id),
             ));
         }
-        let (ok, phase, error, text, usage, artifacts, events_seen) =
-            turn::wait_for_turn(&connection_id, events, timeout_seconds, false).await;
-        if ok {
+        let outcome = turn::wait_for_turn(&connection_id, events, timeout_seconds, false).await;
+        if outcome.ok {
             if let Some(pooled) = self
                 .pool
                 .lock()
@@ -395,13 +392,7 @@ impl SessionService {
         }
         Ok(turn::turn_result(
             self.conversations.as_ref(),
-            ok,
-            phase,
-            error,
-            text,
-            usage,
-            artifacts,
-            events_seen,
+            outcome,
             model,
             started.elapsed(),
             Some(connection_id),
@@ -540,7 +531,8 @@ impl SessionService {
             .and_then(|meta| meta.conversation_id.clone())
             .or_else(|| conversation_id.map(str::to_string));
         let events = self.runtime.subscribe();
-        let speaker_role_id = meta.and_then(|meta| meta.role_id);
+        let speaker_role_id = meta.as_ref().and_then(|meta| meta.role_id.clone());
+        let model = meta.and_then(|meta| meta.model);
         if let Some(conversation_id) = conversation_id.as_deref() {
             let _ = self.conversations.append_turn(
                 conversation_id,
@@ -575,6 +567,7 @@ impl SessionService {
                 connection_id.to_string(),
                 conversation_id,
                 speaker_role_id,
+                model,
                 teams,
                 events,
             );
@@ -587,52 +580,26 @@ impl SessionService {
         connection_id: String,
         conversation_id: String,
         speaker_role_id: Option<String>,
+        model: Option<String>,
         teams: Option<Arc<dyn TeamRepository>>,
-        mut events: Box<dyn EventSubscription>,
+        events: Box<dyn EventSubscription>,
     ) {
         let conversations = self.conversations.clone();
         tokio::spawn(async move {
-            let _ = tokio::time::timeout(Duration::from_secs(1800), async {
-                let mut text = String::new();
-                loop {
-                    let Some(event) = events.recv().await else {
-                        break;
-                    };
-                    if event.connection_id != connection_id {
-                        continue;
-                    }
-                    match event.kind.as_str() {
-                        "content_delta" => {
-                            if let Some(delta) = event.payload.get("text").and_then(Value::as_str) {
-                                text.push_str(delta);
-                            }
-                        }
-                        "turn_complete" => {
-                            if !text.is_empty() {
-                                let _ = conversations.append_turn_with_speaker(
-                                    &conversation_id,
-                                    "assistant",
-                                    speaker_role_id.as_deref(),
-                                    &json!([{"type": "text", "text": text}]),
-                                );
-                            }
-                            if let (Some(teams), Some(role_id)) =
-                                (teams.as_ref(), speaker_role_id.as_deref())
-                            {
-                                let _ = teams.set_conversation_agent(
-                                    &conversation_id,
-                                    role_id,
-                                    "idle",
-                                    None,
-                                );
-                            }
-                            break;
-                        }
-                        _ => {}
-                    }
-                }
-            })
-            .await;
+            let started = Instant::now();
+            let outcome = turn::wait_for_turn(&connection_id, events, 1800, false).await;
+            let _ = turn::turn_result(
+                conversations.as_ref(),
+                outcome,
+                model,
+                started.elapsed(),
+                Some(connection_id.clone()),
+                Some(&conversation_id),
+                speaker_role_id.as_deref(),
+            );
+            if let (Some(teams), Some(role_id)) = (teams.as_ref(), speaker_role_id.as_deref()) {
+                let _ = teams.set_conversation_agent(&conversation_id, role_id, "idle", None);
+            }
         });
     }
 

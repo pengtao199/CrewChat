@@ -8,6 +8,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 pub use crate::domain::event::EventEnvelope;
 use agent_client_protocol::schema::v1::{ContentBlock, SessionNotification, SessionUpdate};
 use serde_json::{json, Value};
+
+use crate::config::now;
 use tokio::sync::broadcast;
 
 #[derive(Clone)]
@@ -62,7 +64,14 @@ pub fn from_notification(connection_id: &str, notification: &SessionNotification
                 json!({
                     "tool_call_id": value.get("toolCallId").and_then(Value::as_str).unwrap_or(""),
                     "title": value.get("title").and_then(Value::as_str).unwrap_or("tool"),
+                    "tool_name": value.get("name").and_then(Value::as_str)
+                        .or_else(|| value.get("title").and_then(Value::as_str))
+                        .unwrap_or("tool"),
+                    "input_preview": preview(
+                        value.get("rawInput").or_else(|| value.get("raw_input"))
+                    ),
                     "status": value.get("status").and_then(Value::as_str).unwrap_or(""),
+                    "started_at": now(),
                     "raw": value,
                 }),
             )
@@ -74,6 +83,12 @@ pub fn from_notification(connection_id: &str, notification: &SessionNotification
                 json!({
                     "tool_call_id": value.get("toolCallId").and_then(Value::as_str).unwrap_or(""),
                     "title": value.get("title").cloned().unwrap_or(Value::Null),
+                    "tool_name": value.get("name").and_then(Value::as_str)
+                        .or_else(|| value.get("title").and_then(Value::as_str))
+                        .unwrap_or("tool"),
+                    "input_preview": preview(
+                        value.get("rawInput").or_else(|| value.get("raw_input"))
+                    ),
                     "status": value.get("status").cloned().unwrap_or(Value::Null),
                     "raw_output": value.get("rawOutput").cloned().unwrap_or(Value::Null),
                     "raw": value,
@@ -125,4 +140,15 @@ pub fn turn_complete(connection_id: &str, stop_reason: Value) -> EventEnvelope {
         seq: 0,
         payload: json!({"stop_reason": stop_reason}),
     }
+}
+
+fn preview(value: Option<&Value>) -> String {
+    let Some(value) = value else {
+        return String::new();
+    };
+    let text = value
+        .as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| serde_json::to_string(value).unwrap_or_default());
+    text.chars().take(500).collect()
 }

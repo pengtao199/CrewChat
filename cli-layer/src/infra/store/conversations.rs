@@ -88,18 +88,23 @@ impl Store {
             .and_then(|raw| TeamSnapshot::from_json(raw).ok());
 
         let mut stmt = conn.prepare(
-            "SELECT id, role, blocks_json, created_at, speaker_role_id FROM turns
-             WHERE conversation_id = ?1 ORDER BY created_at",
+            "SELECT id, role, blocks_json, created_at, speaker_role_id,
+                    usage_json, duration_ms, model
+             FROM turns WHERE conversation_id = ?1 ORDER BY created_at",
         )?;
         let turns = stmt
             .query_map(params![id], |row| {
                 let blocks: String = row.get(2)?;
+                let usage = row.get::<_, Option<String>>(5)?;
                 Ok(json!({
                     "id": row.get::<_, String>(0)?,
                     "role": row.get::<_, String>(1)?,
                     "timestamp": row.get::<_, String>(3)?,
                     "speaker_role_id": row.get::<_, Option<String>>(4)?,
                     "blocks": serde_json::from_str::<Value>(&blocks).unwrap_or(Value::Null),
+                    "usage": usage.as_deref().and_then(|raw| serde_json::from_str::<Value>(raw).ok()),
+                    "duration_ms": row.get::<_, Option<i64>>(6)?,
+                    "model": row.get::<_, Option<String>>(7)?,
                 }))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -189,23 +194,50 @@ impl Store {
         speaker_role_id: Option<&str>,
         blocks: &Value,
     ) -> Result<()> {
+        self.append_turn_with_meta(
+            conversation_id,
+            role,
+            speaker_role_id,
+            blocks,
+            None,
+            None,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn append_turn_with_meta(
+        &self,
+        conversation_id: &str,
+        role: &str,
+        speaker_role_id: Option<&str>,
+        blocks: &Value,
+        usage: Option<&Value>,
+        duration_ms: Option<u64>,
+        model: Option<&str>,
+    ) -> Result<()> {
         let conn = self.conn.lock().unwrap();
+        let timestamp = now();
         conn.execute(
             "INSERT INTO turns
-             (id, conversation_id, role, speaker_role_id, blocks_json, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+             (id, conversation_id, role, speaker_role_id, blocks_json,
+              usage_json, duration_ms, model, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 uuid::Uuid::new_v4().to_string(),
                 conversation_id,
                 role,
                 speaker_role_id,
                 serde_json::to_string(blocks)?,
-                now()
+                usage.map(serde_json::to_string).transpose()?,
+                duration_ms.map(|value| value as i64),
+                model,
+                timestamp,
             ],
         )?;
         conn.execute(
             "UPDATE conversations SET updated_at = ?1 WHERE id = ?2",
-            params![now(), conversation_id],
+            params![timestamp, conversation_id],
         )?;
         Ok(())
     }

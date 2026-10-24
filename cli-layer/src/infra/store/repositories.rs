@@ -76,14 +76,25 @@ impl ConversationRepository for Store {
         self.append_turn(conversation_id, role, blocks)
     }
 
-    fn append_turn_with_speaker(
+    fn append_turn_with_meta(
         &self,
         conversation_id: &str,
         role: &str,
         speaker_role_id: Option<&str>,
         blocks: &Value,
+        usage: Option<&Value>,
+        duration_ms: Option<u64>,
+        model: Option<&str>,
     ) -> Result<()> {
-        self.append_turn_with_speaker(conversation_id, role, speaker_role_id, blocks)
+        self.append_turn_with_meta(
+            conversation_id,
+            role,
+            speaker_role_id,
+            blocks,
+            usage,
+            duration_ms,
+            model,
+        )
     }
 
     fn events_since(&self, connection_id: &str, since_seq: u64) -> Result<Vec<Value>> {
