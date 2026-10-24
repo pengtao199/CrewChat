@@ -538,7 +538,8 @@ cancel_delegation         新增
 Agent 的权限在 Agents 页一次配置：
 
 - `permission_mode`：Agent 级选择，值来自 `agent_role_permission_face` 暴露的
-  ACP Session Modes；启动会话后通过 `session/set_mode` 应用
+  ACP Session Modes；启动会话后通过 `session/set_mode` 应用。只接受当前引擎
+  原生 mode id，不再做旧产品模式别名兼容；历史 `default` 在启动迁移为空字符串。
 - `auto_approve`：该角色的权限请求自动批准；默认只选 `AllowOnce`，审计事件
   为 `permission_auto_approved`
 - 自动批准必须写审计日志

@@ -127,7 +127,7 @@ fn mode(id: &str, name: &str, description: &str, source: &str) -> PermissionMode
 /// not safe to apply and readiness must reject it.
 pub fn resolve_mode(engine: &str, requested: &str) -> Result<Option<String>, String> {
     let requested = requested.trim();
-    if requested.is_empty() || requested == "default" {
+    if requested.is_empty() {
         return Ok(None);
     }
     let resolved = match engine {
@@ -140,11 +140,6 @@ pub fn resolve_mode(engine: &str, requested: &str) -> Result<Option<String>, Str
         },
         "codex" => match requested {
             "read-only" | "workspace-write" | "agent" | "agent-full-access" => Some(requested),
-            // Product aliases for older roster rows.
-            "acceptEdits" => Some("workspace-write"),
-            "plan" => Some("read-only"),
-            "auto" => Some("agent"),
-            "bypassPermissions" => Some("agent-full-access"),
             "dontAsk" => return Err("Codex ACP does not expose a dontAsk session mode".to_string()),
             other => return Err(format!("unknown Codex permission mode '{other}'")),
         },
@@ -186,14 +181,10 @@ mod tests {
     }
 
     #[test]
-    fn maps_legacy_modes_or_rejects_them() {
+    fn accepts_native_modes_and_rejects_old_aliases() {
         assert_eq!(
-            resolve_mode("codex", "acceptEdits").unwrap().as_deref(),
+            resolve_mode("codex", "workspace-write").unwrap().as_deref(),
             Some("workspace-write")
-        );
-        assert_eq!(
-            resolve_mode("codex", "plan").unwrap().as_deref(),
-            Some("read-only")
         );
         assert_eq!(
             resolve_mode("claude_code", "acceptEdits")
@@ -201,7 +192,10 @@ mod tests {
                 .as_deref(),
             Some("acceptEdits")
         );
+        assert!(resolve_mode("codex", "acceptEdits").is_err());
+        assert!(resolve_mode("codex", "plan").is_err());
         assert!(resolve_mode("claude_code", "dontAsk").is_err());
+        assert!(resolve_mode("claude_code", "default").is_err());
         assert!(resolve_mode("open_code", "acceptEdits").is_err());
         assert_eq!(resolve_mode("claude_code", "").unwrap(), None);
     }

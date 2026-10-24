@@ -78,7 +78,7 @@ impl Store {
                 model_provider TEXT NOT NULL DEFAULT '',
                 skills_json TEXT NOT NULL DEFAULT '[]',
                 mcp_json TEXT NOT NULL DEFAULT '[]',
-                permission_mode TEXT NOT NULL DEFAULT 'default',
+                permission_mode TEXT NOT NULL DEFAULT '',
                 auto_approve INTEGER NOT NULL DEFAULT 0,
                 version INTEGER NOT NULL DEFAULT 1,
                 created_at TEXT NOT NULL,
@@ -140,6 +140,11 @@ impl Store {
             "agent_roles",
             "version",
             "INTEGER NOT NULL DEFAULT 1",
+        )?;
+        // Canonical engine-default mode is the empty string.
+        conn.execute(
+            "UPDATE agent_roles SET permission_mode = '' WHERE permission_mode = 'default'",
+            [],
         )?;
         Ok(())
     }

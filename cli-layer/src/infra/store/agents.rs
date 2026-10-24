@@ -118,7 +118,7 @@ impl Store {
                 serde_json::to_string(&role.get("mcp").cloned().unwrap_or_else(|| json!([])),)?,
                 role.get("permission_mode")
                     .and_then(Value::as_str)
-                    .unwrap_or("default"),
+                    .unwrap_or(""),
                 role.get("auto_approve")
                     .and_then(Value::as_bool)
                     .unwrap_or(false) as i64,
