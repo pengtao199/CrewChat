@@ -94,12 +94,12 @@ enum CoreEventParser {
         }
     }
 
-    private static func usage(_ value: Any?) -> CoreTokenUsage {
+    private static func usage(_ value: Any?) -> TokenUsage {
         let object = value as? [String: Any] ?? [:]
-        return CoreTokenUsage(
+        return TokenUsage(
             input: int(object, ["inputTokens", "input_tokens"]),
             output: int(object, ["outputTokens", "output_tokens"]),
-            total: int(object, ["totalTokens", "total_tokens"])
+            total: int(object, ["totalTokens", "total_tokens", "used"])
         )
     }
 

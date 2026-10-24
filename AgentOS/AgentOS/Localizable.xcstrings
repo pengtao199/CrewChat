@@ -411,6 +411,7 @@
       }
     },
     "conversation.member.activeTasks" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -441,6 +442,7 @@
       }
     },
     "conversation.member.count" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -783,12 +785,32 @@
         }
       }
     },
-    "conversation.tools.title" : {
+    "conversation.thinking" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "工具调用"
+            "value" : "思考"
+          }
+        }
+      }
+    },
+    "conversation.thinking.running" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "思考中…"
+          }
+        }
+      }
+    },
+    "conversation.tools.copyOutput" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制输出"
           }
         }
       }
@@ -813,12 +835,12 @@
         }
       }
     },
-    "conversation.tools.copyOutput" : {
+    "conversation.tools.title" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "复制输出"
+            "value" : "工具调用"
           }
         }
       }
@@ -829,26 +851,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "工具"
-          }
-        }
-      }
-    },
-    "conversation.thinking.running" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "思考中…"
-          }
-        }
-      }
-    },
-    "conversation.thinking" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "思考"
           }
         }
       }
@@ -5136,6 +5138,7 @@
       }
     },
     "workbench.stop" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {

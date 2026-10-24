@@ -21,7 +21,7 @@ struct LiveTurn: Identifiable, Equatable {
     var thinking: String
     var tools: [LiveTool]
     var isRunning: Bool
-    var usage: CoreTokenUsage?
+    var usage: TokenUsage?
     var startedAt: Date
     var duration: TimeInterval?
 

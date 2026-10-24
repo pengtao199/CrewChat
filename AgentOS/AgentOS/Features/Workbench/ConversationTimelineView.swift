@@ -146,7 +146,7 @@ struct ConversationTimelineView: View {
                 delegation: detail.delegation(for: info.member?.roleID ?? ""),
                 fallbackName: info.name,
                 engineName: info.engineName,
-                model: info.model,
+                model: group.model ?? info.model,
                 timestamp: group.turns.first?.timestamp,
                 members: members,
                 blocks: group.blocks,
@@ -154,8 +154,8 @@ struct ConversationTimelineView: View {
                 tools: [],
                 text: "",
                 isRunning: false,
-                usage: nil,
-                duration: nil,
+                usage: group.usage,
+                duration: group.duration,
                 onCopy: { copy(group.plainText) },
                 onMention: onMention
             )
@@ -262,5 +262,29 @@ private struct TurnGroup: Identifiable {
             .map(\.plainText)
             .filter { !$0.isEmpty }
             .joined(separator: "\n\n")
+    }
+
+    var usage: TokenUsage? {
+        let values = turns.compactMap(\.usage)
+        guard !values.isEmpty else { return nil }
+        return TokenUsage(
+            input: sum(values.map(\.input)),
+            output: sum(values.map(\.output)),
+            total: sum(values.map(\.total))
+        )
+    }
+
+    var duration: TimeInterval? {
+        let values = turns.compactMap(\.duration)
+        return values.isEmpty ? nil : values.reduce(0, +)
+    }
+
+    var model: String? {
+        turns.compactMap(\.model).last
+    }
+
+    private func sum(_ values: [Int?]) -> Int? {
+        let present = values.compactMap { $0 }
+        return present.isEmpty ? nil : present.reduce(0, +)
     }
 }

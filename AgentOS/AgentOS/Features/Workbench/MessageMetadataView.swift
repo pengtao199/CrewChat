@@ -3,7 +3,7 @@ import SwiftUI
 struct MessageMetadataView: View {
     let engineName: String
     let model: String
-    let usage: CoreTokenUsage?
+    let usage: TokenUsage?
     let duration: TimeInterval?
     let isRunning: Bool
     let onCopy: (() -> Void)?

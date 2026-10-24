@@ -279,6 +279,9 @@ struct CoreTurn: Decodable, Sendable {
     let timestamp: String
     let speakerRoleID: String?
     let blocks: [CoreBlock]
+    let usage: TokenUsage?
+    let durationMS: Int?
+    let model: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -286,6 +289,9 @@ struct CoreTurn: Decodable, Sendable {
         case timestamp
         case speakerRoleID = "speaker_role_id"
         case blocks
+        case usage
+        case durationMS = "duration_ms"
+        case model
     }
 
     var domain: ConversationTurn {
@@ -294,7 +300,10 @@ struct CoreTurn: Decodable, Sendable {
             role: role,
             speakerRoleID: speakerRoleID,
             timestamp: timestamp,
-            blocks: blocks.map(\.domain)
+            blocks: blocks.map(\.domain),
+            usage: usage,
+            duration: durationMS.map { TimeInterval($0) / 1000 },
+            model: model
         )
     }
 }
@@ -305,16 +314,27 @@ struct CoreBlock: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case type
         case text
+        case toolCallID = "tool_call_id"
         case toolName = "tool_name"
+        case name
         case inputPreview = "input_preview"
         case outputPreview = "output_preview"
         case isError = "is_error"
+        case status
+        case durationMS = "duration_ms"
         case message
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decodeIfPresent(String.self, forKey: .type) ?? ""
+        let duration = try container.decodeIfPresent(Int.self, forKey: .durationMS)
+            .map { TimeInterval($0) / 1000 }
+        let toolName = try container.decodeIfPresent(String.self, forKey: .toolName)
+            ?? container.decodeIfPresent(String.self, forKey: .name)
+            ?? "tool"
+        let toolID = try container.decodeIfPresent(String.self, forKey: .toolCallID) ?? toolName
+        let status = try container.decodeIfPresent(String.self, forKey: .status) ?? ""
 
         switch type {
         case "text":
@@ -323,13 +343,20 @@ struct CoreBlock: Decodable, Sendable {
             domain = .thinking(try container.decodeIfPresent(String.self, forKey: .text) ?? "")
         case "tool_use":
             domain = .toolUse(
-                name: try container.decodeIfPresent(String.self, forKey: .toolName) ?? "tool",
-                preview: try container.decodeIfPresent(String.self, forKey: .inputPreview)
+                id: toolID,
+                name: toolName,
+                preview: try container.decodeIfPresent(String.self, forKey: .inputPreview),
+                status: status,
+                duration: duration
             )
         case "tool_result":
             domain = .toolResult(
+                id: toolID,
+                name: toolName,
                 preview: try container.decodeIfPresent(String.self, forKey: .outputPreview),
-                isError: try container.decodeIfPresent(Bool.self, forKey: .isError) ?? false
+                isError: try container.decodeIfPresent(Bool.self, forKey: .isError) ?? false,
+                status: status,
+                duration: duration
             )
         case "turn_error":
             domain = .turnError(try container.decodeIfPresent(String.self, forKey: .message) ?? "")

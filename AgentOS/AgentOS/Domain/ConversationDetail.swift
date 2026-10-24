@@ -36,6 +36,9 @@ struct ConversationTurn: Identifiable, Sendable, Equatable {
     let speakerRoleID: String?
     let timestamp: String
     let blocks: [ConversationBlock]
+    let usage: TokenUsage?
+    let duration: TimeInterval?
+    let model: String?
 }
 
 extension ConversationTurn {
@@ -63,8 +66,21 @@ enum TurnRole: String, Decodable, Sendable {
 enum ConversationBlock: Sendable, Equatable {
     case text(String)
     case thinking(String)
-    case toolUse(name: String, preview: String?)
-    case toolResult(preview: String?, isError: Bool)
+    case toolUse(
+        id: String,
+        name: String,
+        preview: String?,
+        status: String,
+        duration: TimeInterval?
+    )
+    case toolResult(
+        id: String,
+        name: String,
+        preview: String?,
+        isError: Bool,
+        status: String,
+        duration: TimeInterval?
+    )
     case turnError(String)
     case other(String)
 }

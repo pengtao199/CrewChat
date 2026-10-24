@@ -59,7 +59,7 @@ struct AssistantBubble: View {
     let tools: [LiveTool]
     let text: String
     let isRunning: Bool
-    let usage: CoreTokenUsage?
+    let usage: TokenUsage?
     let duration: TimeInterval?
     let onCopy: (() -> Void)?
     let onMention: (ConversationMember) -> Void
@@ -155,6 +155,7 @@ struct AssistantBubble: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.primary.opacity(0.07))
                     )
+                    .textual.textSelection(.enabled)
                 }
 
                 MessageMetadataView(
@@ -180,33 +181,59 @@ struct AssistantBubble: View {
         }
 
         var items: [ToolActivityItem] = []
+        var indexByID: [String: Int] = [:]
         for (index, block) in blocks.enumerated() {
             switch block {
-            case let .toolUse(name, preview):
-                let parts = [name, preview?.split(whereSeparator: \.isNewline).first.map(String.init)]
-                    .compactMap { $0 }
-                    .filter { !$0.isEmpty }
-                items.append(
-                    ToolActivityItem(
-                        id: "block-tool-\(index)",
-                        title: parts.joined(separator: " · "),
-                        status: .unknown,
-                        output: nil
+            case let .toolUse(id, name, preview, status, duration):
+                let title = toolTitle(name: name, preview: preview)
+                let item = ToolActivityItem(
+                    id: id.isEmpty ? "block-tool-\(index)" : id,
+                    title: title,
+                    status: ToolActivityStatus.from(status.isEmpty ? "completed" : status),
+                    output: nil,
+                    duration: duration
+                )
+                indexByID[item.id] = items.count
+                items.append(item)
+            case let .toolResult(id, name, preview, isError, status, duration):
+                let key = id.isEmpty ? "block-tool-\(index)" : id
+                if let itemIndex = indexByID[key] {
+                    items[itemIndex] = ToolActivityItem(
+                        id: key,
+                        title: items[itemIndex].title,
+                        status: isError ? .failed : ToolActivityStatus.from(status),
+                        output: preview,
+                        duration: duration ?? items[itemIndex].duration
                     )
-                )
-            case let .toolResult(preview, isError):
-                guard let last = items.indices.last else { continue }
-                items[last] = ToolActivityItem(
-                    id: items[last].id,
-                    title: items[last].title,
-                    status: isError ? .failed : .completed,
-                    output: preview
-                )
+                } else {
+                    items.append(
+                        ToolActivityItem(
+                            id: key,
+                            title: toolTitle(name: name, preview: preview),
+                            status: isError ? .failed : ToolActivityStatus.from(status),
+                            output: preview,
+                            duration: duration
+                        )
+                    )
+                }
             default:
                 continue
             }
         }
         return items
+    }
+
+    private func toolTitle(name: String, preview: String?) -> String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstLine = preview?
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedName.isEmpty || trimmedName == "tool" {
+            return firstLine.isEmpty ? String(localized: "conversation.tools.untitled") : firstLine
+        }
+        return firstLine.isEmpty ? trimmedName : "\(trimmedName) · \(firstLine)"
     }
 
     private var bubbleText: String {
