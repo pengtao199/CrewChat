@@ -3,11 +3,37 @@ import Foundation
 struct ConversationDetail: Sendable, Equatable {
     let conversation: Conversation
     let turns: [ConversationTurn]
+    let members: [ConversationMember]
+    let delegations: [ConversationDelegation]
+
+    var leader: ConversationMember? {
+        members.first { $0.isLeader }
+    }
+
+    var teamMembers: [ConversationMember] {
+        members.filter { !$0.isLeader }
+    }
+
+    var activeDelegations: [ConversationDelegation] {
+        delegations.filter(\.status.isActive)
+    }
+
+    func member(id: String?) -> ConversationMember? {
+        guard let id else { return nil }
+        return members.first { $0.roleID == id }
+    }
+
+    func delegation(for roleID: String) -> ConversationDelegation? {
+        delegations
+            .filter { $0.memberRoleID == roleID }
+            .max { $0.updatedAt < $1.updatedAt }
+    }
 }
 
 struct ConversationTurn: Identifiable, Sendable, Equatable {
     let id: String
     let role: TurnRole
+    let speakerRoleID: String?
     let timestamp: String
     let blocks: [ConversationBlock]
 }

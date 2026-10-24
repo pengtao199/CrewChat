@@ -32,7 +32,7 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `model_provider_probe` | 测试供应商并拉模型 | `CoreModel` | body `{baseUrl, apiKey?, models?, forceRefresh?}`；转发 模型层 `probeProvider(mode=models)`，超时 90s。返回 `{models, normalizedBaseUrl, detectedProtocol, …}`；模型编辑页用它同时做「测试连接」和模型目录 |
 | `model_supervisor_start` | 模型层探活 | `CoreModel` | 无参数；返回 `{state:"running"}`；模型层由 AgentOS 在启动 cli-layer 前拉起 |
 | `agent_roles_list` | 花名册列表 | `CoreRoster` | 无参数；读写 `cli-layer.db` 的 `agent_roles` |
-| `agent_roles_save` | 新建 / 更新角色；MCP 绑定变化时同步 mcp-layer | `CoreRoster` | body `{role:{id,name,soul,rules,agent_type,model,model_provider,skills,mcp,permission_mode,auto_approve}}`（snake_case）；`id` 为空=新建，返回带 id 的角色。核心保存角色后若 `mcp` 变化，调用 mcp-layer 同步该 Agent 的 proxy；同步失败会回滚角色并返回错误，前端不要另发 `agent_mcps_set` |
+| `agent_roles_save` | 新建 / 更新角色；MCP 绑定变化时同步 mcp-layer | `CoreRoster` | body `{role:{id,name,soul,rules,agent_type,model,model_provider,skills,mcp,permission_mode,auto_approve,tool_rules?,limits?}}`（snake_case）；`id` 为空=新建，返回带 id 的角色。核心保存角色后若 `mcp` 变化，调用 mcp-layer 同步该 Agent 的 proxy；同步失败会回滚角色并返回错误，前端不要另发 `agent_mcps_set` |
 | `agent_roles_delete` | 删除角色 | `CoreRoster` | body `{id}`；返回 bool |
 | `agent_role_model_face` | 某引擎可绑定哪些模型 | `CoreRoster` | body `{agentType}`（camelCase）；返回 `{supported, reason?, models:[{provider, provider_id, model}]}`。`supported=false` 说明该引擎不能钉模型；`supported=true` 但为空说明查不到（模型层不可达）。花名册的 `model_provider` **新建/改选存 `provider_id`**；旧数据里的显示名仍能解析，Picker 读取时做一次 id 映射，不会静默改写旧值 |
 | `agent_role_permission_face` | 某引擎支持的权限 Session Modes | `CoreRoster` | body `{agentType}`（camelCase）；返回 `{engine, supports_session_mode, supports_auto_approve, modes:[{id,name,description,source}]}`。`id` 是 ACP session mode id，空字符串表示引擎默认。Claude 返回空 id（引擎默认）/acceptEdits/plan/auto/bypassPermissions；Codex 返回 read-only/workspace-write/agent/agent-full-access；OpenCode 返回 build/plan；不支持的引擎只返回默认项 |
@@ -65,7 +65,10 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | `get_folder_conversation` | 会话详情 | `CoreConversations` | body `{conversationId, tailTurns}`（camelCase；`conversationId` 是 UUID 字符串）；返回 `{summary, turns:[{id,role,speaker_role_id?,timestamp,blocks:[{type,…}]}]}`。团队会话的 `summary` 带 `kind=team`、`leader_role_id`、`team` 冻结快照、`members[].state`、`members[].usage`、`delegations`（含 result `artifacts` / `durationMs`）和会话级 `usage`；`role`=user/assistant/system；`blocks.type` 见代码（text/thinking/tool_use/tool_result/turn_error，其余走 `other` 不报错） |
 
 | `acp_connect` | 为会话拉起 CLI 连接 | `CoreSession` | body `{agentType, workingDir?, roleId?, conversationId?, sessionId?}`（camelCase）。`sessionId` 传会话的 `external_id` 时走 ACP `session/load` 续接历史；新会话成功后核心把 `session_id` 写回 `conversations.external_id`；返回 `connection_id`。首次 initialize 可能 8–10s，超时按 60s |
-| `acp_prompt` | 发送一轮消息 | `CoreSession` | body `{connectionId, blocks:[{type:"text",text}], folderId, conversationId}`（camelCase；folder/conversation 均为 UUID 字符串）。立即返回，流式结果走 `/ws/events` |
+| `acp_prompt` | 发送一轮消息 | `CoreSession` | body `{connectionId, blocks:[{type:"text",text}], folderId, conversationId, mentions:[roleId]}`（camelCase；folder/conversation 均为 UUID 字符串；`mentions` 为前端预留协作提及，核心当前可忽略）。立即返回，流式结果走 `/ws/events` |
+| `acp_respond_permission` | 批准 / 拒绝权限请求 | `CoreSession` | body `{requestId, optionId?}`；`optionId` 来自 `permission_request.request.options`；null 表示取消/拒绝 |
+| `cancel_conversation` | 取消会话内所有进行中的委派 | `CoreTeam` | body `{conversationId}`；遍历 queued/running 委派，取消成员连接并写 `delegation_cancelled` / `conversation_cancelled`；用于团队停止 |
+| `cancel_delegation` | 取消一个进行中的委派 | `CoreTeam` | body `{delegationId}`；只取消该成员的这个 delegation，幂等 |
 | `acp_cancel` | 取消当前轮次 | `CoreSession` | body `{connectionId}`（camelCase） |
 
 ## 已登记事件
@@ -88,7 +91,6 @@ AgentOS 调用核心的**唯一清单**。新增调用必须在同一次改动�
 | 2 | `acp_list_agents` | 引擎清单与就绪 |
 | 3 | `acp_connect`、`acp_prompt`、`acp_cancel` | 连接与轮次 |
 | 4 | `acp_get_session_snapshot_by_conversation`、`/ws/events` attach | 状态恢复与流式 |
-| 5 | `acp_respond_permission` | 权限审批 |
 
 ## 登记格式
 

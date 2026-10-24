@@ -19,14 +19,15 @@ final class CoreSessionClient: CoreSession, @unchecked Sendable {
         )
     }
 
-    func prompt(connectionID: String, text: String, folderID: String, conversationID: String) async throws {
+    func prompt(connectionID: String, text: String, folderID: String, conversationID: String, mentions: [String]) async throws {
         try await provider.client().sendIgnoring(
             "acp_prompt",
             body: CorePromptBody(
                 connectionId: connectionID,
                 blocks: [.text(text)],
                 folderId: folderID,
-                conversationId: conversationID
+                conversationId: conversationID,
+                mentions: mentions
             )
         )
     }
@@ -38,11 +39,18 @@ final class CoreSessionClient: CoreSession, @unchecked Sendable {
         )
     }
 
-    func events(connectionID: String) -> AsyncStream<CoreEvent> {
+    func events(conversationID: String) -> AsyncStream<CoreEventFrame> {
         guard let endpoint = provider.endpoint() else {
             return AsyncStream { $0.finish() }
         }
-        return CoreEventStream(endpoint: endpoint).events(connectionID: connectionID)
+        return CoreEventStream(endpoint: endpoint).events(conversationID: conversationID)
+    }
+
+    func respondPermission(requestID: String, optionID: String?) async throws {
+        try await provider.client().sendIgnoring(
+            "acp_respond_permission",
+            body: CorePermissionResponseBody(requestId: requestID, optionId: optionID)
+        )
     }
 }
 
@@ -62,6 +70,12 @@ struct CorePromptBody: Encodable {
     let blocks: [CorePromptBlock]
     let folderId: String
     let conversationId: String
+    let mentions: [String]
+}
+
+struct CorePermissionResponseBody: Encodable {
+    let requestId: String
+    let optionId: String?
 }
 
 enum CorePromptBlock: Encodable {

@@ -1,19 +1,5 @@
 import SwiftUI
 
-struct LiveTool: Identifiable, Equatable {
-    let id: String
-    var title: String
-    var status: String
-    var output: String?
-}
-
-struct LiveTurn: Equatable {
-    var text: String
-    var thinking: String
-    var tools: [LiveTool]
-    var isRunning: Bool
-}
-
 @MainActor
 @Observable
 final class WorkbenchViewModel {
@@ -29,35 +15,40 @@ final class WorkbenchViewModel {
     private(set) var isRunning = false
     private(set) var liveConversationID: String?
     private(set) var pendingUserText: String?
+    var pendingPermissions: [PendingPermission] = []
 
+    var liveReplies: [String: LiveTurn] = [:]
     var draftFolder: Workspace?
     var selectedRoleIDs: [String] = []
     var selectedConversationID: String?
 
-    private var liveText = ""
-    private var liveThinking = ""
-    private var liveTools: [LiveTool] = []
-    private var connectionID: String?
-    private var eventTask: Task<Void, Never>?
+    var connectionID: String?
+    var waitingForTurn = false
+    var eventTask: Task<Void, Never>?
+    var refreshTask: Task<Void, Never>?
+    var subscribedConversationID: String?
 
-    private let workspacesClient: CoreWorkspaces
-    private let conversationsClient: CoreConversations
-    private let enginesClient: CoreEngines
-    private let sessionClient: CoreSession
-    private let rosterClient: CoreRoster
+    let workspacesClient: CoreWorkspaces
+    let conversationsClient: CoreConversations
+    let enginesClient: CoreEngines
+    let sessionClient: CoreSession
+    let rosterClient: CoreRoster
+    let teamClient: CoreTeam
 
     init(
         workspaces: CoreWorkspaces,
         conversations: CoreConversations,
         engines: CoreEngines,
         session: CoreSession,
-        roster: CoreRoster
+        roster: CoreRoster,
+        team: CoreTeam
     ) {
         self.workspacesClient = workspaces
         self.conversationsClient = conversations
         self.enginesClient = engines
         self.sessionClient = session
         self.rosterClient = roster
+        self.teamClient = team
     }
 
     func conversations(in workspaceID: String) -> [Conversation] {
@@ -108,6 +99,18 @@ final class WorkbenchViewModel {
         } else {
             selectedRoleIDs.append(id)
         }
+    }
+
+    var canStartTeam: Bool {
+        selectedRoleIDs.count >= 2 && selectedRoleIDs.count <= 5
+    }
+
+    var selectedLeaderID: String? {
+        selectedRoleIDs.first { id in
+            roles.contains { role in
+                role.id == id && (role.id == "crewchat-manager" || role.name == "管理员")
+            }
+        } ?? selectedRoleIDs.first
     }
 
     func addWorkspace(path: String) async {
@@ -179,6 +182,18 @@ final class WorkbenchViewModel {
         isLoadingDetail = true
         errorMessage = nil
 
+        if liveConversationID != conversationID {
+            eventTask?.cancel()
+            eventTask = nil
+            refreshTask?.cancel()
+            refreshTask = nil
+            subscribedConversationID = nil
+            liveReplies = [:]
+            pendingPermissions = []
+            liveConversationID = conversationID
+            isRunning = false
+        }
+
         do {
             detail = try await conversationsClient.detail(conversationID: conversationID, tailTurns: 40)
             if let pending = pendingUserText,
@@ -186,6 +201,8 @@ final class WorkbenchViewModel {
                last.plainText.trimmingCharacters(in: .whitespacesAndNewlines) == pending {
                 pendingUserText = nil
             }
+            subscribe(conversationID: conversationID)
+            refreshRunningState()
         } catch {
             detail = nil
             errorMessage = error.localizedDescription
@@ -196,8 +213,11 @@ final class WorkbenchViewModel {
 
     func send(prompt: String) async -> Bool {
         guard let folder = draftFolder, !prompt.isEmpty, !isSending else { return false }
-        guard let leaderID = selectedRoleIDs.first,
+        await loadRoles()
+
+        guard canStartTeam, let leaderID = selectedLeaderID,
               let leader = roles.first(where: { $0.id == leaderID }) else {
+            errorMessage = String(localized: "conversation.team.minimum")
             return false
         }
 
@@ -205,15 +225,28 @@ final class WorkbenchViewModel {
         errorMessage = nil
 
         do {
-            let members = Array(selectedRoleIDs.dropFirst())
+            let members = selectedRoleIDs.filter { $0 != leaderID }
             let team = ConversationTeamRef(leaderRoleID: leaderID, memberRoleIDs: members)
 
             let conversationID = try await conversationsClient.createConversation(
                 folderID: folder.id,
-                agentType: leader.agentType,
+                agentType: "",
                 title: nil,
                 team: team
             )
+
+            liveConversationID = conversationID
+            selectedConversationID = conversationID
+            pendingUserText = prompt
+            isRunning = true
+            waitingForTurn = true
+            liveReplies = [:]
+            pendingPermissions = []
+            draftFolder = nil
+            selectedRoleIDs = []
+
+            await load()
+            await open(conversationID)
 
             let connection = try await sessionClient.connect(
                 agentType: leader.agentType,
@@ -221,37 +254,30 @@ final class WorkbenchViewModel {
                 roleID: leader.id,
                 sessionID: nil
             )
+            connectionID = connection
 
             try await sessionClient.prompt(
                 connectionID: connection,
                 text: prompt,
                 folderID: folder.id,
-                conversationID: conversationID
+                conversationID: conversationID,
+                mentions: []
             )
-
-            connectionID = connection
-            liveConversationID = conversationID
-            selectedConversationID = conversationID
-            pendingUserText = prompt
-            isRunning = true
-            liveText = ""
-            liveThinking = ""
-            liveTools = []
-            draftFolder = nil
-            selectedRoleIDs = []
-
-            await load()
-            subscribe(connection: connection)
             isSending = false
             return true
         } catch {
             errorMessage = error.localizedDescription
             isSending = false
+            isRunning = false
+            waitingForTurn = false
+            pendingUserText = nil
+            liveReplies = [:]
+            connectionID = nil
             return false
         }
     }
 
-    func sendMessage(prompt: String, conversation: Conversation) async -> Bool {
+    func sendMessage(prompt: String, conversation: Conversation, mentions: [String]) async -> Bool {
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return false }
         guard let folder = workspaces.first(where: { $0.id == conversation.folderID }) else {
@@ -261,9 +287,22 @@ final class WorkbenchViewModel {
         isSending = true
         errorMessage = nil
 
+        let previousConversationID = liveConversationID
+        if previousConversationID != conversation.id {
+            liveReplies = [:]
+            pendingPermissions = []
+            liveConversationID = conversation.id
+        }
+
+        selectedConversationID = conversation.id
+        pendingUserText = text
+        isRunning = true
+        waitingForTurn = true
+        subscribe(conversationID: conversation.id)
+
         do {
             let connection: String
-            if let existing = connectionID, liveConversationID == conversation.id {
+            if let existing = connectionID, previousConversationID == conversation.id {
                 connection = existing
             } else {
                 connection = try await sessionClient.connect(
@@ -279,24 +318,21 @@ final class WorkbenchViewModel {
                 connectionID: connection,
                 text: text,
                 folderID: folder.id,
-                conversationID: conversation.id
+                conversationID: conversation.id,
+                mentions: mentions
             )
 
-            liveConversationID = conversation.id
-            selectedConversationID = conversation.id
-            pendingUserText = text
-            isRunning = true
-            liveText = ""
-            liveThinking = ""
-            liveTools = []
-
             await open(conversation.id)
-            subscribe(connection: connection)
             isSending = false
             return true
         } catch {
             errorMessage = error.localizedDescription
             isSending = false
+            isRunning = false
+            waitingForTurn = false
+            pendingUserText = nil
+            liveReplies = [:]
+            connectionID = nil
             return false
         }
     }
@@ -314,86 +350,47 @@ final class WorkbenchViewModel {
     }
 
     func cancelRun() async {
-        guard let connectionID else { return }
-        try? await sessionClient.cancel(connectionID: connectionID)
+        waitingForTurn = false
+        if let connectionID {
+            try? await sessionClient.cancel(connectionID: connectionID)
+        }
+        if let conversationID = detail?.conversation.id {
+            try? await teamClient.cancelConversation(id: conversationID)
+        }
         isRunning = false
+        refreshSoon()
     }
 
-    func liveTurn(for conversationID: String) -> LiveTurn? {
-        guard liveConversationID == conversationID else { return nil }
-        guard isRunning || !liveText.isEmpty || !liveThinking.isEmpty || !liveTools.isEmpty else {
-            return nil
-        }
-        return LiveTurn(
-            text: liveText,
-            thinking: liveThinking,
-            tools: liveTools,
-            isRunning: isRunning
-        )
-    }
-
-    private func subscribe(connection: String) {
-        eventTask?.cancel()
-        eventTask = Task { [weak self] in
-            guard let self else { return }
-            for await event in self.sessionClient.events(connectionID: connection) {
-                self.handle(event)
-            }
+    func respondPermission(_ permission: PendingPermission, optionID: String?) async {
+        do {
+            try await sessionClient.respondPermission(
+                requestID: permission.request.id,
+                optionID: optionID
+            )
+            pendingPermissions.removeAll { $0.id == permission.id }
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
-    private func handle(_ event: CoreEvent) {
-        switch event {
-        case let .contentDelta(text):
-            liveText += text
-        case let .thinking(text):
-            liveThinking += text
-        case let .toolCall(id, title, status):
-            if let index = liveTools.firstIndex(where: { $0.id == id }) {
-                liveTools[index].title = title
-                liveTools[index].status = status
-            } else {
-                liveTools.append(LiveTool(id: id, title: title, status: status, output: nil))
-            }
-        case let .toolUpdate(id, title, status, output):
-            guard let index = liveTools.firstIndex(where: { $0.id == id }) else { return }
-            if let title {
-                liveTools[index].title = title
-            }
-            if let status {
-                liveTools[index].status = status
-            }
-            if let output {
-                liveTools[index].output = output
-            }
-        case .turnComplete:
-            isRunning = false
-            let id = liveConversationID
-            let text = liveText
-            let thinking = liveThinking
-            let tools = liveTools
-            Task {
-                if let id {
-                    await open(id)
-                    await load()
-                }
-                if self.liveConversationID == id,
-                   self.liveText == text,
-                   self.liveThinking == thinking,
-                   self.liveTools == tools {
-                    self.liveText = ""
-                    self.liveThinking = ""
-                    self.liveTools = []
-                }
-            }
-        case .detached:
-            isRunning = false
-        case let .status(value):
-            if value == "idle" || value == "ready" {
-                isRunning = false
-            }
-        case .other:
-            break
-        }
+    func liveTurns(for conversationID: String) -> [LiveTurn] {
+        guard liveConversationID == conversationID else { return [] }
+        return liveReplies.values
+            .filter { $0.isRunning || !$0.text.isEmpty || !$0.thinking.isEmpty || !$0.tools.isEmpty }
+            .sorted { $0.startedAt < $1.startedAt }
+    }
+
+    func member(for roleID: String?) -> ConversationMember? {
+        detail?.member(id: roleID)
+    }
+
+    func refreshRunningState() {
+        let liveRunning = liveReplies.values.contains { $0.isRunning }
+        let delegating = detail?.activeDelegations.isEmpty == false
+        isRunning = waitingForTurn || liveRunning || delegating || !pendingPermissions.isEmpty
+    }
+
+    func setRunning(_ value: Bool) {
+        isRunning = value
     }
 }

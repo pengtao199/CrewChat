@@ -27,6 +27,7 @@ final class AppEnvironment {
         let workspacesClient = CoreWorkspacesClient(provider: provider)
         let conversationsClient = CoreConversationsClient(provider: provider)
         let sessionClient = CoreSessionClient(provider: provider)
+        let teamClient = CoreTeamClient(provider: provider)
 
         self.supervisor = supervisor
         self.connection = ConnectionViewModel(lifecycle: supervisor)
@@ -44,7 +45,8 @@ final class AppEnvironment {
             conversations: conversationsClient,
             engines: enginesClient,
             session: sessionClient,
-            roster: rosterClient
+            roster: rosterClient,
+            team: teamClient
         )
     }
 }

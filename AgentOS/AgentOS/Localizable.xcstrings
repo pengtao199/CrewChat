@@ -39,9 +39,6 @@
     "127.0.0.1:%lld" : {
 
     },
-    "Apache-2.0" : {
-
-    },
     "app.name" : {
       "localizations" : {
         "zh-Hans" : {
@@ -373,6 +370,7 @@
       }
     },
     "conversation.editResend" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -387,7 +385,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "发消息功能在下一步接入。"
+            "value" : "发一条消息，开始团队协作。"
           }
         }
       }
@@ -402,6 +400,276 @@
         }
       }
     },
+    "conversation.member.activeTasks" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "个任务进行中"
+          }
+        }
+      }
+    },
+    "conversation.member.add" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加成员"
+          }
+        }
+      }
+    },
+    "conversation.member.autoApprove" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动批准"
+          }
+        }
+      }
+    },
+    "conversation.member.count" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位成员"
+          }
+        }
+      }
+    },
+    "conversation.member.currentTask" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前任务"
+          }
+        }
+      }
+    },
+    "conversation.member.defaultModel" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认模型"
+          }
+        }
+      }
+    },
+    "conversation.member.engine" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CLI"
+          }
+        }
+      }
+    },
+    "conversation.member.frozen" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话开始后成员已固定"
+          }
+        }
+      }
+    },
+    "conversation.member.leader" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leader"
+          }
+        }
+      }
+    },
+    "conversation.member.mcp" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MCP"
+          }
+        }
+      }
+    },
+    "conversation.member.member" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成员"
+          }
+        }
+      }
+    },
+    "conversation.member.mention" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提及"
+          }
+        }
+      }
+    },
+    "conversation.member.model" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型"
+          }
+        }
+      }
+    },
+    "conversation.member.skills" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "技能"
+          }
+        }
+      }
+    },
+    "conversation.member.state.cancelled" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消"
+          }
+        }
+      }
+    },
+    "conversation.member.state.connecting" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接中"
+          }
+        }
+      }
+    },
+    "conversation.member.state.done" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        }
+      }
+    },
+    "conversation.member.state.failed" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失败"
+          }
+        }
+      }
+    },
+    "conversation.member.state.idle" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线"
+          }
+        }
+      }
+    },
+    "conversation.member.state.offline" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离线"
+          }
+        }
+      }
+    },
+    "conversation.member.state.running" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作中"
+          }
+        }
+      }
+    },
+    "conversation.member.state.unknown" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知"
+          }
+        }
+      }
+    },
+    "conversation.member.state.waiting" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等待权限"
+          }
+        }
+      }
+    },
+    "conversation.mention.empty" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有匹配成员"
+          }
+        }
+      }
+    },
+    "conversation.mention.help" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提及成员"
+          }
+        }
+      }
+    },
+    "conversation.mention.title" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择成员"
+          }
+        }
+      }
+    },
+    "conversation.meta.streaming" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成中"
+          }
+        }
+      }
+    },
     "conversation.new" : {
       "localizations" : {
         "zh-Hans" : {
@@ -412,7 +680,28 @@
         }
       }
     },
+    "conversation.permission.reject" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拒绝"
+          }
+        }
+      }
+    },
+    "conversation.permission.title" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求权限"
+          }
+        }
+      }
+    },
     "conversation.placeholder" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -422,8 +711,17 @@
         }
       }
     },
+    "conversation.placeholder.team" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入消息，@ 成员协作"
+          }
+        }
+      }
+    },
     "conversation.role.assistant" : {
-      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -461,6 +759,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你"
+          }
+        }
+      }
+    },
+    "conversation.team.minimum" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "至少选择一位管理员和一位成员"
           }
         }
       }
@@ -529,6 +837,16 @@
         }
       }
     },
+    "draft.team.minimum" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "至少选择管理员和一位成员，最多 5 人"
+          }
+        }
+      }
+    },
     "draft.title %@" : {
       "localizations" : {
         "zh-Hans" : {
@@ -549,7 +867,7 @@
         }
       }
     },
-    "MIT" : {
+    "L" : {
 
     },
     "settings.about" : {
@@ -594,6 +912,7 @@
       }
     },
     "settings.about.licenses" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1057,6 +1376,7 @@
       }
     },
     "settings.agents.permissionMode.acceptEdits" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1067,6 +1387,7 @@
       }
     },
     "settings.agents.permissionMode.auto" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1077,6 +1398,7 @@
       }
     },
     "settings.agents.permissionMode.bypass" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1087,6 +1409,7 @@
       }
     },
     "settings.agents.permissionMode.default" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1097,6 +1420,7 @@
       }
     },
     "settings.agents.permissionMode.dontAsk" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1107,6 +1431,7 @@
       }
     },
     "settings.agents.permissionMode.plan" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1341,6 +1666,7 @@
       }
     },
     "settings.core.choose" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -1441,6 +1767,7 @@
       }
     },
     "settings.core.restartHint" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
@@ -2408,6 +2735,16 @@
         }
       }
     },
+    "settings.mcp.empty.sidebar" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "让 AI 安装后会自动出现"
+          }
+        }
+      }
+    },
     "settings.mcp.empty.title" : {
       "localizations" : {
         "zh-Hans" : {
@@ -2568,32 +2905,12 @@
         }
       }
     },
-    "settings.mcp.status.unavailable" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "不可用"
-          }
-        }
-      }
-    },
     "settings.mcp.status.checking" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "检测中"
-          }
-        }
-      }
-    },
-    "settings.mcp.status.unknown" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未检测"
           }
         }
       }
@@ -2608,22 +2925,22 @@
         }
       }
     },
-    "settings.mcp.tools" : {
+    "settings.mcp.status.unavailable" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "工具"
+            "value" : "不可用"
           }
         }
       }
     },
-    "settings.mcp.empty.sidebar" : {
+    "settings.mcp.status.unknown" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "让 AI 安装后会自动出现"
+            "value" : "未检测"
           }
         }
       }
@@ -2634,6 +2951,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "本地进程"
+          }
+        }
+      }
+    },
+    "settings.mcp.tools" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工具"
           }
         }
       }
@@ -2849,38 +3176,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "基本信息"
-          }
-        }
-      }
-    },
-    "settings.models.model" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "模型层"
-          }
-        }
-      }
-    },
-    "settings.models.modelDown" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "模型层未运行"
-          }
-        }
-      }
-    },
-    "settings.models.modelURL" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "管理地址"
           }
         }
       }
@@ -3151,6 +3446,27 @@
         }
       }
     },
+    "settings.models.model" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型层"
+          }
+        }
+      }
+    },
+    "settings.models.modelDown" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模型层未运行"
+          }
+        }
+      }
+    },
     "settings.models.modelIDPlaceholder" : {
       "localizations" : {
         "zh-Hans" : {
@@ -3177,6 +3493,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还没有模型，先测试连接或手动添加。"
+          }
+        }
+      }
+    },
+    "settings.models.modelURL" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理地址"
           }
         }
       }

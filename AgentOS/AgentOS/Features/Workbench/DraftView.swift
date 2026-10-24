@@ -23,6 +23,12 @@ struct DraftView: View {
 
                 rolePicker
 
+                if !model.selectedRoleIDs.isEmpty, !model.canStartTeam {
+                    Text("draft.team.minimum")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
                 if let message = model.errorMessage {
                     Text(message).foregroundStyle(.red)
                 }
@@ -35,8 +41,9 @@ struct DraftView: View {
                 text: $prompt,
                 focusRequested: $focusRequested,
                 placeholder: "draft.placeholder",
+                members: [],
                 isRunning: false,
-                canSend: !prompt.isEmpty && !model.isSending,
+                canSend: !prompt.isEmpty && !model.isSending && model.canStartTeam,
                 onSend: {
                     let text = prompt
                     Task {
